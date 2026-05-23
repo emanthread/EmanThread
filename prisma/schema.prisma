@@ -1,0 +1,711 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id                  String               @id @default(cuid())
+  name                String
+  email               String               @unique
+  passwordHash        String?
+  phone               String?
+  whatsappConsent     Boolean              @default(false)
+  whatsappPhone       String?
+  role                Role                 @default(CUSTOMER)
+  permissions         Json                 @default("[]")
+  isVerified          Boolean              @default(false)
+  tokenVersion        Int                  @default(0)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  addresses           Address[]
+  measurement         Measurement?
+  measurementProfiles MeasurementProfile[]
+  orders              Order[]
+  reviews             ProductReview[]
+  returnRequests      ReturnRequest[]
+  passwordResetTokens PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+
+  @@index([createdAt])
+}
+
+model Address {
+  id         String  @id @default(cuid())
+  userId     String
+  label      String
+  fullName   String
+  phone      String
+  address    String
+  city       String
+  province   String
+  postalCode String
+  isDefault  Boolean @default(false)
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  image       String?
+  products    Product[]
+}
+
+model Product {
+  id                String      @id @default(cuid())
+  sku               String      @unique
+  name              String
+  slug              String?     @unique
+  description       String
+  longDescription   String?
+  price             Decimal
+  originalPrice     Decimal?
+  fabricType        FabricType
+  color             String
+  colorHex          String
+  images            String
+  videoUrl          String?
+  tags              String      @default("[]")
+  badge             Badge?
+  inStock           Boolean     @default(true)
+  stockQuantity     Int         @default(0)
+  lowStockThreshold Int         @default(5)
+  metaTitle         String?
+  metaDescription   String?
+  categoryId        String
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  imageLabels       String      @default("[]")
+  orderItems        OrderItem[]
+  reviews           ProductReview[]
+  category          Category    @relation(fields: [categoryId], references: [id])
+
+  @@index([categoryId])
+}
+
+model ProductReview {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating     Int
+  title      String?
+  comment    String
+  isVisible  Boolean  @default(true)
+  isVerified Boolean  @default(false)
+  deletedAt  DateTime? // M9
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([productId, userId])
+  @@index([productId])
+  @@index([userId])
+  @@index([isVisible])
+  @@index([deletedAt]) // M9
+}
+
+model Order {
+  id               String                   @id @default(cuid())
+  orderNumber      String                   @unique
+  userId           String?
+  status           OrderStatus              @default(PENDING)
+  paymentMethod    PaymentMethod
+  paymentStatus    PaymentStatus            @default(PENDING)
+  subtotal         Decimal
+  shippingCost     Decimal
+  discountAmount   Decimal?
+  couponCode       String?
+  grandTotal       Decimal
+  notes            String?
+  shippingAddress  Json
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  manualPayment    ManualPaymentSubmission?
+  notificationLogs NotificationLog[]
+  user             User?                    @relation(fields: [userId], references: [id])
+  items            OrderItem[]
+  itemMeasurements OrderItemMeasurement[]
+  transactions     PaymentTransaction[]
+  returnRequests   ReturnRequest[]
+
+  @@index([createdAt])
+  @@index([paymentStatus])
+}
+
+model PaymentTransaction {
+  id              String            @id @default(cuid())
+  orderId         String
+  provider        PaymentProvider
+  amount          Decimal
+  currency        String            @default("PKR")
+  transactionRef  String?           @unique
+  status          TransactionStatus @default(PENDING)
+  gatewayResponse Json?
+  failureReason   String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  order           Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([transactionRef])
+}
+
+model OrderItem {
+  id                    String  @id @default(cuid())
+  orderId               String
+  productId             String
+  quantity              Int
+  priceAtTimeOfPurchase Decimal
+  order                 Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product               Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId, productId])
+}
+
+model NotificationLog {
+  id           String   @id @default(cuid())
+  orderId      String
+  channel      String
+  template     String
+  recipient    String
+  subject      String?
+  content      String?
+  status       String   @default("pending")
+  providerRef  String?
+  errorMessage String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([createdAt])
+}
+
+model Discount {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  type        String
+  value       Int
+  buyQuantity Int?
+  getQuantity Int?
+  productIds  String    @default("[]")
+  minPurchase Int?
+  maxDiscount Int?
+  usageLimit  Int?
+  usageCount  Int       @default(0)
+  startDate   DateTime?
+  endDate     DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isActive])
+  @@index([startDate])
+  @@index([endDate])
+}
+
+model StoreConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model ShippingZone {
+  id            String   @id @default(cuid())
+  name          String
+  cities        String
+  provinces     String
+  shippingRate  Decimal
+  estimatedDays String
+  isActive      Boolean  @default(true)
+  deletedAt     DateTime? // M9
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([deletedAt]) // M9
+}
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  name        String
+  keyHash     String    @unique
+  permissions String    @default("[]")
+  createdBy   String
+  lastUsedAt  DateTime?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([keyHash])
+  @@index([active])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id        String      @id @default(cuid())
+  userId    String?
+  userEmail String?
+  action    AuditAction
+  entity    String
+  entityId  String?
+  oldValue  Json?
+  newValue  Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime    @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+}
+
+model ReturnRequest {
+  id           String              @id @default(cuid())
+  orderId      String
+  userId       String?
+  status       ReturnRequestStatus @default(PENDING)
+  type         ReturnRequestType   @default(REFUND)
+  reason       ReturnReason
+  notes        String?
+  refundAmount Decimal?
+  approvedBy   String?
+  approvedAt   DateTime?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  order        Order               @relation(fields: [orderId], references: [id])
+  user         User?               @relation(fields: [userId], references: [id])
+  items        ReturnRequestItem[]
+
+  @@index([orderId])
+  @@index([status])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model ReturnRequestItem {
+  id              String        @id @default(cuid())
+  returnRequestId String
+  orderItemId     String
+  quantity        Int
+  reason          ReturnReason?
+  condition       String?
+  returnRequest   ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+}
+
+model NewsletterSubscriber {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  isSubscribed   Boolean   @default(true)
+  subscribedAt   DateTime  @default(now())
+  unsubscribedAt DateTime?
+  source         String?
+
+  @@index([isSubscribed])
+  @@index([subscribedAt])
+}
+
+model MeasurementProfile {
+  id           String                 @id @default(cuid())
+  userId       String
+  profileName  String
+  garmentType  String
+  measurements Json
+  stylingPrefs Json?
+  notes        String?
+  deletedAt    DateTime? // M9
+  isDefault    Boolean                @default(false)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderItems   OrderItemMeasurement[]
+
+  @@index([userId])
+  @@index([garmentType])
+  @@index([isDefault])
+  @@index([deletedAt]) // M9
+}
+
+model OrderItemMeasurement {
+  id                   String              @id @default(cuid())
+  orderId              String
+  productId            String
+  productName          String
+  measurementProfileId String?
+  measurementSnapshot  Json
+  createdAt            DateTime            @default(now())
+  measurementProfile   MeasurementProfile? @relation(fields: [measurementProfileId], references: [id])
+  order                Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([measurementProfileId])
+}
+
+model Measurement {
+  id                      String    @id @default(uuid())
+  userId                  String    @unique
+  length1                 String    @default("")
+  length2                 String    @default("")
+  shoulder1               String    @default("")
+  shoulder2               String    @default("")
+  chest1                  String    @default("")
+  chest2                  String    @default("")
+  waist1                  String    @default("")
+  waist2                  String    @default("")
+  gherra1                 String    @default("")
+  gherra2                 String    @default("")
+  neck1                   String    @default("")
+  neck2                   String    @default("")
+  sleeves1                String    @default("")
+  sleeves2                String    @default("")
+  golai1                  String    @default("")
+  golai2                  String    @default("")
+  armcuff1                String    @default("")
+  armcuff2                String    @default("")
+  armplate1               String    @default("")
+  armplate2               String    @default("")
+  golbazoo1               String    @default("")
+  golbazoo2               String    @default("")
+  armpatti1               String    @default("")
+  armpatti2               String    @default("")
+  collarnok1              String    @default("")
+  collarnok2              String    @default("")
+  bane1                   String    @default("")
+  bane2                   String    @default("")
+  doubleCb                String    @default("0")
+  singleCb                String    @default("0")
+  golCb                   String    @default("0")
+  chorasCb                String    @default("0")
+  baneCb                  String    @default("0")
+  collarCb                String    @default("0")
+  roundneck               String    @default("0")
+  shalwar1                String    @default("")
+  shalwar2                String    @default("")
+  shalwarGherra1          String    @default("")
+  shalwarGherra2          String    @default("")
+  shalwarAssan1           String    @default("")
+  shalwarAssan2           String    @default("")
+  shalwarPancha1          String    @default("")
+  shalwarPancha2          String    @default("")
+  frontPocket             String    @default("")
+  sidePocket              String    @default("")
+  shalwarPocket           String    @default("")
+  trouserdata1            String    @default("")
+  trouserdata2            String    @default("")
+  trouserdata3            String    @default("")
+  trouserdata4            String    @default("")
+  trouserdata5            String    @default("")
+  trouserdata6            String    @default("")
+  trouserdata7            String    @default("")
+  trouserdata8            String    @default("")
+  trouserdata9            String    @default("")
+  trouserdata10           String    @default("")
+  trouserdata11           String    @default("")
+  trouserdata12           String    @default("")
+  trouserdata13           String    @default("")
+  trouserdata14           String    @default("0")
+  ladGolai1               String    @default("")
+  ladGolai2               String    @default("")
+  ladMori1                String    @default("")
+  ladMori2                String    @default("")
+  ladBellbazoo1           String    @default("")
+  ladBellbazoo2           String    @default("")
+  ladChaak1               String    @default("")
+  ladChaak2               String    @default("")
+  ladHip1                 String    @default("")
+  ladHip2                 String    @default("")
+  ladSimpleShalwar1       String    @default("")
+  ladSimpleShalwar2       String    @default("")
+  ladSimpleShalwarPancha1 String    @default("")
+  ladSimpleShalwarPancha2 String    @default("")
+  ladSimpleShalwarGherra1 String    @default("")
+  ladSimpleShalwarGherra2 String    @default("")
+  ladLasticSimpleShalwar  String    @default("")
+  ladShalwarBelt1         String    @default("")
+  ladShalwarBelt2         String    @default("")
+  ladShalwarBeltPancha1   String    @default("")
+  ladShalwarBeltPancha2   String    @default("")
+  ladShalwarBeltGherra1   String    @default("")
+  ladShalwarBeltGherra2   String    @default("")
+  ladLasticShalwarBelt    String    @default("")
+  ladTrouserdata15        String    @default("")
+  ladTrouserdata16        String    @default("0")
+  gender                  String    @default("Male")
+  deliveryDate            DateTime?
+  notes                   String    @default("")
+  deletedAt               DateTime? // M9
+  status                  String    @default("pending")
+  requestedAt             DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([deletedAt]) // M9
+}
+
+model StitchingOrder {
+  id            String          @id @default(cuid())
+  orderNumber   String          @unique
+  customerName  String
+  customerPhone String
+  customerCity  String?
+  suitType      String
+  fabricDesc    String?
+  orderDate     DateTime        @default(now())
+  dueDate       DateTime
+  chest         String?
+  waist         String?
+  hip           String?
+  shoulder      String?
+  shirtLength   String?
+  sleeveLength  String?
+  shalwarLength String?
+  width         String?
+  totalPrice    Decimal
+  advancePaid   Decimal         @default(0)
+  tailorName    String?
+  status        StitchingStatus @default(PENDING)
+  specialNotes  String?
+  createdBy     String?
+  deletedAt     DateTime? // M9
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([status])
+  @@index([dueDate])
+  @@index([createdAt])
+  @@index([deletedAt]) // M9
+}
+
+model ManualPaymentSubmission {
+  id              String              @id @default(cuid())
+  orderId         String              @unique
+  paymentMethod   String
+  transactionId   String
+  senderName      String
+  screenshotUrl   String?
+  status          ManualPaymentStatus @default(PENDING)
+  verifiedBy      String?
+  verifiedAt      DateTime?
+  rejectionReason String?
+  flagged         Boolean             @default(false)
+  flagReason      String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  expiresAt       DateTime?
+  order           Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([transactionId])
+  @@index([status])
+  @@index([flagged])
+}
+
+model PageView {
+  id          String   @id @default(cuid())
+  url         String
+  referrer    String?
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
+enum Role {
+  CUSTOMER
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  SUPPORT
+}
+
+enum Permission {
+  VIEW_ORDERS
+  MANAGE_ORDERS
+  VIEW_PRODUCTS
+  MANAGE_PRODUCTS
+  VIEW_CUSTOMERS
+  MANAGE_CUSTOMERS
+  VIEW_ANALYTICS
+  MANAGE_DISCOUNTS
+  MANAGE_RETURNS
+  MANAGE_SETTINGS
+  MANAGE_SHIPPING
+  MANAGE_NEWSLETTER
+  VIEW_AUDIT_LOGS
+  MANAGE_USERS
+}
+
+enum FabricType {
+  COTTON
+  WASH_AND_WEAR
+  BOSKI
+  WOOL_BLEND
+  KHADDAR
+}
+
+enum Badge {
+  NEW
+  TRENDING
+  HOT
+  LIMITED
+  FEATURED
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  COD
+  JAZZCASH
+  EASYPAISA
+  CARD
+  SAFEPAY
+  NAYAPAY
+  MEEZAN_BANK
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  PENDING_VERIFICATION
+}
+
+enum PaymentProvider {
+  JAZZCASH
+  EASYPAISA
+  CARD
+  SAFEPAY
+  NAYAPAY
+  MEEZAN_BANK
+}
+
+enum TransactionStatus {
+  PENDING
+  INITIATED
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  WHATSAPP
+}
+
+enum NotificationTemplate {
+  ORDER_CONFIRMATION
+  PAYMENT_SUCCESS
+  ORDER_SHIPPED
+  ORDER_DELIVERED
+  ORDER_CANCELLED
+  RETURN_REQUEST_SUBMITTED
+  RETURN_REQUEST_APPROVED
+  RETURN_REQUEST_REJECTED
+  RETURN_REQUEST_COMPLETED
+}
+
+enum ReturnRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+enum ReturnRequestType {
+  REFUND
+  EXCHANGE
+}
+
+enum ReturnReason {
+  SIZE
+  QUALITY
+  WRONG_ITEM
+  DAMAGED
+  OTHER
+}
+
+enum AuditAction {
+  USER_LOGIN
+  USER_LOGIN_FAILED
+  USER_REGISTER
+  USER_LOGOUT
+  ORDER_STATUS_CHANGED
+  PRODUCT_CREATED
+  PRODUCT_UPDATED
+  PRODUCT_DELETED
+  RETURN_APPROVED
+  RETURN_REJECTED
+  RETURN_COMPLETED
+  DISCOUNT_CREATED
+  DISCOUNT_UPDATED
+  DISCOUNT_DELETED
+  SETTINGS_CHANGED
+  ADMIN_ACCESS
+  MEASUREMENT_CREATED
+  MEASUREMENT_UPDATED
+  MEASUREMENT_DELETED
+  STITCHING_ORDER_CREATED
+  STITCHING_ORDER_UPDATED
+  STITCHING_ORDER_DELETED
+  PAYMENT_VERIFIED
+  PAYMENT_REJECTED
+  PAYMENT_DELETED
+}
+
+enum StitchingStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  DELIVERED
+}
+
+enum ManualPaymentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  EXPIRED
+}

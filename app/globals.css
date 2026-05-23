@@ -1,0 +1,460 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/* ═══════════════════════════════════════════════════════════
+   ATELIER GOLD/CHARCOAL — LIGHT THEME  (shadcn :root)
+   Atelier `.light` palette → standard shadcn light baseline
+═══════════════════════════════════════════════════════════ */
+:root {
+  /* ── Core surface & text ── */
+  --background:                 #FFF9EE;
+  --foreground:                 #1E1B13;
+  --card:                       #F4EDDF;
+  --card-foreground:            #1E1B13;
+  --popover:                    #EDE7D9;
+  --popover-foreground:         #1E1B13;
+
+  /* ── Brand gold ── */
+  --primary:                    #76592A;
+  --primary-foreground:         #FFFFFF;
+
+  /* ── Secondary / muted surfaces ── */
+  --secondary:                  #DDD6C7;
+  --secondary-foreground:       #1E1B13;
+  --muted:                      #E7E0D1;
+  --muted-foreground:           #4A463C;
+
+  /* ── Accent (gold container) ── */
+  --accent:                     #D4AF77;
+  --accent-foreground:          #432c01;
+
+  /* ── Semantic ── */
+  --destructive:                #BA1A1A;
+  --destructive-foreground:     #FFFFFF;
+  --border:                     #D1C5B6;
+  --input:                      #D1C5B6;
+  --ring:                       #76592A;
+  --radius:                     0.25rem;
+
+  /* ── Sidebar ── */
+  --sidebar:                    #F4EDDF;
+  --sidebar-foreground:         #1E1B13;
+  --sidebar-primary:            #76592A;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent:             #E7E0D1;
+  --sidebar-accent-foreground:  #1E1B13;
+  --sidebar-border:             #D1C5B6;
+  --sidebar-ring:               #76592A;
+
+  /* ── Extended Atelier tokens (utility classes, range input, etc.) ── */
+  --surface:                    #FFF9EE;
+  --surface-dim:                #EDE7D9;
+  --surface-lowest:             #FFFFFF;
+  --surface-low:                #F4EDDF;
+  --surface-mid:                #EDE7D9;
+  --surface-high:               #E7E0D1;
+  --surface-highest:            #DDD6C7;
+  --surface-bright:             #FFFFFF;
+  --on-surface:                 #1E1B13;
+  --on-surface-variant:         #4A463C;
+  --primary-fixed:              #8B6B35;
+  --primary-dim:                #6B5025;
+  --primary-container:          #D4AF77;
+  --on-primary:                 #FFFFFF;
+  --on-primary-fixed:           #FFFFFF;
+  --inverse-primary:            #f1ca90;
+  --secondary-container:        #6DF8E7;
+  --on-secondary:               #FFFFFF;
+  --tertiary:                   #4A463C;
+  --tertiary-container:         #E9E2D4;
+  --on-tertiary:                #FFFFFF;
+  --outline:                    #807569;
+  --outline-variant:            #D1C5B6;
+  --error:                      #BA1A1A;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ATELIER GOLD/CHARCOAL — DARK THEME  (shadcn .dark class)
+   Atelier `:root` palette → standard shadcn dark override
+═══════════════════════════════════════════════════════════ */
+.dark {
+  /* ── Core surface & text ── */
+  --background:                 #131313;
+  --foreground:                 #e5e2e1;
+  --card:                       #1c1b1b;
+  --card-foreground:            #e5e2e1;
+  --popover:                    #20201f;
+  --popover-foreground:         #e5e2e1;
+
+  /* ── Brand gold ── */
+  --primary:                    #f1ca90;
+  --primary-foreground:         #432c01;
+
+  /* ── Secondary / muted surfaces ── */
+  --secondary:                  #353535;
+  --secondary-foreground:       #e5e2e1;
+  --muted:                      #2a2a2a;
+  --muted-foreground:           #d1c5b6;
+
+  /* ── Accent (gold container) ── */
+  --accent:                     #d4af77;
+  --accent-foreground:          #432c01;
+
+  /* ── Semantic ── */
+  --destructive:                #ffb4ab;
+  --destructive-foreground:     #432c01;
+  --border:                     #4e453a;
+  --input:                      #4e453a;
+  --ring:                       #f1ca90;
+
+  /* ── Sidebar ── */
+  --sidebar:                    #1c1b1b;
+  --sidebar-foreground:         #e5e2e1;
+  --sidebar-primary:            #f1ca90;
+  --sidebar-primary-foreground: #432c01;
+  --sidebar-accent:             #2a2a2a;
+  --sidebar-accent-foreground:  #e5e2e1;
+  --sidebar-border:             #4e453a;
+  --sidebar-ring:               #f1ca90;
+
+  /* ── Extended Atelier tokens ── */
+  --surface:                    #131313;
+  --surface-dim:                #131313;
+  --surface-lowest:             #0e0e0e;
+  --surface-low:                #1c1b1b;
+  --surface-mid:                #20201f;
+  --surface-high:               #2a2a2a;
+  --surface-highest:            #353535;
+  --surface-bright:             #393939;
+  --on-surface:                 #e5e2e1;
+  --on-surface-variant:         #d1c5b6;
+  --primary-fixed:              #ffdeae;
+  --primary-dim:                #e7c187;
+  --primary-container:          #d4af77;
+  --on-primary:                 #432c01;
+  --on-primary-fixed:           #281900;
+  --inverse-primary:            #76592a;
+  --secondary-container:        #00b7a8;
+  --on-secondary:               #003732;
+  --tertiary:                   #d6cfc2;
+  --tertiary-container:         #bab4a7;
+  --on-tertiary:                #333027;
+  --outline:                    #9a8f81;
+  --outline-variant:            #4e453a;
+  --error:                      #ffb4ab;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TAILWIND v4 THEME BRIDGE
+   Maps CSS custom properties → Tailwind color/font utilities
+═══════════════════════════════════════════════════════════ */
+@theme inline {
+  /* Fonts */
+  --font-sans:     "Inter", system-ui, sans-serif;
+  --font-serif:    "Noto Serif", Georgia, serif;
+  --font-headline: "Noto Serif", Georgia, serif;
+  --font-mono:     "Geist Mono", "Geist Mono Fallback", monospace;
+
+  /* Colors → shadcn token slots */
+  --color-background:                   var(--background);
+  --color-foreground:                   var(--foreground);
+  --color-card:                         var(--card);
+  --color-card-foreground:              var(--card-foreground);
+  --color-popover:                      var(--popover);
+  --color-popover-foreground:           var(--popover-foreground);
+  --color-primary:                      var(--primary);
+  --color-primary-foreground:           var(--primary-foreground);
+  --color-secondary:                    var(--secondary);
+  --color-secondary-foreground:         var(--secondary-foreground);
+  --color-muted:                        var(--muted);
+  --color-muted-foreground:             var(--muted-foreground);
+  --color-accent:                       var(--accent);
+  --color-accent-foreground:            var(--accent-foreground);
+  --color-destructive:                  var(--destructive);
+  --color-destructive-foreground:       var(--destructive-foreground);
+  --color-border:                       var(--border);
+  --color-input:                        var(--input);
+  --color-ring:                         var(--ring);
+
+  /* Radius scale */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* Sidebar */
+  --color-sidebar:                      var(--sidebar);
+  --color-sidebar-foreground:           var(--sidebar-foreground);
+  --color-sidebar-primary:              var(--sidebar-primary);
+  --color-sidebar-primary-foreground:   var(--sidebar-primary-foreground);
+  --color-sidebar-accent:               var(--sidebar-accent);
+  --color-sidebar-accent-foreground:    var(--sidebar-accent-foreground);
+  --color-sidebar-border:               var(--sidebar-border);
+  --color-sidebar-ring:                 var(--sidebar-ring);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BASE LAYER — Resets + global body rules
+═══════════════════════════════════════════════════════════ */
+@layer base {
+  *, *::before, *::after {
+    @apply border-border outline-ring/50;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Smooth scroll disabled on mobile — hardware scroll is faster and less janky */
+  @media (max-width: 768px) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Inter", system-ui, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    /* Fix iOS Safari overscroll rubber-banding on the body */
+    overscroll-behavior: none;
+    transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                color            0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  ::selection {
+    background: var(--primary-container);
+    color: var(--on-primary);
+  }
+
+  /* ── Remove 300ms tap delay on all interactive elements ──────────────────
+     touch-action: manipulation tells the browser not to wait for a
+     potential double-tap, eliminating the 300ms delay on iOS/Android.
+  ── */
+  button,
+  a,
+  [role="button"],
+  input[type="submit"],
+  input[type="button"],
+  label {
+    touch-action: manipulation;
+  }
+
+  /* ── Fix iOS Safari auto-zoom on inputs < 16px font ─────────────────────
+     When an input's font-size is less than 16px, iOS zooms the page in.
+     Forcing 16px on mobile prevents this without affecting desktop.
+  ── */
+  @media (max-width: 768px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+
+  /* ── Larger touch targets on mobile (Apple HIG: min 44×44pt) ────────────
+  ── */
+  @media (max-width: 768px) {
+    button:not(.icon-only):not([data-small]) {
+      min-height: 44px;
+    }
+
+    nav a {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SCROLLBAR — thin gold-tinted thumb
+═══════════════════════════════════════════════════════════ */
+::-webkit-scrollbar              { width: 4px; height: 4px; }
+::-webkit-scrollbar-track        { background: var(--background); }
+::-webkit-scrollbar-thumb        { background: var(--primary-container); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover  { background: var(--primary); }
+
+/* ═══════════════════════════════════════════════════════════
+   REDUCED MOTION — respect OS accessibility setting
+   Collapses all animations for users who prefer reduced motion
+   (vestibular disorders) and benefits low-end mobile CPUs.
+═══════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   GLASS CARD
+   Light default in :root; dark override inside .dark
+═══════════════════════════════════════════════════════════ */
+.glass-card {
+  /* Light (default) */
+  background: rgba(255, 249, 238, 0.80);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(255, 255, 255, 0.60);
+  box-shadow: 0 4px 24px rgba(30, 27, 19, 0.06);
+}
+.dark .glass-card {
+  background: rgba(53, 53, 53, 0.60);
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: none;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   METALLIC GRADIENT
+═══════════════════════════════════════════════════════════ */
+.metallic-gradient       { background: linear-gradient(135deg, #76592a 0%, #d4af77 100%); }
+.dark .metallic-gradient { background: linear-gradient(135deg, #f1ca90 0%, #d4af77 100%); }
+
+/* ═══════════════════════════════════════════════════════════
+   SHIMMER BADGE
+═══════════════════════════════════════════════════════════ */
+@keyframes shimmer {
+  0%   { transform: translateX(-150%) skewX(-15deg); }
+  100% { transform: translateX(350%)  skewX(-15deg); }
+}
+.shimmer-badge { position: relative; overflow: hidden; }
+.shimmer-badge::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent                   0%,
+    rgba(255, 255, 255, 0.35)    50%,
+    transparent                 100%
+  );
+  transform: translateX(-150%) skewX(-15deg);
+  animation: shimmer 4s ease-in-out infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FADE-UP ENTRANCE
+═══════════════════════════════════════════════════════════ */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up    { animation: fadeUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) both; }
+.delay-100  { animation-delay: 0.10s; }
+.delay-200  { animation-delay: 0.20s; }
+.delay-300  { animation-delay: 0.30s; }
+.delay-400  { animation-delay: 0.40s; }
+.delay-500  { animation-delay: 0.50s; }
+.delay-600  { animation-delay: 0.60s; }
+
+/* ═══════════════════════════════════════════════════════════
+   SCROLL UTILS
+═══════════════════════════════════════════════════════════ */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ═══════════════════════════════════════════════════════════
+   MASONRY GRID
+═══════════════════════════════════════════════════════════ */
+.masonry-grid               { columns: 1; gap: 2rem; }
+@media (min-width: 768px)   { .masonry-grid { columns: 2; } }
+@media (min-width: 1280px)  { .masonry-grid { columns: 3; } }
+.masonry-item               { break-inside: avoid; margin-bottom: 2rem; }
+
+/* ═══════════════════════════════════════════════════════════
+   WHATSAPP PULSE
+═══════════════════════════════════════════════════════════ */
+@keyframes wa-pulse {
+  0%, 100% { box-shadow: 0 0 0  0px rgba(37, 211, 102, 0.5); }
+  50%       { box-shadow: 0 0 0 10px rgba(37, 211, 102, 0);   }
+}
+.wa-pulse { animation: wa-pulse 2s ease-in-out infinite; }
+
+/* ═══════════════════════════════════════════════════════════
+   SKELETON PULSE
+═══════════════════════════════════════════════════════════ */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 0.8; }
+}
+.skeleton { animation: skeleton-pulse 1.5s ease-in-out infinite; }
+
+/* ═══════════════════════════════════════════════════════════
+   RANGE INPUT
+═══════════════════════════════════════════════════════════ */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  background: var(--outline-variant);
+  height: 3px;
+  border-radius: 2px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--primary);
+  margin-top: -5.5px;
+  cursor: pointer;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DRAWER / MODAL / OVERLAY ANIMATIONS
+═══════════════════════════════════════════════════════════ */
+@keyframes drawer-in {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0);    }
+}
+.drawer-in { animation: drawer-in 0.35s cubic-bezier(0.4, 0, 0.2, 1) both; }
+
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1);    }
+}
+.modal-in { animation: modal-in 0.3s cubic-bezier(0.4, 0, 0.2, 1) both; }
+
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.overlay-in { animation: overlay-in 0.25s ease both; }
+
+/* ═══════════════════════════════════════════════════════════
+   IMAGE ZOOM (kept from original target)
+═══════════════════════════════════════════════════════════ */
+.image-zoom { overflow: hidden; }
+.image-zoom img { transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+.image-zoom:hover img { transform: scale(1.08); }
+
+/* ═══════════════════════════════════════════════════════════
+   PRINT — Tailor Card
+═══════════════════════════════════════════════════════════ */
+@media print {
+  body > *:not(#tailor-print-card) { display: none !important; }
+  #tailor-print-card {
+    display: block !important;
+    visibility: visible !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  #tailor-print-card * { visibility: visible !important; }
+}
