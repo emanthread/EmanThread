@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -151,8 +151,7 @@ export default function AdminProductsPage() {
   const [productToDelete, setProductToDelete] = useState<AdminProduct | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [tagInput, setTagInput] = useState("");
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
+
 
   const filteredProducts = products.filter((product) => {
     const matchesSearch =
@@ -227,11 +226,12 @@ export default function AdminProductsPage() {
 
   const handleDuplicateProduct = async (product: AdminProduct) => {
     try {
+      const suffix = Date.now().toString(36).toUpperCase().slice(-6);
       await addProduct({
         ...product,
         id: `prod-${Date.now()}`,
         name: `Copy of ${product.name}`,
-        sku: `${product.sku}-COPY`,
+        sku: `${product.sku}-${suffix}`,
         categoryId: product.categoryId || categories[0]?.id || "",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -748,8 +748,6 @@ export default function AdminProductsPage() {
         onAddTag={handleAddTag}
         onRemoveTag={handleRemoveTag}
         onSave={handleSaveProduct}
-        imageInputRef={imageInputRef}
-        videoInputRef={videoInputRef}
       />
     </div>
   );
@@ -775,8 +773,6 @@ interface ProductDialogProps {
   onAddTag: (tag: string) => void;
   onRemoveTag: (tag: string) => void;
   onSave: () => void;
-  imageInputRef: React.RefObject<HTMLInputElement | null>;
-  videoInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
 function ProductDialog({
@@ -797,8 +793,6 @@ function ProductDialog({
   onAddTag,
   onRemoveTag,
   onSave,
-  imageInputRef,
-  videoInputRef,
 }: ProductDialogProps) {
   const update = (field: keyof AdminProduct, value: any) => {
     setProduct((prev) => ({ ...prev, [field]: value }));
@@ -977,6 +971,7 @@ function ProductDialog({
                     />
                   </div>
                   <button
+                    type="button"
                     onClick={() => onRemoveImage(i)}
                     className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                   >
@@ -984,10 +979,12 @@ function ProductDialog({
                   </button>
                 </div>
               ))}
-              <button
-                onClick={() => imageInputRef.current?.click()}
-                disabled={uploadingImage}
-                className="h-20 w-20 rounded border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground hover:border-accent hover:text-accent transition-colors disabled:opacity-50"
+              <label
+                htmlFor="product-image-upload"
+                className={cn(
+                  "h-20 w-20 rounded border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground hover:border-accent hover:text-accent transition-colors",
+                  uploadingImage ? "opacity-50 pointer-events-none" : "cursor-pointer"
+                )}
               >
                 {uploadingImage ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -997,12 +994,13 @@ function ProductDialog({
                     <span className="text-[10px]">Add Image</span>
                   </>
                 )}
-              </button>
+              </label>
               <input
-                ref={imageInputRef}
+                id="product-image-upload"
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
-                className="hidden"
+                className="sr-only"
+                disabled={uploadingImage}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) onUploadImage(file);
@@ -1024,6 +1022,7 @@ function ProductDialog({
                     muted
                   />
                   <button
+                    type="button"
                     onClick={() => update("videoUrl", undefined)}
                     className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center"
                   >
@@ -1031,10 +1030,12 @@ function ProductDialog({
                   </button>
                 </div>
               ) : (
-                <button
-                  onClick={() => videoInputRef.current?.click()}
-                  disabled={uploadingVideo}
-                  className="h-20 w-36 rounded border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground hover:border-accent hover:text-accent transition-colors disabled:opacity-50"
+                <label
+                  htmlFor="product-video-upload"
+                  className={cn(
+                    "h-20 w-36 rounded border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground hover:border-accent hover:text-accent transition-colors",
+                    uploadingVideo ? "opacity-50 pointer-events-none" : "cursor-pointer"
+                  )}
                 >
                   {uploadingVideo ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
@@ -1044,13 +1045,14 @@ function ProductDialog({
                       <span className="text-[10px]">Upload Video</span>
                     </>
                   )}
-                </button>
+                </label>
               )}
               <input
-                ref={videoInputRef}
+                id="product-video-upload"
                 type="file"
                 accept="video/mp4,video/webm"
-                className="hidden"
+                className="sr-only"
+                disabled={uploadingVideo}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) onUploadVideo(file);

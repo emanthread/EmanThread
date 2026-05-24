@@ -460,7 +460,12 @@ export const useAdminStore = create<AdminState>()(
           });
           if (!res.ok) throw new Error("Failed to delete product");
           toast.success("Product deleted successfully");
-          await get().loadProducts();
+          // Remove immediately from local state — calling loadProducts() would bring
+          // the product back because getAdminProducts() has no inStock filter and
+          // the DELETE API only soft-deletes (sets inStock: false).
+          set((state) => ({
+            products: state.products.filter((p) => p.id !== productId),
+          }));
         } catch (err) {
           console.error("Delete product error:", err);
           toast.error(err instanceof Error ? err.message : "Failed to delete product");
