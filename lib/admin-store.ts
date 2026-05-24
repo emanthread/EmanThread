@@ -214,6 +214,7 @@ interface AdminState {
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   
+  deleteOrder: (orderId: string) => Promise<void>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
   updatePaymentStatus: (orderId: string, status: PaymentStatus) => void;
   
@@ -397,6 +398,18 @@ export const useAdminStore = create<AdminState>()(
 
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
       toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+
+      deleteOrder: async (orderId) => {
+        try {
+          const res = await fetch(`/api/admin/orders/${orderId}`, {
+            method: "DELETE",
+          });
+          if (!res.ok) throw new Error("Failed to delete order");
+          await get().loadOrders();
+        } catch (err) {
+          console.error("Delete order error:", err);
+        }
+      },
 
       updateOrderStatus: async (orderId, status) => {
         try {

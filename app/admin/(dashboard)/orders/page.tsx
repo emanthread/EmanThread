@@ -17,6 +17,7 @@ import {
   MessageSquare,
   Smartphone,
   Ruler,
+  Trash2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -68,7 +69,7 @@ const paymentMethodLabels = {
 };
 
 export default function AdminOrdersPage() {
-  const { orders, updateOrderStatus, loadOrders, notificationLogs, loadNotificationLogs } = useAdminStore();
+  const { orders, deleteOrder, updateOrderStatus, loadOrders, notificationLogs, loadNotificationLogs } = useAdminStore();
 
   useEffect(() => {
     loadOrders();
@@ -80,6 +81,9 @@ export default function AdminOrdersPage() {
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const [isNotificationDialogOpen, setIsNotificationDialogOpen] = useState(false);
   const [isMeasurementsDialogOpen, setIsMeasurementsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [orderMeasurements, setOrderMeasurements] = useState<TailorCardData[]>([]);
   const [newStatus, setNewStatus] = useState<OrderStatus>("pending");
 
@@ -120,6 +124,15 @@ export default function AdminOrdersPage() {
     setSelectedOrder(orderId);
     loadNotificationLogs(orderId);
     setIsNotificationDialogOpen(true);
+  };
+
+  const handleDeleteOrder = async () => {
+    if (!orderToDelete) return;
+    setIsDeleting(true);
+    await deleteOrder(orderToDelete);
+    setIsDeleting(false);
+    setIsDeleteDialogOpen(false);
+    setOrderToDelete(null);
   };
 
   const handleViewMeasurements = async (orderId: string) => {
@@ -455,6 +468,17 @@ export default function AdminOrdersPage() {
                             <XCircle className="h-4 w-4 mr-2" />
                             Cancel Order
                           </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-red-600 font-semibold"
+                            onClick={() => {
+                              setOrderToDelete(order.id);
+                              setIsDeleteDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete Order
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>
@@ -552,6 +576,40 @@ export default function AdminOrdersPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsNotificationDialogOpen(false)}>
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Order Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Order</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to permanently delete this order? This action cannot be undone and will remove the order from the database.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIsDeleteDialogOpen(false); setOrderToDelete(null); }}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteOrder}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Order
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
