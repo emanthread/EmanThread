@@ -13,6 +13,9 @@ import {
   ShoppingBag,
   Calendar,
   Download,
+  RefreshCw,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,15 +48,18 @@ import { useAdminStore, type Customer } from "@/lib/admin-store";
 
 export default function AdminCustomersPage() {
   const router = useRouter();
-  const { customers, loadCustomers } = useAdminStore();
-
-  useEffect(() => {
-    loadCustomers();
-  }, [loadCustomers]);
+  const { customers, loadCustomers, deleteCustomer } = useAdminStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("recent");
   const [viewProfileCustomer, setViewProfileCustomer] = useState<Customer | null>(null);
+  const [deleteCustomerTarget, setDeleteCustomerTarget] = useState<Customer | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    loadCustomers();
+  }, [loadCustomers]);
 
   const filteredCustomers = customers
     .filter((customer) => {
@@ -116,10 +122,24 @@ export default function AdminCustomersPage() {
             Manage and view customer information
           </p>
         </div>
-        <Button variant="outline" onClick={handleExportCustomers}>
-          <Download className="h-4 w-4 mr-2" />
-          Export Customers
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={async () => {
+              setIsRefreshing(true);
+              await loadCustomers();
+              setIsRefreshing(false);
+            }}
+            disabled={isRefreshing}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button variant="outline" onClick={handleExportCustomers}>
+            <Download className="h-4 w-4 mr-2" />
+            Export Customers
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -292,6 +312,13 @@ export default function AdminCustomersPage() {
                         <Mail className="h-4 w-4 mr-2" />
                         Send Email
                       </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => setDeleteCustomerTarget(customer)}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Customer
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -360,6 +387,46 @@ export default function AdminCustomersPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteCustomerTarget} onOpenChange={() => setDeleteCustomerTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Customer
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{deleteCustomerTarget?.name}</strong>?
+              This action cannot be undone. The customer's account and all associated data
+              (addresses, reviews, measurements) will be permanently removed. Order history
+              will be preserved but disassociated from this customer.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteCustomerTarget(null)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={isDeleting}
+              onClick={async () => {
+                if (!deleteCustomerTarget) return;
+                setIsDeleting(true);
+                await deleteCustomer(deleteCustomerTarget.id);
+                setIsDeleting(false);
+                setDeleteCustomerTarget(null);
+              }}
+            >
+              {isDeleting ? "Deleting..." : "Delete Customer"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

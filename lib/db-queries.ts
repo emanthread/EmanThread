@@ -667,6 +667,7 @@ export async function getAdminProducts() {
       lowStockThreshold: p.lowStockThreshold,
       description: p.description,
       longDescription: p.longDescription || "",
+      categoryId: p.categoryId,
       slug: p.slug || p.sku.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
       tags: p.tags ? JSON.parse(p.tags) : [],
       metaTitle: p.metaTitle || undefined,

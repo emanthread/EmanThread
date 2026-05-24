@@ -217,6 +217,7 @@ interface AdminState {
   toggleSidebar: () => void;
   
   deleteOrder: (orderId: string) => Promise<void>;
+  deleteCustomer: (customerId: string) => Promise<void>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
   updatePaymentStatus: (orderId: string, status: PaymentStatus) => void;
   
@@ -402,6 +403,20 @@ export const useAdminStore = create<AdminState>()(
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
       toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 
+      deleteCustomer: async (customerId) => {
+        try {
+          const res = await fetch(`/api/admin/customers/${customerId}`, {
+            method: "DELETE",
+          });
+          if (!res.ok) throw new Error("Failed to delete customer");
+          toast.success("Customer deleted successfully");
+          await get().loadCustomers();
+        } catch (err) {
+          console.error("Delete customer error:", err);
+          toast.error(err instanceof Error ? err.message : "Failed to delete customer");
+        }
+      },
+
       deleteOrder: async (orderId) => {
         try {
           const res = await fetch(`/api/admin/orders/${orderId}`, {
@@ -524,10 +539,15 @@ export const useAdminStore = create<AdminState>()(
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(discount),
           });
-          if (!res.ok) throw new Error("Failed to create discount");
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || "Failed to create discount");
+          }
+          toast.success("Discount created successfully!");
           await get().loadDiscounts();
         } catch (err) {
           console.error("Add discount error:", err);
+          toast.error(err instanceof Error ? err.message : "Failed to create discount");
         }
       },
 

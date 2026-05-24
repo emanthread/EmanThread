@@ -13,7 +13,6 @@ import {
   Eye,
   Copy,
   Download,
-  Upload,
   RefreshCw,
   AlertTriangle,
   X,
@@ -154,7 +153,6 @@ export default function AdminProductsPage() {
   const [tagInput, setTagInput] = useState("");
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
-  const csvInputRef = useRef<HTMLInputElement>(null);
 
   const filteredProducts = products.filter((product) => {
     const matchesSearch =
@@ -190,13 +188,16 @@ export default function AdminProductsPage() {
     }
   };
 
-  const handleUpdateStock = () => {
-    if (editStockProduct) {
-      updateProductStock(editStockProduct, newStockValue);
+  const handleUpdateStock = async () => {
+    if (!editStockProduct) return;
+    try {
+      await updateProductStock(editStockProduct, newStockValue);
       toast.success("Stock updated successfully");
+      setEditStockProduct(null);
+      setNewStockValue(0);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update stock");
     }
-    setEditStockProduct(null);
-    setNewStockValue(0);
   };
 
   const handleBulkStockUpdate = (nextStock: number) => {
@@ -206,12 +207,8 @@ export default function AdminProductsPage() {
 
   const handleDeleteProduct = async () => {
     if (!productToDelete) return;
-    try {
-      await deleteProduct(productToDelete.id);
-      setProductToDelete(null);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to delete product");
-    }
+    await deleteProduct(productToDelete.id);
+    setProductToDelete(null);
   };
 
   const handleRefresh = async () => {
@@ -235,7 +232,7 @@ export default function AdminProductsPage() {
         id: `prod-${Date.now()}`,
         name: `Copy of ${product.name}`,
         sku: `${product.sku}-COPY`,
-        categoryId: categories[0]?.id || "",
+        categoryId: product.categoryId || categories[0]?.id || "",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
@@ -249,11 +246,15 @@ export default function AdminProductsPage() {
     setUploadingImage(true);
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("resourceType", "image");
 
     try {
       const res = await fetch("/api/admin/upload", { method: "POST", body: formData });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Upload failed");
+      if (!res.ok) {
+        console.error("Upload error response:", data);
+        throw new Error(data.error || "Upload failed");
+      }
 
       setProductForm((prev) => ({
         ...prev,
@@ -261,6 +262,7 @@ export default function AdminProductsPage() {
       }));
       toast.success("Image uploaded");
     } catch (err: any) {
+      console.error("Image upload error:", err);
       toast.error(err.message || "Image upload failed");
     } finally {
       setUploadingImage(false);
@@ -272,7 +274,6 @@ export default function AdminProductsPage() {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("resourceType", "video");
-    productForm.tags.forEach((t) => formData.append("tags", t));
 
     try {
       const res = await fetch("/api/admin/upload", { method: "POST", body: formData });
@@ -329,19 +330,23 @@ export default function AdminProductsPage() {
       fabricType: fabricTypeToEnum(productForm.fabricType),
       badge: productForm.badge?.toUpperCase(),
       images: productForm.images.length > 0 ? productForm.images : ["/placeholder.jpg"],
-      categoryId: categories[0]?.id || "",
+      categoryId: productForm.categoryId || categories[0]?.id || "",
     };
 
-    if (isEditProductOpen) {
-      await updateProduct(productForm.id, payload);
-      toast.success("Product updated successfully!");
-      setIsEditProductOpen(false);
-    } else {
-      await addProduct({ ...productForm, ...payload } as AdminProduct);
-      toast.success("Product added successfully!");
-      setIsAddProductOpen(false);
+    try {
+      if (isEditProductOpen) {
+        await updateProduct(productForm.id, payload);
+        toast.success("Product updated successfully!");
+        setIsEditProductOpen(false);
+      } else {
+        await addProduct({ ...productForm, ...payload } as AdminProduct);
+        toast.success("Product added successfully!");
+        setIsAddProductOpen(false);
+      }
+      setProductForm(emptyProduct());
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save product");
     }
-    setProductForm(emptyProduct());
   };
 
   const handleExportProducts = () => {
@@ -364,101 +369,6 @@ export default function AdminProductsPage() {
     document.body.removeChild(link);
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const isImage = file.type.startsWith("image/");
-    const isDoc = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(file.type);
-    const isCsv = file.type === "text/csv" || file.name.endsWith(".csv");
-
-    if (isImage) {
-      // Upload single image via existing handler
-      try {
-        // Reuse the same flow as the dialog's image upload
-        const formData = new FormData();
-        formData.append("file", file);
-        const res = await fetch("/api/admin/upload", { method: "POST", body: formData });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Upload failed");
-        toast.success(`Image "${file.name}" uploaded successfully`);
-      } catch (err: any) {
-        toast.error(err.message || "Image upload failed");
-      }
-    } else if (isDoc) {
-      // Upload document as raw file
-      try {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("resourceType", "raw");
-        const res = await fetch("/api/admin/upload", { method: "POST", body: formData });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Upload failed");
-        toast.success(`Document "${file.name}" uploaded successfully`);
-      } catch (err: any) {
-        toast.error(err.message || "Document upload failed");
-      }
-    } else if (isCsv) {
-      // Parse CSV and bulk-import products
-      try {
-        const text = await file.text();
-        const lines = text.split("\n").filter((l) => l.trim());
-        if (lines.length < 2) {
-          toast.error("CSV file must have a header row and at least one product");
-          return;
-        }
-        const headers = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/"/g, ""));
-        const requiredFields = ["name", "price", "sku", "color", "description"];
-        const missing = requiredFields.filter((f) => !headers.includes(f));
-        if (missing.length > 0) {
-          toast.error(`CSV missing required columns: ${missing.join(", ")}`);
-          return;
-        }
-        let imported = 0;
-        for (let i = 1; i < lines.length; i++) {
-          const values = lines[i].split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
-          const row: Record<string, string> = {};
-          headers.forEach((h, idx) => { row[h] = values[idx] || ""; });
-          try {
-            await addProduct({
-              id: `prod-${Date.now()}-${i}`,
-              name: row.name || "Unnamed Product",
-              sku: row.sku || `SKU-${Date.now()}-${i}`,
-              slug: row.slug || (row.name || "product").toLowerCase().replace(/\s+/g, "-"),
-              price: parseFloat(row.price) || 0,
-              originalPrice: row.originalprice ? parseFloat(row.originalprice) : undefined,
-              fabricType: row.fabrictype || "Cotton",
-              color: row.color || "Default",
-              colorHex: row.colorhex || "#000000",
-              images: row.image ? (row.image.includes(",") ? row.image.split(",").map((s: string) => s.trim()) : [row.image]) : ["/placeholder.jpg"],
-              badge: row.badge ? (row.badge.charAt(0).toUpperCase() + row.badge.slice(1).toLowerCase()) : undefined,
-              inStock: row.instock ? row.instock.toLowerCase() === "true" : true,
-              stockQuantity: row.stockquantity ? parseInt(row.stockquantity) || 50 : 50,
-              lowStockThreshold: 10,
-              description: row.description || "",
-              longDescription: row.longdescription || "",
-              metaTitle: row.metatitle || "",
-              metaDescription: row.metadescription || "",
-              tags: row.tags ? row.tags.split(";").map((s: string) => s.trim()) : [],
-              categoryId: categories[0]?.id || "",
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            });
-            imported++;
-          } catch (err) {
-            console.error(`Failed to import row ${i}:`, err);
-          }
-        }
-        toast.success(`Successfully imported ${imported} product(s) from CSV`);
-        await loadProducts();
-      } catch (err: any) {
-        toast.error(err.message || "CSV import failed");
-      }
-    } else {
-      toast.error(`Unsupported file type: ${file.type}`);
-    }
-  };
-
   const lowStockCount = products.filter(
     (p) => p.stockQuantity <= p.lowStockThreshold && p.stockQuantity > 0
   ).length;
@@ -475,17 +385,6 @@ export default function AdminProductsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <input
-            type="file"
-            accept=".csv"
-            ref={csvInputRef}
-            className="hidden"
-            onChange={handleFileUpload}
-          />
-          <Button variant="outline" onClick={() => csvInputRef.current?.click()}>
-            <Upload className="h-4 w-4 mr-2" />
-            Import
-          </Button>
           <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing}>
             <RefreshCw className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")} />
             Refresh

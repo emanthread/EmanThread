@@ -83,12 +83,11 @@ export default function AdminDiscountsPage() {
       discount.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleDuplicateDiscount = (discount: Discount) => {
-    addDiscount({
+  const handleDuplicateDiscount = async (discount: Discount) => {
+    await addDiscount({
        ...discount,
        code: `${discount.code}-COPY`,
     });
-    toast.success("Discount duplicated successfully!");
   };
 
   const handleUpdateDiscount = () => {
@@ -99,12 +98,19 @@ export default function AdminDiscountsPage() {
     }
   };
 
-  const handleCreateDiscount = () => {
+  const handleCreateDiscount = async () => {
     const payload: Omit<Discount, "id" | "usageCount"> = {
       ...newDiscount,
       value: newDiscount.type === "buy_x_get_y" ? 0 : newDiscount.value,
+      startDate: newDiscount.startDate || "",
+      endDate: newDiscount.endDate || "",
+      // Convert 0 → undefined so db-queries.ts `?? null` sets NULL in DB
+      // (0 means "unlimited"/"no restriction" for these fields)
+      minPurchase: newDiscount.minPurchase || undefined,
+      maxDiscount: newDiscount.maxDiscount || undefined,
+      usageLimit: newDiscount.usageLimit || undefined,
     };
-    addDiscount(payload);
+    await addDiscount(payload);
     setIsCreateDialogOpen(false);
     setNewDiscount({
       code: "",
