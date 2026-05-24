@@ -273,18 +273,18 @@ export default function AdminLayout({
         </div>
 
         {/* Navigation */}
-        <ScrollArea className="flex-1">
+        <div className="flex-1 overflow-y-auto overscroll-y-none min-h-0">
           <nav className="p-3 space-y-1" aria-label="Main navigation">
             {visibleNavItems.map((item) => (
               <NavLink key={item.href} item={item} collapsed={!sidebarOpen} />
             ))}
           </nav>
-        </ScrollArea>
+        </div>
       </aside>
 
       {/* ── MOBILE DRAWER (Sheet from shadcn) ── */}
       <Sheet open={mobileDrawerOpen} onOpenChange={setMobileDrawerOpen}>
-        <SheetContent side="left" className="w-72 p-0 flex flex-col">
+        <SheetContent side="left" className="w-72 p-0 flex flex-col gap-0 max-h-[100dvh]">
           <SheetHeader className="h-16 flex flex-row items-center gap-3 px-4 border-b border-border shrink-0 space-y-0">
             <div className="relative h-9 w-9 shrink-0 bg-white rounded-full p-0.5 shadow-sm border border-border">
               <Image
@@ -304,7 +304,7 @@ export default function AdminLayout({
             </div>
           </SheetHeader>
 
-          <ScrollArea className="flex-1">
+          <div className="flex-1 overflow-y-auto overscroll-y-none min-h-0">
             <nav className="p-3 space-y-1" aria-label="Mobile navigation">
               {visibleNavItems.map((item) => (
                 <NavLink
@@ -314,10 +314,13 @@ export default function AdminLayout({
                 />
               ))}
             </nav>
-          </ScrollArea>
+          </div>
 
           {/* Logout in drawer */}
-          <div className="p-3 border-t border-border shrink-0">
+          <div 
+            className="p-3 border-t border-border shrink-0"
+            style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+          >
             <button
               onClick={() => { setMobileDrawerOpen(false); handleLogout(); }}
               className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors min-h-[44px]"
