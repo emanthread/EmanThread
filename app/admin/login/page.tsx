@@ -104,7 +104,7 @@ export default function AdminLoginPage() {
               src="/logo-circle.png"
               alt="Eman Thread"
               fill
-              className="object-contain brightness-0 invert"
+              className="object-contain"
             />
           </div>
           <h1 className="text-4xl font-serif text-white mb-4 tracking-wider uppercase">
@@ -113,20 +113,6 @@ export default function AdminLoginPage() {
           <p className="text-lg text-white/80 max-w-md">
             Admin Portal — Manage your store, orders, products, and customers from one place.
           </p>
-          <div className="mt-12 grid grid-cols-3 gap-8 text-white/60 text-sm">
-            <div>
-              <p className="text-2xl font-bold text-white mb-1">85+</p>
-              <p>API Routes</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-white mb-1">18</p>
-              <p>Admin Pages</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-white mb-1">24/7</p>
-              <p>Management</p>
-            </div>
-          </div>
         </div>
       </div>
 

@@ -84,18 +84,17 @@ export default function LoginClient() {
     <>
       <GoogleOneTap />
       <div className="min-h-screen flex">
-        {/* Left Side - Image */}
-        <div className="hidden lg:flex lg:w-1/2 relative bg-primary/5">
+        {/* Left Side - Branding */}
+        <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-primary via-primary/90 to-primary/80">
           <div
-            className="absolute inset-0 bg-cover bg-center"
+            className="absolute inset-0 bg-cover bg-center opacity-10"
             style={{
               backgroundImage:
-                "url(https://images.unsplash.com/photo-1618220048045-10a1100f7236?q=90&w=1920&h=2560&fit=crop)",
+                "url(https://images.unsplash.com/photo-1618220048045-10a1100f7236?q=80&w=1920&h=2560&fit=crop)",
             }}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/50 to-transparent" />
-          <div className="relative z-10 flex flex-col justify-end p-12">
-            <div className="relative w-24 h-24 mb-4 mx-auto">
+          <div className="relative z-10 flex flex-col justify-center items-center p-12 text-center w-full">
+            <div className="relative w-32 h-32 mb-6">
               <Image
                 src="/logo-circle.png"
                 alt="Eman Thread"
@@ -103,11 +102,11 @@ export default function LoginClient() {
                 className="object-contain"
               />
             </div>
-            <h2 className="text-4xl font-serif text-foreground mb-4">
-              Welcome Back
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-md">
-              Sign in to save your custom stitching profiles & measurements, track orders, and reuse your fit preferences effortlessly.
+            <h1 className="text-4xl font-serif text-white mb-4 tracking-wider uppercase">
+              Eman Thread
+            </h1>
+            <p className="text-lg text-white/80 max-w-md">
+              Sign in to manage your orders, measurements, and stitching profiles.
             </p>
           </div>
         </div>
