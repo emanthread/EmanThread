@@ -163,7 +163,7 @@ export default function AdminDiscountsPage() {
               Create Discount
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md overflow-y-auto max-h-[90vh]">
             <DialogHeader>
               <DialogTitle>Create New Discount</DialogTitle>
               <DialogDescription>
@@ -502,7 +502,7 @@ export default function AdminDiscountsPage() {
       </div>
 
       <Dialog open={!!editDiscountPayload} onOpenChange={(open) => !open && setEditDiscountPayload(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md overflow-y-auto max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>Edit Discount</DialogTitle>
             <DialogDescription>

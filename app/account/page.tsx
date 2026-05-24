@@ -12,7 +12,8 @@ import {
   LogOut,
   ShoppingBag,
   Ruler,
-  AlertTriangle
+  AlertTriangle,
+  MessageSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,6 +54,12 @@ const menuItems = [
     label: "Stitching Services",
     description: "Saved measurement profiles",
     href: "/account/measurements",
+  },
+  {
+    icon: MessageSquare,
+    label: "My Reviews",
+    description: "Your product reviews and ratings",
+    href: "/account/reviews",
   },
   {
     icon: Settings,

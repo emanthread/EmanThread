@@ -28,6 +28,16 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -41,6 +51,8 @@ export default function AdminSettingsPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingContent, setSavingContent] = useState(false);
+  const [zoneToDelete, setZoneToDelete] = useState<string | null>(null);
 
   const [storeSettings, setStoreSettings] = useState({
     name: "Eman Thread",
@@ -254,13 +266,15 @@ export default function AdminSettingsPage() {
     }
   };
 
-  const handleDeleteZone = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this zone?")) return;
+  const handleDeleteZone = async () => {
+    if (!zoneToDelete) return;
     try {
-      await deleteShippingZone(id);
+      await deleteShippingZone(zoneToDelete);
       toast({ title: "Zone deleted", description: "The shipping zone has been removed." });
     } catch {
       toast({ title: "Error", description: "Failed to delete zone", variant: "destructive" });
+    } finally {
+      setZoneToDelete(null);
     }
   };
 
@@ -337,34 +351,34 @@ export default function AdminSettingsPage() {
       </div>
 
       <Tabs defaultValue="store" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-7">
-          <TabsTrigger value="store" className="gap-2">
-            <Store className="h-4 w-4" />
-            <span className="hidden sm:inline">Store</span>
+        <TabsList className="flex w-full overflow-x-auto justify-start h-12 items-center p-1">
+          <TabsTrigger value="store" className="gap-2 shrink-0">
+            <Store className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only sm:not-sr-only sm:inline">Store</span>
           </TabsTrigger>
-          <TabsTrigger value="shipping" className="gap-2">
-            <Truck className="h-4 w-4" />
-            <span className="hidden sm:inline">Shipping</span>
+          <TabsTrigger value="shipping" className="gap-2 shrink-0">
+            <Truck className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only sm:not-sr-only sm:inline">Shipping</span>
           </TabsTrigger>
-          <TabsTrigger value="zones" className="gap-2">
-            <MapPin className="h-4 w-4" />
-            <span className="hidden sm:inline">Zones</span>
+          <TabsTrigger value="zones" className="gap-2 shrink-0">
+            <MapPin className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only sm:not-sr-only sm:inline">Zones</span>
           </TabsTrigger>
-          <TabsTrigger value="payments" className="gap-2">
-            <CreditCard className="h-4 w-4" />
-            <span className="hidden sm:inline">Payments</span>
+          <TabsTrigger value="payments" className="gap-2 shrink-0">
+            <CreditCard className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only sm:not-sr-only sm:inline">Payments</span>
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="gap-2">
-            <Bell className="h-4 w-4" />
-            <span className="hidden sm:inline">Notifications</span>
+          <TabsTrigger value="notifications" className="gap-2 shrink-0">
+            <Bell className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only sm:not-sr-only sm:inline">Notifications</span>
           </TabsTrigger>
-          <TabsTrigger value="seo" className="gap-2">
-            <Globe className="h-4 w-4" />
-            <span className="hidden sm:inline">SEO</span>
+          <TabsTrigger value="seo" className="gap-2 shrink-0">
+            <Globe className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only sm:not-sr-only sm:inline">SEO</span>
           </TabsTrigger>
-          <TabsTrigger value="content" className="gap-2">
-            <FileText className="h-4 w-4" />
-            <span className="hidden sm:inline">Content</span>
+          <TabsTrigger value="content" className="gap-2 shrink-0">
+            <FileText className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only sm:not-sr-only sm:inline">Content</span>
           </TabsTrigger>
         </TabsList>
 
@@ -833,7 +847,8 @@ export default function AdminSettingsPage() {
               </Button>
             </CardHeader>
             <CardContent>
-              <Table>
+              <div className="overflow-x-auto">
+                <Table aria-label="Shipping zones">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Zone Name</TableHead>
@@ -883,8 +898,9 @@ export default function AdminSettingsPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleDeleteZone(zone.id)}
+                            onClick={() => setZoneToDelete(zone.id)}
                             className="text-red-600"
+                            aria-label={`Delete ${zone.name} zone`}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -894,6 +910,7 @@ export default function AdminSettingsPage() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
 
@@ -985,6 +1002,23 @@ export default function AdminSettingsPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          <AlertDialog open={!!zoneToDelete} onOpenChange={(open) => !open && setZoneToDelete(null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the shipping zone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteZone} className="bg-red-600 hover:bg-red-700">
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </TabsContent>
 
         {/* Content Pages Settings */}
@@ -1066,25 +1100,28 @@ export default function AdminSettingsPage() {
               <div className="flex justify-end">
                 <Button
                   onClick={async () => {
-                    setSaving(true);
+                    setSavingContent(true);
                     try {
-                      for (const [key, content] of Object.entries(contentPages)) {
-                        await fetch("/api/admin/content-pages", {
-                          method: "PUT",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ key, content }),
-                        });
-                      }
+                      // Run in parallel instead of sequentially
+                      await Promise.all(
+                        Object.entries(contentPages).map(([key, content]) =>
+                          fetch("/api/admin/content-pages", {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ key, content }),
+                          })
+                        )
+                      );
                       toast({ title: "Content saved", description: "All pages have been updated." });
                     } catch {
                       toast({ title: "Error", description: "Failed to save content", variant: "destructive" });
                     } finally {
-                      setSaving(false);
+                      setSavingContent(false);
                     }
                   }}
-                  disabled={saving}
+                  disabled={savingContent}
                 >
-                  {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                  {savingContent ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                   Save Content Pages
                 </Button>
               </div>

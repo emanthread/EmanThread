@@ -324,6 +324,13 @@ export default function AdminProductsPage() {
     setIsAddProductOpen(true);
   };
 
+  const fabricTypeToEnum = (value: string): string => {
+    return value
+      .toUpperCase()
+      .replace(" & ", "_AND_")
+      .replace(/\s+/g, "_");
+  };
+
   const handleSaveProduct = async () => {
     const payload = {
       ...productForm,
@@ -513,11 +520,11 @@ export default function AdminProductsPage() {
                     />
                   </th>
                   <th className="text-left p-4 text-sm font-medium">Product</th>
-                  <th className="text-left p-4 text-sm font-medium">SKU</th>
-                  <th className="text-left p-4 text-sm font-medium">Category</th>
+                  <th className="text-left p-4 text-sm font-medium hidden sm:table-cell">SKU</th>
+                  <th className="text-left p-4 text-sm font-medium hidden sm:table-cell">Category</th>
                   <th className="text-left p-4 text-sm font-medium">Price</th>
                   <th className="text-left p-4 text-sm font-medium">Stock</th>
-                  <th className="text-left p-4 text-sm font-medium">Badge</th>
+                  <th className="text-left p-4 text-sm font-medium hidden sm:table-cell">Badge</th>
                   <th className="text-left p-4 w-12"></th>
                 </tr>
               </thead>
@@ -558,8 +565,8 @@ export default function AdminProductsPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="p-4 font-mono text-sm">{product.sku}</td>
-                      <td className="p-4 text-sm">{product.fabricType}</td>
+                      <td className="p-4 font-mono text-sm hidden sm:table-cell">{product.sku}</td>
+                      <td className="p-4 text-sm hidden sm:table-cell">{product.fabricType}</td>
                       <td className="p-4">
                         <div>
                           <p className="font-medium">{formatPrice(product.price)}</p>
@@ -599,7 +606,7 @@ export default function AdminProductsPage() {
                           />
                         </div>
                       </td>
-                      <td className="p-4">
+                      <td className="p-4 hidden sm:table-cell">
                         {product.badge && (
                           <Badge
                             variant="secondary"

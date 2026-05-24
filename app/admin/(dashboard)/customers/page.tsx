@@ -252,9 +252,9 @@ export default function AdminCustomersPage() {
                         </Badge>
                       </div>
                       <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Mail className="h-4 w-4" />
-                          {customer.email}
+                        <span className="flex items-center gap-1 truncate max-w-[200px] sm:max-w-none" title={customer.email}>
+                          <Mail className="h-4 w-4 shrink-0" />
+                          <span className="truncate">{customer.email}</span>
                         </span>
                         <span className="flex items-center gap-1">
                           <Phone className="h-4 w-4" />
@@ -269,7 +269,7 @@ export default function AdminCustomersPage() {
                   </div>
 
                   {/* Stats */}
-                  <div className="flex gap-6 sm:gap-8">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-8 w-full sm:w-auto mt-2 sm:mt-0">
                     <div className="text-center">
                       <div className="flex items-center gap-1 text-muted-foreground mb-1">
                         <ShoppingBag className="h-4 w-4" />

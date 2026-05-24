@@ -122,6 +122,8 @@ interface DashboardStats {
   pendingOrders: number;
   lowStockItems: number;
   returnRequests: number;
+  totalReviews: number;
+  averageRating: number;
 }
 
 export interface RevenueDataPoint {
@@ -219,7 +221,7 @@ interface AdminState {
   deleteOrder: (orderId: string) => Promise<void>;
   deleteCustomer: (customerId: string) => Promise<void>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
-  updatePaymentStatus: (orderId: string, status: PaymentStatus) => void;
+  updatePaymentStatus: (orderId: string, status: PaymentStatus) => Promise<void>;
   
   deleteProduct: (productId: string) => Promise<void>;
   updateProduct: (productId: string, data: Partial<AdminProduct>) => Promise<void>;
@@ -255,6 +257,8 @@ const defaultStats: DashboardStats = {
   pendingOrders: 0,
   lowStockItems: 0,
   returnRequests: 0,
+  totalReviews: 0,
+  averageRating: 0,
 };
 
 export const useAdminStore = create<AdminState>()(
@@ -325,6 +329,8 @@ export const useAdminStore = create<AdminState>()(
               pendingOrders: data.pendingOrders ?? 0,
               lowStockItems: data.lowStockItems ?? 0,
               returnRequests: data.returnRequests ?? 0,
+              totalReviews: data.totalReviews ?? 0,
+              averageRating: data.averageRating ?? 0,
             },
             statsError: null, // A4.5
           });
@@ -443,7 +449,8 @@ export const useAdminStore = create<AdminState>()(
         }
       },
 
-      updatePaymentStatus: (orderId, status) => {
+      updatePaymentStatus: async (orderId, status) => {
+        // Optimistic local update
         set((state) => ({
           orders: state.orders.map((order) =>
             order.id === orderId
@@ -451,6 +458,18 @@ export const useAdminStore = create<AdminState>()(
               : order
           ),
         }));
+        try {
+          const res = await fetch(`/api/admin/orders/${orderId}/payment-status`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ paymentStatus: status }),
+          });
+          if (!res.ok) throw new Error("Failed to update payment status");
+        } catch (err) {
+          console.error("Update payment status error:", err);
+          // Revert by re-fetching
+          await get().loadOrders();
+        }
       },
 
       deleteProduct: async (productId) => {

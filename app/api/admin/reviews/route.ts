@@ -22,6 +22,7 @@ export async function GET(request: Request) {
     const productId = searchParams.get("productId") || "";
 
     const where: Record<string, unknown> = {};
+    where.deletedAt = null;
     if (search) {
       where.OR = [
         { comment: { contains: search, mode: "insensitive" } },

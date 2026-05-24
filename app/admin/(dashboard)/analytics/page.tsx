@@ -167,7 +167,7 @@ export default function AdminAnalyticsPage() {
             Track your store performance and insights
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 mt-4 sm:mt-0">
           <Select
             value={timeRange}
             onValueChange={(val) => {
@@ -280,7 +280,7 @@ export default function AdminAnalyticsPage() {
                     No revenue data for this period
                   </div>
                 ) : (
-                  <div className="h-64 flex items-end gap-4">
+                  <div className="h-64 flex items-end gap-4 overflow-x-auto pb-2">
                     {data.dailyRevenue.map((item) => (
                       <div key={item.day} className="flex-1 flex flex-col items-center gap-2">
                         <span className="text-sm font-medium">

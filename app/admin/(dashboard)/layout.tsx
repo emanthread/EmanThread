@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   LayoutDashboard,
   Package,
@@ -16,6 +16,7 @@ import {
   Bell,
   Search,
   Menu,
+  X,
   LogOut,
   ChevronLeft,
   ClipboardList,
@@ -27,6 +28,7 @@ import {
   Truck,
   MessageSquare,
   FileText,
+  MoreHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +42,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuthStore } from "@/lib/auth-store";
 import { useAdminStore } from "@/lib/admin-store";
@@ -50,7 +58,7 @@ import { isStaffRole, hasPermission, Permission, type RoleValue } from "@/lib/pe
 
 const navItems = [
   { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
-  { href: "/admin/orders", icon: ShoppingCart, label: "Orders", badge: "12" },
+  { href: "/admin/orders", icon: ShoppingCart, label: "Orders" },
   { href: "/admin/products", icon: Package, label: "Products" },
   { href: "/admin/customers", icon: Users, label: "Customers" },
   { href: "/admin/discounts", icon: Tag, label: "Discounts" },
@@ -68,6 +76,15 @@ const navItems = [
   { href: "/admin/settings", icon: Settings, label: "Settings" },
 ];
 
+// Primary bottom nav items (most-used 5 + More)
+const bottomNavItems = [
+  { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
+  { href: "/admin/orders", icon: ShoppingCart, label: "Orders" },
+  { href: "/admin/products", icon: Package, label: "Products" },
+  { href: "/admin/customers", icon: Users, label: "Customers" },
+  { href: "/admin/settings", icon: Settings, label: "Settings" },
+];
+
 export default function AdminLayout({
   children,
 }: {
@@ -76,9 +93,12 @@ export default function AdminLayout({
   const router = useRouter();
   const pathname = usePathname();
   const { user, isAuthenticated, logout } = useAuthStore();
-  const { sidebarOpen, toggleSidebar } = useAdminStore();
+  const { sidebarOpen, setSidebarOpen, toggleSidebar } = useAdminStore();
 
-  // Alert counts state + polling — must be before any conditional return
+  // Mobile drawer state — separate from desktop sidebar state
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+
+  // Alert counts state + visibility-aware polling
   const [alertCounts, setAlertCounts] = useState({
     newOrders: 0,
     pendingReturns: 0,
@@ -88,6 +108,8 @@ export default function AdminLayout({
   });
 
   const fetchAlerts = useCallback(async () => {
+    // Don't poll when tab is hidden — saves mobile battery/data
+    if (document.visibilityState === "hidden") return;
     try {
       const res = await fetch("/api/admin/alerts");
       if (!res.ok) return;
@@ -101,10 +123,25 @@ export default function AdminLayout({
   useEffect(() => {
     fetchAlerts();
     const interval = setInterval(fetchAlerts, 30000);
-    return () => clearInterval(interval);
+
+    // Pause polling when tab becomes hidden, resume when visible
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") fetchAlerts();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [fetchAlerts]);
 
-  // Mount browser push notification hook for admin payment alerts
+  // Close mobile drawer on route change
+  useEffect(() => {
+    setMobileDrawerOpen(false);
+  }, [pathname]);
+
+  // Mount browser push notification hook
   useAdminPushNotifications();
 
   const handleLogout = () => {
@@ -124,34 +161,81 @@ export default function AdminLayout({
     );
   }
 
-  // Filter nav items based on user's permissions
   const userPerms = user?.permissions ? JSON.stringify(user.permissions) : undefined;
   const userRole = (user?.role ?? "") as RoleValue;
   const visibleNavItems = navItems.filter((item) => {
-    // Dashboard always visible to staff
     if (item.href === "/admin") return true;
-    return hasPermission(userRole, Permission.VIEW_ORDERS, userPerms) ||
-           hasPermission(userRole, Permission.VIEW_PRODUCTS, userPerms) ||
-           hasPermission(userRole, Permission.VIEW_CUSTOMERS, userPerms) ||
-           hasPermission(userRole, Permission.VIEW_ANALYTICS, userPerms) ||
-           hasPermission(userRole, Permission.MANAGE_DISCOUNTS, userPerms) ||
-           hasPermission(userRole, Permission.MANAGE_RETURNS, userPerms) ||
-           hasPermission(userRole, Permission.VIEW_AUDIT_LOGS, userPerms) ||
-           hasPermission(userRole, Permission.MANAGE_NEWSLETTER, userPerms) ||
-           hasPermission(userRole, Permission.MANAGE_SETTINGS, userPerms); // FIXED: L2 — removed || true fallback
+    return (
+      hasPermission(userRole, Permission.VIEW_ORDERS, userPerms) ||
+      hasPermission(userRole, Permission.VIEW_PRODUCTS, userPerms) ||
+      hasPermission(userRole, Permission.VIEW_CUSTOMERS, userPerms) ||
+      hasPermission(userRole, Permission.VIEW_ANALYTICS, userPerms) ||
+      hasPermission(userRole, Permission.MANAGE_DISCOUNTS, userPerms) ||
+      hasPermission(userRole, Permission.MANAGE_RETURNS, userPerms) ||
+      hasPermission(userRole, Permission.VIEW_AUDIT_LOGS, userPerms) ||
+      hasPermission(userRole, Permission.MANAGE_NEWSLETTER, userPerms) ||
+      hasPermission(userRole, Permission.MANAGE_SETTINGS, userPerms)
+    );
   });
 
-  return (
-    <div className="min-h-screen bg-background" style={{ "--radius": "1rem" } as React.CSSProperties}>
-      {/* Sidebar */}
-      <aside
+  const pageTitle =
+    pathname === "/admin"
+      ? "Dashboard"
+      : pathname.split("/").pop()?.replace(/-/g, " ") ?? "Admin";
+
+  // Shared nav link renderer
+  const NavLink = ({
+    item,
+    collapsed = false,
+    onClick,
+  }: {
+    item: (typeof navItems)[0];
+    collapsed?: boolean;
+    onClick?: () => void;
+  }) => {
+    const isActive =
+      pathname === item.href ||
+      (item.href !== "/admin" && pathname.startsWith(item.href));
+
+    return (
+      <Link
+        href={item.href}
+        onClick={onClick}
+        aria-current={isActive ? "page" : undefined}
         className={cn(
-          "fixed left-0 top-0 bottom-0 z-40 bg-background border-r border-border transition-all duration-300",
-          sidebarOpen ? "w-64" : "w-20"
+          "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group min-h-[44px]",
+          collapsed ? "justify-center" : "",
+          isActive
+            ? "bg-primary text-primary-foreground"
+            : "hover:bg-muted text-muted-foreground hover:text-foreground"
         )}
       >
+        <item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+        {!collapsed && (
+          <span className="flex-1 text-sm font-medium">{item.label}</span>
+        )}
+        {collapsed && (
+          <span className="sr-only">{item.label}</span>
+        )}
+      </Link>
+    );
+  };
+
+  return (
+    <div
+      className="min-h-screen bg-background"
+      style={{ "--radius": "1rem" } as React.CSSProperties}
+    >
+      {/* ── DESKTOP SIDEBAR (hidden on mobile) ── */}
+      <aside
+        className={cn(
+          "hidden md:flex fixed left-0 top-0 bottom-0 z-40 bg-background border-r border-border transition-all duration-300 flex-col",
+          sidebarOpen ? "w-64" : "w-20"
+        )}
+        aria-label="Admin navigation"
+      >
         {/* Logo */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-border">
+        <div className="h-16 flex items-center justify-between px-4 border-b border-border shrink-0">
           {sidebarOpen && (
             <Link href="/admin" className="flex items-center gap-3 group">
               <div className="relative h-10 w-10 shrink-0 bg-white rounded-full p-0.5 shadow-sm border border-border group-hover:scale-110 transition-transform">
@@ -177,6 +261,8 @@ export default function AdminLayout({
             size="icon"
             onClick={toggleSidebar}
             className={cn(!sidebarOpen && "mx-auto")}
+            aria-expanded={sidebarOpen}
+            aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
           >
             {sidebarOpen ? (
               <ChevronLeft className="h-5 w-5" />
@@ -187,197 +273,289 @@ export default function AdminLayout({
         </div>
 
         {/* Navigation */}
-        <ScrollArea className="flex-1 h-[calc(100vh-4rem)]">
-          <nav className="p-3 space-y-1">
-            {visibleNavItems.map((item) => {
-              const isActive =
-                pathname === item.href ||
-                (item.href !== "/admin" && pathname.startsWith(item.href));
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group",
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <item.icon className="h-5 w-5 shrink-0" />
-                  {sidebarOpen && (
-                    <>
-                      <span className="flex-1 text-sm font-medium">
-                        {item.label}
-                      </span>
-                      {item.badge && (
-                        <Badge
-                          variant={isActive ? "secondary" : "outline"}
-                          className="h-5 px-1.5 text-[10px]"
-                        >
-                          {item.badge}
-                        </Badge>
-                      )}
-                    </>
-                  )}
-                </Link>
-              );
-            })}
+        <ScrollArea className="flex-1">
+          <nav className="p-3 space-y-1" aria-label="Main navigation">
+            {visibleNavItems.map((item) => (
+              <NavLink key={item.href} item={item} collapsed={!sidebarOpen} />
+            ))}
           </nav>
         </ScrollArea>
       </aside>
 
-      {/* Main Content */}
+      {/* ── MOBILE DRAWER (Sheet from shadcn) ── */}
+      <Sheet open={mobileDrawerOpen} onOpenChange={setMobileDrawerOpen}>
+        <SheetContent side="left" className="w-72 p-0 flex flex-col">
+          <SheetHeader className="h-16 flex flex-row items-center gap-3 px-4 border-b border-border shrink-0 space-y-0">
+            <div className="relative h-9 w-9 shrink-0 bg-white rounded-full p-0.5 shadow-sm border border-border">
+              <Image
+                src="/logo.jpg"
+                alt="Emaan Thread"
+                fill
+                className="object-contain rounded-full"
+              />
+            </div>
+            <div className="flex flex-col overflow-hidden flex-1">
+              <SheetTitle className="text-sm font-semibold tracking-wider uppercase truncate text-left">
+                Emaan Thread
+              </SheetTitle>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-widest truncate">
+                Admin Panel
+              </span>
+            </div>
+          </SheetHeader>
+
+          <ScrollArea className="flex-1">
+            <nav className="p-3 space-y-1" aria-label="Mobile navigation">
+              {visibleNavItems.map((item) => (
+                <NavLink
+                  key={item.href}
+                  item={item}
+                  onClick={() => setMobileDrawerOpen(false)}
+                />
+              ))}
+            </nav>
+          </ScrollArea>
+
+          {/* Logout in drawer */}
+          <div className="p-3 border-t border-border shrink-0">
+            <button
+              onClick={() => { setMobileDrawerOpen(false); handleLogout(); }}
+              className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors min-h-[44px]"
+            >
+              <LogOut className="h-5 w-5 shrink-0" aria-hidden="true" />
+              <span className="text-sm font-medium">Logout</span>
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── MAIN CONTENT ── */}
       <div
         className={cn(
           "transition-all duration-300",
-          sidebarOpen ? "ml-64" : "ml-20"
+          // Desktop: respect sidebar open/closed
+          sidebarOpen ? "md:ml-64" : "md:ml-20",
+          // Mobile: no margin, but add bottom padding for bottom nav
+          "pb-16 md:pb-0"
         )}
       >
-        {/* Top Header */}
-        <header className="sticky top-0 z-30 h-16 bg-background/95 backdrop-blur border-b border-border flex items-center justify-between px-6">
-          <div>
-            <h1 className="text-lg font-semibold capitalize">
-              {pathname === "/admin"
-                ? "Dashboard"
-                : pathname.split("/").pop()?.replace("-", " ")}
+        {/* ── TOP HEADER ── */}
+        <header className="sticky top-0 z-30 h-16 bg-background/95 backdrop-blur border-b border-border flex items-center px-3 sm:px-6 gap-3">
+          {/* Mobile: hamburger */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden shrink-0"
+            onClick={() => setMobileDrawerOpen(true)}
+            aria-label="Open navigation menu"
+            aria-expanded={mobileDrawerOpen}
+            aria-controls="mobile-nav-drawer"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+
+          {/* Page title — center on mobile, left on desktop */}
+          <div className="flex-1 min-w-0">
+            <h1 className="text-base sm:text-lg font-semibold capitalize truncate">
+              {pageTitle}
             </h1>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden md:flex relative w-64">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                className="pl-9 h-9"
-                placeholder="Search products, orders, customers..."
-              />
-            </div>
-            {/* Visit Store */}
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/" target="_blank">
-                Visit Store
-              </Link>
-            </Button>
-
-            {/* Theme Toggle */}
-            <ThemeToggle />
-
-            {/* Alert Bell */}
-            <DropdownMenu onOpenChange={(open) => {
-              if (open) {
-                setAlertCounts((prev) => ({ ...prev, total: 0 }));
-              } else {
-                fetchAlerts();
-              }
-            }}>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
-                  <Bell className="h-5 w-5" />
-                  {alertCounts.total > 0 && (
-                    <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-medium">
-                      {alertCounts.total}
-                    </span>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72">
-                <DropdownMenuLabel>Admin Alerts</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link href="/admin/orders" className="flex items-center justify-between">
-                    <span>🛒 New orders (last 1h)</span>
-                    {alertCounts.newOrders > 0 && (
-                      <Badge variant="destructive" className="text-[10px]">
-                        {alertCounts.newOrders}
-                      </Badge>
-                    )}
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link href="/admin/returns" className="flex items-center justify-between">
-                    <span>↩️ Pending returns</span>
-                    {alertCounts.pendingReturns > 0 && (
-                      <Badge variant="destructive" className="text-[10px]">
-                        {alertCounts.pendingReturns}
-                      </Badge>
-                    )}
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link href="/admin/products?filter=low-stock" className="flex items-center justify-between">
-                    <span>📦 Low stock products</span>
-                    {alertCounts.lowStockProducts > 0 && (
-                      <Badge variant="destructive" className="text-[10px]">
-                        {alertCounts.lowStockProducts}
-                      </Badge>
-                    )}
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link href="/admin/orders?status=pending" className="flex items-center justify-between">
-                    <span>⏰ Backlog orders ({">"}24h)</span>
-                    {alertCounts.backlogOrders > 0 && (
-                      <Badge variant="destructive" className="text-[10px]">
-                        {alertCounts.backlogOrders}
-                      </Badge>
-                    )}
-                  </Link>
-                </DropdownMenuItem>
-                {alertCounts.total === 0 && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-center w-full justify-center text-sm text-muted-foreground">
-                      All caught up — no alerts
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* User Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="gap-2 px-2">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                      {user?.name.split(" ").map((n) => n[0]).join("").toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  {sidebarOpen && (
-                    <span className="text-sm font-medium">{user?.name}</span>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>
-                  <div className="flex flex-col">
-                    <span>{user?.name}</span>
-                    <span className="text-xs font-normal text-muted-foreground">
-                      {user?.email}
-                    </span>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/admin/settings">
-                    <Settings className="h-4 w-4 mr-2" />
-                    Settings
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-red-600">
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          {/* Desktop search */}
+          <div className="hidden md:flex relative w-64">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input
+              className="pl-9 h-9"
+              placeholder="Search products, orders..."
+              aria-label="Search admin panel"
+            />
           </div>
+
+          {/* Desktop: Visit Store */}
+          <Button variant="outline" size="sm" asChild className="hidden md:flex">
+            <Link href="/" target="_blank">
+              Visit Store
+            </Link>
+          </Button>
+
+          {/* Theme Toggle — hidden on mobile */}
+          <div className="hidden md:flex">
+            <ThemeToggle />
+          </div>
+
+          {/* Alert Bell */}
+          <DropdownMenu
+            onOpenChange={(open) => {
+              if (open) setAlertCounts((prev) => ({ ...prev, total: 0 }));
+              else fetchAlerts();
+            }}
+          >
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative shrink-0"
+                aria-label={`Alerts${alertCounts.total > 0 ? `, ${alertCounts.total} unread` : ""}`}
+              >
+                <Bell className="h-5 w-5" aria-hidden="true" />
+                {alertCounts.total > 0 && (
+                  <span
+                    className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-medium"
+                    aria-hidden="true"
+                  >
+                    {alertCounts.total}
+                  </span>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <DropdownMenuLabel>Admin Alerts</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild className="cursor-pointer">
+                <Link href="/admin/orders" className="flex items-center justify-between">
+                  <span>🛒 New orders (last 1h)</span>
+                  {alertCounts.newOrders > 0 && (
+                    <Badge variant="destructive" className="text-[10px]">
+                      {alertCounts.newOrders}
+                    </Badge>
+                  )}
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className="cursor-pointer">
+                <Link href="/admin/returns" className="flex items-center justify-between">
+                  <span>↩️ Pending returns</span>
+                  {alertCounts.pendingReturns > 0 && (
+                    <Badge variant="destructive" className="text-[10px]">
+                      {alertCounts.pendingReturns}
+                    </Badge>
+                  )}
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className="cursor-pointer">
+                <Link href="/admin/products?filter=low-stock" className="flex items-center justify-between">
+                  <span>📦 Low stock products</span>
+                  {alertCounts.lowStockProducts > 0 && (
+                    <Badge variant="destructive" className="text-[10px]">
+                      {alertCounts.lowStockProducts}
+                    </Badge>
+                  )}
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className="cursor-pointer">
+                <Link href="/admin/orders?status=pending" className="flex items-center justify-between">
+                  <span>⏰ Backlog orders ({">"}24h)</span>
+                  {alertCounts.backlogOrders > 0 && (
+                    <Badge variant="destructive" className="text-[10px]">
+                      {alertCounts.backlogOrders}
+                    </Badge>
+                  )}
+                </Link>
+              </DropdownMenuItem>
+              {alertCounts.total === 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-center w-full justify-center text-sm text-muted-foreground">
+                    All caught up — no alerts
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* User Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="gap-2 px-2 shrink-0"
+                aria-label={`User menu for ${user?.name}`}
+              >
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+                    {user?.name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm font-medium hidden md:inline">
+                  {user?.name}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>
+                <div className="flex flex-col">
+                  <span>{user?.name}</span>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {user?.email}
+                  </span>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/admin/settings">
+                  <Settings className="h-4 w-4 mr-2" aria-hidden="true" />
+                  Settings
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                <LogOut className="h-4 w-4 mr-2" aria-hidden="true" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </header>
 
-        {/* Page Content */}
-        <main className="p-6">{children}</main>
+        {/* ── PAGE CONTENT ── */}
+        <main className="p-3 sm:p-6">{children}</main>
       </div>
+
+      {/* ── MOBILE BOTTOM NAVIGATION ── */}
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur border-t border-border"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        aria-label="Mobile bottom navigation"
+      >
+        <div className="flex items-center justify-around h-14">
+          {bottomNavItems.map((item) => {
+            const isActive =
+              pathname === item.href ||
+              (item.href !== "/admin" && pathname.startsWith(item.href));
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={isActive ? "page" : undefined}
+                aria-label={item.label}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] px-2 rounded-lg transition-colors",
+                  isActive ? "text-primary" : "text-muted-foreground"
+                )}
+              >
+                <item.icon
+                  className={cn("h-5 w-5", isActive && "fill-primary/10")}
+                  aria-hidden="true"
+                />
+                <span className="text-[10px] font-medium leading-none">
+                  {item.label}
+                </span>
+              </Link>
+            );
+          })}
+          {/* More button opens mobile drawer */}
+          <button
+            onClick={() => setMobileDrawerOpen(true)}
+            aria-label="More navigation options"
+            className="flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] px-2 rounded-lg transition-colors text-muted-foreground"
+          >
+            <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
+            <span className="text-[10px] font-medium leading-none">More</span>
+          </button>
+        </div>
+      </nav>
     </div>
   );
 }

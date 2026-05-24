@@ -22,6 +22,8 @@ export interface Product {
   sku: string;
   metaTitle?: string;
   metaDescription?: string;
+  rating?: number;
+  reviewCount?: number;
 }
 
 export interface Category {

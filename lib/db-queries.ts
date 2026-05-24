@@ -19,6 +19,18 @@ const badgeMap: Record<string, Product["badge"]> = {
 };
 
 function transformProduct(p: any): Product {
+  // Compute review stats if reviews relation was included
+  let rating: number | undefined;
+  let reviewCount: number | undefined;
+  if (p.reviews && Array.isArray(p.reviews)) {
+    const visibleReviews = p.reviews.filter((r: any) => r.isVisible === true && !r.deletedAt);
+    reviewCount = visibleReviews.length;
+    if (reviewCount > 0) {
+      const sum = visibleReviews.reduce((acc: number, r: any) => acc + r.rating, 0);
+      rating = Number((sum / reviewCount).toFixed(1));
+    }
+  }
+
   return {
     id: p.id,
     name: p.name,
@@ -41,12 +53,19 @@ function transformProduct(p: any): Product {
     sku: p.sku,
     metaTitle: p.metaTitle || undefined,
     metaDescription: p.metaDescription || undefined,
+    rating,
+    reviewCount,
   };
 }
 
 export async function getAllProducts(): Promise<Product[]> {
   const products = await prisma.product.findMany({
-    include: { category: true },
+    include: {
+      category: true,
+      reviews: {
+        select: { rating: true, isVisible: true, deletedAt: true },
+      },
+    },
     orderBy: { createdAt: "desc" },
   });
   return products.map(transformProduct);
@@ -55,7 +74,12 @@ export async function getAllProducts(): Promise<Product[]> {
 export async function getProductById(id: string): Promise<Product | null> {
   const product = await prisma.product.findUnique({
     where: { id },
-    include: { category: true },
+    include: {
+      category: true,
+      reviews: {
+        select: { rating: true, isVisible: true, deletedAt: true },
+      },
+    },
   });
   return product ? transformProduct(product) : null;
 }
@@ -63,7 +87,12 @@ export async function getProductById(id: string): Promise<Product | null> {
 export async function getProductBySlug(slug: string): Promise<Product | null> {
   const product = await prisma.product.findUnique({
     where: { slug },
-    include: { category: true },
+    include: {
+      category: true,
+      reviews: {
+        select: { rating: true, isVisible: true, deletedAt: true },
+      },
+    },
   });
   return product ? transformProduct(product) : null;
 }
@@ -134,7 +163,12 @@ export async function getFilteredProducts(
   const products = await prisma.product.findMany({
     where,
     orderBy,
-    include: { category: true },
+    include: {
+      category: true,
+      reviews: {
+        select: { rating: true, isVisible: true, deletedAt: true },
+      },
+    },
   });
   return products.map(transformProduct);
 }
@@ -179,7 +213,10 @@ export async function getFrequentlyBoughtTogether(
   const relatedIds = cooccurrences.map((c) => c.productId);
   const products = await prisma.product.findMany({
     where: { id: { in: relatedIds } },
-    include: { category: true },
+    include: { 
+      category: true,
+      reviews: { select: { rating: true, isVisible: true, deletedAt: true } },
+    },
   });
 
   const productMap = new Map(products.map((p) => [p.id, p]));
@@ -235,6 +272,10 @@ export async function getRelatedProducts(
       { orderItems: { _count: "desc" } },
     ],
     take: limit,
+    include: {
+      category: true,
+      reviews: { select: { rating: true, isVisible: true, deletedAt: true } },
+    },
   });
 
   if (related.length < limit) {
@@ -251,6 +292,10 @@ export async function getRelatedProducts(
         { orderItems: { _count: "desc" } },
       ],
       take: limit - related.length,
+      include: {
+        category: true,
+        reviews: { select: { rating: true, isVisible: true, deletedAt: true } },
+      },
     });
 
     related = [...related, ...backfill];
@@ -901,6 +946,7 @@ export async function getAdminAnalytics() {
     pendingOrdersCount,
     pendingReturnRequestsCount,
     recentOrders,
+    reviewStats,
   ] = await Promise.all([
     prisma.order.aggregate({
       _sum: { grandTotal: true },
@@ -915,10 +961,17 @@ export async function getAdminAnalytics() {
       orderBy: { createdAt: "desc" },
       include: { items: { include: { product: true } }, user: true },
     }),
+    prisma.productReview.aggregate({
+      _avg: { rating: true },
+      _count: { id: true },
+      where: { isVisible: true, deletedAt: null },
+    }),
   ]);
 
   const totalRevenue = Number(revenueAgg._sum.grandTotal || 0);
   const avgOrderValue = Number(revenueAgg._avg.grandTotal || 0);
+  const totalReviews = reviewStats._count.id || 0;
+  const averageRating = Number(reviewStats._avg.rating?.toFixed(1) || 0);
 
   return {
     totalRevenue,
@@ -939,6 +992,8 @@ export async function getAdminAnalytics() {
       },
     }),
     returnRequests: pendingReturnRequestsCount,
+    totalReviews,
+    averageRating,
     recentOrders: recentOrders.map((order) => ({
       id: order.id,
       orderNumber: order.orderNumber,

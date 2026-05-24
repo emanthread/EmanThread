@@ -321,11 +321,11 @@ export default function AdminOrdersPage() {
                   </th>
                   <th className="text-left p-4 text-sm font-medium">Order</th>
                   <th className="text-left p-4 text-sm font-medium">Customer</th>
-                  <th className="text-left p-4 text-sm font-medium">Items</th>
+                  <th className="text-left p-4 text-sm font-medium hidden sm:table-cell">Items</th>
                   <th className="text-left p-4 text-sm font-medium">Total</th>
-                  <th className="text-left p-4 text-sm font-medium">Payment</th>
+                  <th className="text-left p-4 text-sm font-medium hidden sm:table-cell">Payment</th>
                   <th className="text-left p-4 text-sm font-medium">Status</th>
-                  <th className="text-left p-4 text-sm font-medium">Date</th>
+                  <th className="text-left p-4 text-sm font-medium hidden sm:table-cell">Date</th>
                   <th className="text-left p-4 w-12"></th>
                 </tr>
               </thead>
@@ -356,7 +356,7 @@ export default function AdminOrdersPage() {
                         </p>
                       </div>
                     </td>
-                    <td className="p-4">
+                    <td className="p-4 hidden sm:table-cell">
                       <div className="flex items-center gap-1">
                         {order.items.slice(0, 3).map((item, i) => (
                           <div
@@ -379,7 +379,7 @@ export default function AdminOrdersPage() {
                       </div>
                     </td>
                     <td className="p-4 font-medium">{formatPrice(order.total)}</td>
-                    <td className="p-4">
+                    <td className="p-4 hidden sm:table-cell">
                       <div>
                         <p className="text-sm">
                           {paymentMethodLabels[order.paymentMethod]}
@@ -406,7 +406,7 @@ export default function AdminOrdersPage() {
                         {statusConfig[order.status].label}
                       </Badge>
                     </td>
-                    <td className="p-4 text-sm text-muted-foreground">
+                    <td className="p-4 text-sm text-muted-foreground hidden sm:table-cell">
                       {new Date(order.createdAt).toLocaleDateString()}
                     </td>
                     <td className="p-4">

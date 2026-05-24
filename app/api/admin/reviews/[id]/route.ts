@@ -11,6 +11,7 @@ const updateReviewSchema = z.object({
   title: z.string().max(200).optional().nullable(),
   isVisible: z.boolean().optional(),
   rating: z.number().int().min(1).max(5).optional(),
+  isVerified: z.boolean().optional(),
 });
 
 export async function PUT(

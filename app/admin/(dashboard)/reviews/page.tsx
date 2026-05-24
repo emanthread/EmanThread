@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { Star, Search, Eye, EyeOff, Edit3, Trash2, Loader2, Check, X, MessageSquare } from "lucide-react";
+import { Star, Search, Eye, EyeOff, Edit3, Trash2, Loader2, Check, X, MessageSquare, ShieldCheck, ShieldX } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
 interface Review {
@@ -132,6 +133,24 @@ export default function AdminReviewsPage() {
     }
   };
 
+  const handleToggleVerified = async (review: Review) => {
+    try {
+      const res = await fetch(`/api/admin/reviews/${review.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isVerified: !review.isVerified }),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      toast({
+        title: "Verification updated",
+        description: `Review is now ${!review.isVerified ? "verified" : "unverified"}.`,
+      });
+      loadReviews();
+    } catch {
+      toast({ title: "Error", description: "Failed to update verification", variant: "destructive" });
+    }
+  };
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
@@ -189,10 +208,10 @@ export default function AdminReviewsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Product</TableHead>
-                  <TableHead>User</TableHead>
-                  <TableHead>Rating</TableHead>
+                  <TableHead className="hidden sm:table-cell">User</TableHead>
+                  <TableHead className="hidden sm:table-cell">Rating</TableHead>
                   <TableHead>Comment</TableHead>
-                  <TableHead>Date</TableHead>
+                  <TableHead className="hidden sm:table-cell">Date</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -223,11 +242,11 @@ export default function AdminReviewsPage() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <p className="text-sm font-medium">{review.user.name}</p>
                         <p className="text-xs text-muted-foreground">{review.user.email}</p>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <div className="flex gap-0.5">{renderStars(review.rating)}</div>
                         {review.isVerified && (
                           <Badge variant="secondary" className="text-[10px] px-1 mt-1">
@@ -243,12 +262,15 @@ export default function AdminReviewsPage() {
                           {review.comment}
                         </p>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap hidden sm:table-cell">
                         {new Date(review.createdAt).toLocaleDateString()}
                       </TableCell>
-                      <TableCell>
-                        <Badge variant={review.isVisible ? "default" : "secondary"}>
+                      <TableCell className="space-y-1">
+                        <Badge variant={review.isVisible ? "default" : "secondary"} className="block w-fit">
                           {review.isVisible ? "Visible" : "Hidden"}
+                        </Badge>
+                        <Badge variant={review.isVerified ? "outline" : "secondary"} className={cn("block w-fit", review.isVerified && "border-green-500 text-green-600")}>
+                          {review.isVerified ? "Verified" : "Unverified"}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -268,6 +290,14 @@ export default function AdminReviewsPage() {
                             title="Edit comment"
                           >
                             <Edit3 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleToggleVerified(review)}
+                            title={review.isVerified ? "Mark as unverified" : "Mark as verified"}
+                          >
+                            {review.isVerified ? <ShieldCheck className="h-4 w-4 text-green-600" /> : <ShieldX className="h-4 w-4 text-muted-foreground" />}
                           </Button>
                           <Button
                             variant="ghost"

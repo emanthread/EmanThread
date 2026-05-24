@@ -15,6 +15,8 @@ import {
   AlertTriangle,
   RefreshCw,
   CreditCard,
+  MessageSquare,
+  Star,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -180,6 +182,15 @@ export default function AdminDashboard() {
       bgColor: "bg-orange-100",
       href: "/admin/returns",
     },
+    {
+      type: "reviews",
+      icon: MessageSquare,
+      title: "Total Reviews",
+      count: stats.totalReviews,
+      color: "text-blue-600",
+      bgColor: "bg-blue-100",
+      href: "/admin/reviews",
+    },
   ];
 
   const maxRevenue = revenueOverview.length > 0
@@ -196,7 +207,7 @@ export default function AdminDashboard() {
             Welcome back! Here's what's happening with your store.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 mt-4 sm:mt-0">
           <Select value={timeRange} onValueChange={(val) => { setTimeRange(val); if (val !== "custom") { setFromDate(""); setToDate(""); } }}>
             <SelectTrigger className="w-36">
               <SelectValue />
@@ -266,7 +277,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Alerts */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         {alerts.map((alert) => (
           <Link key={alert.type} href={alert.href}>
             <Card className="hover:shadow-md transition-shadow cursor-pointer">
@@ -298,7 +309,7 @@ export default function AdminDashboard() {
                 No revenue data for this period
               </div>
             ) : (
-            <div className="h-64 flex items-end gap-4">
+            <div className="h-64 flex items-end gap-4 overflow-x-auto pb-2">
               {revenueOverview.map((data) => (
                 <div key={data.month} className="flex-1 flex flex-col items-center gap-2">
                   <div className="w-full flex flex-col items-center">
@@ -320,32 +331,56 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* Top Products */}
+        {/* Reviews Summary */}
         <Card>
           <CardHeader>
-            <CardTitle>Top Products</CardTitle>
-            <CardDescription>Best selling products this month</CardDescription>
+            <CardTitle>Reviews Summary</CardTitle>
+            <CardDescription>Customer feedback overview</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {topProducts.map((product, index) => (
-              <div key={product.name} className="flex items-center gap-3">
-                <span className="text-sm font-medium text-muted-foreground w-5">
-                  {index + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{product.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {product.sales} sales
-                  </p>
-                </div>
-                <span className="text-sm font-medium">
-                  {formatPrice(product.revenue)}
-                </span>
-              </div>
-            ))}
+          <CardContent>
+            <div className="text-center py-6">
+              <Star className="h-10 w-10 mx-auto mb-3 text-yellow-400 fill-yellow-400" />
+              <p className="text-4xl font-bold">{stats.averageRating || "—"}</p>
+              <p className="text-muted-foreground mt-1">Average Rating</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Based on {stats.totalReviews} review{stats.totalReviews !== 1 ? "s" : ""}
+              </p>
+              <Button variant="outline" size="sm" asChild className="mt-4">
+                <Link href="/admin/reviews">
+                  Manage Reviews
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Top Products */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Top Products</CardTitle>
+          <CardDescription>Best selling products this month</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {topProducts.map((product, index) => (
+            <div key={product.name} className="flex items-center gap-3">
+              <span className="text-sm font-medium text-muted-foreground w-5">
+                {index + 1}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{product.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {product.sales} sales
+                </p>
+              </div>
+              <span className="text-sm font-medium">
+                {formatPrice(product.revenue)}
+              </span>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       {/* Recent Orders */}
       <Card>
@@ -372,7 +407,7 @@ export default function AdminDashboard() {
                   <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">
                     Customer
                   </th>
-                  <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">
+                  <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground hidden sm:table-cell">
                     Items
                   </th>
                   <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">
@@ -381,7 +416,7 @@ export default function AdminDashboard() {
                   <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">
                     Status
                   </th>
-                  <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">
+                  <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground hidden sm:table-cell">
                     Date
                   </th>
                 </tr>
@@ -403,7 +438,7 @@ export default function AdminDashboard() {
                         <p className="text-xs text-muted-foreground">{order.customerEmail}</p>
                       </div>
                     </td>
-                    <td className="py-3 px-2">
+                    <td className="py-3 px-2 hidden sm:table-cell">
                       <div className="flex items-center gap-1">
                         {order.items.slice(0, 2).map((item, i) => (
                           <div
@@ -436,7 +471,7 @@ export default function AdminDashboard() {
                         {order.status}
                       </Badge>
                     </td>
-                    <td className="py-3 px-2">
+                    <td className="py-3 px-2 hidden sm:table-cell">
                       <span className="text-sm text-muted-foreground">
                         {new Date(order.createdAt).toLocaleDateString()}
                       </span>
