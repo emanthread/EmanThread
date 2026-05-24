@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { sendWelcomeEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
@@ -51,9 +51,11 @@ export async function GET(req: Request) {
       }),
     ]);
 
-    // Send welcome email (fire-and-forget)
-    void sendWelcomeEmail(verificationToken.user.email, userName).catch((err) => {
-      console.error("[verify-email] Failed to send welcome email:", err);
+    // Send welcome email (fire-and-forget inside after() to survive lambda freeze)
+    after(() => {
+      sendWelcomeEmail(verificationToken.user.email, userName).catch((err) => {
+        console.error("[verify-email] Failed to send welcome email:", err);
+      });
     });
 
     // Redirect to login with success

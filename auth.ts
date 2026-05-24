@@ -108,13 +108,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         // Block unverified email accounts
         if (!user.isVerified) {
-          void createAuditLog({
+          createAuditLog({
             userId: user.id,
             userEmail: user.email,
             action: "USER_LOGIN_FAILED",
             entity: "User",
             entityId: user.id,
-          }).catch(() => {});
+          });
           return null;
         }
 
@@ -124,13 +124,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         );
 
         if (!isValid) {
-          void createAuditLog({
+          createAuditLog({
             userId: user.id,
             userEmail: user.email,
             action: "USER_LOGIN_FAILED",
             entity: "User",
             entityId: user.id,
-          }).catch(() => {});
+          });
           return null;
         }
 
@@ -143,13 +143,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        void createAuditLog({
+        createAuditLog({
           userId: user.id,
-          userEmail: user.email,
+          userEmail: credentials.email as string,
           action: "USER_LOGIN",
-          entity: "User",
-          entityId: user.id,
-        }).catch(() => {});
+          entity: "Auth",
+        });
 
         return {
           id: user.id,
@@ -178,7 +177,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.isVerified = user.isVerified;
           token.permissions = user.permissions;
           token.email = user.email;
-          token.tokenVersion = user.tokenVersion;
+          token.tokenVersion = (user as any).tokenVersion;
         } else {
           // For Google OAuth, user is the raw Google profile: { id: sub, name, email, image }
           // Store the Google sub as a fallback, but set id to cuid lookup below

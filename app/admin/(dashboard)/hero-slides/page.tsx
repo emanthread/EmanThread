@@ -57,9 +57,9 @@ function ImageUploader({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload failed");
       onImageChange(data.url);
-      toast.success("Image uploaded");
+      toast({ title: "Success", description: "Image uploaded" });
     } catch (err: any) {
-      toast.error(err.message || "Image upload failed");
+      toast({ title: "Error", description: err.message || "Image upload failed", variant: "destructive" });
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";

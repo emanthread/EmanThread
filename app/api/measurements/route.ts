@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       entity: 'MeasurementProfile',
       entityId: profile.id,
       newValue: { profileName: profile.profileName, garmentType: profile.garmentType },
-    }).catch(() => {})
+    })
     return NextResponse.json(profile, { status: 201 })
   } catch (error) {
     console.error('POST /api/measurements error:', error)

@@ -114,7 +114,7 @@ export const DELETE = withLoggedAdminHandler(async (
       data: {
         userId: session.user.id,
         userEmail: session.user.email!,
-        action: "ORDER_DELETED",
+        action: 'ORDER_STATUS_CHANGED',
         entity: "Order",
         entityId: order.orderNumber,
       },

@@ -1,5 +1,5 @@
 import { isAdminRole } from "@/lib/permissions";
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { auth } from '@/auth'
 import { getPendingPaymentQueue, autoExpirePendingPayments } from '@/lib/db-queries'
 
@@ -11,8 +11,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  // Piggyback auto-expiry check
-  autoExpirePendingPayments().catch(() => {})
+  // Piggyback auto-expiry check safely using after()
+  after(async () => {
+    try {
+      await autoExpirePendingPayments()
+    } catch (err) {
+      console.error("[payments-queue] autoExpire failed:", err)
+    }
+  })
 
   const url = new URL(request.url)
   const page = parseInt(url.searchParams.get('page') || '1')

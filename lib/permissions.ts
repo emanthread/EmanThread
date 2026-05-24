@@ -77,14 +77,14 @@ export const ROLE_PERMISSIONS: Record<RoleValue, PermissionValue[]> = {
  */
 export function resolvePermissions(
   role: string,
-  customPermissionsJson?: string | null
+  customPermissions?: string[] | string | null
 ): PermissionValue[] {
   const upperRole = role.toUpperCase() as RoleValue;
   const base = [...(ROLE_PERMISSIONS[upperRole] || [])];
 
-  if (customPermissionsJson && customPermissionsJson !== "[]") {
+  if (customPermissions && customPermissions !== "[]") {
     try {
-      const custom: string[] = JSON.parse(customPermissionsJson);
+      const custom: string[] = Array.isArray(customPermissions) ? customPermissions : JSON.parse(customPermissions);
       // Merge: custom overrides can both add and remove
       // If the array is explicit, use it as the full set
       if (custom.length > 0) {
@@ -110,11 +110,11 @@ export function resolvePermissions(
 export function hasPermission(
   role: string,
   required: PermissionValue,
-  customPermissionsJson?: string | null
+  customPermissions?: string[] | string | null
 ): boolean {
   const upperRole = role.toUpperCase();
   if (upperRole === Role.SUPER_ADMIN) return true;
-  const perms = resolvePermissions(upperRole, customPermissionsJson);
+  const perms = resolvePermissions(upperRole, customPermissions);
   return perms.includes(required);
 }
 
@@ -124,11 +124,11 @@ export function hasPermission(
 export function hasAnyPermission(
   role: string,
   required: PermissionValue[],
-  customPermissionsJson?: string | null
+  customPermissions?: string[] | string | null
 ): boolean {
   const upperRole = role.toUpperCase();
   if (upperRole === Role.SUPER_ADMIN) return true;
-  const perms = resolvePermissions(upperRole, customPermissionsJson);
+  const perms = resolvePermissions(upperRole, customPermissions);
   return required.some((p) => perms.includes(p));
 }
 
@@ -138,11 +138,11 @@ export function hasAnyPermission(
 export function hasAllPermissions(
   role: string,
   required: PermissionValue[],
-  customPermissionsJson?: string | null
+  customPermissions?: string[] | string | null
 ): boolean {
   const upperRole = role.toUpperCase();
   if (upperRole === Role.SUPER_ADMIN) return true;
-  const perms = resolvePermissions(upperRole, customPermissionsJson);
+  const perms = resolvePermissions(upperRole, customPermissions);
   return required.every((p) => perms.includes(p));
 }
 

@@ -23,6 +23,10 @@ export class PakistanSMSProvider extends NotificationProvider {
       }
 
       // Generic REST POST — adapt payload shape per your gateway
+      // Use payload.phone first (the actual phone number); fall back to
+      // payload.to only when phone is absent (e.g. explicit channels override).
+      const recipientPhone = (payload.phone || payload.to).trim();
+
       const response = await fetch(endpoint, {
         method: "POST",
         headers: {
@@ -30,7 +34,7 @@ export class PakistanSMSProvider extends NotificationProvider {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          to: payload.to,
+          to: recipientPhone,
           from: sender || "EmanThreads",
           message: body,
         }),

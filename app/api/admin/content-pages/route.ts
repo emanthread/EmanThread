@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { isAdminRole } from "@/lib/permissions"; // C5
+// @ts-expect-error - missing types
 import sanitizeHtml from "sanitize-html"; // A3.4
 
 export const dynamic = "force-dynamic";

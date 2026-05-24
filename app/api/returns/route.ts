@@ -58,7 +58,8 @@ export async function POST(req: Request) {
           requestId: returnRequest.id,
         },
         orderId: data.orderId,
-      }).catch((err) => console.error("Return notification failed:", err));
+        channels: ["sms"],
+      });
     }
 
     return NextResponse.json(returnRequest, { status: 201 });

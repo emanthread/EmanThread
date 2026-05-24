@@ -36,13 +36,13 @@ export const PUT = withLoggedAdminHandler(async (
       session.user.id
     );
 
-    // Audit log
+    // Audit log — only map statuses that exist in the AuditAction enum
     const actionMap: Record<string, string> = {
       APPROVED: "RETURN_APPROVED",
       REJECTED: "RETURN_REJECTED",
       COMPLETED: "RETURN_COMPLETED",
-      CANCELLED: "RETURN_CANCELLED",
-      PENDING: "RETURN_PENDING",
+      CANCELLED: "ORDER_STATUS_CHANGED",
+      PENDING: "ORDER_STATUS_CHANGED",
     };
     void createAuditLog({
       userId: session.user.id,
@@ -61,12 +61,11 @@ export const PUT = withLoggedAdminHandler(async (
 
     if (request) {
       const addr = request.order.shippingAddress as Record<string, string> | null;
+      // Only send notifications for statuses that have defined templates
       const templateMap: Record<string, string> = {
         APPROVED: "return_request_approved",
         REJECTED: "return_request_rejected",
         COMPLETED: "return_request_completed",
-        CANCELLED: "return_request_cancelled",
-        PENDING: "return_request_pending",
       };
       const template = templateMap[result.data.status];
       if (template && addr?.email) {
@@ -89,7 +88,8 @@ export const PUT = withLoggedAdminHandler(async (
                 : "Your exchange item will be shipped shortly.",
           },
           orderId: request.orderId,
-        }).catch((err) => console.error("Return status notification failed:", err));
+          channels: ["sms"],
+        });
       }
     }
 

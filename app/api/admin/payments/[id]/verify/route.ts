@@ -27,22 +27,23 @@ export async function POST(
 
     const result = await verifyManualPayment(id, session.user.id, session.user.email || '')
 
-    // Fire-and-forget order_confirmation email after verification
+    // Fire-and-forget payment success notification after verification
     const order = result.order as any
     const addr = order.shippingAddress as Record<string, string> | null
     if (addr?.email) {
       triggerNotification({
         to: addr.email,
-        template: 'order_confirmation',
+        phone: addr.phone,
+        template: 'payment_success',
         data: {
           orderNumber: order.orderNumber,
           total: String(Number(order.grandTotal)),
-          paymentMethod: 'Manual Payment',
+          transactionRef: order.id,
           customerName: `${addr.firstName || ''} ${addr.lastName || ''}`.trim(),
         },
         orderId: order.id,
-        channels: ['email'],
-      }).catch(() => {})
+        channels: ['sms'],
+      })
     }
 
     return NextResponse.json({ success: true, verifiedAt: new Date().toISOString() })

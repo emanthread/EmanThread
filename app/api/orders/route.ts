@@ -143,6 +143,8 @@ export async function POST(req: Request) {
       });
     }
 
+    const isManualPayment = FEATURE_FLAGS.MANUAL_PAYMENT_MODE && (paymentMethod === "NAYAPAY" || paymentMethod === "MEEZAN_BANK");
+
     const order = await createOrder({
       items,
       shippingAddress: enrichedShippingAddress,
@@ -154,22 +156,11 @@ export async function POST(req: Request) {
       grandTotal,
       discountAmount,
       couponCode: appliedDiscountCode, // C8: atomic increment inside createOrder transaction
-    }, FEATURE_FLAGS.MANUAL_PAYMENT_MODE);
+    }, isManualPayment);
 
-    // Determine if WhatsApp notifications should be sent
-    let shouldSendWhatsApp = false;
-    if (whatsappConsent) {
-      shouldSendWhatsApp = true;
-    } else if (userId) {
-      // Check persisted user preference
-      const userPref = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { whatsappConsent: true },
-      });
-      shouldSendWhatsApp = userPref?.whatsappConsent ?? false;
-    }
-
-    // Fire-and-forget order confirmation notifications
+    // Fire-and-forget order confirmation — SMS only.
+    // Email-channel for order events is disabled by design; auth emails
+    // (verification, password reset) go through lib/email.ts instead.
     triggerNotification({
       to: shippingAddress.email,
       phone: shippingAddress.phone,
@@ -181,8 +172,8 @@ export async function POST(req: Request) {
         customerName: `${shippingAddress.firstName} ${shippingAddress.lastName}`,
       },
       orderId: order.id,
-      channels: shouldSendWhatsApp ? undefined : ["email"], // Only email if no WhatsApp consent
-    }).catch((err) => console.error("Order confirmation notification failed:", err));
+      channels: ["sms"],
+    });
 
     // Check for low stock after order creation and trigger alerts
     const lowStockAlerts = await Promise.all(
@@ -217,7 +208,8 @@ export async function POST(req: Request) {
             template: "low_stock_alert",
             data: alert!,
             orderId: order.id,
-          }).catch((err) => console.error("Low stock notification failed:", err));
+            channels: ["email"], // Admin email — not a phone number
+          });
         }
       }
     }

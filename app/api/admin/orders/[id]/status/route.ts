@@ -101,7 +101,8 @@ export const PUT = withLoggedAdminHandler(async (
               cancellationReason: "Cancelled by admin",
             },
             orderId: id,
-          }).catch((err) => console.error("Status notification failed:", err));
+            channels: ["sms"],
+          });
         }
       }
     }

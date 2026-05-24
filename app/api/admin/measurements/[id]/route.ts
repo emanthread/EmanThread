@@ -44,7 +44,7 @@ export const PUT = withLoggedAdminHandler(async (req: Request, { params }: { par
     entity: 'MeasurementProfile',
     entityId: id,
     newValue: parsed.data as object,
-  }).catch(() => {})
+  })
   return NextResponse.json(updated)
 })
 
@@ -61,6 +61,6 @@ export const DELETE = withLoggedAdminHandler(async (req: Request, { params }: { 
     action: 'MEASUREMENT_DELETED',
     entity: 'MeasurementProfile',
     entityId: id,
-  }).catch(() => {})
+  })
   return NextResponse.json({ success: true })
 })

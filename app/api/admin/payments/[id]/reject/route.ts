@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { auth } from '@/auth'
 import { isAdminRole } from '@/lib/permissions' // A3.3
 import { rejectManualPayment } from '@/lib/db-queries'
+import { triggerNotification } from '@/lib/notifications'
+import { prisma } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,6 +34,30 @@ export async function POST(
     }
 
     await rejectManualPayment(id, session.user.id, session.user.email || '', result.data.reason)
+
+    // Fire-and-forget rejection notification to the customer
+    const submission = await prisma.manualPaymentSubmission.findUnique({
+      where: { id },
+      include: { order: true },
+    })
+    if (submission?.order) {
+      const addr = submission.order.shippingAddress as Record<string, string> | null
+      if (addr?.email) {
+        triggerNotification({
+          to: addr.email,
+          phone: addr.phone,
+          template: 'order_cancelled',
+          data: {
+            orderNumber: submission.order.orderNumber,
+            total: String(Number(submission.order.grandTotal)),
+            customerName: `${addr.firstName || ''} ${addr.lastName || ''}`.trim(),
+            cancellationReason: `Payment rejected: ${result.data.reason}`,
+          },
+          orderId: submission.orderId,
+          channels: ['sms'],
+        })
+      }
+    }
 
     return NextResponse.json({ success: true, rejectedAt: new Date().toISOString() })
   } catch (error) {

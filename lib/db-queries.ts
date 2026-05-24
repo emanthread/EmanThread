@@ -1,6 +1,7 @@
 import { prisma } from "./db";
 import type { Product, Category } from "./data";
-import { unstable_cache } from "next/cache"; // M4
+import { unstable_cache, revalidateTag } from "next/cache"; // M4
+import { after } from "next/server";
 
 const fabricTypeMap: Record<string, Product["fabricType"]> = {
   COTTON: "Cotton",
@@ -21,7 +22,7 @@ const badgeMap: Record<string, Product["badge"]> = {
 function transformProduct(p: any): Product {
   // Compute review stats if reviews relation was included
   let rating: number | undefined;
-  let reviewCount: number | undefined;
+  let reviewCount: number = 0;
   if (p.reviews && Array.isArray(p.reviews)) {
     const visibleReviews = p.reviews.filter((r: any) => r.isVisible === true && !r.deletedAt);
     reviewCount = visibleReviews.length;
@@ -643,7 +644,10 @@ export async function updateOrderStatus(id: string, status: string) {
       for (const item of updated.items) {
         await tx.product.update({
           where: { id: item.productId },
-          data: { stockQuantity: { increment: item.quantity } },
+          data: { 
+            stockQuantity: { increment: item.quantity },
+            inStock: true, // BUG FIX: Ensure the product is marked back in stock
+          },
         });
       }
     }
@@ -1508,6 +1512,10 @@ export async function setStoreConfig(data: StoreConfigInput) {
       })
     )
   );
+
+  // M4: Invalidate the unstable_cache so the next request gets the new settings
+  // @ts-expect-error - Next.js 16 requires 2 arguments for revalidateTag in some configs
+  revalidateTag("store-config", undefined);
 }
 
 function getPeriodRange(timeRange: string) {
@@ -2258,7 +2266,7 @@ export async function deleteShippingZone(id: string) {
 
 // ── Audit Log helpers ──────────────────────────────────────────────
 
-export async function createAuditLog(data: {
+export function createAuditLog(data: {
   userId?: string;
   userEmail?: string;
   action: string;
@@ -2269,28 +2277,25 @@ export async function createAuditLog(data: {
   ipAddress?: string;
   userAgent?: string;
 }) {
-  const log = await prisma.auditLog.create({
-    data: {
-      userId: data.userId ?? null,
-      userEmail: data.userEmail ?? null,
-      action: data.action as any,
-      entity: data.entity,
-      entityId: data.entityId ?? null,
-      oldValue: data.oldValue ? (JSON.parse(JSON.stringify(data.oldValue)) as any) : null,
-      newValue: data.newValue ? (JSON.parse(JSON.stringify(data.newValue)) as any) : null,
-      ipAddress: data.ipAddress ?? null,
-      userAgent: data.userAgent ?? null,
-    },
+  after(async () => {
+    try {
+      await prisma.auditLog.create({
+        data: {
+          userId: data.userId ?? null,
+          userEmail: data.userEmail ?? null,
+          action: data.action as any,
+          entity: data.entity,
+          entityId: data.entityId ?? null,
+          oldValue: data.oldValue ? (JSON.parse(JSON.stringify(data.oldValue)) as any) : null,
+          newValue: data.newValue ? (JSON.parse(JSON.stringify(data.newValue)) as any) : null,
+          ipAddress: data.ipAddress ?? null,
+          userAgent: data.userAgent ?? null,
+        },
+      });
+    } catch (err) {
+      console.error("[audit] Failed to create audit log:", err);
+    }
   });
-  return {
-    id: log.id,
-    userId: log.userId,
-    userEmail: log.userEmail,
-    action: log.action,
-    entity: log.entity,
-    entityId: log.entityId,
-    createdAt: log.createdAt.toISOString(),
-  };
 }
 
 export async function getAuditLogs(options: {
@@ -2772,10 +2777,18 @@ export async function verifyManualPayment(
 
     // 3. Deduct stock NOW (not at order creation)
     for (const item of submission.order.items) {
-      await tx.product.update({
+      const deducted = await tx.product.update({
         where: { id: item.productId },
         data: { stockQuantity: { decrement: item.quantity } },
+        select: { stockQuantity: true },
       });
+      // BUG FIX: Mark as out of stock if quantity drops to 0 or below
+      if (deducted.stockQuantity <= 0) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { inStock: false },
+        });
+      }
     }
 
     // 4. Audit log

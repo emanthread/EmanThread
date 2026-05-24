@@ -36,14 +36,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const results = await triggerNotification({
+    triggerNotification({
       to: result.data.to,
       template: result.data.template,
       data: result.data.data,
       orderId: result.data.orderId,
     });
 
-    return NextResponse.json({ results });
+    return NextResponse.json({ queued: true, message: "Notification queued for delivery" });
   } catch (error) {
     console.error("Manual notification error:", error);
     const message =

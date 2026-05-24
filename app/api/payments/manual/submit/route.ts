@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { createManualPaymentSubmission } from '@/lib/db-queries'
@@ -30,16 +30,18 @@ export async function POST(request: Request) {
       })
 
       if (order) {
-        sendAdminPaymentAlert({
-          orderId: submission.orderId,
-          orderNumber: order.orderNumber,
-          amount: Number(order.grandTotal),
-          paymentMethod: data.paymentMethod,
-          transactionId: data.transactionId,
-          senderName: data.senderName,
-          screenshotUrl: data.screenshotUrl || null,
-        }).catch((err) => {
-          console.error('[payments/manual] Admin alert email failed:', err)
+        after(() => {
+          sendAdminPaymentAlert({
+            orderId: submission.orderId,
+            orderNumber: order.orderNumber,
+            amount: Number(order.grandTotal),
+            paymentMethod: data.paymentMethod,
+            transactionId: data.transactionId,
+            senderName: data.senderName,
+            screenshotUrl: data.screenshotUrl || null,
+          }).catch((err) => {
+            console.error('[payments/manual] Admin alert email failed:', err)
+          })
         })
       }
     }

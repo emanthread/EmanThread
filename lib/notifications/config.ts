@@ -35,8 +35,11 @@ export const whatsappConfig = {
 };
 
 export const notificationDefaults = {
-  enabledChannels: ["email", "whatsapp"] as const,
-  // SMS disabled by default in sandbox; enable in production
+  // Default mobile channel for order/payment/return lifecycle events.
+  // WhatsApp integration is reserved for a future release — all WA provider
+  // code, templates, and config remain intact but are NOT in the default path.
+  enabledChannels: ["sms"] as const,
+  // SMS disabled in sandbox; enable in production via NOTIFICATION_SMS_ENABLED=true
   smsEnabled: process.env.NOTIFICATION_SMS_ENABLED === "true",
 };
 

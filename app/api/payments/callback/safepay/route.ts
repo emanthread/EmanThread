@@ -92,7 +92,8 @@ async function handleCallback(req: Request) {
               customerName: `${addr.firstName || ""} ${addr.lastName || ""}`.trim(),
             },
             orderId: order.id,
-          }).catch((err) => console.error("Safepay payment success notification failed:", err));
+            channels: ["sms"],
+          });
         }
       }
     } else if (result.status === "failed") {
