@@ -84,6 +84,7 @@ export default function AdminOrdersPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [orderMeasurements, setOrderMeasurements] = useState<TailorCardData[]>([]);
   const [newStatus, setNewStatus] = useState<OrderStatus>("pending");
 
@@ -186,6 +187,12 @@ export default function AdminOrdersPage() {
     delivered: orders.filter((o) => o.status === "delivered").length,
   };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadOrders();
+    setIsRefreshing(false);
+  };
+
   const handleExportOrders = () => {
     const csvContent =
       "data:text/csv;charset=utf-8," +
@@ -217,6 +224,10 @@ export default function AdminOrdersPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing}>
+            <RefreshCw className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")} />
+            Refresh
+          </Button>
           <Button variant="outline" onClick={handleExportOrders}>
             <Download className="h-4 w-4 mr-2" />
             Export

@@ -14,6 +14,7 @@ import {
   Copy,
   Download,
   Upload,
+  RefreshCw,
   AlertTriangle,
   X,
   Video,
@@ -48,6 +49,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAdminStore, type AdminProduct } from "@/lib/admin-store";
@@ -110,7 +121,7 @@ function emptyProduct(): AdminProduct {
 }
 
 export default function AdminProductsPage() {
-  const { products, updateProductStock, addProduct, updateProduct, loadProducts } = useAdminStore();
+  const { products, updateProductStock, addProduct, updateProduct, loadProducts, deleteProduct } = useAdminStore();
 
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
@@ -138,6 +149,8 @@ export default function AdminProductsPage() {
   const [productForm, setProductForm] = useState<AdminProduct>(emptyProduct());
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<AdminProduct | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -191,6 +204,30 @@ export default function AdminProductsPage() {
     setSelectedProducts([]);
   };
 
+  const handleDeleteProduct = async () => {
+    if (!productToDelete) return;
+    try {
+      await deleteProduct(productToDelete.id);
+      setProductToDelete(null);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete product");
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await loadProducts();
+      const res = await fetch("/api/categories");
+      const data = await res.json();
+      if (data) setCategories(data);
+    } catch {
+      // Silently fail — individual handlers show toasts if needed
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const handleDuplicateProduct = async (product: AdminProduct) => {
     try {
       await addProduct({
@@ -212,7 +249,6 @@ export default function AdminProductsPage() {
     setUploadingImage(true);
     const formData = new FormData();
     formData.append("file", file);
-    productForm.tags.forEach((t) => formData.append("tags", t));
 
     try {
       const res = await fetch("/api/admin/upload", { method: "POST", body: formData });
@@ -404,6 +440,7 @@ export default function AdminProductsPage() {
               metaTitle: row.metatitle || "",
               metaDescription: row.metadescription || "",
               tags: row.tags ? row.tags.split(";").map((s: string) => s.trim()) : [],
+              categoryId: categories[0]?.id || "",
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             });
@@ -440,7 +477,7 @@ export default function AdminProductsPage() {
         <div className="flex gap-2">
           <input
             type="file"
-            accept=".csv,.xlsx,.png,.jpeg,.jpg"
+            accept=".csv"
             ref={csvInputRef}
             className="hidden"
             onChange={handleFileUpload}
@@ -448,6 +485,10 @@ export default function AdminProductsPage() {
           <Button variant="outline" onClick={() => csvInputRef.current?.click()}>
             <Upload className="h-4 w-4 mr-2" />
             Import
+          </Button>
+          <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing}>
+            <RefreshCw className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")} />
+            Refresh
           </Button>
           <Button variant="outline" onClick={handleExportProducts}>
             <Download className="h-4 w-4 mr-2" />
@@ -703,7 +744,7 @@ export default function AdminProductsPage() {
                               Duplicate
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-red-600" onClick={() => toast.success("Product deleted.")}>
+                            <DropdownMenuItem className="text-red-600" onClick={() => setProductToDelete(product)}>
                               <Trash2 className="h-4 w-4 mr-2" />
                               Delete
                             </DropdownMenuItem>
@@ -756,6 +797,33 @@ export default function AdminProductsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={!!productToDelete}
+        onOpenChange={(open) => { if (!open) setProductToDelete(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Product</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete{" "}
+              <strong>{productToDelete?.name}</strong>? This action cannot be
+              undone. The product will be marked as out of stock and hidden
+              from the store.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteProduct}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Add / Edit Product Dialog */}
       <ProductDialog

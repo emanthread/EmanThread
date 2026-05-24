@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { toast } from "sonner";
 
 export type OrderStatus = "pending" | "processing" | "shipped" | "delivered" | "cancelled" | "returned";
 export type PaymentStatus = "pending" | "paid" | "refunded" | "failed";
@@ -63,6 +64,7 @@ export interface AdminProduct {
   metaTitle?: string;
   metaDescription?: string;
   tags: string[];
+  categoryId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -218,6 +220,7 @@ interface AdminState {
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
   updatePaymentStatus: (orderId: string, status: PaymentStatus) => void;
   
+  deleteProduct: (productId: string) => Promise<void>;
   updateProduct: (productId: string, data: Partial<AdminProduct>) => Promise<void>;
   updateProductStock: (productId: string, quantity: number) => Promise<void>;
   addProduct: (product: AdminProduct) => Promise<void>;
@@ -435,6 +438,20 @@ export const useAdminStore = create<AdminState>()(
         }));
       },
 
+      deleteProduct: async (productId) => {
+        try {
+          const res = await fetch(`/api/admin/products/${productId}`, {
+            method: "DELETE",
+          });
+          if (!res.ok) throw new Error("Failed to delete product");
+          toast.success("Product deleted successfully");
+          await get().loadProducts();
+        } catch (err) {
+          console.error("Delete product error:", err);
+          toast.error(err instanceof Error ? err.message : "Failed to delete product");
+        }
+      },
+
       updateProduct: async (productId, data) => {
         try {
           const res = await fetch(`/api/admin/products/${productId}`, {
@@ -442,10 +459,14 @@ export const useAdminStore = create<AdminState>()(
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(data),
           });
-          if (!res.ok) throw new Error("Failed to update product");
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || "Failed to update product");
+          }
           await get().loadProducts();
         } catch (err) {
           console.error("Update product error:", err);
+          throw err;
         }
       },
 
@@ -485,10 +506,14 @@ export const useAdminStore = create<AdminState>()(
               badge: product.badge?.toUpperCase(),
             }),
           });
-          if (!res.ok) throw new Error("Failed to create product");
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || "Failed to create product");
+          }
           await get().loadProducts();
         } catch (err) {
           console.error("Add product error:", err);
+          throw err;
         }
       },
 
