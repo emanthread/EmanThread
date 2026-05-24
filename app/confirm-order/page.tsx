@@ -113,10 +113,10 @@ function ConfirmOrderContent() {
           {/* Order Summary */}
           <div className="border rounded-lg p-4 text-left space-y-2">
             <p><span className="font-medium">Order #:</span> {order.orderNumber}</p>
-            <p><span className="font-medium">Total:</span> PKR {Number(order.grandTotal || order.total).toLocaleString()}</p>
+            <p><span className="font-medium">Total:</span> PKR {Number(order.grandTotal).toLocaleString()}</p>
             <p><span className="font-medium">Payment:</span> Cash on Delivery</p>
             <p className="text-sm text-muted-foreground">
-              Pay PKR {Number(order.grandTotal || order.total).toLocaleString()} to the delivery person upon receipt.
+              Pay PKR {Number(order.grandTotal).toLocaleString()} to the delivery person upon receipt.
             </p>
           </div>
 
@@ -131,7 +131,7 @@ function ConfirmOrderContent() {
               />
               <span className="text-sm">
                 I confirm my order details are correct and I will pay{' '}
-                <strong>PKR {Number(order.grandTotal || order.total).toLocaleString()}</strong> in cash upon delivery.
+                <strong>PKR {Number(order.grandTotal).toLocaleString()}</strong> in cash upon delivery.
               </span>
             </label>
           </div>

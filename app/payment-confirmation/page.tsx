@@ -221,7 +221,7 @@ function PaymentConfirmationContent() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Amount</span>
-                  <span className="font-medium">{formatPrice(order.total)}</span>
+                  <span className="font-medium">{formatPrice(Number(order.grandTotal))}</span>
                 </div>
               </div>
             </CardContent>
@@ -259,10 +259,10 @@ function PaymentConfirmationContent() {
             {/* Order Summary */}
             <div className="border rounded-lg p-4 text-left space-y-2">
               <p><span className="font-medium">Order #:</span> {order.orderNumber}</p>
-              <p><span className="font-medium">Total:</span> PKR {Number(order.grandTotal || order.total).toLocaleString()}</p>
+              <p><span className="font-medium">Total:</span> PKR {Number(order.grandTotal).toLocaleString()}</p>
               <p><span className="font-medium">Payment:</span> Cash on Delivery</p>
               <p className="text-sm text-muted-foreground">
-                Pay PKR {Number(order.grandTotal || order.total).toLocaleString()} to the delivery person upon receipt.
+                Pay PKR {Number(order.grandTotal).toLocaleString()} to the delivery person upon receipt.
               </p>
             </div>
 
@@ -277,7 +277,7 @@ function PaymentConfirmationContent() {
                 />
                 <span className="text-sm">
                   I confirm my order details are correct and I will pay{' '}
-                  <strong>PKR {Number(order.grandTotal || order.total).toLocaleString()}</strong> in cash upon delivery.
+                  <strong>PKR {Number(order.grandTotal).toLocaleString()}</strong> in cash upon delivery.
                 </span>
               </label>
             </div>
@@ -328,39 +328,52 @@ function PaymentConfirmationContent() {
               <CardContent>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    {order.items?.map((item: any, i: number) => (
+                    {order.items?.map((item: any, i: number) => {
+                      let imageUrl = "/placeholder.jpg";
+                      try {
+                        const parsed = typeof item.product?.images === "string" ? JSON.parse(item.product.images) : item.product?.images;
+                        if (Array.isArray(parsed) && parsed.length > 0) imageUrl = parsed[0];
+                      } catch (e) {}
+                      return (
                       <div key={i} className="flex gap-3 pb-3 border-b border-border last:border-0">
                         <div className="relative w-12 h-14 bg-secondary rounded overflow-hidden shrink-0">
                           <Image
-                            src={item.image || "/placeholder.jpg"}
-                            alt={item.name}
+                            src={imageUrl}
+                            alt={item.product?.name || "Product"}
                             fill
                             className="object-cover"
                           />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{item.name}</p>
+                          <p className="text-sm font-medium">{item.product?.name}</p>
                           <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
                         </div>
                         <p className="text-sm font-medium shrink-0">
-                          {formatPrice(item.price * item.quantity)}
+                          {formatPrice(Number(item.priceAtTimeOfPurchase) * item.quantity)}
                         </p>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <div className="space-y-1.5 text-sm pt-2">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Subtotal</span>
-                      <span>{formatPrice(order.total)}</span>
+                      <span>{formatPrice(Number(order.subtotal))}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Shipping</span>
-                      <span>Free</span>
+                      <span>{Number(order.shippingCost) === 0 ? "Free" : formatPrice(Number(order.shippingCost))}</span>
                     </div>
+                    {Number(order.discountAmount) > 0 && (
+                      <div className="flex justify-between text-emerald-600">
+                        <span>Discount</span>
+                        <span>-{formatPrice(Number(order.discountAmount))}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between font-semibold text-base pt-2 border-t border-border">
                       <span>Total</span>
-                      <span>{formatPrice(order.total)}</span>
+                      <span>{formatPrice(Number(order.grandTotal))}</span>
                     </div>
                   </div>
                 </div>
@@ -401,7 +414,7 @@ function PaymentConfirmationContent() {
                     </div>
                   )}
                   <p className="text-sm text-muted-foreground">
-                    Send PKR {order.total?.toFixed?.(0) || order.total} and enter the transaction details below.
+                    Send PKR {Number(order.grandTotal).toLocaleString()} and enter the transaction details below.
                   </p>
                 </CardContent>
               </Card>
@@ -490,7 +503,7 @@ function PaymentConfirmationContent() {
                         Submitting...
                       </span>
                     ) : (
-                      `Confirm Order - ${formatPrice(order.total)}`
+                      `Confirm Order - ${formatPrice(Number(order.grandTotal))}`
                     )}
                   </Button>
 
