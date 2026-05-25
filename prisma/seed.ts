@@ -56,6 +56,7 @@ async function main() {
       passwordHash: adminPasswordHash,
       phone: "+92 300 1234567",
       role: "ADMIN",
+      isVerified: true,
     },
   });
 

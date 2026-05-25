@@ -106,8 +106,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Google-only accounts (no passwordHash) cannot sign in with credentials
         if (!user.passwordHash) return null;
 
-        // Block unverified email accounts
-        if (!user.isVerified) {
+        // Block unverified email accounts (allow ADMIN to bypass)
+        if (!user.isVerified && user.role !== "ADMIN") {
           createAuditLog({
             userId: user.id,
             userEmail: user.email,

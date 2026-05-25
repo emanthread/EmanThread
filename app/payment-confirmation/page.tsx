@@ -100,6 +100,7 @@ function PaymentConfirmationContent() {
 
   const uploadScreenshot = async (file: File) => {
     setScreenshotUploading(true);
+    setScreenshotError(null);
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -107,9 +108,13 @@ function PaymentConfirmationContent() {
       
       const res = await fetch("/api/upload/payment-screenshot", { method: "POST", body: formData });
       const data = await res.json();
-      if (data.url) setPaymentScreenshot(data.url);
-    } catch {
-      setScreenshotError("Failed to upload. Please try again.");
+      
+      if (!res.ok || !data.url) {
+        throw new Error(data.error || "Failed to upload screenshot");
+      }
+      setPaymentScreenshot(data.url);
+    } catch (err) {
+      setScreenshotError(err instanceof Error ? err.message : "Failed to upload. Please try again.");
     } finally {
       setScreenshotUploading(false);
     }

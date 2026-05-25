@@ -68,7 +68,7 @@ export async function sendPasswordResetEmail(
   const resetUrl = `${siteUrl}/reset-password?token=${token}`;
 
   try {
-    await getResend().emails.send({
+    const response = await getResend().emails.send({
       from: fromEmail,
       to,
       subject: "Reset your Eman Thread password",
@@ -94,6 +94,7 @@ export async function sendPasswordResetEmail(
       ),
     });
 
+    console.log("[resend] Password reset email response:", JSON.stringify(response));
     return { success: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to send email";
