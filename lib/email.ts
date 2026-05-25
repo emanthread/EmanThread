@@ -68,7 +68,7 @@ export async function sendPasswordResetEmail(
   const resetUrl = `${siteUrl}/reset-password?token=${token}`;
 
   try {
-    const response = await getResend().emails.send({
+    const { data, error } = await getResend().emails.send({
       from: fromEmail,
       to,
       subject: "Reset your Eman Thread password",
@@ -94,7 +94,11 @@ export async function sendPasswordResetEmail(
       ),
     });
 
-    console.log("[resend] Password reset email response:", JSON.stringify(response));
+    if (error) {
+      console.error("[email] Resend password reset error:", error);
+      return { success: false, error: error.message };
+    }
+
     return { success: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to send email";
@@ -110,7 +114,7 @@ export async function sendVerificationEmail(
   const verifyUrl = `${siteUrl}/api/auth/verify-email?token=${token}`;
 
   try {
-    await getResend().emails.send({
+    const { data, error } = await getResend().emails.send({
       from: fromEmail,
       to,
       subject: "Verify your Eman Thread email",
@@ -136,6 +140,11 @@ export async function sendVerificationEmail(
       ),
     });
 
+    if (error) {
+      console.error("[email] Resend verification email error:", error);
+      return { success: false, error: error.message };
+    }
+
     return { success: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to send email";
@@ -149,7 +158,7 @@ export async function sendWelcomeEmail(
   name: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await getResend().emails.send({
+    const { data, error } = await getResend().emails.send({
       from: fromEmail,
       to,
       subject: "Welcome to Eman Thread — your email is verified!",
@@ -176,6 +185,11 @@ export async function sendWelcomeEmail(
         </p>`
       ),
     });
+
+    if (error) {
+      console.error("[email] Resend welcome email error:", error);
+      return { success: false, error: error.message };
+    }
 
     return { success: true };
   } catch (err) {
