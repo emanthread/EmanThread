@@ -44,6 +44,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Ar
 }
 
 export const EmailTemplates: Record<NotificationTemplate, EmailTemplateDef> = {
+  order_processing: {
+    subject: "Your Eman Thread order is being processed",
+    body: (data) =>
+      emailWrapper(
+        "Order Processing",
+        `<h2>We're working on your order!</h2>
+<p>Hi ${data.customerName || "there"},</p>
+<p>Your order has been picked up and is now being processed. We'll notify you as soon as it ships.</p>
+<div class="order-details">
+  <p><strong>Order #:</strong> ${data.orderNumber}</p>
+  <p><strong>Total:</strong> PKR ${data.total}</p>
+  <p><strong>Payment Method:</strong> ${data.paymentMethod}</p>
+</div>
+<p>Thank you for choosing Eman Thread!</p>
+<a href="${brandUrl}/account/orders" class="btn">View Order</a>`
+      ),
+  },
   order_confirmation: {
     subject: "Your Eman Thread order has been confirmed",
     body: (data) =>
@@ -204,6 +221,8 @@ export const SMSTemplates: Record<
   NotificationTemplate,
   (data: Record<string, string>) => string
 > = {
+  order_processing: (data) =>
+    `Eman Thread: Order ${data.orderNumber} is now being processed. We'll update you when it ships!`,
   order_confirmation: (data) =>
     `Eman Thread: Order ${data.orderNumber} confirmed. Total: PKR ${data.total}. Thank you for shopping with us!`,
   payment_success: (data) =>
@@ -230,6 +249,8 @@ export const WhatsAppTemplates: Record<
   NotificationTemplate,
   (data: Record<string, string>) => string
 > = {
+  order_processing: (data) =>
+    `⚙️ *Eman Thread* — Order Processing\n\nOrder #: ${data.orderNumber}\n\nYour order is being prepared. We'll notify you when it ships.`,
   order_confirmation: (data) =>
     `🧵 *Eman Thread* — Order Confirmed\n\nOrder #: ${data.orderNumber}\nTotal: PKR ${data.total}\nPayment: ${data.paymentMethod}\n\nWe'll update you when it ships.`,
   payment_success: (data) =>

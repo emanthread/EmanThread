@@ -92,7 +92,7 @@ async function handleCallback(req: Request) {
               customerName: `${addr.firstName || ""} ${addr.lastName || ""}`.trim(),
             },
             orderId: order.id,
-            channels: ["sms"],
+            // channels omitted — orchestrator handles fallback routing
           });
         }
       }

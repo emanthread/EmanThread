@@ -42,7 +42,7 @@ export async function POST(
           customerName: `${addr.firstName || ''} ${addr.lastName || ''}`.trim(),
         },
         orderId: order.id,
-        channels: ['sms'],
+        // channels omitted — orchestrator handles fallback routing
       })
     }
 

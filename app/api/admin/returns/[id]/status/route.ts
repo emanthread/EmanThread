@@ -88,7 +88,7 @@ export const PUT = withLoggedAdminHandler(async (
                 : "Your exchange item will be shipped shortly.",
           },
           orderId: request.orderId,
-          channels: ["sms"],
+          // channels omitted — orchestrator handles fallback routing
         });
       }
     }

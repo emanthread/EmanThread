@@ -54,7 +54,7 @@ export async function POST(
             cancellationReason: `Payment rejected: ${result.data.reason}`,
           },
           orderId: submission.orderId,
-          channels: ['sms'],
+          // channels omitted — orchestrator handles fallback routing
         })
       }
     }

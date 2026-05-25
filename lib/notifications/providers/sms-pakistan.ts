@@ -22,10 +22,20 @@ export class PakistanSMSProvider extends NotificationProvider {
         return { success: false, error: "Pakistan SMS gateway not configured" };
       }
 
-      // Generic REST POST — adapt payload shape per your gateway
-      // Use payload.phone first (the actual phone number); fall back to
-      // payload.to only when phone is absent (e.g. explicit channels override).
-      const recipientPhone = (payload.phone || payload.to).trim();
+      // Normalise phone number (same logic as SendPK provider)
+      let recipientPhone = (payload.phone || payload.to).replace(/\D/g, "");
+      if (recipientPhone.startsWith("0")) {
+        recipientPhone = "92" + recipientPhone.slice(1);
+      } else if (!recipientPhone.startsWith("92")) {
+        recipientPhone = "92" + recipientPhone;
+      }
+
+      if (recipientPhone.length < 10) {
+        return {
+          success: false,
+          error: `Invalid phone number: ${payload.phone || payload.to}`,
+        };
+      }
 
       const response = await fetch(endpoint, {
         method: "POST",

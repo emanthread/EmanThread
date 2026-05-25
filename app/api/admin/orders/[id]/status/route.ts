@@ -20,6 +20,7 @@ const updateStatusSchema = z.object({
 });
 
 const statusToTemplate: Record<string, string> = {
+  PROCESSING: "order_processing",
   SHIPPED: "order_shipped",
   DELIVERED: "order_delivered",
   CANCELLED: "order_cancelled",
@@ -87,22 +88,40 @@ export const PUT = withLoggedAdminHandler(async (
       const order = await prisma.order.findUnique({ where: { id } });
       if (order) {
         const addr = order.shippingAddress as Record<string, string> | null;
+
+        // Idempotency: skip if already notified for this exact template/status
         if (addr?.email) {
-          triggerNotification({
-            to: addr.email,
-            phone: addr.phone,
-            template: template as any,
-            data: {
-              orderNumber: order.orderNumber,
-              total: String(Number(order.grandTotal)),
-              customerName: `${addr.firstName || ""} ${addr.lastName || ""}`.trim(),
-              trackingNumber: "",
-              estimatedDelivery: "3-5 business days",
-              cancellationReason: "Cancelled by admin",
+          const alreadyNotified = await prisma.notificationLog.findFirst({
+            where: {
+              orderId: id,
+              template,
+              status: "sent",
             },
-            orderId: id,
-            channels: ["sms"],
           });
+
+          if (alreadyNotified) {
+            console.log(
+              `[notifications] Skipping duplicate notification for order ${order.orderNumber}, template ${template}`
+            );
+          } else {
+            triggerNotification({
+              to: addr.email,
+              phone: addr.phone,
+              template: template as any,
+              data: {
+                orderNumber: order.orderNumber,
+                total: String(Number(order.grandTotal)),
+                customerName: `${addr.firstName || ""} ${addr.lastName || ""}`.trim(),
+                trackingNumber: "",
+                estimatedDelivery: "3-5 business days",
+                cancellationReason: result.data.status === "CANCELLED" ? "Cancelled by admin" : "",
+                paymentMethod: order.paymentMethod || "",
+              },
+              orderId: id,
+              // NOTE: channels omitted — orchestrator handles fallback routing.
+              // SMS will be tried first; if it fails, email serves as a hard fallback.
+            });
+          }
         }
       }
     }

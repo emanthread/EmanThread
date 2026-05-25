@@ -158,9 +158,7 @@ export async function POST(req: Request) {
       couponCode: appliedDiscountCode, // C8: atomic increment inside createOrder transaction
     }, isManualPayment);
 
-    // Fire-and-forget order confirmation — SMS only.
-    // Email-channel for order events is disabled by design; auth emails
-    // (verification, password reset) go through lib/email.ts instead.
+    // Fire-and-forget order confirmation — orchestrator handles fallback routing
     triggerNotification({
       to: shippingAddress.email,
       phone: shippingAddress.phone,
@@ -172,7 +170,7 @@ export async function POST(req: Request) {
         customerName: `${shippingAddress.firstName} ${shippingAddress.lastName}`,
       },
       orderId: order.id,
-      channels: ["sms"],
+      // channels omitted — orchestrator handles fallback routing
     });
 
     // Check for low stock after order creation and trigger alerts

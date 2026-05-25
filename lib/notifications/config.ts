@@ -11,10 +11,40 @@ export const resendConfig = {
       : "Eman Thread <orders@emanthread.com>"),
 };
 
+/**
+ * Return the safe SMS provider for the current environment.
+ * SendPK requires IP whitelisting — it is fundamentally incompatible with
+ * Vercel serverless (dynamic outbound IP pool). On Vercel we force the
+ * API-key-based Pakistan SMS provider instead.
+ */
+function getSMSProviderName(): "pakistan_local" | "sendpk" {
+  const configured = process.env.NOTIFICATION_SMS_PROVIDER;
+  if (configured === "sendpk" || configured === "pakistan_local") {
+    return configured;
+  }
+  // Auto-detect: Vercel → force pakistan_local (API-key based, serverless-safe)
+  // Local dev → allow sendpk (IP whitelist works on fixed dev IP)
+  if (process.env.VERCEL === "1") {
+    return "pakistan_local";
+  }
+  return "sendpk";
+}
+
+/**
+ * Hard runtime guard: block SendPK on Vercel with a clear error.
+ * Must be called once at startup in every serverless function that uses SMS.
+ */
+export function assertSMSServerlessSafe(): void {
+  if (process.env.VERCEL === "1" && smsConfig.provider === "sendpk") {
+    throw new Error(
+      "[FATAL] SendPK provider is incompatible with Vercel serverless (IP whitelist requirement). " +
+      "Set NOTIFICATION_SMS_PROVIDER=pakistan_local and configure PAKISTAN_SMS_* env vars."
+    );
+  }
+}
+
 export const smsConfig = {
-  provider: (process.env.NOTIFICATION_SMS_PROVIDER || "sendpk") as
-    | "pakistan_local"
-    | "sendpk",
+  provider: getSMSProviderName(),
   pakistan: {
     endpoint: process.env.PAKISTAN_SMS_ENDPOINT || "",
     apiKey: process.env.PAKISTAN_SMS_API_KEY || "",

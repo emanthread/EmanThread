@@ -12,7 +12,7 @@ import { ResendProvider } from "./providers/resend";
 import { PakistanSMSProvider } from "./providers/sms-pakistan";
 import { SendPKProvider } from "./providers/sms-sendpk";
 import { WhatsAppProvider } from "./providers/whatsapp";
-import { smsConfig, notificationDefaults, whatsappConfig } from "./config";
+import { smsConfig, notificationDefaults, whatsappConfig, assertSMSServerlessSafe } from "./config";
 import { EmailTemplates, SMSTemplates, WhatsAppTemplates } from "./templates";
 import { prisma } from "@/lib/db";
 import type { NotificationPayload, SendResult, NotificationChannel } from "./types";
@@ -21,6 +21,9 @@ const emailProvider = new ResendProvider();
 const whatsappProvider = new WhatsAppProvider();
 const smsProvider =
   smsConfig.provider === "sendpk" ? new SendPKProvider() : new PakistanSMSProvider();
+
+// Hard runtime guard: block SendPK on Vercel at startup
+assertSMSServerlessSafe();
 
 /** Persist a single delivery attempt to the audit log. Fire-and-forget safe. */
 async function logAttempt(
@@ -57,6 +60,49 @@ async function logAttempt(
 }
 
 /**
+ * Attempt to send an SMS with built-in retry. The SendPK provider has its own
+ * internal retry, but this wrapper catches any provider-level throw to guarantee
+ * we never crash the orchestrator.
+ */
+async function sendSMS(payload: NotificationPayload): Promise<SendResult> {
+  try {
+    return await smsProvider.send(payload);
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "SMS provider threw unexpectedly",
+    };
+  }
+}
+
+/**
+ * Send a single notification via the given provider with basic retry.
+ * Used for email and WhatsApp where retry is handled at this level.
+ */
+async function sendWithRetry(
+  provider: { send(p: NotificationPayload): Promise<SendResult> },
+  payload: NotificationPayload,
+  maxRetries = 2
+): Promise<SendResult> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await provider.send(payload);
+      return result;
+    } catch (err) {
+      if (attempt === maxRetries) {
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : "Provider threw",
+        };
+      }
+      // Simple backoff: 1s, 2s
+      await new Promise((r) => setTimeout(r, 1000 * attempt));
+    }
+  }
+  return { success: false, error: "Max retries exceeded" };
+}
+
+/**
  * Trigger a notification for a lifecycle event.
  *
  * Channel routing (when payload.channels is not provided):
@@ -66,6 +112,12 @@ async function logAttempt(
  *      b. SMS: tried if smsEnabled AND phone is present AND WhatsApp was
  *         not successfully delivered (unconfigured or failed).
  *
+ * When payload.channels IS explicitly provided:
+ *   - Those channels are attempted.
+ *   - If SMS fails AND email is available (payload.to contains "@"),
+ *     email is sent as a hard fallback so the customer is NEVER left
+ *     in the dark.
+ *
  * All provider I/O is deferred into `after()` so it executes *after* the
  * HTTP response is flushed, preventing serverless freeze-before-send.
  *
@@ -74,58 +126,59 @@ async function logAttempt(
 export function triggerNotification(payload: NotificationPayload): void {
   after(async () => {
     try {
-      // ── If caller explicitly specifies channels, honour them exactly ──────
-      if (payload.channels && payload.channels.length > 0) {
-        const results = await Promise.allSettled(
-          payload.channels.map(async (channel) => {
-            let result: SendResult;
-            if (channel === "email") {
-              result = await emailProvider.send(payload);
-            } else {
-              // Both whatsapp and sms require a valid phone number.
-              // We fall back to payload.to if phone is missing, but only if it's not an email.
-              const phoneFallback = payload.phone || (!payload.to.includes("@") ? payload.to : undefined);
-              if (!phoneFallback || phoneFallback.includes("@")) {
-                 result = { success: false, error: `Invalid phone number for ${channel} channel` };
-              } else if (channel === "whatsapp") {
-                 result = await whatsappProvider.send({ ...payload, to: phoneFallback });
-              } else {
-                 result = await smsProvider.send({ ...payload, to: phoneFallback });
-              }
-            }
-            await logAttempt(payload, channel, result);
-            return result;
-          })
-        );
-        // Log any unexpected rejections
-        results.forEach((r, i) => {
-          if (r.status === "rejected") {
-            console.error(
-              `[notifications] Channel ${payload.channels![i]} threw:`,
-              r.reason
-            );
-          }
-        });
-        return;
-      }
-
-      // ── Default routing ───────────────────────────────────────────────────
       const isEmailAddress = payload.to.includes("@");
-      // If phone wasn't explicitly passed, but 'to' isn't an email address, 
-      // assume 'to' is the phone number.
       const resolvedPhone = payload.phone || (!isEmailAddress ? payload.to : undefined);
       const hasPhone = Boolean(resolvedPhone?.trim());
 
+      // ── If caller explicitly specifies channels, honour them ──────────
+      if (payload.channels && payload.channels.length > 0) {
+        const results: Array<{ channel: NotificationChannel; result: SendResult }> = [];
+
+        for (const channel of payload.channels) {
+          let result: SendResult;
+
+          if (channel === "email") {
+            result = await sendWithRetry(emailProvider, payload);
+          } else {
+            // Both whatsapp and sms require a valid phone number.
+            const phoneFallback = payload.phone || (!payload.to.includes("@") ? payload.to : undefined);
+            if (!phoneFallback || phoneFallback.includes("@")) {
+              result = { success: false, error: `Invalid phone number for ${channel} channel` };
+            } else if (channel === "whatsapp") {
+              result = await sendWithRetry(whatsappProvider, { ...payload, to: phoneFallback });
+            } else {
+              result = await sendSMS({ ...payload, to: phoneFallback });
+            }
+          }
+
+          await logAttempt(payload, channel, result);
+          results.push({ channel, result });
+        }
+
+        // ── Hard fallback: if SMS failed but email is available, send email ──
+        const smsFailed = results.some(
+          (r) => r.channel === "sms" && !r.result.success
+        );
+        if (smsFailed && isEmailAddress) {
+          console.warn(
+            "[notifications] SMS failed for order, falling back to email:",
+            results.find((r) => r.channel === "sms")?.result.error
+          );
+          const emailResult = await sendWithRetry(emailProvider, payload);
+          await logAttempt(payload, "email", emailResult);
+        }
+
+        return;
+      }
+
+      // ── Default routing ────────────────────────────────────────────────
+
       // 1. Email — always attempt
       if (isEmailAddress) {
-        try {
-          const emailResult = await emailProvider.send(payload);
-          await logAttempt(payload, "email", emailResult);
-          if (!emailResult.success) {
-            console.error("[notifications] Email delivery failed:", emailResult.error);
-          }
-        } catch (err) {
-          console.error("[notifications] Email provider threw:", err);
+        const emailResult = await sendWithRetry(emailProvider, payload);
+        await logAttempt(payload, "email", emailResult);
+        if (!emailResult.success) {
+          console.error("[notifications] Email delivery failed:", emailResult.error);
         }
       }
 
@@ -138,29 +191,21 @@ export function triggerNotification(payload: NotificationPayload): void {
 
         // 2a. WhatsApp first
         if (whatsappConfigured && notificationDefaults.enabledChannels.includes("whatsapp" as any)) {
-          try {
-            const waResult = await whatsappProvider.send({ ...payload, to: resolvedPhone! });
-            await logAttempt({ ...payload, to: resolvedPhone! }, "whatsapp", waResult);
-            if (waResult.success) {
-              mobileDelivered = true;
-            } else {
-              console.warn("[notifications] WhatsApp delivery failed, falling back to SMS:", waResult.error);
-            }
-          } catch (err) {
-            console.error("[notifications] WhatsApp provider threw:", err);
+          const waResult = await sendWithRetry(whatsappProvider, { ...payload, to: resolvedPhone! });
+          await logAttempt({ ...payload, to: resolvedPhone! }, "whatsapp", waResult);
+          if (waResult.success) {
+            mobileDelivered = true;
+          } else {
+            console.warn("[notifications] WhatsApp delivery failed, falling back to SMS:", waResult.error);
           }
         }
 
         // 2b. SMS fallback — only if WhatsApp was not delivered
         if (!mobileDelivered && notificationDefaults.smsEnabled) {
-          try {
-            const smsResult = await smsProvider.send({ ...payload, to: resolvedPhone! });
-            await logAttempt({ ...payload, to: resolvedPhone! }, "sms", smsResult);
-            if (!smsResult.success) {
-              console.error("[notifications] SMS delivery failed:", smsResult.error);
-            }
-          } catch (err) {
-            console.error("[notifications] SMS provider threw:", err);
+          const smsResult = await sendSMS({ ...payload, to: resolvedPhone! });
+          await logAttempt({ ...payload, to: resolvedPhone! }, "sms", smsResult);
+          if (!smsResult.success) {
+            console.error("[notifications] SMS delivery failed:", smsResult.error);
           }
         }
       }

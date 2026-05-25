@@ -58,7 +58,7 @@ export async function POST(req: Request) {
           requestId: returnRequest.id,
         },
         orderId: data.orderId,
-        channels: ["sms"],
+        // channels omitted — orchestrator handles fallback routing
       });
     }
 

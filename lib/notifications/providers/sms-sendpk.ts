@@ -5,6 +5,16 @@ import { smsConfig } from "../config";
 import { SMSTemplates } from "../templates";
 import type { NotificationPayload, SendResult } from "../types";
 
+/**
+ * Retriable SendPK errors: network/timeout issues, rate-limiting.
+ * Non-retriable: invalid credentials, insufficient credit, rejected, unknown number.
+ */
+const NON_RETRIABLE_CODES = new Set(["1", "2", "3", "4", "5", "6", "7", "8"]);
+
+async function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export class SendPKProvider extends NotificationProvider {
   readonly channel = "sms";
 
@@ -44,32 +54,61 @@ export class SendPKProvider extends NotificationProvider {
         message: body,
       });
 
-      const response = await fetch(
-        `https://sendpk.com/api/sms.php?${params.toString()}`
-      );
+      // Retry loop with exponential backoff (1s, 2s, 4s)
+      const MAX_RETRIES = 3;
+      let lastError: string | null = null;
 
-      const text = (await response.text()).trim();
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          const response = await fetch(
+            `https://sendpk.com/api/sms.php?${params.toString()}`,
+            { signal: AbortSignal.timeout(15000) }
+          );
 
-      if (text.startsWith("OK")) {
-        const id = text.includes(":") ? text.split(":")[1]?.trim() : text;
-        return { success: true, providerRef: id || text };
+          const text = (await response.text()).trim();
+
+          if (text.startsWith("OK")) {
+            const id = text.includes(":") ? text.split(":")[1]?.trim() : text;
+            return { success: true, providerRef: id || text };
+          }
+
+          const errorMap: Record<string, string> = {
+            "1": "Invalid credentials",
+            "2": "Username is empty",
+            "3": "Password is empty",
+            "4": "Sender is empty",
+            "5": "Recipient is empty",
+            "6": "Message is empty",
+            "7": "Invalid recipient",
+            "8": "Insufficient credit",
+            "9": "SMS rejected",
+          };
+
+          // Non-retriable error — return immediately
+          if (NON_RETRIABLE_CODES.has(text)) {
+            return {
+              success: false,
+              error: errorMap[text] || `SendPK error: ${text}`,
+            };
+          }
+
+          // Retriable error — save and retry
+          lastError = errorMap[text] || `SendPK error: ${text}`;
+          if (attempt < MAX_RETRIES) {
+            await delay(1000 * Math.pow(2, attempt - 1));
+          }
+        } catch (err) {
+          // Network-level error — retriable
+          lastError = err instanceof Error ? err.message : "SendPK send failed";
+          if (attempt < MAX_RETRIES) {
+            await delay(1000 * Math.pow(2, attempt - 1));
+          }
+        }
       }
-
-      const errorMap: Record<string, string> = {
-        "1": "Invalid credentials",
-        "2": "Username is empty",
-        "3": "Password is empty",
-        "4": "Sender is empty",
-        "5": "Recipient is empty",
-        "6": "Message is empty",
-        "7": "Invalid recipient",
-        "8": "Insufficient credit",
-        "9": "SMS rejected",
-      };
 
       return {
         success: false,
-        error: errorMap[text] || `SendPK error: ${text}`,
+        error: lastError || "SendPK max retries exceeded",
       };
     } catch (err) {
       return {
