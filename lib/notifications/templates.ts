@@ -8,7 +8,7 @@ interface EmailTemplateDef {
 }
 
 const brandName = "Eman Thread";
-const brandUrl = "https://emanthread.com";
+const brandUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
 const brandColor = "#1a1a1a";
 
 function emailWrapper(title: string, content: string): string {

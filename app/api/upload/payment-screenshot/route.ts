@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     const result = await uploadToCloudinary(buffer, {
       tags: ["payment-screenshot"],
       folder: "emaan-threads/payments",
-      resourceType: resourceType as "image" | "video",
+      resourceType: resourceType as "image" | "raw" | "video",
       skipTransformations: true,
     });
 
