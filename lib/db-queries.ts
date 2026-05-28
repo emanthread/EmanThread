@@ -3,14 +3,6 @@ import type { Product, Category } from "./data";
 import { unstable_cache, revalidateTag } from "next/cache"; // M4
 import { after } from "next/server";
 
-const fabricTypeMap: Record<string, Product["fabricType"]> = {
-  COTTON: "Cotton",
-  WASH_AND_WEAR: "Wash & Wear",
-  BOSKI: "Boski",
-  WOOL_BLEND: "Wool Blend",
-  KHADDAR: "Khaddar",
-};
-
 const badgeMap: Record<string, Product["badge"]> = {
   NEW: "New",
   TRENDING: "Trending",
@@ -40,7 +32,7 @@ function transformProduct(p: any): Product {
     originalPrice: p.originalPrice ? Number(p.originalPrice) : undefined,
     description: p.description,
     longDescription: p.longDescription || "",
-    fabricType: fabricTypeMap[p.fabricType] || "Cotton",
+    fabricType: p.fabricType || "Cotton",
     color: p.color,
     colorHex: p.colorHex,
     images: p.images ? JSON.parse(p.images) : [],
@@ -705,7 +697,7 @@ export async function getAdminProducts() {
       sku: p.sku,
       price: Number(p.price),
       originalPrice: p.originalPrice ? Number(p.originalPrice) : undefined,
-      fabricType: fabricTypeMap[p.fabricType] || "Cotton",
+      fabricType: p.fabricType || "Cotton",
       color: p.color,
       colorHex: p.colorHex,
       images: p.images ? JSON.parse(p.images) : [],
@@ -757,7 +749,7 @@ export async function createAdminProduct(data: any) {
     sku: product.sku,
     price: Number(product.price),
     originalPrice: product.originalPrice ? Number(product.originalPrice) : undefined,
-    fabricType: fabricTypeMap[product.fabricType] || "Cotton",
+    fabricType: product.fabricType || "Cotton",
     color: product.color,
     colorHex: product.colorHex,
     images: product.images ? JSON.parse(product.images) : [],
@@ -812,7 +804,7 @@ export async function updateAdminProduct(id: string, data: any) {
     sku: product.sku,
     price: Number(product.price),
     originalPrice: product.originalPrice ? Number(product.originalPrice) : undefined,
-    fabricType: fabricTypeMap[product.fabricType] || "Cotton",
+    fabricType: product.fabricType || "Cotton",
     color: product.color,
     colorHex: product.colorHex,
     images: product.images ? JSON.parse(product.images) : [],
@@ -850,7 +842,7 @@ export async function getLowStockProducts(threshold?: number) {
     sku: p.sku,
     price: Number(p.price),
     originalPrice: p.originalPrice ? Number(p.originalPrice) : undefined,
-    fabricType: fabricTypeMap[p.fabricType] || "Cotton",
+    fabricType: p.fabricType || "Cotton",
     color: p.color,
     colorHex: p.colorHex,
     images: p.images ? JSON.parse(p.images) : [],
@@ -882,7 +874,7 @@ export async function getAdminProductsWithStock() {
     sku: p.sku,
     price: Number(p.price),
     originalPrice: p.originalPrice ? Number(p.originalPrice) : undefined,
-    fabricType: fabricTypeMap[p.fabricType] || "Cotton",
+    fabricType: p.fabricType || "Cotton",
     color: p.color,
     colorHex: p.colorHex,
     images: p.images ? JSON.parse(p.images) : [],

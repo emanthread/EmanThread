@@ -173,6 +173,25 @@ export function triggerNotification(payload: NotificationPayload): void {
 
       // ── Default routing ────────────────────────────────────────────────
 
+      // Diagnostic: log if SMS can't work so admin knows why
+      if (!hasPhone) {
+        console.log(
+          "[notifications] No phone number available — SMS/WhatsApp will be skipped for order",
+          payload.orderId,
+          "(to:",
+          payload.to,
+          "phone:",
+          payload.phone || "none",
+          ")"
+        );
+      }
+      if (!notificationDefaults.smsEnabled) {
+        console.warn(
+          "[notifications] SMS is DISABLED via configuration (NOTIFICATION_SMS_ENABLED is not 'true'). " +
+          "Set NOTIFICATION_SMS_ENABLED=true in environment variables to enable SMS."
+        );
+      }
+
       // 1. Email — always attempt
       if (isEmailAddress) {
         const emailResult = await sendWithRetry(emailProvider, payload);

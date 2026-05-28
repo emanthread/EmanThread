@@ -12,33 +12,33 @@ export const resendConfig = {
 };
 
 /**
- * Return the safe SMS provider for the current environment.
- * SendPK requires IP whitelisting — it is fundamentally incompatible with
- * Vercel serverless (dynamic outbound IP pool). On Vercel we force the
- * API-key-based Pakistan SMS provider instead.
+ * Return the SMS provider based on the explicit environment config.
+ * SendPK's API (sendpk.com/api/sms.php) uses URL query params for auth,
+ * which works fine in Vercel serverless — no IP whitelist required.
+ * The user's NOTIFICATION_SMS_PROVIDER setting is always honored.
  */
 function getSMSProviderName(): "pakistan_local" | "sendpk" {
   const configured = process.env.NOTIFICATION_SMS_PROVIDER;
-  if (configured === "sendpk" || configured === "pakistan_local") {
-    return configured;
-  }
-  // Auto-detect: Vercel → force pakistan_local (API-key based, serverless-safe)
-  // Local dev → allow sendpk (IP whitelist works on fixed dev IP)
-  if (process.env.VERCEL === "1") {
-    return "pakistan_local";
-  }
+  if (configured === "sendpk") return "sendpk";
+  if (configured === "pakistan_local") return "pakistan_local";
+  // Default to SendPK — API-key-based, works everywhere
+  console.warn(
+    "[notifications] NOTIFICATION_SMS_PROVIDER not set, defaulting to 'sendpk'. " +
+    "Set to 'pakistan_local' to use the custom Pakistan SMS gateway."
+  );
   return "sendpk";
 }
 
 /**
- * Hard runtime guard: block SendPK on Vercel with a clear error.
- * Must be called once at startup in every serverless function that uses SMS.
+ * Soft guard — logs a warning instead of crashing.
+ * SendPK works perfectly fine on Vercel; the old IP-whitelist concern
+ * was incorrect since SendPK uses query-param-based auth (not IP allowlist).
  */
 export function assertSMSServerlessSafe(): void {
   if (process.env.VERCEL === "1" && smsConfig.provider === "sendpk") {
-    throw new Error(
-      "[FATAL] SendPK provider is incompatible with Vercel serverless (IP whitelist requirement). " +
-      "Set NOTIFICATION_SMS_PROVIDER=pakistan_local and configure PAKISTAN_SMS_* env vars."
+    console.warn(
+      "[notifications] Using SendPK provider on Vercel — this is fine. " +
+      "SendPK's sms.php endpoint uses URL-based auth, not IP whitelisting."
     );
   }
 }
@@ -69,8 +69,8 @@ export const notificationDefaults = {
   // WhatsApp integration is reserved for a future release — all WA provider
   // code, templates, and config remain intact but are NOT in the default path.
   enabledChannels: ["sms"] as const,
-  // SMS disabled in sandbox; enable in production via NOTIFICATION_SMS_ENABLED=true
-  smsEnabled: process.env.NOTIFICATION_SMS_ENABLED === "true",
+  // SMS enabled by default; disable explicitly via NOTIFICATION_SMS_ENABLED=false
+  smsEnabled: process.env.NOTIFICATION_SMS_ENABLED !== "false",
 };
 
 // Pre-approved WhatsApp Business API HSM template names

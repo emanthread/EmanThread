@@ -541,7 +541,7 @@ export const useAdminStore = create<AdminState>()(
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               ...product,
-              fabricType: product.fabricType.toUpperCase().replace(" & ", "_AND_").replace(" ", "_"),
+              fabricType: product.fabricType,
               badge: product.badge?.toUpperCase(),
             }),
           });

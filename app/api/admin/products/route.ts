@@ -15,7 +15,7 @@ const createProductSchema = z.object({
   longDescription: z.string().optional(),
   price: z.number().positive("Price must be positive"),
   originalPrice: z.number().positive().optional(),
-  fabricType: z.enum(["COTTON", "WASH_AND_WEAR", "BOSKI", "WOOL_BLEND", "KHADDAR"]),
+  fabricType: z.string().min(1, "Fabric type is required"),
   color: z.string().min(1, "Color is required"),
   colorHex: z.string().min(1, "Color hex is required"),
   images: z.array(z.string().min(1)).min(1, "At least one image is required"),

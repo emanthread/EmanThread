@@ -16,7 +16,7 @@ const updateProductSchema = z.object({
   longDescription: z.string().optional(),
   price: z.number().positive().optional(),
   originalPrice: z.number().positive().optional(),
-  fabricType: z.enum(["COTTON", "WASH_AND_WEAR", "BOSKI", "WOOL_BLEND", "KHADDAR"]).optional(),
+  fabricType: z.string().min(1).optional(),
   color: z.string().min(1).optional(),
   colorHex: z.string().min(1).optional(),
   images: z.array(z.string().min(1)).optional(),

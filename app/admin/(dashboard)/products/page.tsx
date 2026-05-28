@@ -72,7 +72,6 @@ const badgeColors = {
   Featured: "bg-purple-100 text-purple-700",
 };
 
-const FABRIC_TYPES = ["COTTON", "WASH_AND_WEAR", "BOSKI", "WOOL_BLEND", "KHADDAR"] as const;
 const BADGES = ["NEW", "TRENDING", "HOT", "LIMITED", "FEATURED"] as const;
 
 const PREDEFINED_TAGS = [
@@ -324,17 +323,9 @@ export default function AdminProductsPage() {
     setIsAddProductOpen(true);
   };
 
-  const fabricTypeToEnum = (value: string): string => {
-    return value
-      .toUpperCase()
-      .replace(" & ", "_AND_")
-      .replace(/\s+/g, "_");
-  };
-
   const handleSaveProduct = async () => {
     const payload = {
       ...productForm,
-      fabricType: fabricTypeToEnum(productForm.fabricType),
       badge: productForm.badge?.toUpperCase(),
       images: productForm.images.length > 0 ? productForm.images : ["/placeholder.jpg"],
       categoryId: productForm.categoryId || categories[0]?.id || "",
@@ -805,13 +796,25 @@ function ProductDialog({
     setProduct((prev) => ({ ...prev, [field]: value }));
   };
 
-  const fabricTypeOptions = [
-    { value: "Cotton", label: "Cotton" },
-    { value: "Wash & Wear", label: "Wash & Wear" },
-    { value: "Boski", label: "Boski" },
-    { value: "Wool Blend", label: "Wool Blend" },
-    { value: "Khaddar", label: "Khaddar" },
-  ];
+  const [fabricTypeOptions, setFabricTypeOptions] = useState<{ value: string; label: string }[]>([]);
+
+  useEffect(() => {
+    if (open) {
+      fetch("/api/admin/fabric-types")
+        .then((r) => r.json())
+        .then((data) => {
+          if (Array.isArray(data)) {
+            setFabricTypeOptions(data.map((ft: any) => ({
+              value: ft.name,
+              label: ft.name,
+            })));
+          }
+        })
+        .catch(() => {
+          // Fallback to empty — user can still type
+        });
+    }
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1163,6 +1166,3 @@ function ProductDialog({
   );
 }
 
-function fabricTypeToEnum(ft: string): string {
-  return ft.toUpperCase().replace(" & ", "_AND_").replace(" ", "_");
-}

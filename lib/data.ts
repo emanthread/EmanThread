@@ -8,7 +8,7 @@ export interface Product {
   originalPrice?: number;
   description: string;
   longDescription: string;
-  fabricType: "Cotton" | "Wash & Wear" | "Boski" | "Wool Blend" | "Khaddar";
+  fabricType: string;
   color: string;
   colorHex: string;
   images: string[];
