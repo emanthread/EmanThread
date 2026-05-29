@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Save, Store, Truck, CreditCard, Bell, Globe, Loader2, MapPin, Plus, Pencil, Trash2, X, Check, FileText } from "lucide-react";
+import { Save, Store, Truck, CreditCard, Bell, Globe, Loader2, MapPin, Plus, Pencil, Trash2, X, Check, FileText, Ruler } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,11 +63,14 @@ export default function AdminSettingsPage() {
     address: "123 Fashion Street, Lahore, Pakistan",
     currency: "PKR",
     timezone: "Asia/Karachi",
-    instagramUrl: "",
-    facebookUrl: "",
-    youtubeUrl: "",
-    tiktokUrl: "",
+      instagramUrl: "",
+      facebookUrl: "",
+      youtubeUrl: "",
+      tiktokUrl: "",
   });
+
+  const [stitchingPrices, setStitchingPrices] = useState<{ fabricType: string; price: number }[]>([]);
+  const [stitchingSaving, setStitchingSaving] = useState(false);
 
   const [shippingSettings, setShippingSettings] = useState({
     freeShippingThreshold: 5000,
@@ -214,6 +217,21 @@ export default function AdminSettingsPage() {
       }
     }
     loadContentPages();
+
+    // Load stitching prices
+    async function loadStitchingPrices() {
+      try {
+        const res = await fetch("/api/admin/stitching-prices");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setStitchingPrices(data.map((p: { fabricType: string; price: number }) => ({ fabricType: p.fabricType, price: p.price })));
+        }
+      } catch {
+        // silent
+      }
+    }
+    loadStitchingPrices();
   }, [toast]);
 
   const openAddZone = () => {
@@ -376,11 +394,97 @@ export default function AdminSettingsPage() {
             <Globe className="h-4 w-4" aria-hidden="true" />
             <span className="sr-only sm:not-sr-only sm:inline">SEO</span>
           </TabsTrigger>
+          <TabsTrigger value="stitching" className="gap-2 shrink-0">
+            <Ruler className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only sm:not-sr-only sm:inline">Stitching</span>
+          </TabsTrigger>
           <TabsTrigger value="content" className="gap-2 shrink-0">
             <FileText className="h-4 w-4" aria-hidden="true" />
             <span className="sr-only sm:not-sr-only sm:inline">Content</span>
           </TabsTrigger>
         </TabsList>
+
+        {/* Stitching Prices Tab */}
+        <TabsContent value="stitching">
+          <Card>
+            <CardHeader>
+              <CardTitle>Stitching Prices</CardTitle>
+              <CardDescription>
+                Set the stitching service price per fabric type. Default: PKR 2,500.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="overflow-x-auto">
+                <Table aria-label="Stitching prices">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fabric Type</TableHead>
+                      <TableHead>Current Price (PKR)</TableHead>
+                      <TableHead>New Price (PKR)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {stitchingPrices.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                          Loading stitching prices...
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {stitchingPrices.map((sp) => (
+                      <TableRow key={sp.fabricType}>
+                        <TableCell className="font-medium">{sp.fabricType}</TableCell>
+                        <TableCell>PKR {sp.price.toLocaleString()}</TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            value={sp.price}
+                            onChange={(e) => {
+                              const newPrice = parseInt(e.target.value) || 0;
+                              setStitchingPrices((prev) =>
+                                prev.map((p) =>
+                                  p.fabricType === sp.fabricType
+                                    ? { ...p, price: newPrice }
+                                    : p
+                                )
+                              );
+                            }}
+                            className="max-w-[150px]"
+                            min={0}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  onClick={async () => {
+                    setStitchingSaving(true);
+                    try {
+                      const res = await fetch("/api/admin/stitching-prices", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ prices: stitchingPrices }),
+                      });
+                      if (!res.ok) throw new Error("Failed to save");
+                      toast({ title: "Stitching prices saved", description: "Prices have been updated." });
+                    } catch {
+                      toast({ title: "Error", description: "Failed to save stitching prices", variant: "destructive" });
+                    } finally {
+                      setStitchingSaving(false);
+                    }
+                  }}
+                  disabled={stitchingSaving}
+                >
+                  {stitchingSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                  Save Stitching Prices
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Store Settings */}
         <TabsContent value="store">

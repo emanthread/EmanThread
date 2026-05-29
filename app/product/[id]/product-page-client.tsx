@@ -163,6 +163,7 @@ function ProductDetails({ product }: { product: Product }) {
   const [mounted, setMounted] = useState(false);
   const [measurementProfiles, setMeasurementProfiles] = useState<{ id: string; profileName: string; garmentType: string }[]>([]);
   const [selectedMeasurement, setSelectedMeasurement] = useState("none");
+  const [stitchingPriceMap, setStitchingPriceMap] = useState<Record<string, number>>({});
   const router = useRouter();
   const { addItem } = useCartStore();
   const { toggleItem, isInWishlist } = useWishlistStore();
@@ -191,13 +192,50 @@ function ProductDetails({ product }: { product: Product }) {
     }
   }, [isAuthenticated]);
 
+  // Fetch stitching prices on mount
+  useEffect(() => {
+    fetch("/api/stitching-prices")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && typeof data === "object") {
+          setStitchingPriceMap(data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Get stitching price for this product's fabric type
+  const productStitchingPrice = stitchingPriceMap[product.fabricType] || 0;
+  const hasStitchingSelected = selectedMeasurement !== "none" && selectedMeasurement !== "create_new";
+
+  // Get the selected profile name
+  const selectedProfileName = hasStitchingSelected
+    ? measurementProfiles.find((p) => p.id === selectedMeasurement)?.profileName || "Stitching"
+    : "";
+
   const handleAddToCart = () => {
-    addItem(product, quantity);
+    if (hasStitchingSelected) {
+      addItem(product, quantity, {
+        price: productStitchingPrice,
+        profileId: selectedMeasurement,
+        profileName: selectedProfileName,
+      });
+    } else {
+      addItem(product, quantity);
+    }
     setQuantity(1);
   };
 
   const handleBuyNow = () => {
-    addItem(product, quantity);
+    if (hasStitchingSelected) {
+      addItem(product, quantity, {
+        price: productStitchingPrice,
+        profileId: selectedMeasurement,
+        profileName: selectedProfileName,
+      });
+    } else {
+      addItem(product, quantity);
+    }
     setQuantity(1);
     router.push('/checkout');
   };
@@ -412,6 +450,14 @@ function ProductDetails({ product }: { product: Product }) {
                     <SelectItem value="create_new">+ Create new stitching profile</SelectItem>
                   </SelectContent>
                 </Select>
+                {hasStitchingSelected && productStitchingPrice > 0 && (
+                  <div className="p-2 bg-amber-50 dark:bg-amber-950/20 rounded-md border border-amber-200">
+                    <p className="text-sm text-amber-800 dark:text-amber-300">
+                      + <strong>{formatPrice(productStitchingPrice)}</strong> Stitching fee
+                      <span className="text-xs ml-1">(paid on delivery)</span>
+                    </p>
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground">
                   Select a saved fit so we stitch your fabric to your exact measurements.
                 </p>

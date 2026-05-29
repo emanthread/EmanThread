@@ -19,7 +19,7 @@ interface HeroSlide {
 const DEFAULT_SLIDES: HeroSlide[] = [
   {
     image:
-      "/images/fabrics/hero_banner_1_1776582592087.png",
+      "/images/fabrics/hero_fabric_summer_1780065728421.png",
     title: "The Art of Fine Fabric",
     subtitle: "Summer Collection 2026",
     description:
@@ -29,7 +29,7 @@ const DEFAULT_SLIDES: HeroSlide[] = [
   },
   {
     image:
-      "/images/fabrics/hero_boski_1776582616605.png",
+      "/images/fabrics/hero_fabric_boski_1780066040016.png",
     title: "Timeless Elegance",
     subtitle: "Premium Boski",
     description:
@@ -39,7 +39,7 @@ const DEFAULT_SLIDES: HeroSlide[] = [
   },
   {
     image:
-      "/images/fabrics/hero_wash_1776582631696.png",
+      "/images/fabrics/hero_fabric_wash_wear_1780066058724.png",
     title: "Comfort Meets Style",
     subtitle: "Wash & Wear",
     description:

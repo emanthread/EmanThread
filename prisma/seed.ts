@@ -205,6 +205,25 @@ async function main() {
   }
 
   console.log(`Seeded ${zones.length} shipping zones.`);
+
+  // Seed default stitching prices
+  const stitchingPrices = [
+    { fabricType: "Cotton", price: 2500 },
+    { fabricType: "Wash & Wear", price: 2500 },
+    { fabricType: "Boski", price: 2500 },
+    { fabricType: "Wool Blend", price: 2500 },
+    { fabricType: "Khaddar", price: 2500 },
+  ];
+
+  for (const sp of stitchingPrices) {
+    await prisma.stitchingPrice.upsert({
+      where: { fabricType: sp.fabricType },
+      update: { price: sp.price },
+      create: { fabricType: sp.fabricType, price: sp.price },
+    });
+  }
+
+  console.log(`Seeded ${stitchingPrices.length} stitching prices (default: PKR 2,500).`);
   console.log("Seed completed successfully.");
 }
 

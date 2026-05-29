@@ -113,11 +113,26 @@ function ConfirmOrderContent() {
           {/* Order Summary */}
           <div className="border rounded-lg p-4 text-left space-y-2">
             <p><span className="font-medium">Order #:</span> {order.orderNumber}</p>
+            <p><span className="font-medium">Fabric Total:</span> PKR {Number(order.subtotal).toLocaleString()}</p>
+            {order.shippingCost > 0 && (
+              <p><span className="font-medium">Shipping:</span> PKR {Number(order.shippingCost).toLocaleString()}</p>
+            )}
+            {order.stitchingFee > 0 && (
+              <p><span className="font-medium">Stitching Fee:</span> PKR {Number(order.stitchingFee).toLocaleString()}</p>
+            )}
+            {order.discountAmount > 0 && (
+              <p><span className="font-medium">Discount:</span> -PKR {Number(order.discountAmount).toLocaleString()}</p>
+            )}
             <p><span className="font-medium">Total:</span> PKR {Number(order.grandTotal).toLocaleString()}</p>
-            <p><span className="font-medium">Payment:</span> Cash on Delivery</p>
+            <p><span className="font-medium">Payment:</span> {order.paymentMethod === "cod" ? "Cash on Delivery" : order.paymentMethod}</p>
             <p className="text-sm text-muted-foreground">
               Pay PKR {Number(order.grandTotal).toLocaleString()} to the delivery person upon receipt.
             </p>
+            {order.stitchingFee > 0 && (
+              <p className="text-sm text-amber-600 font-medium mt-2">
+                Includes PKR {Number(order.stitchingFee).toLocaleString()} stitching fee payable on delivery.
+              </p>
+            )}
           </div>
 
           {/* Confirmation checkbox */}

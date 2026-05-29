@@ -40,7 +40,7 @@ const paymentMethods = [
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, getTotalPrice, clearCart } = useCartStore();
+  const { items, getTotalPrice, getStitchingTotal, hasStitching, clearCart } = useCartStore();
   const { user, isAuthenticated } = useAuthStore();
   const totalPrice = getTotalPrice();
 
@@ -48,6 +48,13 @@ export default function CheckoutPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(items.map((i) => i.product.id)));
   const selectedItems = items.filter((i) => selectedIds.has(i.product.id));
   const selectedTotal = selectedItems.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
+  const stitchingTotal = selectedItems.reduce(
+    (sum, item) => sum + (item.stitchingPrice ?? 0) * item.quantity,
+    0
+  );
+  const hasStitchingSelected = selectedItems.some(
+    (item) => item.stitchingPrice != null && item.stitchingPrice > 0
+  );
 
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -76,6 +83,15 @@ export default function CheckoutPage() {
 
   const freeShippingThreshold = 5000;
   const grandTotal = selectedTotal + shippingCost - (appliedDiscount || 0);
+  // When stitching is selected:
+  //   Pay now (bank transfer): selectedTotal - discount (fabric only)
+  //   Pay on delivery (COD cash): shippingCost + stitchingTotal
+  const upfrontAmount = hasStitchingSelected
+    ? selectedTotal - (appliedDiscount || 0)  // fabric - discount paid now
+    : grandTotal;                               // everything paid now (no stitching)
+  const dueOnDelivery = hasStitchingSelected
+    ? shippingCost + stitchingTotal             // shipping + stitching on delivery
+    : 0;                                        // nothing on delivery (no stitching)
 
   // Sync selectedIds when items change
   useEffect(() => {
@@ -155,7 +171,7 @@ export default function CheckoutPage() {
     setSubmitError("");
 
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         items: selectedItems.map((item) => ({
           productId: item.product.id,
           quantity: item.quantity,
@@ -172,6 +188,18 @@ export default function CheckoutPage() {
         whatsappConsent,
         couponCode: appliedDiscount && appliedDiscount > 0 ? couponCode : undefined,
       };
+
+      // Include stitching data if any item has stitching selected
+      if (hasStitchingSelected) {
+        payload.stitchingFee = stitchingTotal;
+        payload.stitchingItems = selectedItems
+          .filter((item) => item.stitchingPrice != null && item.stitchingPrice > 0)
+          .map((item) => ({
+            productId: item.product.id,
+            fabricType: item.product.fabricType,
+            stitchingPrice: item.stitchingPrice,
+          }));
+      }
 
       const orderRes = await fetch("/api/orders", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -343,24 +371,35 @@ export default function CheckoutPage() {
                 {FEATURE_FLAGS.MANUAL_PAYMENT_MODE ? (
                   <div className="bg-background rounded-lg p-6 shadow-sm">
                     <h2 className="text-xl font-semibold mb-6">Payment Method</h2>
+                    {hasStitchingSelected && (
+                      <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 rounded-lg text-sm">
+                        <p className="font-medium text-amber-800 dark:text-amber-300">Split Payment</p>
+                        <p className="text-amber-700 dark:text-amber-400 mt-1">
+                          Pay <strong>PKR {upfrontAmount.toLocaleString()}</strong> (fabric) now via bank transfer.<br />
+                          Pay <strong>PKR {dueOnDelivery.toLocaleString()}</strong> (shipping + stitching) on delivery.
+                        </p>
+                      </div>
+                    )}
                     <div className="space-y-3">
-                      <label className={cn("flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-all", paymentMethod === "cod" ? "border-accent bg-accent/5" : "border-border hover:border-muted-foreground")}>
-                        <input type="radio" name="pay" value="cod" checked={paymentMethod === "cod"} onChange={(e) => setPaymentMethod(e.target.value)} className="h-4 w-4" />
-                        <Banknote className="h-5 w-5 text-muted-foreground" />
-                        <div><p className="font-medium">Cash on Delivery</p><p className="text-sm text-muted-foreground">Pay when you receive your order</p></div>
-                      </label>
+                      {!hasStitchingSelected && (
+                        <label className={cn("flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-all", paymentMethod === "cod" ? "border-accent bg-accent/5" : "border-border hover:border-muted-foreground")}>
+                          <input type="radio" name="pay" value="cod" checked={paymentMethod === "cod"} onChange={(e) => setPaymentMethod(e.target.value)} className="h-4 w-4" />
+                          <Banknote className="h-5 w-5 text-muted-foreground" />
+                          <div><p className="font-medium">Cash on Delivery</p><p className="text-sm text-muted-foreground">Pay when you receive your order</p></div>
+                        </label>
+                      )}
                       <label className={cn("flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors", paymentMethod === "nayapay" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50")}>
                         <input type="radio" name="pay" value="nayapay" checked={paymentMethod === "nayapay"} onChange={(e) => setPaymentMethod(e.target.value)} className="mt-1" />
                         <div className="flex-1">
                           <div className="flex items-center gap-2"><Building2 className="h-5 w-5 text-muted-foreground" /><span className="font-medium text-sm">Nayapay</span><span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Instant Transfer</span></div>
-                          {paymentMethod === "nayapay" && <div className="mt-3 p-3 bg-muted rounded-lg text-sm space-y-1"><p className="font-medium">Transfer to:</p><p>📱 NayaPay ID: <span className="font-mono font-semibold">{FEATURE_FLAGS.NAYAPAY_ACCOUNT_NUMBER}</span></p><p>👤 Name: <span className="font-semibold">{FEATURE_FLAGS.NAYAPAY_ACCOUNT_NAME}</span></p><p>📞 Mobile: <span className="font-semibold">{FEATURE_FLAGS.NAYAPAY_PHONE}</span></p><p className="text-xs text-muted-foreground mt-2">Send PKR {grandTotal.toFixed(0)} and enter the transaction ID below.</p></div>}
+                          {paymentMethod === "nayapay" && <div className="mt-3 p-3 bg-muted rounded-lg text-sm space-y-1"><p className="font-medium">Transfer to:</p><p>📱 NayaPay ID: <span className="font-mono font-semibold">{FEATURE_FLAGS.NAYAPAY_ACCOUNT_NUMBER}</span></p><p>👤 Name: <span className="font-semibold">{FEATURE_FLAGS.NAYAPAY_ACCOUNT_NAME}</span></p><p>📞 Mobile: <span className="font-semibold">{FEATURE_FLAGS.NAYAPAY_PHONE}</span></p><p className="text-xs text-muted-foreground mt-2">Send <strong>PKR {upfrontAmount.toFixed(0)}</strong> and enter the transaction ID below.{hasStitchingSelected && <span className="block text-amber-600">PKR {dueOnDelivery.toFixed(0)} (shipping + stitching) is due on delivery.</span>}</p></div>}
                         </div>
                       </label>
                       <label className={cn("flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors", paymentMethod === "meezan_bank" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50")}>
                         <input type="radio" name="pay" value="meezan_bank" checked={paymentMethod === "meezan_bank"} onChange={(e) => setPaymentMethod(e.target.value)} className="mt-1" />
                         <div className="flex-1">
                           <div className="flex items-center gap-2"><Landmark className="h-5 w-5 text-muted-foreground" /><span className="font-medium text-sm">Meezan Bank</span><span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Bank Transfer</span></div>
-                          {paymentMethod === "meezan_bank" && <div className="mt-3 p-3 bg-muted rounded-lg text-sm space-y-1"><p className="font-medium">Transfer to:</p><p>🏦 Account #: <span className="font-mono font-semibold">{FEATURE_FLAGS.MEEZAN_ACCOUNT_NUMBER}</span></p><p>🏦 IBAN: <span className="font-mono font-semibold">{FEATURE_FLAGS.MEEZAN_IBAN}</span></p><p>👤 Name: <span className="font-semibold">{FEATURE_FLAGS.MEEZAN_ACCOUNT_NAME}</span></p><p className="text-xs text-muted-foreground mt-2">Transfer PKR {grandTotal.toFixed(0)} and enter the transaction ID below.</p></div>}
+                          {paymentMethod === "meezan_bank" && <div className="mt-3 p-3 bg-muted rounded-lg text-sm space-y-1"><p className="font-medium">Transfer to:</p><p>🏦 Account #: <span className="font-mono font-semibold">{FEATURE_FLAGS.MEEZAN_ACCOUNT_NUMBER}</span></p><p>🏦 IBAN: <span className="font-mono font-semibold">{FEATURE_FLAGS.MEEZAN_IBAN}</span></p><p>👤 Name: <span className="font-semibold">{FEATURE_FLAGS.MEEZAN_ACCOUNT_NAME}</span></p><p className="text-xs text-muted-foreground mt-2">Send <strong>PKR {upfrontAmount.toFixed(0)}</strong> and enter the transaction ID below.{hasStitchingSelected && <span className="block text-amber-600">PKR {dueOnDelivery.toFixed(0)} (shipping + stitching) is due on delivery.</span>}</p></div>}
                         </div>
                       </label>
                     </div>
@@ -445,15 +484,43 @@ export default function CheckoutPage() {
                     </div>
 
                     <div className="flex justify-between text-sm"><span className="text-muted-foreground">Shipping</span><span>{shippingCost === 0 ? "Free" : formatPrice(shippingCost)}</span></div>
+                    {hasStitchingSelected && stitchingTotal > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Stitching Fee</span>
+                        <span>{formatPrice(stitchingTotal)}</span>
+                      </div>
+                    )}
                     {appliedDiscount !== null && appliedDiscount > 0 && <div className="flex justify-between text-sm text-emerald-600"><span>Discount</span><span>-{formatPrice(appliedDiscount)}</span></div>}
                     {zoneName && <div className="flex justify-between text-xs text-muted-foreground"><span>Delivery to {zoneName}</span><span>{estimatedDays}</span></div>}
-                    <div className="flex justify-between font-semibold text-lg pt-3 border-t border-border"><span>Total</span><span>{formatPrice(grandTotal)}</span></div>
+                    {hasStitchingSelected ? (
+                      <>
+                        <div className="flex justify-between font-semibold text-base pt-3 border-t border-border text-amber-600">
+                          <span>Pay Now via Bank Transfer</span>
+                          <span>{formatPrice(upfrontAmount)}</span>
+                        </div>
+                        <div className="flex justify-between font-semibold text-base text-muted-foreground">
+                          <span>Due on Delivery</span>
+                          <span>{formatPrice(dueOnDelivery)}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex justify-between font-semibold text-lg pt-3 border-t border-border">
+                        <span>Total</span>
+                        <span>{formatPrice(grandTotal)}</span>
+                      </div>
+                    )}
                   </div>
 
                   {submitError && <p className="text-sm text-red-500 mt-2">{submitError}</p>}
 
                   <Button type="submit" size="lg" className="w-full mt-4" disabled={isSubmitting || selectedItems.length === 0}>
-                    {isSubmitting ? <span className="flex items-center gap-2"><span className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" /> Processing...</span> : `Place Order - ${formatPrice(grandTotal)}`}
+                    {isSubmitting ? (
+                      <span className="flex items-center gap-2"><span className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" /> Processing...</span>
+                    ) : hasStitchingSelected ? (
+                      `Pay Now - ${formatPrice(upfrontAmount)}`
+                    ) : (
+                      `Place Order - ${formatPrice(grandTotal)}`
+                    )}
                   </Button>
                   <p className="text-xs text-muted-foreground text-center mt-4 flex items-center justify-center gap-1"><Lock className="h-3 w-3" /> Your payment information is secure</p>
                 </div>

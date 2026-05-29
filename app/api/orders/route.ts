@@ -34,6 +34,12 @@ const createOrderSchema = z.object({
   notes: z.string().optional(),
   couponCode: z.string().optional(),
   whatsappConsent: z.boolean().optional(),
+  stitchingFee: z.number().optional(),
+  stitchingItems: z.array(z.object({
+    productId: z.string(),
+    fabricType: z.string(),
+    stitchingPrice: z.number(),
+  })).optional(),
 });
 
 export async function POST(req: Request) {
@@ -48,7 +54,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { items, shippingAddress, paymentMethod, notes, couponCode, whatsappConsent } = result.data;
+    const { items, shippingAddress, paymentMethod, notes, couponCode, whatsappConsent, stitchingFee, stitchingItems } = result.data;
 
     // Validate each product exists, price matches, and stock is sufficient
     for (const item of items) {
@@ -156,6 +162,8 @@ export async function POST(req: Request) {
       grandTotal,
       discountAmount,
       couponCode: appliedDiscountCode, // C8: atomic increment inside createOrder transaction
+      stitchingFee: stitchingFee ?? 0,
+      stitchingItems: stitchingItems ?? [],
     }, isManualPayment);
 
     // Fire-and-forget order confirmation — orchestrator handles fallback routing

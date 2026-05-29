@@ -339,6 +339,8 @@ export interface CreateOrderInput {
   discountAmount?: number;
   couponCode?: string;
   grandTotal: number;
+  stitchingFee?: number;
+  stitchingItems?: Array<{ productId: string; fabricType: string; stitchingPrice: number }>;
 }
 
 function generateOrderNumber(): string {
@@ -405,6 +407,8 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
         grandTotal: data.grandTotal,
         notes: data.notes || null,
         shippingAddress: data.shippingAddress as any,
+        stitchingFee: data.stitchingFee ?? 0,
+        stitchingSnapshots: data.stitchingItems ? JSON.parse(JSON.stringify(data.stitchingItems)) : null,
         items: {
           create: data.items.map((item) => ({
             productId: item.productId,

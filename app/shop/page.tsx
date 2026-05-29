@@ -78,6 +78,10 @@ function ShopContent() {
     }
   }, [buildQueryString]);
 
+  // Helper: strip all non-alphanumeric chars for slug-to-name matching
+  // e.g. "wash-wear" → "washwear", "Wash & Wear" → "washwear"
+  const normalizeSlug = useCallback((s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, ''), []);
+
   // Fetch categories, colors, and seasons on mount
   useEffect(() => {
     async function fetchMeta() {
@@ -93,6 +97,19 @@ function ShopContent() {
         setCategories(categoriesData);
         setColors(Array.isArray(colorsData) ? colorsData : []);
         setSeasons(Array.isArray(seasonsData) ? seasonsData : []);
+
+        // Resolve URL category slug (e.g. "cotton", "wash-wear") to real Prisma ID
+        if (categoryParam && Array.isArray(categoriesData) && categoriesData.length > 0) {
+          const normalizedParam = normalizeSlug(categoryParam);
+          const matched = categoriesData.find(
+            (cat: any) =>
+              cat.id === categoryParam || // already a real ID
+              normalizeSlug(cat.name) === normalizedParam // slug matches category name
+          );
+          if (matched) {
+            setSelectedCategories([matched.id]);
+          }
+        }
       } catch (e) {
         console.error("Failed to fetch meta:", e);
       }

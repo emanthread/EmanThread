@@ -136,6 +136,9 @@ model Order {
   grandTotal       Decimal
   notes            String?
   shippingAddress  Json
+  stitchingFee     Decimal                  @default(0)
+  stitchingPaid    Boolean                  @default(false)
+  stitchingSnapshots Json?
   createdAt        DateTime                 @default(now())
   updatedAt        DateTime                 @updatedAt
   manualPayment    ManualPaymentSubmission?
@@ -220,6 +223,13 @@ model Discount {
   @@index([isActive])
   @@index([startDate])
   @@index([endDate])
+}
+
+model StitchingPrice {
+  id         String   @id @default(cuid())
+  fabricType String   @unique
+  price      Decimal
+  updatedAt  DateTime @updatedAt
 }
 
 model StoreConfig {

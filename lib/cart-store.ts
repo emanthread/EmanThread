@@ -7,12 +7,15 @@ import type { Product } from "./data";
 export interface CartItem {
   product: Product;
   quantity: number;
+  stitchingProfileId?: string | null;
+  stitchingPrice?: number | null;
+  stitchingProfileName?: string | null;
 }
 
 interface CartState {
   items: CartItem[];
   isOpen: boolean;
-  addItem: (product: Product, quantity?: number) => void;
+  addItem: (product: Product, quantity?: number, stitchingOptions?: { price: number; profileId: string; profileName: string }) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -21,6 +24,8 @@ interface CartState {
   toggleCart: () => void;
   getTotalItems: () => number;
   getTotalPrice: () => number;
+  getStitchingTotal: () => number;
+  hasStitching: () => boolean;
 }
 
 export const useCartStore = create<CartState>()(
@@ -29,7 +34,7 @@ export const useCartStore = create<CartState>()(
       items: [],
       isOpen: false,
 
-      addItem: (product, quantity = 1) => {
+      addItem: (product, quantity = 1, stitchingOptions?) => {
         set((state) => {
           const existingItem = state.items.find(
             (item) => item.product.id === product.id
@@ -39,7 +44,13 @@ export const useCartStore = create<CartState>()(
             return {
               items: state.items.map((item) =>
                 item.product.id === product.id
-                  ? { ...item, quantity: item.quantity + quantity }
+                  ? {
+                      ...item,
+                      quantity: item.quantity + quantity,
+                      stitchingProfileId: stitchingOptions?.profileId ?? item.stitchingProfileId,
+                      stitchingPrice: stitchingOptions?.price ?? item.stitchingPrice,
+                      stitchingProfileName: stitchingOptions?.profileName ?? item.stitchingProfileName,
+                    }
                   : item
               ),
               isOpen: true,
@@ -47,7 +58,16 @@ export const useCartStore = create<CartState>()(
           }
 
           return {
-            items: [...state.items, { product, quantity }],
+            items: [
+              ...state.items,
+              {
+                product,
+                quantity,
+                stitchingProfileId: stitchingOptions?.profileId ?? null,
+                stitchingPrice: stitchingOptions?.price ?? null,
+                stitchingProfileName: stitchingOptions?.profileName ?? null,
+              },
+            ],
             isOpen: true,
           };
         });
@@ -97,6 +117,17 @@ export const useCartStore = create<CartState>()(
           (total, item) => total + item.product.price * item.quantity,
           0
         );
+      },
+
+      getStitchingTotal: () => {
+        return get().items.reduce(
+          (total, item) => total + (item.stitchingPrice ?? 0) * item.quantity,
+          0
+        );
+      },
+
+      hasStitching: () => {
+        return get().items.some((item) => item.stitchingPrice != null && item.stitchingPrice > 0);
       },
     }),
     {

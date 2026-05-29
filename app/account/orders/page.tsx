@@ -204,6 +204,7 @@ export default function OrdersPage() {
     if (activeTab === "all") return true;
     if (activeTab === "active") return ["pending", "processing", "shipped"].includes(order.status);
     if (activeTab === "completed") return order.status === "delivered";
+    if (activeTab === "returns") return false;
     return true;
   });
 
@@ -234,10 +235,49 @@ export default function OrdersPage() {
               <TabsTrigger value="returns">Returns</TabsTrigger>
             </TabsList>
           </Tabs>
-
           {/* Orders List */}
           <div className="space-y-4">
-            {filteredOrders.length === 0 ? (
+            {activeTab === "returns" ? (
+              returnRequests.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <RefreshCcw className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-lg font-medium mb-2">No return requests found</p>
+                    <p className="text-muted-foreground mb-6">
+                      You haven&apos;t submitted any return or exchange requests.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                returnRequests.map((req) => (
+                  <Card key={req.id} className="overflow-hidden">
+                    <CardHeader className="bg-muted/50 py-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <CardTitle className="text-base font-medium">
+                            Return Request for {req.orderNumber || req.order?.orderNumber}
+                          </CardTitle>
+                          <p className="text-sm text-muted-foreground">
+                            Requested on {new Date(req.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <Badge variant="secondary" className="capitalize">
+                          {req.status?.toLowerCase() || "Pending"}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="py-4">
+                      <div className="space-y-2 text-sm">
+                        <p><strong>Type:</strong> {req.type}</p>
+                        <p><strong>Reason:</strong> {req.reason}</p>
+                        {req.notes && <p><strong>Notes:</strong> {req.notes}</p>}
+                        {req.refundAmount && <p><strong>Refund Amount:</strong> {formatPrice(req.refundAmount)}</p>}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )
+            ) : filteredOrders.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center">
                   <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -252,7 +292,7 @@ export default function OrdersPage() {
               </Card>
             ) : (
               filteredOrders.map((order) => {
-                const StatusIcon = statusConfig[order.status].icon;
+                const StatusIcon = statusConfig[order.status]?.icon || Package;
                 return (
                   <Card key={order.id} className="overflow-hidden">
                     <CardHeader className="bg-muted/50 py-4">

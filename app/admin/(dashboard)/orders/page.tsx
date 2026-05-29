@@ -194,19 +194,57 @@ export default function AdminOrdersPage() {
   };
 
   const handleExportOrders = () => {
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      ["Order ID,Customer Name,Email,Total,Status,Date"]
-        .concat(
-          filteredOrders.map(
-            (o) =>
-              `${o.orderNumber},"${o.customerName}","${o.customerEmail}",${o.total},${o.status},${new Date(o.createdAt).toLocaleDateString()}`
-          )
-        )
-        .join("\n");
-    const encodedUri = encodeURI(csvContent);
+    const escapeCsv = (value: any) => {
+      if (value === null || value === undefined) return '""';
+      const stringValue = String(value);
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    };
+
+    const headers = [
+      "Order ID",
+      "Customer Name",
+      "Email",
+      "Phone Number",
+      "Delivery Address",
+      "City",
+      "State/Province",
+      "Postal Code",
+      "Country",
+      "Delivery Instructions",
+      "Payment Method",
+      "Payment Status",
+      "Delivery Status",
+      "Shipping Cost",
+      "Total Amount",
+      "Order Date"
+    ].join(",");
+
+    const csvRows = filteredOrders.map((o) => {
+      return [
+        escapeCsv(o.orderNumber),
+        escapeCsv(o.customerName),
+        escapeCsv(o.customerEmail),
+        escapeCsv(o.customerPhone),
+        escapeCsv(o.shippingAddress?.address),
+        escapeCsv(o.shippingAddress?.city),
+        escapeCsv(o.shippingAddress?.province),
+        escapeCsv(o.shippingAddress?.postalCode),
+        escapeCsv("Pakistan"),
+        escapeCsv(o.notes),
+        escapeCsv(paymentMethodLabels[o.paymentMethod as keyof typeof paymentMethodLabels] || o.paymentMethod),
+        escapeCsv(o.paymentStatus),
+        escapeCsv(o.status),
+        escapeCsv(o.shippingCost),
+        escapeCsv(o.total),
+        escapeCsv(new Date(o.createdAt).toLocaleDateString())
+      ].join(",");
+    });
+
+    const csvContent = [headers, ...csvRows].join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
     link.setAttribute("download", "orders_export.csv");
     document.body.appendChild(link);
     link.click();
