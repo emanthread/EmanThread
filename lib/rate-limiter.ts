@@ -106,9 +106,14 @@ export const RateLimits = {
     maxRequests: parseInt(process.env.API_RATE_LIMIT_PAYMENT || "20", 10),
     keyPrefix: "payment",
   }),
+  chat: (): RateLimitConfig => ({
+    windowMs: 60_000,
+    maxRequests: parseInt(process.env.API_RATE_LIMIT_CHAT || "20", 10),
+    keyPrefix: "chat",
+  }),
 };
 
 // Convenience helper
-export function getRateLimitFor(type: "public" | "auth" | "admin" | "payment"): RateLimitConfig {
+export function getRateLimitFor(type: "public" | "auth" | "admin" | "payment" | "chat"): RateLimitConfig {
   return RateLimits[type]();
 }

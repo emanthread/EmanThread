@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { auth } from '@/auth'
 import { CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT_URDU } from '@/lib/chat-system-prompt'
 import { getDBContextForMessage } from '@/lib/chat-db-search'
+import { checkRateLimit } from '@/lib/rate-limiter'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
     return new Response(null, {
       status: 200,
       headers: {
-        'Access-Control-Allow-Origin': process.env.NEXT_PUBLIC_SITE_URL || 'https://emanthread.com', // FIXED: M7
+        'Access-Control-Allow-Origin': process.env.NEXT_PUBLIC_SITE_URL || 'https://emanthread.com',
         'Access-Control-Allow-Methods': 'POST',
         'Access-Control-Allow-Headers': 'Content-Type',
       },
@@ -47,6 +48,21 @@ export async function POST(request: Request) {
   if (!process.env.DEEPSEEK_API_KEY) {
     return NextResponse.json(
       { reply: "Chat is temporarily unavailable. Please contact us on WhatsApp." },
+      { status: 200 }
+    )
+  }
+
+  // ── Rate limiting ──────────────────────────────────────────────
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'anonymous'
+  const rateLimitResult = checkRateLimit(`chat:${ip}`, {
+    windowMs: 60_000,
+    maxRequests: parseInt(process.env.API_RATE_LIMIT_CHAT || '20', 10),
+    keyPrefix: 'chat',
+  })
+
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      { reply: "You're sending messages too quickly. Please wait a moment before sending another message." },
       { status: 200 }
     )
   }
@@ -63,6 +79,7 @@ export async function POST(request: Request) {
     const latestMessage = messages[messages.length - 1]?.content ?? ''
 
     // Option 1: Search DB for relevant context (RAG)
+    // Now handles: products, orders, shipping, payment, return, config
     const dbContext = await getDBContextForMessage(latestMessage, userId)
 
     // Pick system prompt based on chosen language
@@ -78,7 +95,7 @@ export async function POST(request: Request) {
     const response = await Promise.race([
       client.chat.completions.create({
         model: 'deepseek-chat',
-        max_tokens: 500,
+        max_tokens: 1000,
         messages: [
           { role: 'system', content: systemPrompt },
           ...messages.map((m) => ({ role: m.role, content: m.content })),
