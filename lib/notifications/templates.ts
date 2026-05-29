@@ -58,7 +58,7 @@ export const EmailTemplates: Record<NotificationTemplate, EmailTemplateDef> = {
   <p><strong>Payment Method:</strong> ${data.paymentMethod}</p>
 </div>
 <p>Thank you for choosing Eman Thread!</p>
-<a href="${brandUrl}/account/orders" class="btn">View Order</a>`
+<a href="${data.orderId ? `${brandUrl}/order-status/${data.orderId}` : `${brandUrl}/account/orders`}" class="btn">View Order</a>`
       ),
   },
   order_confirmation: {
@@ -75,7 +75,7 @@ export const EmailTemplates: Record<NotificationTemplate, EmailTemplateDef> = {
   <p><strong>Payment Method:</strong> ${data.paymentMethod}</p>
 </div>
 <p>You'll receive another update when your order ships.</p>
-<a href="${brandUrl}/account/orders" class="btn">View Order</a>`
+<a href="${data.orderId ? `${brandUrl}/order-status/${data.orderId}` : `${brandUrl}/account/orders`}" class="btn">View Order</a>`
       ),
   },
   payment_success: {
@@ -92,7 +92,7 @@ export const EmailTemplates: Record<NotificationTemplate, EmailTemplateDef> = {
   <p><strong>Transaction ID:</strong> ${data.transactionRef || "N/A"}</p>
 </div>
 <p>Your order is now being processed.</p>
-<a href="${brandUrl}/account/orders" class="btn">View Order</a>`
+<a href="${data.orderId ? `${brandUrl}/order-status/${data.orderId}` : `${brandUrl}/account/orders`}" class="btn">View Order</a>`
       ),
   },
   order_shipped: {

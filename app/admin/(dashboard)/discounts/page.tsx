@@ -43,6 +43,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAdminStore, type Discount } from "@/lib/admin-store";
 import { formatPrice } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -54,11 +56,12 @@ const discountTypeLabels = {
 };
 
 export default function AdminDiscountsPage() {
-  const { discounts, addDiscount, updateDiscount, deleteDiscount, loadDiscounts } = useAdminStore();
+  const { discounts, addDiscount, updateDiscount, deleteDiscount, loadDiscounts, products, loadProducts } = useAdminStore();
 
   useEffect(() => {
     loadDiscounts();
-  }, [loadDiscounts]);
+    loadProducts();
+  }, [loadDiscounts, loadProducts]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newDiscount, setNewDiscount] = useState({
@@ -75,6 +78,9 @@ export default function AdminDiscountsPage() {
       endDate: "",
       isActive: true,
     });
+
+  const [newAppliesTo, setNewAppliesTo] = useState<"all" | "specific">("all");
+  const [editAppliesTo, setEditAppliesTo] = useState<"all" | "specific">("all");
 
   const [editDiscountPayload, setEditDiscountPayload] = useState<Discount | null>(null);
 
@@ -109,6 +115,7 @@ export default function AdminDiscountsPage() {
       minPurchase: newDiscount.minPurchase || undefined,
       maxDiscount: newDiscount.maxDiscount || undefined,
       usageLimit: newDiscount.usageLimit || undefined,
+      productIds: newAppliesTo === "all" ? [] : newDiscount.productIds,
     };
     await addDiscount(payload);
     setIsCreateDialogOpen(false);
@@ -126,6 +133,7 @@ export default function AdminDiscountsPage() {
       endDate: "",
       isActive: true,
     });
+    setNewAppliesTo("all");
   };
 
   const handleToggleActive = (discountId: string, isActive: boolean) => {
@@ -228,6 +236,58 @@ export default function AdminDiscountsPage() {
                   </div>
                 </div>
               )}
+              
+              <div className="space-y-2">
+                <Label>Applies To</Label>
+                <Select
+                  value={newAppliesTo}
+                  onValueChange={(value: "all" | "specific") => {
+                    setNewAppliesTo(value);
+                    if (value === "all") {
+                      setNewDiscount({ ...newDiscount, productIds: [] });
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Products</SelectItem>
+                    <SelectItem value="specific">Specific Products</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {newAppliesTo === "specific" && (
+                <div className="space-y-2 border rounded-md p-3">
+                  <Label>Select Products</Label>
+                  <ScrollArea className="h-40 border rounded-md p-2 bg-muted/20">
+                    {products.length === 0 ? (
+                      <p className="text-sm text-muted-foreground p-2">No products available.</p>
+                    ) : (
+                      products.map((product) => (
+                        <div key={product.id} className="flex items-center space-x-2 py-1.5">
+                          <Checkbox
+                            id={`new-prod-${product.id}`}
+                            checked={newDiscount.productIds?.includes(product.id)}
+                            onCheckedChange={(checked) => {
+                              const current = newDiscount.productIds || [];
+                              const next = checked
+                                ? [...current, product.id]
+                                : current.filter((id) => id !== product.id);
+                              setNewDiscount({ ...newDiscount, productIds: next });
+                            }}
+                          />
+                          <Label htmlFor={`new-prod-${product.id}`} className="font-normal cursor-pointer flex-1">
+                            {product.name}
+                          </Label>
+                        </div>
+                      ))
+                    )}
+                  </ScrollArea>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="value">
                   {newDiscount.type === "percentage"
@@ -459,7 +519,10 @@ export default function AdminDiscountsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setEditDiscountPayload(discount)}>
+                        <DropdownMenuItem onClick={() => {
+                          setEditDiscountPayload(discount);
+                          setEditAppliesTo(discount.productIds && discount.productIds.length > 0 ? "specific" : "all");
+                        }}>
                           <Edit className="h-4 w-4 mr-2" />
                           Edit
                         </DropdownMenuItem>
@@ -574,6 +637,58 @@ export default function AdminDiscountsPage() {
                   </div>
                 </div>
               )}
+
+              <div className="space-y-2">
+                <Label>Applies To</Label>
+                <Select
+                  value={editAppliesTo}
+                  onValueChange={(value: "all" | "specific") => {
+                    setEditAppliesTo(value);
+                    if (value === "all") {
+                      setEditDiscountPayload({ ...editDiscountPayload, productIds: [] });
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Products</SelectItem>
+                    <SelectItem value="specific">Specific Products</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {editAppliesTo === "specific" && (
+                <div className="space-y-2 border rounded-md p-3">
+                  <Label>Select Products</Label>
+                  <ScrollArea className="h-40 border rounded-md p-2 bg-muted/20">
+                    {products.length === 0 ? (
+                      <p className="text-sm text-muted-foreground p-2">No products available.</p>
+                    ) : (
+                      products.map((product) => (
+                        <div key={product.id} className="flex items-center space-x-2 py-1.5">
+                          <Checkbox
+                            id={`edit-prod-${product.id}`}
+                            checked={editDiscountPayload.productIds?.includes(product.id)}
+                            onCheckedChange={(checked) => {
+                              const current = editDiscountPayload.productIds || [];
+                              const next = checked
+                                ? [...current, product.id]
+                                : current.filter((id) => id !== product.id);
+                              setEditDiscountPayload({ ...editDiscountPayload, productIds: next });
+                            }}
+                          />
+                          <Label htmlFor={`edit-prod-${product.id}`} className="font-normal cursor-pointer flex-1">
+                            {product.name}
+                          </Label>
+                        </div>
+                      ))
+                    )}
+                  </ScrollArea>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="edit-value">
                   {editDiscountPayload.type === "percentage"
@@ -656,7 +771,18 @@ export default function AdminDiscountsPage() {
             <Button variant="outline" onClick={() => setEditDiscountPayload(null)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateDiscount} disabled={!editDiscountPayload?.code}>
+            <Button onClick={() => {
+              if (editAppliesTo === "all" && editDiscountPayload) {
+                 setEditDiscountPayload({ ...editDiscountPayload, productIds: [] });
+                 // Wait a tick for state to update, or just pass payload directly to handleUpdateDiscount
+                 // It's cleaner to handle it inside handleUpdateDiscount, but since we modify state here,
+                 // let's just make sure it sends [] if it's all
+              }
+              // To handle async state safely, we can pass it directly. Actually handleUpdateDiscount uses state.
+              // So I will update state here and then rely on useEffect? No, I will modify handleUpdateDiscount.
+              // Let's just trigger the save. The state has already been updated to [] when they selected 'all'.
+              handleUpdateDiscount();
+            }} disabled={!editDiscountPayload?.code}>
               Save Changes
             </Button>
           </DialogFooter>

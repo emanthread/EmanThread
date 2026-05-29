@@ -101,13 +101,48 @@ export default function AdminLayout({
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   // Alert counts state + visibility-aware polling
-  const [alertCounts, setAlertCounts] = useState({
+  const [alertCounts, setAlertCounts] = useState<any>({
+    newOrders: 0,
+    newOrdersLatest: null,
+    pendingReturns: 0,
+    pendingReturnsLatest: null,
+    lowStockProducts: 0,
+    lowStockLatest: null,
+    backlogOrders: 0,
+    backlogOrdersLatest: null,
+    total: 0,
+  });
+
+  const [displayAlerts, setDisplayAlerts] = useState({
     newOrders: 0,
     pendingReturns: 0,
     lowStockProducts: 0,
     backlogOrders: 0,
     total: 0,
   });
+
+  const updateDisplayAlerts = useCallback((counts: any) => {
+    if (typeof window === "undefined") return;
+    const getStorage = (key: string) => localStorage.getItem(key);
+    
+    const lastNewOrders = getStorage("clear_newOrders");
+    const lastPendingReturns = getStorage("clear_pendingReturns");
+    const lastLowStock = getStorage("clear_lowStock");
+    const lastBacklog = getStorage("clear_backlogOrders");
+
+    const dNewOrders = (lastNewOrders && counts.newOrdersLatest && counts.newOrdersLatest <= lastNewOrders) ? 0 : counts.newOrders;
+    const dPendingReturns = (lastPendingReturns && counts.pendingReturnsLatest && counts.pendingReturnsLatest <= lastPendingReturns) ? 0 : counts.pendingReturns;
+    const dLowStock = (lastLowStock && counts.lowStockLatest && counts.lowStockLatest <= lastLowStock) ? 0 : counts.lowStockProducts;
+    const dBacklog = (lastBacklog && counts.backlogOrdersLatest && counts.backlogOrdersLatest <= lastBacklog) ? 0 : counts.backlogOrders;
+
+    setDisplayAlerts({
+      newOrders: dNewOrders,
+      pendingReturns: dPendingReturns,
+      lowStockProducts: dLowStock,
+      backlogOrders: dBacklog,
+      total: dNewOrders + dPendingReturns + dLowStock + dBacklog
+    });
+  }, []);
 
   const fetchAlerts = useCallback(async () => {
     // Don't poll when tab is hidden — saves mobile battery/data
@@ -117,10 +152,18 @@ export default function AdminLayout({
       if (!res.ok) return;
       const data = await res.json();
       setAlertCounts(data);
+      updateDisplayAlerts(data);
     } catch (err) {
       console.error("Failed to load alerts:", err);
     }
-  }, []);
+  }, [updateDisplayAlerts]);
+
+  const clearAlert = (storageKey: string, latestAt: string | null) => {
+    if (latestAt) {
+      localStorage.setItem(storageKey, latestAt);
+      updateDisplayAlerts(alertCounts);
+    }
+  };
 
   useEffect(() => {
     fetchAlerts();
@@ -391,8 +434,7 @@ export default function AdminLayout({
           {/* Alert Bell */}
           <DropdownMenu
             onOpenChange={(open) => {
-              if (open) setAlertCounts((prev) => ({ ...prev, total: 0 }));
-              else fetchAlerts();
+              if (!open) fetchAlerts();
             }}
           >
             <DropdownMenuTrigger asChild>
@@ -400,15 +442,15 @@ export default function AdminLayout({
                 variant="ghost"
                 size="icon"
                 className="relative shrink-0"
-                aria-label={`Alerts${alertCounts.total > 0 ? `, ${alertCounts.total} unread` : ""}`}
+                aria-label={`Alerts${displayAlerts.total > 0 ? `, ${displayAlerts.total} unread` : ""}`}
               >
                 <Bell className="h-5 w-5" aria-hidden="true" />
-                {alertCounts.total > 0 && (
+                {displayAlerts.total > 0 && (
                   <span
                     className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-medium"
                     aria-hidden="true"
                   >
-                    {alertCounts.total}
+                    {displayAlerts.total}
                   </span>
                 )}
               </Button>
@@ -417,46 +459,46 @@ export default function AdminLayout({
               <DropdownMenuLabel>Admin Alerts</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild className="cursor-pointer">
-                <Link href="/admin/orders" className="flex items-center justify-between">
+                <Link href="/admin/orders" onClick={() => clearAlert("clear_newOrders", alertCounts.newOrdersLatest)} className="flex items-center justify-between">
                   <span>🛒 New orders (last 1h)</span>
-                  {alertCounts.newOrders > 0 && (
+                  {displayAlerts.newOrders > 0 && (
                     <Badge variant="destructive" className="text-[10px]">
-                      {alertCounts.newOrders}
+                      {displayAlerts.newOrders}
                     </Badge>
                   )}
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild className="cursor-pointer">
-                <Link href="/admin/returns" className="flex items-center justify-between">
+                <Link href="/admin/returns" onClick={() => clearAlert("clear_pendingReturns", alertCounts.pendingReturnsLatest)} className="flex items-center justify-between">
                   <span>↩️ Pending returns</span>
-                  {alertCounts.pendingReturns > 0 && (
+                  {displayAlerts.pendingReturns > 0 && (
                     <Badge variant="destructive" className="text-[10px]">
-                      {alertCounts.pendingReturns}
+                      {displayAlerts.pendingReturns}
                     </Badge>
                   )}
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild className="cursor-pointer">
-                <Link href="/admin/products?filter=low-stock" className="flex items-center justify-between">
+                <Link href="/admin/products?filter=low-stock" onClick={() => clearAlert("clear_lowStock", alertCounts.lowStockLatest)} className="flex items-center justify-between">
                   <span>📦 Low stock products</span>
-                  {alertCounts.lowStockProducts > 0 && (
+                  {displayAlerts.lowStockProducts > 0 && (
                     <Badge variant="destructive" className="text-[10px]">
-                      {alertCounts.lowStockProducts}
+                      {displayAlerts.lowStockProducts}
                     </Badge>
                   )}
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild className="cursor-pointer">
-                <Link href="/admin/orders?status=pending" className="flex items-center justify-between">
+                <Link href="/admin/orders?status=pending" onClick={() => clearAlert("clear_backlogOrders", alertCounts.backlogOrdersLatest)} className="flex items-center justify-between">
                   <span>⏰ Backlog orders ({">"}24h)</span>
-                  {alertCounts.backlogOrders > 0 && (
+                  {displayAlerts.backlogOrders > 0 && (
                     <Badge variant="destructive" className="text-[10px]">
-                      {alertCounts.backlogOrders}
+                      {displayAlerts.backlogOrders}
                     </Badge>
                   )}
                 </Link>
               </DropdownMenuItem>
-              {alertCounts.total === 0 && (
+              {displayAlerts.total === 0 && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem className="text-center w-full justify-center text-sm text-muted-foreground">

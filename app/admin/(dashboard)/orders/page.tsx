@@ -214,7 +214,7 @@ export default function AdminOrdersPage() {
       "Payment Method",
       "Payment Status",
       "Delivery Status",
-      "Shipping Cost",
+      "Shipping Fee",
       "Total Amount",
       "Order Date"
     ].join(",");
@@ -416,7 +416,10 @@ export default function AdminOrdersPage() {
                         )}
                       </div>
                     </td>
-                    <td className="p-4 font-medium">{formatPrice(order.total)}</td>
+                    <td className="p-4">
+                      <div className="font-medium">{formatPrice(order.total)}</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">Shipping: {formatPrice(order.shippingCost)}</div>
+                    </td>
                     <td className="p-4 hidden sm:table-cell">
                       <div>
                         <p className="text-sm">

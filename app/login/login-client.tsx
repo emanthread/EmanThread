@@ -44,7 +44,8 @@ export default function LoginClient() {
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
-    await signIn("google", { callbackUrl: "/" });
+    const callbackUrl = searchParams.get("callbackUrl");
+    await signIn("google", { callbackUrl: callbackUrl || "/" });
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -94,8 +95,8 @@ export default function LoginClient() {
         setError("Admin access is restricted. Please use the admin login page.");
         return;
       }
-      
-      router.push("/");
+      const callbackUrl = searchParams.get("callbackUrl");
+      router.push(callbackUrl || "/");
     } else {
       setError("Invalid email or password. If you recently registered, please check your inbox to verify your email first.");
     }

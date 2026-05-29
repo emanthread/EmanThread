@@ -1020,10 +1020,20 @@ export async function getAdminAlertCounts() {
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
 
-  const [newOrders, pendingReturns, lowStockProducts, backlogOrders] = await Promise.all([
-    prisma.order.count({ where: { createdAt: { gte: oneHourAgo } } }),
-    prisma.returnRequest.count({ where: { status: "PENDING" } }),
-    prisma.product.count({
+  const [newOrdersAgg, pendingReturnsAgg, lowStockAgg, backlogOrdersAgg] = await Promise.all([
+    prisma.order.aggregate({
+      _count: { id: true },
+      _max: { createdAt: true },
+      where: { createdAt: { gte: oneHourAgo } }
+    }),
+    prisma.returnRequest.aggregate({
+      _count: { id: true },
+      _max: { createdAt: true },
+      where: { status: "PENDING" }
+    }),
+    prisma.product.aggregate({
+      _count: { id: true },
+      _max: { updatedAt: true },
       where: {
         AND: [
           { inStock: true },
@@ -1031,7 +1041,9 @@ export async function getAdminAlertCounts() {
         ],
       },
     }),
-    prisma.order.count({
+    prisma.order.aggregate({
+      _count: { id: true },
+      _max: { createdAt: true },
       where: {
         AND: [
           { status: "PENDING" },
@@ -1041,11 +1053,20 @@ export async function getAdminAlertCounts() {
     }),
   ]);
 
+  const newOrders = newOrdersAgg._count.id;
+  const pendingReturns = pendingReturnsAgg._count.id;
+  const lowStockProducts = lowStockAgg._count.id;
+  const backlogOrders = backlogOrdersAgg._count.id;
+
   return {
     newOrders,
+    newOrdersLatest: newOrdersAgg._max.createdAt?.toISOString() || null,
     pendingReturns,
+    pendingReturnsLatest: pendingReturnsAgg._max.createdAt?.toISOString() || null,
     lowStockProducts,
+    lowStockLatest: lowStockAgg._max.updatedAt?.toISOString() || null,
     backlogOrders,
+    backlogOrdersLatest: backlogOrdersAgg._max.createdAt?.toISOString() || null,
     total: newOrders + pendingReturns + lowStockProducts + backlogOrders,
   };
 }

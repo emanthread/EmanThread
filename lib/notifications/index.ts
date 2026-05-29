@@ -130,6 +130,11 @@ export function triggerNotification(payload: NotificationPayload): void {
       const resolvedPhone = payload.phone || (!isEmailAddress ? payload.to : undefined);
       const hasPhone = Boolean(resolvedPhone?.trim());
 
+      // ── Inject orderId into data for templates ──────────────
+      if (payload.orderId && payload.data && !payload.data.orderId) {
+        payload.data.orderId = payload.orderId;
+      }
+
       // ── If caller explicitly specifies channels, honour them ──────────
       if (payload.channels && payload.channels.length > 0) {
         const results: Array<{ channel: NotificationChannel; result: SendResult }> = [];

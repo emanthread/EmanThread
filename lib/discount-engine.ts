@@ -62,19 +62,30 @@ export function applyDiscount(
     return { discountAmount: 0, freeItems: [], appliedDiscount: null };
   }
 
+  const restrictedIds = discount.productIds ?? [];
+  const qualifyingCart = restrictedIds.length > 0
+    ? cart.filter((item) => restrictedIds.includes(item.product.id))
+    : cart;
+
+  const qualifyingSubtotal = qualifyingCart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+
+  if (restrictedIds.length > 0 && qualifyingSubtotal === 0) {
+    return { discountAmount: 0, freeItems: [], appliedDiscount: null };
+  }
+
   let discountAmount = 0;
   let freeItems: EngineCartItem[] = [];
 
   switch (discount.type) {
     case "percentage": {
-      discountAmount = subtotal * (discount.value / 100);
+      discountAmount = qualifyingSubtotal * (discount.value / 100);
       if (discount.maxDiscount !== null && discount.maxDiscount !== undefined) {
         discountAmount = Math.min(discountAmount, discount.maxDiscount);
       }
       break;
     }
     case "fixed": {
-      discountAmount = Math.min(discount.value, subtotal);
+      discountAmount = Math.min(discount.value, qualifyingSubtotal);
       break;
     }
     case "buy_x_get_y": {
@@ -83,12 +94,6 @@ export function applyDiscount(
       if (buyQty <= 0 || getQty <= 0) {
         return { discountAmount: 0, freeItems: [], appliedDiscount: null };
       }
-
-      // Filter to qualifying products if productIds are specified
-      const restrictedIds = discount.productIds ?? [];
-      const qualifyingCart = restrictedIds.length > 0
-        ? cart.filter((item) => restrictedIds.includes(item.product.id))
-        : cart;
 
       // Calculate total qualifying quantity
       const totalQualifyingQty = qualifyingCart.reduce((sum, item) => sum + item.quantity, 0);

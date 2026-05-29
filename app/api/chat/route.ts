@@ -106,9 +106,11 @@ export async function POST(request: Request) {
       ),
     ])
 
-    const reply =
+    const rawReply =
       response.choices[0]?.message?.content ??
       'Sorry, I could not process that. Please try again.'
+    // Safety net: strip any remaining Markdown formatting the AI may still generate
+    const reply = rawReply.replace(/\*{1,2}/g, '')
 
     return NextResponse.json({ reply })
   } catch (error) {
