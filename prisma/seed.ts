@@ -1,23 +1,23 @@
-import { PrismaClient, FabricType, Badge } from "@prisma/client";
+import { PrismaClient, Badge } from "@prisma/client";
 import { categories, products } from "../lib/data";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-function mapFabricType(type: string): FabricType {
+function mapFabricType(type: string): string {
   switch (type) {
     case "Cotton":
-      return FabricType.COTTON;
+      return "COTTON";
     case "Wash & Wear":
-      return FabricType.WASH_AND_WEAR;
+      return "WASH_AND_WEAR";
     case "Boski":
-      return FabricType.BOSKI;
+      return "BOSKI";
     case "Wool Blend":
-      return FabricType.WOOL_BLEND;
+      return "WOOL_BLEND";
     case "Khaddar":
-      return FabricType.KHADDAR;
+      return "KHADDAR";
     default:
-      return FabricType.COTTON;
+      return "COTTON";
   }
 }
 

@@ -34,7 +34,7 @@ interface AuthState {
   isLoading: boolean;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>;
   register: (name: string, email: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
   updateProfile: (data: Partial<User>) => void;
   addAddress: (address: Omit<Address, "id">) => void;
   updateAddress: (id: string, address: Partial<Address>) => void;
@@ -172,10 +172,9 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      logout: () => {
-        import("next-auth/react").then(({ signOut }) => {
-          signOut({ redirect: false });
-        });
+      logout: async () => {
+        const { signOut } = await import("next-auth/react");
+        await signOut({ redirect: false });
         set({ user: null, isAuthenticated: false });
       },
 

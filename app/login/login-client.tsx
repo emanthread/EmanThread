@@ -90,7 +90,7 @@ export default function LoginClient() {
       
       // Prevent admin/staff users from logging in via the customer login page
       if (role && staffRoles.includes(role)) {
-        useAuthStore.getState().logout();
+        await useAuthStore.getState().logout();
         setError("Admin access is restricted. Please use the admin login page.");
         return;
       }

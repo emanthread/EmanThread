@@ -95,19 +95,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         loginOrigin: { label: "Login Origin", type: "text" },
       },
       authorize: async (credentials) => {
-        if (!credentials?.email || !credentials?.password) return null;
+        if (!credentials?.email || !credentials?.password) {
+          console.error(`[auth] Login failed: missing email or password`);
+          return null;
+        }
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email as string },
         });
 
-        if (!user) return null;
+        if (!user) {
+          console.error(`[auth] Login failed: user not found — ${credentials.email}`);
+          return null;
+        }
 
         // Google-only accounts (no passwordHash) cannot sign in with credentials
-        if (!user.passwordHash) return null;
+        if (!user.passwordHash) {
+          console.error(`[auth] Login failed: no password hash — ${credentials.email} (OAuth-only account)`);
+          return null;
+        }
 
-        // Block unverified email accounts (allow ADMIN to bypass)
-        if (!user.isVerified && user.role !== "ADMIN") {
+        // Block unverified email accounts (allow staff to bypass)
+        if (!user.isVerified && !isStaffRole(user.role)) {
+          console.error(`[auth] Login failed: email not verified — ${credentials.email}`);
           createAuditLog({
             userId: user.id,
             userEmail: user.email,
@@ -124,6 +134,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         );
 
         if (!isValid) {
+          console.error(`[auth] Login failed: wrong password — ${credentials.email}`);
           createAuditLog({
             userId: user.id,
             userEmail: user.email,
