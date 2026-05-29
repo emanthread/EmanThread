@@ -61,6 +61,27 @@ export default function LoginClient() {
       return;
     }
 
+    // Before attempting signIn, check if this email belongs to a staff/admin account.
+    // The server silently rejects staff logins from the customer login page (loginOrigin="customer"),
+    // which results in the misleading "check your inbox" error. We check upfront so we can
+    // show a clear message directing staff users to the admin login page.
+    try {
+      const roleCheck = await fetch("/api/auth/check-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (roleCheck.ok) {
+        const { isStaff } = await roleCheck.json();
+        if (isStaff) {
+          setError("Admin access is restricted. Please use the admin login page.");
+          return;
+        }
+      }
+    } catch {
+      // If the check fails, fall through to normal login (don't block the user)
+    }
+
     const success = await login(email, password, rememberMe); // FIXED: L1
     
     if (success) {

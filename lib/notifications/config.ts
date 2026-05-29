@@ -43,6 +43,51 @@ export function assertSMSServerlessSafe(): void {
   }
 }
 
+/**
+ * SendPK Fixed SMS API template IDs (PTA-compliant).
+ * These map our internal notification templates to SendPK's approved template IDs.
+ * After SendPK approval, replace placeholder IDs with actual approved IDs.
+ */
+export const sendpkTemplateIds: Record<string, string> = {
+  order_confirmation: "10434",
+  order_processing: "10435",
+  payment_success: "10436",
+  order_shipped: "10437",
+  order_delivered: "10438",
+  order_cancelled: "10439",
+  return_request_submitted: "10440",
+  return_request_approved: "10441",
+  return_request_rejected: "10442",
+  return_request_completed: "10443",
+  low_stock_alert: "",
+};
+
+/**
+ * Mapping from code data keys to template variable names.
+ * Some templates use different variable names than what the code sends.
+ */
+export const sendpkVariableMap: Record<string, Record<string, string>> = {
+  order_cancelled: { cancellationReason: "reason" },
+  return_request_rejected: { rejectionReason: "reason" },
+};
+
+/**
+ * Which template variables each template expects.
+ * Used to strip out extra keys the code sends but the template doesn't need.
+ */
+export const sendpkTemplateFields: Record<string, string[]> = {
+  order_confirmation: ["orderNumber", "total"],
+  order_processing: ["orderNumber"],
+  payment_success: ["orderNumber", "total", "transactionRef"],
+  order_shipped: ["orderNumber", "trackingNumber"],
+  order_delivered: ["orderNumber"],
+  order_cancelled: ["orderNumber", "reason"],
+  return_request_submitted: ["orderNumber", "requestType"],
+  return_request_approved: ["orderNumber", "requestId"],
+  return_request_rejected: ["orderNumber", "reason"],
+  return_request_completed: ["orderNumber", "refundAmount"],
+};
+
 export const smsConfig = {
   provider: getSMSProviderName(),
   pakistan: {
@@ -54,6 +99,8 @@ export const smsConfig = {
     username: process.env.SENDPK_USERNAME || "",
     password: process.env.SENDPK_PASSWORD || "",
     sender: process.env.SENDPK_SENDER || "EmanThread",
+    apiToken: process.env.SENDPK_API_TOKEN || "",
+    senderId: process.env.SENDPK_SENDER_ID || "",
   },
 };
 
