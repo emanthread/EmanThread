@@ -478,7 +478,10 @@ export const useAdminStore = create<AdminState>()(
           const res = await fetch(`/api/admin/products/${productId}`, {
             method: "DELETE",
           });
-          if (!res.ok) throw new Error("Failed to delete product");
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || "Failed to delete product");
+          }
           toast.success("Product deleted successfully");
           // Remove immediately from local state — calling loadProducts() would bring
           // the product back because getAdminProducts() has no inStock filter and

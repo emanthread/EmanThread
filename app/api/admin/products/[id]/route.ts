@@ -133,10 +133,19 @@ export const DELETE = withLoggedAdminHandler(async (
       select: { name: true, sku: true },
     });
 
-    await prisma.product.update({
-      where: { id },
-      data: { inStock: false },
-    });
+    try {
+      await prisma.product.delete({
+        where: { id },
+      });
+    } catch (e: any) {
+      if (e.code === "P2003") {
+        return NextResponse.json(
+          { error: "Cannot delete product because it has existing orders. Please edit the product and mark it as 'Out of Stock' instead." },
+          { status: 400 }
+        );
+      }
+      throw e;
+    }
 
     // Audit log
     const auditSession = await auth();
@@ -148,7 +157,7 @@ export const DELETE = withLoggedAdminHandler(async (
         entity: "Product",
         entityId: id,
         oldValue: product ? { name: product.name, sku: product.sku } : undefined,
-        newValue: { inStock: false },
+        newValue: { deleted: true },
       });
     }
 
