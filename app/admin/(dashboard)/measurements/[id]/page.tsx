@@ -142,7 +142,7 @@ export default function AdminTailorMeasurementDetailPage() {
                 <User className="h-4 w-4" /> Customer
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm">
+            <CardContent className="space-y-3 text-sm">
               <p className="font-semibold">{measurement.user.name}</p>
               <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
                 <Mail className="h-3 w-3" />
@@ -159,7 +159,7 @@ export default function AdminTailorMeasurementDetailPage() {
                 Requested:{" "}
                 {new Date(measurement.requestedAt).toLocaleDateString()}
               </div>
-              <div className="pt-1">
+              <div>
                 <Badge
                   className={
                     measurement.status === "complete"
@@ -170,22 +170,20 @@ export default function AdminTailorMeasurementDetailPage() {
                   {measurement.status}
                 </Badge>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Print slip */}
-          <Card>
-            <CardContent className="pt-4">
-              <MeasurementPrintSlip
-                data={formData}
-                customer={customer}
-                measurementId={id}
-              />
+              {/* Print Slip button — no preview, just the action */}
+              <div className="pt-1 border-t">
+                <MeasurementPrintSlip
+                  data={formData}
+                  customer={customer}
+                  measurementId={id}
+                />
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Editor */}
+        {/* Editor — same component as customer view, just editable */}
         <div className="lg:col-span-3">
           <Card>
             <CardContent className="pt-6">

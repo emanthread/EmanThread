@@ -351,7 +351,7 @@ function ProfileMeasurementsTab() {
   };
 
   const handlePrintProfile = (p: AdminProfile) => {
-    const win = window.open("about:blank", "_blank", "width=850,height=1100");
+    const win = window.open("about:blank", "_blank", "width=500,height=700");
     if (!win) return;
 
     const fd = categorizeProfileFields(p);
@@ -364,11 +364,11 @@ function ProfileMeasurementsTab() {
       section.fields.forEach(([key, label]) => {
         const v = p.measurements[key];
         if (v && String(v).trim() !== "") {
-          rows += `<tr><td style="padding:3px 8px; border-bottom:1px solid #e5e7eb; width:55%; font-size:12px;">${label}</td><td style="padding:3px 8px; border-bottom:1px solid #e5e7eb; font-weight:600; font-size:12px;">${String(v)}"</td></tr>`;
+          rows += `<tr><td style="padding:2px 5px; border-bottom:1px solid #e5e7eb; width:52%; font-size:10px;">${label}</td><td style="padding:2px 5px; border-bottom:1px solid #e5e7eb; font-weight:600; font-size:10px;">${String(v)}"</td></tr>`;
         }
       });
       if (rows) {
-        sectionsHtml += `<div style="margin-bottom:10px;"><h4 style="margin:0 0 4px; font-size:12px; color:#4b5563; border-bottom:1px solid #d1d5db; padding-bottom:2px;">${section.name}</h4><table style="width:100%; border-collapse:collapse;">${rows}</table></div>`;
+        sectionsHtml += `<div style="margin-bottom:6px;"><h4 style="margin:0 0 3px; font-size:10px; color:#1a1a1a; border-bottom:1.5px solid #1a1a1a; padding-bottom:1px;">${section.name}</h4><table style="width:100%; border-collapse:collapse;">${rows}</table></div>`;
       }
     });
     // Add extra keys not covered by predefined sections
@@ -378,15 +378,15 @@ function ProfileMeasurementsTab() {
       extraPrintKeys.forEach((key) => {
         const label = key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " ");
         const v = p.measurements[key];
-        extraRows += `<tr><td style="padding:3px 8px; border-bottom:1px solid #e5e7eb; width:55%; font-size:12px;">${label}</td><td style="padding:3px 8px; border-bottom:1px solid #e5e7eb; font-weight:600; font-size:12px;">${String(v)}"</td></tr>`;
+        extraRows += `<tr><td style="padding:2px 5px; border-bottom:1px solid #e5e7eb; width:52%; font-size:10px;">${label}</td><td style="padding:2px 5px; border-bottom:1px solid #e5e7eb; font-weight:600; font-size:10px;">${String(v)}"</td></tr>`;
       });
-      sectionsHtml += `<div style="margin-bottom:10px;"><h4 style="margin:0 0 4px; font-size:12px; color:#4b5563; border-bottom:1px solid #d1d5db; padding-bottom:2px;">Additional Measurements</h4><table style="width:100%; border-collapse:collapse;">${extraRows}</table></div>`;
+      sectionsHtml += `<div style="margin-bottom:6px;"><h4 style="margin:0 0 3px; font-size:10px; color:#1a1a1a; border-bottom:1.5px solid #1a1a1a; padding-bottom:1px;">Additional Measurements</h4><table style="width:100%; border-collapse:collapse;">${extraRows}</table></div>`;
     }
 
     let pocketsHtml = "";
     const pocketLabels: Record<string, string> = { frontpocket: "Front Pocket", sidepocket: "Side Pocket", shalwarpocket: "Shalwar Pocket" };
     Object.entries(pocketLabels).forEach(([k, lbl]) => {
-      if (prefs[k]) pocketsHtml += `<div style="font-size:11px; margin:2px 0;"><strong>${lbl}:</strong> ${prefs[k]}</div>`;
+      if (prefs[k]) pocketsHtml += `<div style="font-size:9px; margin:2px 0;"><strong>${lbl}:</strong> ${prefs[k]}</div>`;
     });
 
     win.document.write(`
@@ -395,23 +395,26 @@ function ProfileMeasurementsTab() {
         <head>
           <title>Measurement Profile - ${p.user.name}</title>
           <style>
-            body { font-family: Arial, sans-serif; font-size: 13px; color: #1a1a1a; padding: 20px; }
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { font-family: Arial, sans-serif; font-size: 10px; color: #1a1a1a; padding: 8mm; width: 105mm; min-height: 148mm; }
             table { width: 100%; border-collapse: collapse; }
-            h2 { margin: 0 0 4px; font-size: 18px; }
-            h3 { margin: 0 0 2px; font-size: 16px; }
-            @page { size: A4; margin: 12mm; }
+            h2 { margin: 0 0 4px; font-size: 14px; }
+            @page { size: A6 portrait; margin: 4mm; }
+            @media print {
+              body { padding: 0; }
+            }
           </style>
         </head>
         <body onload="window.print()" onafterprint="window.close()">
-          <table style="margin-bottom:10px; border-bottom:2px solid #000; padding-bottom:8px;"><tr>
-            <td><h2>Emaan Thread</h2><p style="margin:2px 0; font-size:12px; color:#6b7280;">Customer Measurement Profile</p></td>
-            <td style="text-align:right; font-size:11px;">${new Date().toLocaleDateString()}</td>
+          <table style="width:100%;margin-bottom:6px;border-bottom:1.5px solid #1a1a1a;padding-bottom:5px;"><tr>
+            <td><div style="font-family:Georgia,serif;font-size:14px;font-weight:700;line-height:1.2;">Emaan Thread</div><div style="font-size:9px;color:#6b7280;">Customer Profile</div></td>
+            <td style="text-align:right; font-size:9px; vertical-align:top;">${new Date().toLocaleDateString()}</td>
           </tr></table>
-          <div style="margin-bottom:8px;"><strong>${p.user.name}</strong> &mdash; ${p.user.email}</div>
-          <div style="margin-bottom:10px; font-size:12px;"><strong>Profile:</strong> ${p.profileName} <span style="color:#6b7280;">(${p.garmentType.replace(/_/g, " ")})</span></div>
+          <div style="margin-bottom:6px; font-size:10px;"><strong>${p.user.name}</strong> &mdash; ${p.user.email}</div>
+          <div style="margin-bottom:8px; font-size:9px;"><strong>Profile:</strong> ${p.profileName} <span style="color:#6b7280;">(${p.garmentType.replace(/_/g, " ")})</span></div>
           ${sectionsHtml}
-          ${pocketsHtml ? `<div style="margin-top:8px; padding:6px 8px; background:#f9fafb; border-radius:4px; font-size:11px;"><strong>Pockets:</strong><br/>${pocketsHtml}</div>` : ""}
-          ${p.notes ? `<div style="margin-top:10px; padding:8px; background:#f9fafb; border-radius:4px; font-size:11px;"><strong>Notes:</strong> ${p.notes}</div>` : ""}
+          ${pocketsHtml ? `<div style="margin-top:4px; padding:4px 6px; background:#f9fafb; border-radius:3px; font-size:9px;"><strong>Pockets:</strong><br/>${pocketsHtml}</div>` : ""}
+          ${p.notes ? `<div style="margin-top:6px; padding:6px; background:#f9fafb; border-radius:3px; font-size:9px;"><strong>Notes:</strong> ${p.notes}</div>` : ""}
         </body>
       </html>
     `);
