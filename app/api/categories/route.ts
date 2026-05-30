@@ -10,8 +10,8 @@ export const GET = withGuard(async () => {
     const categories = await getAllCategories();
     return NextResponse.json(categories, {
       headers: {
-        // Categories rarely change — cache for 1 hour at CDN
-        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200',
+        // Short cache so stale categories never linger after a deploy
+        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
       },
     });
   } catch (error) {

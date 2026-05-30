@@ -127,7 +127,10 @@ export default function AdminProductsPage() {
   useEffect(() => {
     loadProducts();
     setIsLoadingCategories(true);
-    fetch("/api/categories")
+    // Use /api/admin/categories (not /api/categories) so we always get real
+    // Category DB IDs. The public endpoint returns fabricType-grouped data
+    // for shop filtering and must never be used as a categoryId source.
+    fetch("/api/admin/categories")
       .then((r) => r.json())
       .then((data) => {
         setCategories(data || []);
@@ -213,7 +216,8 @@ export default function AdminProductsPage() {
     setIsRefreshing(true);
     try {
       await loadProducts();
-      const res = await fetch("/api/categories");
+      // Same as above — use admin endpoint for real Category DB IDs
+      const res = await fetch("/api/admin/categories");
       const data = await res.json();
       if (data) setCategories(data);
     } catch {
