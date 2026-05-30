@@ -109,30 +109,35 @@ function ShopContent() {
 
   // Sync selectedCategories when categoryParam changes from external navigation or URL
   useEffect(() => {
-    if (categoryParam && categories.length > 0) {
-      const slugs = categoryParam.split(",");
-      const matchedIds = slugs.map((slug) => {
-        const normalizedParam = normalizeSlug(slug);
-        const matched = categories.find(
-          (cat) =>
-            cat.id === slug ||
-            normalizeSlug(cat.name) === normalizedParam
-        );
-        return matched ? matched.id : slug;
-      });
-      
-      const currentSorted = [...selectedCategories].sort().join(",");
-      const matchedSorted = [...matchedIds].sort().join(",");
-      
-      if (currentSorted !== matchedSorted) {
-        setSelectedCategories(matchedIds);
+    setSelectedCategories((prev) => {
+      if (categoryParam && categories.length > 0) {
+        const slugs = categoryParam.split(",");
+        const matchedIds = slugs.map((slug) => {
+          const normalizedParam = normalizeSlug(slug);
+          const matched = categories.find(
+            (cat) =>
+              cat.id === slug ||
+              normalizeSlug(cat.name) === normalizedParam
+          );
+          return matched ? matched.id : slug;
+        });
+        
+        const currentSorted = [...prev].sort().join(",");
+        const matchedSorted = [...matchedIds].sort().join(",");
+        
+        if (currentSorted !== matchedSorted) {
+          return matchedIds;
+        }
+        return prev;
+      } else if (!categoryParam) {
+        if (prev.length > 0) {
+          return [];
+        }
+        return prev;
       }
-    } else if (!categoryParam) {
-      if (selectedCategories.length > 0) {
-        setSelectedCategories([]);
-      }
-    }
-  }, [categoryParam, categories, normalizeSlug, selectedCategories]);
+      return prev;
+    });
+  }, [categoryParam, categories, normalizeSlug]);
 
   // Fetch products whenever filters change
   useEffect(() => {
