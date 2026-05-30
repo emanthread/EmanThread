@@ -664,6 +664,7 @@ export const useAdminStore = create<AdminState>()(
           await get().loadShippingZones();
         } catch (err) {
           console.error("Add shipping zone error:", err);
+          throw err;
         }
       },
 
@@ -690,6 +691,7 @@ export const useAdminStore = create<AdminState>()(
           await get().loadShippingZones();
         } catch (err) {
           console.error("Delete shipping zone error:", err);
+          throw err;
         }
       },
 

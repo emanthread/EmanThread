@@ -1416,6 +1416,10 @@ export interface StoreConfigInput {
   address?: string;
   currency?: string;
   timezone?: string;
+  instagram_url?: string;
+  facebook_url?: string;
+  youtube_url?: string;
+  tiktok_url?: string;
   freeShippingThreshold?: number;
   standardShippingRate?: number;
   expressShippingRate?: number;
@@ -1498,6 +1502,10 @@ async function _getStoreConfig(): Promise<StoreConfigInput> {
     returnRequest: parseBool("returnRequest", true),
     metaTitle: parseStr("metaTitle", "Eman Thread | Premium Men's Unstitched Fabric"),
     metaDescription: parseStr("metaDescription", "Discover premium unstitched fabric for men."),
+    instagram_url: parseStr("instagram_url", ""),
+    facebook_url: parseStr("facebook_url", ""),
+    youtube_url: parseStr("youtube_url", ""),
+    tiktok_url: parseStr("tiktok_url", ""),
     googleAnalyticsId: parseStr("googleAnalyticsId", ""),
     facebookPixelId: parseStr("facebookPixelId", ""),
   };
@@ -1527,6 +1535,10 @@ export async function setStoreConfig(data: StoreConfigInput) {
   if (data.returnRequest !== undefined) entries.push(["returnRequest", String(data.returnRequest)]);
   if (data.metaTitle !== undefined) entries.push(["metaTitle", data.metaTitle]);
   if (data.metaDescription !== undefined) entries.push(["metaDescription", data.metaDescription]);
+  if (data.instagram_url !== undefined) entries.push(["instagram_url", data.instagram_url]);
+  if (data.facebook_url !== undefined) entries.push(["facebook_url", data.facebook_url]);
+  if (data.youtube_url !== undefined) entries.push(["youtube_url", data.youtube_url]);
+  if (data.tiktok_url !== undefined) entries.push(["tiktok_url", data.tiktok_url]);
   if (data.googleAnalyticsId !== undefined) entries.push(["googleAnalyticsId", data.googleAnalyticsId]);
   if (data.facebookPixelId !== undefined) entries.push(["facebookPixelId", data.facebookPixelId]);
 
@@ -2144,6 +2156,7 @@ export async function getShippingZones() {
 
 export async function getAllShippingZones() {
   const zones = await prisma.shippingZone.findMany({
+    where: { deletedAt: null },
     orderBy: { createdAt: "asc" },
   });
   return zones.map((z) => ({
