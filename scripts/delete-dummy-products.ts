@@ -3,6 +3,14 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('ERROR: This script cannot run in production. Exiting.');
+    process.exit(1);
+  }
+
+  console.warn('WARNING: This will permanently delete products with no orders.');
+  console.warn('Targeting database:', process.env.DATABASE_URL?.split('@')[1] ?? 'unknown host');
+
   const products = await prisma.product.findMany({
     include: {
       orderItems: true
