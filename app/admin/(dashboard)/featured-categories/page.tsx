@@ -205,7 +205,11 @@ export default function FeaturedCategoriesPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/featured-categories");
+      // Use no-store and cache-busting timestamp to absolutely prevent client/router caching
+      const res = await fetch(`/api/admin/featured-categories?_t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Pragma": "no-cache" }
+      });
       if (!res.ok) throw new Error("Failed to load");
       const data = await res.json();
       if (data.categories && data.categories.length > 0) {
@@ -295,6 +299,7 @@ export default function FeaturedCategoriesPage() {
         description: "Featured categories updated successfully",
       });
       router.refresh();
+      await loadData();
     } catch (err: any) {
       console.error("Save error:", err);
       toast({
@@ -351,6 +356,19 @@ export default function FeaturedCategoriesPage() {
           />
         ))}
       </div>
+
+      {categories.length > 0 && (
+        <div className="flex justify-end mt-4">
+          <Button onClick={handleSave} disabled={saving} size="lg">
+            {saving ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-2" />
+            )}
+            Save Changes
+          </Button>
+        </div>
+      )}
 
       {categories.length > 0 && (
         <div className="text-sm text-muted-foreground bg-muted rounded-lg p-4 mt-6">
