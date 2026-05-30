@@ -1,6 +1,21 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
+import { withLoggedAdminHandler } from "@/lib/logger";
+import { auth } from "@/auth";
+
+export const dynamic = "force-dynamic";
+
+async function checkAdmin() {
+  const session = await auth();
+  if (
+    !session?.user ||
+    !["ADMIN", "SUPER_ADMIN"].includes(session.user.role ?? "")
+  ) {
+    return false;
+  }
+  return true;
+}
 
 const featuredCategorySchema = z.object({
   id: z.string(),
@@ -12,8 +27,12 @@ const featuredCategorySchema = z.object({
 
 const arraySchema = z.array(featuredCategorySchema);
 
-export async function GET() {
+export const GET = withLoggedAdminHandler(async () => {
   try {
+    if (!(await checkAdmin())) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const row = await prisma.storeConfig.findUnique({
       where: { key: "featured_categories" },
     });
@@ -32,10 +51,14 @@ export async function GET() {
     console.error("Get featured categories error:", error);
     return NextResponse.json({ error: "Failed to fetch featured categories" }, { status: 500 });
   }
-}
+});
 
-export async function PUT(req: Request) {
+export const PUT = withLoggedAdminHandler(async (req: Request) => {
   try {
+    if (!(await checkAdmin())) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const body = await req.json();
     const { categories } = body;
 
@@ -58,4 +81,4 @@ export async function PUT(req: Request) {
       { status: 500 }
     );
   }
-}
+});
