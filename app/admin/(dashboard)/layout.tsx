@@ -73,6 +73,7 @@ const navItems = [
   { href: "/admin/analytics", icon: BarChart3, label: "Analytics" },
   { href: "/admin/shipping", icon: Truck, label: "Shipping" },
   { href: "/admin/hero-slides", icon: ImageIcon, label: "Hero Slider" },
+  { href: "/admin/featured-categories", icon: ImageIcon, label: "Featured Categories" },
   { href: "/admin/fabric-types", icon: Layers, label: "Fabric Types" },
   { href: "/admin/reviews", icon: MessageSquare, label: "Reviews" },
   { href: "/admin/settings", icon: Settings, label: "Settings" },

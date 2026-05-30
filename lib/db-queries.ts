@@ -343,6 +343,38 @@ export async function getAllCategories(): Promise<Category[]> {
   }));
 }
 
+export async function getFeaturedCategories(): Promise<Category[]> {
+  const allCategories = await getAllCategories();
+  
+  try {
+    const row = await prisma.storeConfig.findUnique({
+      where: { key: "featured_categories" }
+    });
+    
+    if (row) {
+      const parsed = JSON.parse(row.value);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((fc: any) => {
+          // Find real product count if it exists in DB, otherwise use manual fallback
+          const dbMatch = allCategories.find(c => c.id.toLowerCase() === fc.id.toLowerCase() || c.name.toLowerCase() === fc.name.toLowerCase());
+          return {
+            id: fc.id || dbMatch?.id || fc.name.toLowerCase(),
+            name: fc.name,
+            description: fc.description || "",
+            image: fc.image || dbMatch?.image || "/placeholder.jpg",
+            productCount: dbMatch?.productCount || fc.productCount || 0
+          };
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Error fetching featured categories from StoreConfig:", error);
+  }
+  
+  // Fallback to the regular categories if no StoreConfig is set
+  return allCategories;
+}
+
 // ── Order helpers ────────────────────────────────────────────────
 
 export interface OrderItemInput {
