@@ -37,6 +37,7 @@ export const gentsStylingSchema = z.object({
   sidepocket: z.string().optional().default(''),
   frontpocket: z.string().optional().default(''),
   shalwarpocket: z.string().optional().default(''),
+  includeShirt: z.boolean().optional(),
 })
 
 export const ladiesMeasurementsSchema = z.object({
@@ -60,12 +61,17 @@ export const ladiesStylingSchema = z.object({
   sidepocket: z.string().optional().default(''),
   frontpocket: z.string().optional().default(''),
   shalwarpocket: z.string().optional().default(''),
+  includeShirt: z.boolean().optional(),
 })
 
+// NOTE: measurements field uses z.record(z.string(), z.string()).passthrough()
+// to preserve all garment-type-specific fields (choras, trouser_length, hip,
+// shirt_*, lehnga_l, blouse, saari_length, etc.) that the wizard collects.
+// Using a fixed union schema would silently strip these unknown keys.
 export const createMeasurementProfileSchema = z.object({
   profileName: z.string().min(1).max(100),
   garmentType: z.string().min(1).max(50),
-  measurements: z.union([gentsMeasurementsSchema, ladiesMeasurementsSchema]),
+  measurements: z.record(z.string(), z.string()).optional().default({}),
   stylingPrefs: z.union([gentsStylingSchema, ladiesStylingSchema]).optional(),
   notes: z.string().max(500).optional(),
   isDefault: z.boolean().optional().default(false),

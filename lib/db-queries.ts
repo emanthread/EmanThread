@@ -2525,7 +2525,7 @@ export async function setDefaultMeasurementProfile(id: string, userId: string) {
 }
 
 export async function getAdminMeasurementProfiles(page = 1, limit = 20, garmentType?: string, search?: string) {
-  const where: any = {};
+  const where: any = { deletedAt: null };
   if (garmentType && garmentType !== 'all') {
     where.garmentType = { startsWith: garmentType === 'gents' ? 'male_' : 'female_' };
   }

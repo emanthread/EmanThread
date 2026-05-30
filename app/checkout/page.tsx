@@ -234,6 +234,14 @@ export default function CheckoutPage() {
           }));
       }
 
+      // Include measurement profiles for stitching items (server-side attachment)
+      const itemsToAttach = selectedItems
+        .filter((item) => itemMeasurements[item.product.id] && itemMeasurements[item.product.id] !== "none")
+        .map((item) => ({ productId: item.product.id, productName: item.product.name, measurementProfileId: itemMeasurements[item.product.id] }));
+      if (itemsToAttach.length > 0) {
+        payload.measurementItems = itemsToAttach;
+      }
+
       const orderRes = await fetch("/api/orders", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -283,12 +291,6 @@ export default function CheckoutPage() {
 
       if (paymentMethod === "cod") {
         clearCart();
-        const itemsToAttach = selectedItems
-          .filter((item) => itemMeasurements[item.product.id] && itemMeasurements[item.product.id] !== "none")
-          .map((item) => ({ productId: item.product.id, productName: item.product.name, measurementProfileId: itemMeasurements[item.product.id] }));
-        if (itemsToAttach.length > 0) {
-          fetch(`/api/orders/${orderData.id}/attach-measurements`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: itemsToAttach }) }).catch(() => {});
-        }
         setIsSubmitting(false);
         router.push(`/confirm-order?orderId=${orderData.id}&email=${encodeURIComponent(formData.email)}`);
         return;

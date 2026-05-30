@@ -40,26 +40,20 @@ export async function uploadToCloudinary(
         resource_type: resourceType,
         ...(resourceType === "image" && !options.skipTransformations
           ? {
-              transformation: [
-                // Auto quality & format for optimal delivery
-                { quality: "auto", fetch_format: "auto" },
-                // Ensure 2:3 aspect ratio with fill crop — matches the product page display
-                { aspect_ratio: "2:3", crop: "fill", gravity: "auto" },
-                // Scale to a sensible max width (retina-ready for ~600px containers)
-                { width: 1200, crop: "limit" },
-                // Auto-enhance colors for fabric accuracy
-                { effect: "auto_color" },
-                // Slight sharpening for fabric texture detail
-                { effect: "sharpen" },
+                transformation: [
+                // Auto quality & format for optimal delivery (minimum ~80% quality)
+                { quality: "auto:good", fetch_format: "auto" },
+                // Cap max width to 2500px – retains detail for texture zoom while limiting file size
+                { width: 2500, crop: "limit" },
               ],
             }
           : resourceType === "image" && options.skipTransformations
           ? {
               transformation: [
-                // Auto quality & format but NO cropping or color changes
-                { quality: "auto", fetch_format: "auto" },
-                // Cap max width to avoid huge files but don't crop
-                { width: 1920, crop: "limit" },
+                // Auto quality & format but NO cropping or color changes (minimum ~80% quality)
+                { quality: "auto:good", fetch_format: "auto" },
+                // Cap max width to 2500px to avoid huge files but don't crop
+                { width: 2500, crop: "limit" },
               ],
             }
           : {}),

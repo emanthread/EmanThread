@@ -19,10 +19,10 @@ export async function GET() {
     pendingRequests,
     completeRequests,
   ] = await Promise.all([
-    prisma.measurementProfile.count(),
-    prisma.measurement.count(),
-    prisma.measurement.count({ where: { status: "pending" } }),
-    prisma.measurement.count({ where: { status: "complete" } }),
+    prisma.measurementProfile.count({ where: { deletedAt: null } }),
+    prisma.measurement.count({ where: { deletedAt: null } }),
+    prisma.measurement.count({ where: { status: "pending", deletedAt: null } }),
+    prisma.measurement.count({ where: { status: "complete", deletedAt: null } }),
   ]);
 
   return NextResponse.json({

@@ -1,16 +1,32 @@
-import { NextResponse } from 'next/server'
-import { auth } from '@/auth'
-import { getOrderMeasurements } from '@/lib/db-queries'
-import { withLoggedAdminHandler } from '@/lib/logger'
+import { NextRequest, NextResponse } from "next/server"
+import { auth } from "@/auth"
+import { prisma } from "@/lib/db"
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic"
 
-export const GET = withLoggedAdminHandler(async (req: Request, { params }: { params: Promise<{ id: string }> }) => {
+const isAdmin = (role?: string | null) =>
+  ["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(role ?? "")
+
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const session = await auth()
-  if (!session?.user || !['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'SUPPORT'].includes(session.user.role ?? '')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!session?.user || !isAdmin(session.user.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
-  const { id } = await params
-  const measurements = await getOrderMeasurements(id)
-  return NextResponse.json(measurements)
-})
+
+  const { id: orderId } = await params
+
+  const measurements = await prisma.orderItemMeasurement.findMany({
+    where: { orderId },
+    include: {
+      measurementProfile: {
+        select: { profileName: true, garmentType: true },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  })
+
+  return NextResponse.json({ measurements })
+}

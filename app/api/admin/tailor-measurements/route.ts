@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   const gender = searchParams.get("gender") as string | null;
   const search = searchParams.get("search") as string | null;
 
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { deletedAt: null };
   if (status) where.status = status;
   if (gender) where.gender = gender;
   if (search) {

@@ -140,16 +140,16 @@ const GARMENT_FIELDS: Record<string, CategoryFieldDef> = {
   },
 };
 
-function determineFields(garmentType: string): CategoryFieldDef | null {
+function determineFields(garmentType: string): CategoryFieldDef {
   const def = GARMENT_FIELDS[garmentType];
   if (def) return def;
-  if (garmentType.startsWith("male_")) {
+  if (garmentType === "gents" || garmentType.startsWith("male_")) {
     return { sections: [{ name: "Measurements", fields: ALL_GENTS_FIELDS }] };
   }
-  if (garmentType === "gents" || garmentType === "ladies" || garmentType.startsWith("female_")) {
+  if (garmentType === "ladies" || garmentType.startsWith("female_")) {
     return { sections: [{ name: "Measurements", fields: ALL_LADIES_FIELDS }] };
   }
-  return null;
+  return { sections: [{ name: "Measurements", fields: ALL_GENTS_FIELDS }] };
 }
 
 function categorizeProfileFields(profile: AdminProfile): CategoryFieldDef {
@@ -210,41 +210,88 @@ function EditProfileDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-5 py-2">
-          {fieldDef.sections.map((section) => (
-            <div key={section.name}>
-              <h4 className="text-sm font-semibold border-b pb-1 mb-2 text-muted-foreground uppercase tracking-wide">{section.name}</h4>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                {section.fields.map(([key, label]) => {
-                  const parts = (measurements[key] || "").split(" ");
-                  const whole = parts[0] || "";
-                  const frac = parts[1] || "";
-                  return (
-                    <div key={key} className="flex items-center gap-2">
-                      <Label className="text-xs w-28 shrink-0 truncate">{label}</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={whole}
-                        onChange={(e) => setM(key, e.target.value, frac)}
-                        className="w-16 h-7 text-xs"
-                        placeholder="0"
-                      />
-                      <select
-                        value={frac || "__none__"}
-                        onChange={(e) =>
-                          setM(key, whole, e.target.value === "__none__" ? "" : e.target.value)
-                        }
-                        className="w-16 h-7 text-xs border border-border rounded-md px-1 bg-background"
-                      >
-                        <option value="__none__">—</option>
-                        {FRACTIONS.map((f) => <option key={f} value={f}>{f}</option>)}
-                      </select>
-                    </div>
-                  );
-                })}
+          {/* Predefined sections from garment type mapping */}
+          {fieldDef.sections.map((section) => {
+            const filledFields = section.fields.filter(([key]) => measurements[key] !== undefined);
+            if (filledFields.length === 0) return null;
+            return (
+              <div key={section.name}>
+                <h4 className="text-sm font-semibold border-b pb-1 mb-2 text-muted-foreground uppercase tracking-wide">{section.name}</h4>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                  {section.fields.map(([key, label]) => {
+                    const parts = (measurements[key] || "").split(" ");
+                    const whole = parts[0] || "";
+                    const frac = parts[1] || "";
+                    return (
+                      <div key={key} className="flex items-center gap-2">
+                        <Label className="text-xs w-28 shrink-0 truncate">{label}</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={whole}
+                          onChange={(e) => setM(key, e.target.value, frac)}
+                          className="w-16 h-7 text-xs"
+                          placeholder="0"
+                        />
+                        <select
+                          value={frac || "__none__"}
+                          onChange={(e) =>
+                            setM(key, whole, e.target.value === "__none__" ? "" : e.target.value)
+                          }
+                          className="w-16 h-7 text-xs border border-border rounded-md px-1 bg-background"
+                        >
+                          <option value="__none__">—</option>
+                          {FRACTIONS.map((f) => <option key={f} value={f}>{f}</option>)}
+                        </select>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
+          {/* Dynamic catch-all for any keys not covered by predefined sections */}
+          {(() => {
+            const definedKeys = new Set(fieldDef.sections.flatMap(s => s.fields.map(([k]) => k)));
+            const extraKeys = Object.keys(measurements).filter(k => !definedKeys.has(k) && measurements[k].trim() !== "");
+            if (extraKeys.length === 0) return null;
+            return (
+              <div>
+                <h4 className="text-sm font-semibold border-b pb-1 mb-2 text-muted-foreground uppercase tracking-wide">Additional Measurements</h4>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                  {extraKeys.map((key) => {
+                    const label = key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " ");
+                    const parts = (measurements[key] || "").split(" ");
+                    const whole = parts[0] || "";
+                    const frac = parts[1] || "";
+                    return (
+                      <div key={key} className="flex items-center gap-2">
+                        <Label className="text-xs w-28 shrink-0 truncate">{label}</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={whole}
+                          onChange={(e) => setM(key, e.target.value, frac)}
+                          className="w-16 h-7 text-xs"
+                          placeholder="0"
+                        />
+                        <select
+                          value={frac || "__none__"}
+                          onChange={(e) =>
+                            setM(key, whole, e.target.value === "__none__" ? "" : e.target.value)
+                          }
+                          className="w-16 h-7 text-xs border border-border rounded-md px-1 bg-background"
+                        >
+                          <option value="__none__">—</option>
+                          {FRACTIONS.map((f) => <option key={f} value={f}>{f}</option>)}
+                        </select>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
         <div className="space-y-1">
           <Label>Notes</Label>
@@ -311,6 +358,7 @@ function ProfileMeasurementsTab() {
     const prefs = (p.stylingPrefs as Record<string, unknown>) || {};
 
     let sectionsHtml = "";
+    const definedPrintKeys = new Set(fd.sections.flatMap(s => s.fields.map(([k]) => k)));
     fd.sections.forEach((section) => {
       let rows = "";
       section.fields.forEach(([key, label]) => {
@@ -323,6 +371,17 @@ function ProfileMeasurementsTab() {
         sectionsHtml += `<div style="margin-bottom:10px;"><h4 style="margin:0 0 4px; font-size:12px; color:#4b5563; border-bottom:1px solid #d1d5db; padding-bottom:2px;">${section.name}</h4><table style="width:100%; border-collapse:collapse;">${rows}</table></div>`;
       }
     });
+    // Add extra keys not covered by predefined sections
+    const extraPrintKeys = Object.keys(p.measurements).filter(k => !definedPrintKeys.has(k) && String(p.measurements[k]).trim() !== "");
+    if (extraPrintKeys.length > 0) {
+      let extraRows = "";
+      extraPrintKeys.forEach((key) => {
+        const label = key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " ");
+        const v = p.measurements[key];
+        extraRows += `<tr><td style="padding:3px 8px; border-bottom:1px solid #e5e7eb; width:55%; font-size:12px;">${label}</td><td style="padding:3px 8px; border-bottom:1px solid #e5e7eb; font-weight:600; font-size:12px;">${String(v)}"</td></tr>`;
+      });
+      sectionsHtml += `<div style="margin-bottom:10px;"><h4 style="margin:0 0 4px; font-size:12px; color:#4b5563; border-bottom:1px solid #d1d5db; padding-bottom:2px;">Additional Measurements</h4><table style="width:100%; border-collapse:collapse;">${extraRows}</table></div>`;
+    }
 
     let pocketsHtml = "";
     const pocketLabels: Record<string, string> = { frontpocket: "Front Pocket", sidepocket: "Side Pocket", shalwarpocket: "Shalwar Pocket" };
@@ -495,6 +554,25 @@ function ProfileMeasurementsTab() {
                     </div>
                   );
                 })}
+                {/* Dynamic catch-all for extra keys not matched by predefined sections */}
+                {(() => {
+                  const definedKeys = new Set(fieldDef.sections.flatMap(s => s.fields.map(([k]) => k)));
+                  const extraKeys = Object.keys(m).filter(k => !definedKeys.has(k) && String(m[k]).trim() !== "");
+                  if (extraKeys.length === 0) return null;
+                  return (
+                    <div>
+                      <h4 className="text-sm font-semibold border-b-2 pb-1 mb-2 text-muted-foreground uppercase tracking-wide">Additional Measurements</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1">
+                        {extraKeys.map((key) => (
+                          <div key={key} className="flex items-center justify-between border-b border-border/30 py-1">
+                            <span className="text-xs text-muted-foreground">{key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " ")}</span>
+                            <span className="text-sm font-semibold">{String(m[key])}"</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {Object.keys(prefs).some(k => prefs[k]) && (
                   <div>

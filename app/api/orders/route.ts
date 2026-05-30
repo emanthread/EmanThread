@@ -40,6 +40,11 @@ const createOrderSchema = z.object({
     fabricType: z.string(),
     stitchingPrice: z.number(),
   })).optional(),
+  measurementItems: z.array(z.object({
+    productId: z.string(),
+    productName: z.string(),
+    measurementProfileId: z.string(),
+  })).optional(),
 });
 
 export async function POST(req: Request) {
@@ -54,7 +59,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { items, shippingAddress, paymentMethod, notes, couponCode, whatsappConsent, stitchingFee, stitchingItems } = result.data;
+    const { items, shippingAddress, paymentMethod, notes, couponCode, whatsappConsent, stitchingFee, stitchingItems, measurementItems } = result.data;
 
     // Validate each product exists, price matches, and stock is sufficient
     for (const item of items) {
@@ -174,6 +179,35 @@ export async function POST(req: Request) {
       stitchingFee: finalStitchingFee,
       stitchingItems: stitchingItems ?? [],
     }, isManualPayment);
+
+    // Attach measurement profiles to order items (server-side, all payment methods)
+    if (measurementItems && measurementItems.length > 0 && userId) {
+      const { attachMeasurementToOrder } = await import('@/lib/db-queries');
+      for (const mItem of measurementItems) {
+        try {
+          const profile = await prisma.measurementProfile.findUnique({
+            where: { id: mItem.measurementProfileId },
+          });
+          if (profile && profile.userId === userId) {
+            await attachMeasurementToOrder({
+              orderId: order.id,
+              productId: mItem.productId,
+              productName: mItem.productName,
+              measurementProfileId: profile.id,
+              measurementSnapshot: {
+                profileName: profile.profileName,
+                garmentType: profile.garmentType,
+                measurements: profile.measurements,
+                stylingPrefs: profile.stylingPrefs,
+                notes: profile.notes,
+              },
+            });
+          }
+        } catch (err) {
+          console.error(`Failed to attach measurement for product ${mItem.productId}:`, err);
+        }
+      }
+    }
 
     // Fire-and-forget order confirmation — orchestrator handles fallback routing
     triggerNotification({

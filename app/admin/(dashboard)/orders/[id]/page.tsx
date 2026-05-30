@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Package, User, MapPin, CreditCard, Calendar, Truck, FileText } from "lucide-react";
+import { ArrowLeft, Package, User, MapPin, CreditCard, Calendar, Truck, FileText, Ruler } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,10 +27,30 @@ const paymentMethodLabels: Record<string, string> = {
   card: "Credit/Debit Card",
 };
 
+interface OrderMeasurement {
+  id: string;
+  productId: string;
+  productName: string;
+  measurementProfileId: string | null;
+  measurementSnapshot: {
+    profileName?: string;
+    garmentType?: string;
+    measurements?: Record<string, string>;
+    stylingPrefs?: Record<string, unknown>;
+    notes?: string;
+  };
+  measurementProfile?: {
+    profileName: string;
+    garmentType: string;
+  } | null;
+}
+
 export default function AdminOrderDetails({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const { orders, loadOrders } = useAdminStore();
   const [loading, setLoading] = useState(true);
+  const [orderMeasurements, setOrderMeasurements] = useState<OrderMeasurement[]>([]);
+  const [measurementsLoading, setMeasurementsLoading] = useState(true);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -41,6 +61,18 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
     };
     fetchOrders();
   }, [orders.length, loadOrders]);
+
+  useEffect(() => {
+    if (!loading) {
+      fetch(`/api/admin/orders/${resolvedParams.id}/measurements`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.measurements) setOrderMeasurements(data.measurements);
+        })
+        .catch(() => {})
+        .finally(() => setMeasurementsLoading(false));
+    }
+  }, [loading, resolvedParams.id]);
 
   if (loading) {
     return (
@@ -80,7 +112,7 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
               {statusConfig[order.status]?.label || order.status}
             </Badge>
           </h1>
-          <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
+          <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1">
             <Calendar className="h-3 w-3" />
             Placed on {new Date(order.createdAt).toLocaleDateString()} at {new Date(order.createdAt).toLocaleTimeString()}
           </p>
@@ -111,7 +143,7 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
                   <div className="flex-1 min-w-0">
                     <p className="font-medium">{item.productName}</p>
                     <p className="text-sm text-muted-foreground">SKU: {item.sku}</p>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm text-muted-foreground mt-0.5">
                       Qty: {item.quantity} × {formatPrice(item.price)}
                     </p>
                   </div>
@@ -159,26 +191,65 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
 
               <div className="mt-6 pt-6 border-t grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Payment Method</p>
+                  <p className="text-sm text-muted-foreground mb-0.5">Payment Method</p>
                   <p className="font-medium">{paymentMethodLabels[order.paymentMethod] || order.paymentMethod}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Payment Status</p>
-                  <Badge 
-                    variant="outline" 
-                    className={cn(
-                      "capitalize",
-                      order.paymentStatus === "paid" && "border-green-500 text-green-600",
-                      order.paymentStatus === "pending" && "border-yellow-500 text-yellow-600",
-                      order.paymentStatus === "failed" && "border-red-500 text-red-600"
-                    )}
-                  >
+                  <p className="text-sm text-muted-foreground mb-0.5">Payment Status</p>
+                  <Badge variant="outline" className={cn("capitalize", order.paymentStatus === "paid" && "border-green-500 text-green-600", order.paymentStatus === "pending" && "border-yellow-500 text-yellow-600", order.paymentStatus === "failed" && "border-red-500 text-red-600")}>
                     {order.paymentStatus}
                   </Badge>
                 </div>
               </div>
             </CardContent>
           </Card>
+
+          {/* Stitching Measurements */}
+          {!measurementsLoading && orderMeasurements.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Ruler className="h-5 w-5 text-muted-foreground" />
+                  Stitching Measurements ({orderMeasurements.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {orderMeasurements.map((om) => {
+                  const snapshot = om.measurementSnapshot || {};
+                  const profile = om.measurementProfile;
+                  const m = (snapshot.measurements || {}) as Record<string, string>;
+                  const profileName = profile?.profileName || snapshot.profileName || "Measurement";
+                  const garmentType = profile?.garmentType || snapshot.garmentType || "";
+                  return (
+                    <div key={om.id} className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-sm">{om.productName}</p>
+                          {garmentType && <p className="text-xs text-muted-foreground capitalize">{garmentType.replace(/_/g, " ")}</p>}
+                        </div>
+                        <Badge variant="outline" className="text-xs">{profileName}</Badge>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1">
+                        {Object.entries(m).map(([key, val]) => {
+                          if (!val || String(val).trim() === "") return null;
+                          const label = key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " ");
+                          return (
+                            <div key={key} className="flex items-center justify-between border-b border-border/20 py-0.5">
+                              <span className="text-xs text-muted-foreground">{label}</span>
+                              <span className="text-sm font-semibold">{String(val)}"</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {snapshot.notes && (
+                        <p className="text-xs text-muted-foreground italic bg-muted/30 rounded p-2">{snapshot.notes}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
 
           {order.notes && (
             <Card>
@@ -210,7 +281,7 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
                 <p className="text-sm text-muted-foreground">Customer ID: {order.customerId}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Contact Info</p>
+                <p className="text-sm text-muted-foreground mb-0.5">Contact Info</p>
                 <p className="text-sm font-medium">{order.customerEmail}</p>
                 <p className="text-sm font-medium">{order.customerPhone}</p>
               </div>
@@ -226,7 +297,7 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-sm space-y-1">
+              <div className="text-sm space-y-0.5">
                 <p className="font-medium">{order.customerName}</p>
                 <p>{order.shippingAddress?.address}</p>
                 <p>{order.shippingAddress?.city}{order.shippingAddress?.province ? `, ${order.shippingAddress.province}` : ''}</p>
