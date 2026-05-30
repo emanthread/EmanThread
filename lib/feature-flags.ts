@@ -24,3 +24,5 @@ export const FEATURE_FLAGS = {
   // Admin browser push notifications — shows browser notification for new pending payments
   ADMIN_PUSH_ALERTS: true,
 } as const
+
+export const DEFAULT_STITCHING_FEE = Number(process.env.NEXT_PUBLIC_DEFAULT_STITCHING_FEE || 2500);

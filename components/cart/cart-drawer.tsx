@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/lib/cart-store";
 import { formatPrice } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { DEFAULT_STITCHING_FEE } from "@/lib/feature-flags";
 
 export function CartDrawer() {
   const [mounted, setMounted] = useState(false);
@@ -89,12 +90,10 @@ export function CartDrawer() {
                     <p className="text-sm text-muted-foreground mt-1">
                       {item.product.fabricType}
                     </p>
-                    {item.stitchingProfileName && (
+                    {item.stitchingProfileName && item.stitchingProfileId !== "none" && (
                       <p className="text-xs text-amber-600 mt-1">
                         ✂ {item.stitchingProfileName}{" "}
-                        {item.stitchingPrice && item.stitchingPrice > 0
-                          ? `(+${formatPrice(item.stitchingPrice)} stitching)`
-                          : ""}
+                        (+{formatPrice(item.stitchingPrice ?? DEFAULT_STITCHING_FEE)} stitching)
                       </p>
                     )}
                     <p className="text-sm font-semibold mt-2">

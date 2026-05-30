@@ -18,7 +18,6 @@ interface ProductCardProps {
 
 export function ProductCard({ product }: ProductCardProps) {
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { addItem } = useCartStore();
   const { toggleItem, isInWishlist } = useWishlistStore();
@@ -40,8 +39,6 @@ export function ProductCard({ product }: ProductCardProps) {
     <>
       <div
         className="group relative rounded-2xl overflow-hidden shadow-md transition-all duration-500 hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
       >
         {/* Image Container */}
         <div className="relative aspect-[2/3] bg-secondary overflow-hidden rounded-2xl">
@@ -51,10 +48,7 @@ export function ProductCard({ product }: ProductCardProps) {
               alt={product.name}
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              className={cn(
-                "object-cover transition-all duration-700",
-                isHovered ? "scale-110" : "scale-100"
-              )}
+              className="object-cover transition-transform duration-700 scale-100 group-hover:scale-110"
             />
             {product.images[1] && (
               <Image
@@ -63,10 +57,7 @@ export function ProductCard({ product }: ProductCardProps) {
                 fill
                 loading="lazy"
                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                className={cn(
-                  "object-cover absolute inset-0 transition-opacity duration-500",
-                  isHovered ? "opacity-100" : "opacity-0"
-                )}
+                className="object-cover absolute inset-0 transition-all duration-700 opacity-0 group-hover:opacity-100 scale-100 group-hover:scale-110"
               />
             )}
           </Link>
@@ -90,12 +81,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
           {/* Quick Actions */}
           <div
-            className={cn(
-              "absolute bottom-0 left-0 right-0 p-4 flex gap-2 transition-all duration-300",
-              isHovered
-                ? "opacity-100 translate-y-0"
-                : "opacity-95 translate-y-0"
-            )}
+            className="absolute bottom-0 left-0 right-0 p-4 flex gap-2 transition-all duration-300 opacity-95 translate-y-0 group-hover:opacity-100"
           >
             <Button
               size="sm"

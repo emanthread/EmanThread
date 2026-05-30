@@ -123,15 +123,21 @@ function ConfirmOrderContent() {
             {order.discountAmount > 0 && (
               <p><span className="font-medium">Discount:</span> -PKR {Number(order.discountAmount).toLocaleString()}</p>
             )}
-            <p><span className="font-medium">Total:</span> PKR {Number(order.grandTotal).toLocaleString()}</p>
-            <p><span className="font-medium">Payment:</span> {order.paymentMethod === "cod" ? "Cash on Delivery" : order.paymentMethod}</p>
-            <p className="text-sm text-muted-foreground">
-              Pay PKR {Number(order.grandTotal).toLocaleString()} to the delivery person upon receipt.
-            </p>
-            {order.stitchingFee > 0 && (
-              <p className="text-sm text-amber-600 font-medium mt-2">
-                Includes PKR {Number(order.stitchingFee).toLocaleString()} stitching fee payable on delivery.
-              </p>
+            {Number(order.stitchingFee) > 0 ? (
+              <>
+                <div className="pt-2 border-t border-border">
+                  <p className="font-medium text-amber-600">Paid Online: <span className="font-semibold">PKR {(Number(order.subtotal) - Number(order.discountAmount || 0)).toLocaleString()}</span></p>
+                  <p className="font-medium text-muted-foreground">Due on Delivery: <span className="font-semibold">PKR {(Number(order.shippingCost) + Number(order.stitchingFee)).toLocaleString()}</span></p>
+                </div>
+                <div className="mt-2 p-2 bg-yellow-100 text-amber-900 rounded text-xs">
+                  ⚡ Stitching selected: Pay fabric amount now. Pay stitching fee + shipping in cash on delivery.
+                </div>
+              </>
+            ) : (
+              <>
+                <p><span className="font-medium">Total:</span> PKR {Number(order.grandTotal).toLocaleString()}</p>
+                <p><span className="font-medium">Payment:</span> {order.paymentMethod === "cod" ? "Cash on Delivery" : order.paymentMethod}</p>
+              </>
             )}
           </div>
 
@@ -145,8 +151,12 @@ function ConfirmOrderContent() {
                 className="mt-1"
               />
               <span className="text-sm">
-                I confirm my order details are correct and I will pay{' '}
-                <strong>PKR {Number(order.grandTotal).toLocaleString()}</strong> in cash upon delivery.
+                {Number(order.stitchingFee) > 0 ? (
+                  <>I confirm that I have paid <strong>PKR {(Number(order.subtotal) - Number(order.discountAmount || 0)).toLocaleString()}</strong> online for the fabric, and I will pay <strong>PKR {(Number(order.shippingCost) + Number(order.stitchingFee)).toLocaleString()}</strong> (shipping + stitching) in cash upon delivery.</>
+                ) : (
+                  <>I confirm my order details are correct and I will pay{' '}
+                  <strong>PKR {Number(order.grandTotal).toLocaleString()}</strong> in cash upon delivery.</>
+                )}
               </span>
             </label>
           </div>

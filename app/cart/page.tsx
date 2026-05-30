@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCartStore } from "@/lib/cart-store";
 import { formatPrice, type Product } from "@/lib/data";
+import { DEFAULT_STITCHING_FEE } from "@/lib/feature-flags";
 import { Plus, Minus, X, ShoppingBag, Truck } from "lucide-react";
 
 export default function CartPage() {
@@ -145,12 +146,9 @@ export default function CartPage() {
                           <p className="text-sm text-muted-foreground">
                             Color: {item.product.color}
                           </p>
-                          {item.stitchingProfileName && (
+                          {item.stitchingProfileName && item.stitchingProfileId !== "none" && (
                             <p className="text-xs text-amber-600 mt-1 font-medium">
-                              ✂ {item.stitchingProfileName}
-                              {item.stitchingPrice && item.stitchingPrice > 0
-                                ? ` (+${formatPrice(item.stitchingPrice)} stitching/unit)`
-                                : ""}
+                              ✂ {item.stitchingProfileName} (+{formatPrice(item.stitchingPrice ?? DEFAULT_STITCHING_FEE)} stitching/unit)
                             </p>
                           )}
                           <button

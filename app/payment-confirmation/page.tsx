@@ -226,7 +226,7 @@ function PaymentConfirmationContent() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Amount</span>
-                  <span className="font-medium">{formatPrice(Number(order.grandTotal))}</span>
+                  <span className="font-medium">{Number(order.stitchingFee) > 0 ? formatPrice(Number(order.subtotal) - Number(order.discountAmount || 0)) : formatPrice(Number(order.grandTotal))}</span>
                 </div>
               </div>
             </CardContent>
@@ -376,10 +376,23 @@ function PaymentConfirmationContent() {
                         <span>-{formatPrice(Number(order.discountAmount))}</span>
                       </div>
                     )}
-                    <div className="flex justify-between font-semibold text-base pt-2 border-t border-border">
-                      <span>Total</span>
-                      <span>{formatPrice(Number(order.grandTotal))}</span>
-                    </div>
+                    {Number(order.stitchingFee) > 0 ? (
+                      <>
+                        <div className="flex justify-between font-semibold text-base pt-2 border-t border-border text-amber-600">
+                          <span>Paid Online</span>
+                          <span>{formatPrice(Number(order.subtotal) - Number(order.discountAmount || 0))}</span>
+                        </div>
+                        <div className="flex justify-between font-semibold text-base text-muted-foreground">
+                          <span>Due on Delivery</span>
+                          <span>{formatPrice(Number(order.shippingCost) + Number(order.stitchingFee))}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex justify-between font-semibold text-base pt-2 border-t border-border">
+                        <span>Total</span>
+                        <span>{formatPrice(Number(order.grandTotal))}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -418,9 +431,23 @@ function PaymentConfirmationContent() {
                       <p>👤 Name: <span className="font-semibold">{FEATURE_FLAGS.MEEZAN_ACCOUNT_NAME}</span></p>
                     </div>
                   )}
-                  <p className="text-sm text-muted-foreground">
-                    Send PKR {Number(order.grandTotal).toLocaleString()} and enter the transaction details below.
-                  </p>
+                  {Number(order.stitchingFee) > 0 ? (
+                    <>
+                      <p className="text-sm font-medium text-amber-600">
+                        Pay now: PKR {(Number(order.subtotal) - Number(order.discountAmount || 0)).toLocaleString()}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Due on delivery: PKR {(Number(order.shippingCost) + Number(order.stitchingFee)).toLocaleString()} (shipping + stitching)
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Send the upfront amount and enter the transaction details below.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Send PKR {Number(order.grandTotal).toLocaleString()} and enter the transaction details below.
+                    </p>
+                  )}
                 </CardContent>
               </Card>
 
@@ -507,6 +534,8 @@ function PaymentConfirmationContent() {
                         <span className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                         Submitting...
                       </span>
+                    ) : Number(order.stitchingFee) > 0 ? (
+                      `Confirm Order - ${formatPrice(Number(order.subtotal) - Number(order.discountAmount || 0))}`
                     ) : (
                       `Confirm Order - ${formatPrice(Number(order.grandTotal))}`
                     )}

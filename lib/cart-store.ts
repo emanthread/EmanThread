@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Product } from "./data";
+import { DEFAULT_STITCHING_FEE } from "./feature-flags";
 
 export interface CartItem {
   product: Product;
@@ -136,14 +137,16 @@ export const useCartStore = create<CartState>()(
       },
 
       getStitchingTotal: () => {
-        return get().items.reduce(
-          (total, item) => total + (item.stitchingPrice ?? 0) * item.quantity,
-          0
-        );
+        return get().items.reduce((total, item) => {
+          if (item.stitchingProfileId != null && item.stitchingProfileId !== "none") {
+            return total + (item.stitchingPrice ?? DEFAULT_STITCHING_FEE) * item.quantity;
+          }
+          return total;
+        }, 0);
       },
 
       hasStitching: () => {
-        return get().items.some((item) => item.stitchingPrice != null && item.stitchingPrice > 0);
+        return get().items.some((item) => item.stitchingProfileId != null && item.stitchingProfileId !== "none");
       },
     }),
     {

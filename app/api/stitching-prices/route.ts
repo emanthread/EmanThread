@@ -12,7 +12,7 @@ export async function GET() {
     // Return as a simple map: { "Cotton": 2500, "Wash & Wear": 2500, ... }
     const priceMap: Record<string, number> = {};
     for (const p of prices) {
-      priceMap[p.fabricType] = Number(p.price);
+      priceMap[p.fabricType.toLowerCase()] = Number(p.price);
     }
 
     return NextResponse.json(priceMap);

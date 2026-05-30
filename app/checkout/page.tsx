@@ -28,7 +28,7 @@ import {
   Landmark,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
-import { FEATURE_FLAGS } from "@/lib/feature-flags";
+import { FEATURE_FLAGS, DEFAULT_STITCHING_FEE } from "@/lib/feature-flags";
 
 const paymentMethods = [
   { id: "cod", name: "Cash on Delivery", description: "Pay when you receive your order", icon: Banknote },
@@ -49,11 +49,11 @@ export default function CheckoutPage() {
   const selectedItems = items.filter((i) => selectedIds.has(i.product.id));
   const selectedTotal = selectedItems.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
   const stitchingTotal = selectedItems.reduce(
-    (sum, item) => sum + (item.stitchingPrice ?? 0) * item.quantity,
+    (sum, item) => sum + (item.stitchingProfileId && item.stitchingProfileId !== "none" ? (item.stitchingPrice ?? DEFAULT_STITCHING_FEE) * item.quantity : 0),
     0
   );
   const hasStitchingSelected = selectedItems.some(
-    (item) => item.stitchingPrice != null && item.stitchingPrice > 0
+    (item) => item.stitchingProfileId != null && item.stitchingProfileId !== "none"
   );
 
   const [paymentMethod, setPaymentMethod] = useState("cod");
@@ -226,11 +226,11 @@ export default function CheckoutPage() {
       if (hasStitchingSelected) {
         payload.stitchingFee = stitchingTotal;
         payload.stitchingItems = selectedItems
-          .filter((item) => item.stitchingPrice != null && item.stitchingPrice > 0)
+          .filter((item) => item.stitchingProfileId != null && item.stitchingProfileId !== "none")
           .map((item) => ({
             productId: item.product.id,
             fabricType: item.product.fabricType,
-            stitchingPrice: item.stitchingPrice,
+            stitchingPrice: item.stitchingPrice ?? DEFAULT_STITCHING_FEE,
           }));
       }
 
@@ -405,12 +405,9 @@ export default function CheckoutPage() {
                   <div className="bg-background rounded-lg p-6 shadow-sm">
                     <h2 className="text-xl font-semibold mb-6">Payment Method</h2>
                     {hasStitchingSelected && (
-                      <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 rounded-lg text-sm">
-                        <p className="font-medium text-amber-800 dark:text-amber-300">Split Payment</p>
-                        <p className="text-amber-700 dark:text-amber-400 mt-1">
-                          Pay <strong>PKR {upfrontAmount.toLocaleString()}</strong> (fabric) now via bank transfer.<br />
-                          Pay <strong>PKR {dueOnDelivery.toLocaleString()}</strong> (shipping + stitching) on delivery.
-                        </p>
+                      <div className="mb-4 p-3 bg-yellow-100 text-amber-900 rounded text-sm">
+                        ⚡ Stitching selected: Pay fabric amount now via Nayapay/Meezan Bank. 
+                        Pay stitching fee + shipping in cash on delivery.
                       </div>
                     )}
                     <div className="space-y-3">
@@ -441,12 +438,9 @@ export default function CheckoutPage() {
                   <div className="bg-background rounded-lg p-6 shadow-sm">
                     <h2 className="text-xl font-semibold mb-6">Payment Method</h2>
                     {hasStitchingSelected && (
-                      <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 rounded-lg text-sm">
-                        <p className="font-medium text-amber-800 dark:text-amber-300">Split Payment Required</p>
-                        <p className="text-amber-700 dark:text-amber-400 mt-1">
-                          Fabric must be paid upfront. Shipping + stitching is paid on delivery.
-                          Cash on Delivery is not available with stitching.
-                        </p>
+                      <div className="mb-4 p-3 bg-yellow-100 text-amber-900 rounded text-sm">
+                        ⚡ Stitching selected: Pay fabric amount now via Nayapay/Meezan Bank. 
+                        Pay stitching fee + shipping in cash on delivery.
                       </div>
                     )}
                     <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="space-y-3">
@@ -496,7 +490,7 @@ export default function CheckoutPage() {
                                       updateStitching(item.product.id, { price: null, profileId: null, profileName: null });
                                     } else {
                                       const profile = measurementProfiles.find((p) => p.id === val);
-                                      const price = stitchingPriceMap[item.product.fabricType] || 0;
+                                      const price = stitchingPriceMap[item.product.fabricType.toLowerCase()] ?? DEFAULT_STITCHING_FEE;
                                       updateStitching(item.product.id, {
                                         price,
                                         profileId: val,

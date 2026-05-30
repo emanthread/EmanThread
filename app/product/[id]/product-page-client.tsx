@@ -23,6 +23,7 @@ import { useAuthStore } from "@/lib/auth-store";
 import { formatPrice, type Product } from "@/lib/data";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Ruler } from "lucide-react";
+import { DEFAULT_STITCHING_FEE } from "@/lib/feature-flags";
 import { cn } from "@/lib/utils";
 import { buildWhatsAppUrl, fetchWhatsAppNumber, normalizeWhatsAppNumber } from "@/lib/whatsapp-utils";
 import { ProductFlashSaleBadge } from "@/app/components/flash-sale-banner";
@@ -205,7 +206,7 @@ function ProductDetails({ product }: { product: Product }) {
   }, []);
 
   // Get stitching price for this product's fabric type
-  const productStitchingPrice = stitchingPriceMap[product.fabricType] || 0;
+  const productStitchingPrice = stitchingPriceMap[product.fabricType.toLowerCase()] ?? DEFAULT_STITCHING_FEE;
   const hasStitchingSelected = selectedMeasurement !== "none" && selectedMeasurement !== "create_new";
 
   // Get the selected profile name
