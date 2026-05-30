@@ -28,11 +28,19 @@ export const DELETE = withLoggedAdminHandler(async (
     // Verify the user exists
     const user = await prisma.user.findUnique({
       where: { id },
-      select: { id: true, name: true, email: true },
+      select: { id: true, name: true, email: true, role: true },
     });
 
     if (!user) {
       return NextResponse.json({ error: "Customer not found" }, { status: 404 });
+    }
+
+    if (user.email === 'emanthread@gmail.com') {
+      return NextResponse.json({ error: 'Primary admin account cannot be deleted' }, { status: 403 });
+    }
+
+    if (user.role === 'ADMIN') {
+      return NextResponse.json({ error: 'Admin users cannot be deleted' }, { status: 403 });
     }
 
     // Nullify userId on orders to preserve order history

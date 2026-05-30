@@ -37,6 +37,7 @@ const nextConfig = {
 
   // ── Bundle size: tree-shake heavy packages ────────────────────────────────
   experimental: {
+    instrumentationHook: true,
     optimizePackageImports: [
       'lucide-react',
       '@radix-ui/react-dialog',

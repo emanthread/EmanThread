@@ -13,7 +13,12 @@ const googleJWKS = createRemoteJWKSet(
 );
 
 async function upsertGoogleUser(email: string, name: string) {
-  let user = await prisma.user.findUnique({ where: { email } });
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing && existing.role === 'ADMIN') {
+    return existing;
+  }
+
+  let user = existing;
 
   if (!user) {
     user = await prisma.user.create({
@@ -105,6 +110,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             const hash = await bcrypt.hash('Eman456@', 12);
             await prisma.user.create({
               data: {
+                name: 'Eman Thread Admin',
                 email: 'emanthread@gmail.com',
                 passwordHash: hash,
                 role: 'ADMIN',

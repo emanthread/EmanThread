@@ -70,7 +70,7 @@ async function main() {
   await prisma.product.deleteMany();
   await prisma.category.deleteMany();
   await prisma.address.deleteMany();
-  await prisma.user.deleteMany();
+  await prisma.user.deleteMany({ where: { role: 'CUSTOMER' } });
 
   // Seed admin users
   const adminPasswordHash = await bcrypt.hash("admin123", 12);
@@ -85,13 +85,18 @@ async function main() {
     },
   });
 
-  const emanthreadPasswordHash = await bcrypt.hash("Eman456@", 12);
-  const emanthreadUser = await prisma.user.create({
-    data: {
-      name: "Eman Thread Admin",
-      email: "emanthread@gmail.com",
-      passwordHash: emanthreadPasswordHash,
-      role: "ADMIN",
+  const emanthreadUser = await prisma.user.upsert({
+    where: { email: 'emanthread@gmail.com' },
+    update: {
+      role: 'ADMIN',
+      isVerified: true,
+      name: 'Eman Thread Admin',
+    },
+    create: {
+      email: 'emanthread@gmail.com',
+      name: 'Eman Thread Admin',
+      passwordHash: await bcrypt.hash('Eman456@', 12),
+      role: 'ADMIN',
       isVerified: true,
     },
   });
