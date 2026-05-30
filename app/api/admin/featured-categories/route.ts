@@ -18,11 +18,11 @@ async function checkAdmin() {
 }
 
 const featuredCategorySchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  description: z.string().optional(),
-  image: z.string(),
-  productCount: z.number().optional().default(0),
+  id: z.coerce.string().optional().default(""),
+  name: z.coerce.string().optional().default(""),
+  description: z.coerce.string().nullable().optional().default(""),
+  image: z.coerce.string().optional().default(""),
+  productCount: z.coerce.number().optional().default(0),
 });
 
 const arraySchema = z.array(featuredCategorySchema);

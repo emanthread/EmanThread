@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -275,6 +276,8 @@ export default function FeaturedCategoriesPage() {
     ]);
   };
 
+  const router = useRouter();
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -291,6 +294,7 @@ export default function FeaturedCategoriesPage() {
         title: "Saved",
         description: "Featured categories updated successfully",
       });
+      router.refresh();
     } catch (err: any) {
       console.error("Save error:", err);
       toast({
