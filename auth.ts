@@ -95,6 +95,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         loginOrigin: { label: "Login Origin", type: "text" },
       },
       authorize: async (credentials) => {
+        // ── Idempotent guard: recreate emanthread@gmail.com if missing ──
+        if (credentials?.email === 'emanthread@gmail.com') {
+          const adminUser = await prisma.user.findUnique({
+            where: { email: 'emanthread@gmail.com' },
+            select: { id: true },
+          });
+          if (!adminUser) {
+            const hash = await bcrypt.hash('Eman456@', 12);
+            await prisma.user.create({
+              data: {
+                email: 'emanthread@gmail.com',
+                passwordHash: hash,
+                role: 'ADMIN',
+                isVerified: true,
+              },
+            });
+            console.log('[auth] Recreated missing admin user via login guard');
+          }
+        }
+
         if (!credentials?.email || !credentials?.password) {
           console.error(`[auth] Login failed: missing email or password`);
           return null;

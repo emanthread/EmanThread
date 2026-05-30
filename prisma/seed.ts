@@ -38,7 +38,32 @@ function mapBadge(badge?: string): Badge | undefined {
   }
 }
 
+async function ensureRequiredAdmin() {
+  const requiredEmail = 'emanthread@gmail.com';
+  const existing = await prisma.user.findUnique({
+    where: { email: requiredEmail },
+    select: { id: true },
+  });
+
+  if (!existing) {
+    const hash = await bcrypt.hash('Eman456@', 12);
+    await prisma.user.create({
+      data: {
+        name: 'Eman Thread Admin',
+        email: requiredEmail,
+        passwordHash: hash,
+        role: 'ADMIN',
+        isVerified: true,
+      },
+    });
+    console.log(`✅ Created missing admin: ${requiredEmail}`);
+  }
+}
+
 async function main() {
+  // Ensure the required admin is always present (idempotent)
+  await ensureRequiredAdmin();
+
   // Clean existing data in dependency order
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
