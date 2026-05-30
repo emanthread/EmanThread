@@ -120,9 +120,9 @@ export async function getFilteredProducts(
   if (filter.category) {
     const cats = filter.category.split(",");
     if (cats.length > 1) {
-      where.categoryId = { in: cats };
+      where.fabricType = { in: cats, mode: "insensitive" };
     } else {
-      where.categoryId = filter.category;
+      where.fabricType = { equals: filter.category, mode: "insensitive" };
     }
   }
   if (filter.minPrice !== undefined || filter.maxPrice !== undefined) {
@@ -303,15 +303,19 @@ export async function getRelatedProducts(
 }
 
 export async function getAllCategories(): Promise<Category[]> {
-  const categories = await prisma.category.findMany({
-    include: { _count: { select: { products: true } } },
+  // Group products by fabricType so counts and IDs reflect actual data,
+  // regardless of how categoryId was assigned in the database.
+  const fabricGroups = await prisma.product.groupBy({
+    by: ["fabricType"],
+    _count: { fabricType: true },
+    orderBy: { fabricType: "asc" },
   });
-  return categories.map((c) => ({
-    id: c.id,
-    name: c.name,
-    description: c.description || "",
-    image: c.image || "",
-    productCount: c._count.products,
+  return fabricGroups.map((g) => ({
+    id: g.fabricType,          // use fabricType as the filter key
+    name: g.fabricType,
+    description: "",
+    image: "",
+    productCount: g._count.fabricType,
   }));
 }
 
