@@ -86,7 +86,7 @@ export function WhatsAppButton({ productName, productPrice, productUrl, orderSha
       const items = orderShare.items
         .map((i) => `• ${i.name} x${i.quantity}`)
         .join("\n");
-      fullMessage = `🧵 *Eman Threads Order*\n\nOrder #: ${orderShare.orderNumber}\nStatus: ${orderShare.status}\nTotal: PKR ${orderShare.total.toLocaleString()}\n\n*Items:*\n${items}\n\nTrack your order at: https://emaanthreads.com/account/orders`;
+      fullMessage = `🧵 *Eman Threads Order*\n\nOrder #: ${orderShare.orderNumber}\nStatus: ${orderShare.status}\nTotal: PKR ${orderShare.total.toLocaleString()}\n\n*Items:*\n${items}\n\nTrack your order at: https://emaanthreads.com/order-status/${orderShare.orderNumber}`;
     } else if (productName) {
       fullMessage = `Hi! I'm interested in: ${productName}`;
       if (productPrice) {

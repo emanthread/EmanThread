@@ -79,7 +79,7 @@ async function handleCallback(req: Request) {
             template: "payment_success",
             data: {
               orderNumber: order.orderNumber,
-              total: String(Number(order.grandTotal)),
+              total: String(Number(transaction.amount)),
               transactionRef: result.providerRef || txnRef || "",
               customerName: `${addr.firstName || ""} ${addr.lastName || ""}`.trim(),
             },

@@ -140,6 +140,12 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
                 <span className="text-muted-foreground">Shipping Fee</span>
                 <span>{formatPrice(order.shippingCost)}</span>
               </div>
+              {order.stitchingFee && order.stitchingFee > 0 ? (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Stitching Fee</span>
+                  <span className="text-amber-600 font-medium">{formatPrice(order.stitchingFee)}</span>
+                </div>
+              ) : null}
               {order.discount > 0 && (
                 <div className="flex justify-between text-sm text-emerald-600">
                   <span>Discount</span>

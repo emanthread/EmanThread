@@ -13,14 +13,25 @@ interface PageProps {
   params: Promise<{ orderId: string }>;
 }
 
-async function getOrderStatus(orderId: string) {
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
+async function getOrderStatus(orderIdentifier: string) {
+  let order = await prisma.order.findUnique({
+    where: { id: orderIdentifier },
     include: {
       items: { include: { product: { select: { name: true, images: true } } } },
       manualPayment: true,
     },
   });
+
+  if (!order) {
+    order = await prisma.order.findUnique({
+      where: { orderNumber: orderIdentifier },
+      include: {
+        items: { include: { product: { select: { name: true, images: true } } } },
+        manualPayment: true,
+      },
+    });
+  }
+
   return order;
 }
 

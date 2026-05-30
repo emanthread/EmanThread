@@ -40,7 +40,7 @@ const paymentMethods = [
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, getTotalPrice, getStitchingTotal, hasStitching, clearCart } = useCartStore();
+  const { items, getTotalPrice, getStitchingTotal, hasStitching, clearCart, updateStitching } = useCartStore();
   const { user, isAuthenticated } = useAuthStore();
   const totalPrice = getTotalPrice();
 
@@ -69,6 +69,7 @@ export default function CheckoutPage() {
   const [couponLoading, setCouponLoading] = useState(false);
   const [itemMeasurements, setItemMeasurements] = useState<Record<string, string>>({});
   const [measurementProfiles, setMeasurementProfiles] = useState<{ id: string; profileName: string; garmentType: string }[]>([]);
+  const [stitchingPriceMap, setStitchingPriceMap] = useState<Record<string, number>>({});
   const [transactionId, setTransactionId] = useState('');
   const [saveAddress, setSaveAddress] = useState(false);
 
@@ -82,7 +83,7 @@ export default function CheckoutPage() {
   const [zoneName, setZoneName] = useState("");
 
   const freeShippingThreshold = 5000;
-  const grandTotal = selectedTotal + shippingCost - (appliedDiscount || 0);
+  const grandTotal = selectedTotal + shippingCost + stitchingTotal - (appliedDiscount || 0);
   // When stitching is selected:
   //   Pay now (bank transfer): selectedTotal - discount (fabric only)
   //   Pay on delivery (COD cash): shippingCost + stitchingTotal
@@ -96,16 +97,41 @@ export default function CheckoutPage() {
   // Sync selectedIds when items change
   useEffect(() => {
     setSelectedIds(new Set(items.map((i) => i.product.id)));
-  }, [items.length]);
+    // Initialize itemMeasurements from cart if not already set locally
+    setItemMeasurements((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      items.forEach((item) => {
+        if (!next[item.product.id] && item.stitchingProfileId) {
+          next[item.product.id] = item.stitchingProfileId;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [items]);
 
-  // Fetch measurement profiles
+  // Fetch measurement profiles and stitching prices
   useEffect(() => {
     if (isAuthenticated) {
       fetch("/api/measurements").then((r) => r.json()).then((data) => {
         if (Array.isArray(data)) setMeasurementProfiles(data);
       }).catch(() => {});
     }
+    fetch("/api/stitching-prices")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && typeof data === "object") setStitchingPriceMap(data);
+      })
+      .catch(() => {});
   }, [isAuthenticated]);
+
+  // When stitching is selected, COD is not valid — switch to nayapay or meezan_bank
+  useEffect(() => {
+    if (hasStitchingSelected && paymentMethod === "cod") {
+      setPaymentMethod(FEATURE_FLAGS.MANUAL_PAYMENT_MODE ? "nayapay" : "jazzcash");
+    }
+  }, [hasStitchingSelected, paymentMethod]);
 
   // Pre-fill form from user profile and default address
   useEffect(() => {
@@ -169,6 +195,13 @@ export default function CheckoutPage() {
     }
     setIsSubmitting(true);
     setSubmitError("");
+
+    // Guard: COD cannot be used with stitching service
+    if (hasStitchingSelected && paymentMethod === "cod") {
+      setSubmitError("Cash on Delivery is not available when stitching is selected. Please choose Nayapay or Meezan Bank.");
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
       const payload: Record<string, unknown> = {
@@ -407,8 +440,19 @@ export default function CheckoutPage() {
                 ) : (
                   <div className="bg-background rounded-lg p-6 shadow-sm">
                     <h2 className="text-xl font-semibold mb-6">Payment Method</h2>
+                    {hasStitchingSelected && (
+                      <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 rounded-lg text-sm">
+                        <p className="font-medium text-amber-800 dark:text-amber-300">Split Payment Required</p>
+                        <p className="text-amber-700 dark:text-amber-400 mt-1">
+                          Fabric must be paid upfront. Shipping + stitching is paid on delivery.
+                          Cash on Delivery is not available with stitching.
+                        </p>
+                      </div>
+                    )}
                     <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="space-y-3">
-                      {paymentMethods.map((m) => (
+                      {paymentMethods
+                        .filter((m) => !(hasStitchingSelected && m.id === "cod"))
+                        .map((m) => (
                         <label key={m.id} htmlFor={m.id} className={cn("flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-all", paymentMethod === m.id ? "border-accent bg-accent/5" : "border-border hover:border-muted-foreground")}>
                           <RadioGroupItem value={m.id} id={m.id} />
                           <m.icon className="h-5 w-5 text-muted-foreground" />
@@ -443,10 +487,22 @@ export default function CheckoutPage() {
                               <select
                                 value={itemMeasurements[item.product.id] || "none"}
                                 onChange={(e) => {
-                                  if (e.target.value === "create_new") {
+                                  const val = e.target.value;
+                                  if (val === "create_new") {
                                     router.push("/account/measurements");
                                   } else {
-                                    setItemMeasurements((p) => ({ ...p, [item.product.id]: e.target.value }));
+                                    setItemMeasurements((p) => ({ ...p, [item.product.id]: val }));
+                                    if (val === "none") {
+                                      updateStitching(item.product.id, { price: null, profileId: null, profileName: null });
+                                    } else {
+                                      const profile = measurementProfiles.find((p) => p.id === val);
+                                      const price = stitchingPriceMap[item.product.fabricType] || 0;
+                                      updateStitching(item.product.id, {
+                                        price,
+                                        profileId: val,
+                                        profileName: profile?.profileName || "Stitching"
+                                      });
+                                    }
                                   }
                                 }}
                                 className="w-full text-xs border border-border rounded-md px-2 py-1 bg-background mt-1"

@@ -14,9 +14,10 @@ import { formatPrice, type Product } from "@/lib/data";
 import { Plus, Minus, X, ShoppingBag, Truck } from "lucide-react";
 
 export default function CartPage() {
-  const { items, updateQuantity, removeItem, getTotalPrice, clearCart } =
+  const { items, updateQuantity, removeItem, getTotalPrice, getStitchingTotal, clearCart } =
     useCartStore();
   const totalPrice = getTotalPrice();
+  const stitchingTotal = getStitchingTotal();
 
   const [mounted, setMounted] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
@@ -144,6 +145,14 @@ export default function CartPage() {
                           <p className="text-sm text-muted-foreground">
                             Color: {item.product.color}
                           </p>
+                          {item.stitchingProfileName && (
+                            <p className="text-xs text-amber-600 mt-1 font-medium">
+                              ✂ {item.stitchingProfileName}
+                              {item.stitchingPrice && item.stitchingPrice > 0
+                                ? ` (+${formatPrice(item.stitchingPrice)} stitching/unit)`
+                                : ""}
+                            </p>
+                          )}
                           <button
                             onClick={() => removeItem(item.product.id)}
                             className="text-sm text-red-600 hover:text-red-700 mt-2 flex items-center gap-1 sm:hidden"
@@ -245,6 +254,12 @@ export default function CartPage() {
                       <span className="text-muted-foreground">Subtotal</span>
                       <span>{formatPrice(totalPrice)}</span>
                     </div>
+                    {stitchingTotal > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Stitching Fee</span>
+                        <span className="text-amber-600 font-medium">+{formatPrice(stitchingTotal)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Shipping</span>
                       <span>
@@ -255,7 +270,7 @@ export default function CartPage() {
                     </div>
                     <div className="flex justify-between font-semibold text-lg pt-3 border-t border-border">
                       <span>Total</span>
-                      <span>{formatPrice(totalPrice)}</span>
+                      <span>{formatPrice(totalPrice + stitchingTotal)}</span>
                     </div>
                   </div>
 

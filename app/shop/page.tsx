@@ -38,12 +38,13 @@ function ShopContent() {
 
   const [showFilters, setShowFilters] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
-    categoryParam ? [categoryParam] : []
+    categoryParam ? categoryParam.split(",") : []
   );
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000]);
   const [sortBy, setSortBy] = useState("featured");
   const [gridSize, setGridSize] = useState<"small" | "large">("large");
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [selectedColor, setSelectedColor] = useState<string>("");
   const [selectedSeason, setSelectedSeason] = useState<string>("");
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -51,7 +52,9 @@ function ShopContent() {
   // Build query string from filters
   const buildQueryString = useCallback(() => {
     const params = new URLSearchParams();
-    if (selectedCategories.length === 1) params.set("category", selectedCategories[0]);
+    if (selectedCategories.length > 0) {
+      params.set("category", selectedCategories.join(","));
+    }
     if (priceRange[0] > 0) params.set("minPrice", String(priceRange[0]));
     if (priceRange[1] < 10000) params.set("maxPrice", String(priceRange[1]));
     if (sortBy !== "featured") params.set("sort", sortBy);
@@ -97,25 +100,39 @@ function ShopContent() {
         setCategories(categoriesData);
         setColors(Array.isArray(colorsData) ? colorsData : []);
         setSeasons(Array.isArray(seasonsData) ? seasonsData : []);
-
-        // Resolve URL category slug (e.g. "cotton", "wash-wear") to real Prisma ID
-        if (categoryParam && Array.isArray(categoriesData) && categoriesData.length > 0) {
-          const normalizedParam = normalizeSlug(categoryParam);
-          const matched = categoriesData.find(
-            (cat: any) =>
-              cat.id === categoryParam || // already a real ID
-              normalizeSlug(cat.name) === normalizedParam // slug matches category name
-          );
-          if (matched) {
-            setSelectedCategories([matched.id]);
-          }
-        }
       } catch (e) {
         console.error("Failed to fetch meta:", e);
       }
     }
     fetchMeta();
   }, []);
+
+  // Sync selectedCategories when categoryParam changes from external navigation or URL
+  useEffect(() => {
+    if (categoryParam && categories.length > 0) {
+      const slugs = categoryParam.split(",");
+      const matchedIds = slugs.map((slug) => {
+        const normalizedParam = normalizeSlug(slug);
+        const matched = categories.find(
+          (cat) =>
+            cat.id === slug ||
+            normalizeSlug(cat.name) === normalizedParam
+        );
+        return matched ? matched.id : slug;
+      });
+      
+      const currentSorted = [...selectedCategories].sort().join(",");
+      const matchedSorted = [...matchedIds].sort().join(",");
+      
+      if (currentSorted !== matchedSorted) {
+        setSelectedCategories(matchedIds);
+      }
+    } else if (!categoryParam) {
+      if (selectedCategories.length > 0) {
+        setSelectedCategories([]);
+      }
+    }
+  }, [categoryParam, categories, normalizeSlug, selectedCategories]);
 
   // Fetch products whenever filters change
   useEffect(() => {
@@ -133,7 +150,7 @@ function ShopContent() {
     setSelectedCategories((prev) =>
       prev.includes(categoryId)
         ? prev.filter((c) => c !== categoryId)
-        : [categoryId]
+        : [...prev, categoryId]
     );
   };
 
@@ -142,15 +159,16 @@ function ShopContent() {
     setPriceRange([0, 10000]);
     setSortBy("featured");
     setSearchQuery("");
+    setSearchInput("");
     setSelectedColor("");
     setSelectedSeason("");
   };
 
   const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
+    setSearchInput(value);
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
     searchTimeout.current = setTimeout(() => {
-      // fetchProducts will run via useEffect when buildQueryString changes
+      setSearchQuery(value);
     }, 500);
   };
 
@@ -215,7 +233,7 @@ function ShopContent() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search products..."
-                  value={searchQuery}
+                  value={searchInput}
                   onChange={(e) => handleSearchChange(e.target.value)}
                   className="pl-9 w-[200px]"
                 />

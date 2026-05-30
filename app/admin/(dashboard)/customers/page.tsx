@@ -308,7 +308,13 @@ export default function AdminCustomersPage() {
                         <ShoppingBag className="h-4 w-4 mr-2" />
                         View Orders
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => window.location.href = `mailto:${customer.email}`}>
+                      <DropdownMenuItem onClick={() => {
+                        if (!customer.email || customer.email.trim() === "") {
+                          toast.error("No email address found for this customer.");
+                        } else {
+                          window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(customer.email)}`, '_blank');
+                        }
+                      }}>
                         <Mail className="h-4 w-4 mr-2" />
                         Send Email
                       </DropdownMenuItem>

@@ -127,7 +127,16 @@ export async function POST(req: Request) {
       }
     }
 
-    const grandTotal = Math.max(0, subtotal + shippingCost - discountAmount);
+    const calculatedStitchingFee = stitchingItems && items 
+      ? stitchingItems.reduce((sum, sItem) => {
+          const matchedItem = items.find(i => i.productId === sItem.productId);
+          return sum + sItem.stitchingPrice * (matchedItem?.quantity || 1);
+        }, 0)
+      : 0;
+      
+    const finalStitchingFee = stitchingFee ?? calculatedStitchingFee;
+
+    const grandTotal = Math.max(0, subtotal + shippingCost - discountAmount + finalStitchingFee);
 
     // Enrich shipping address with zone info
     const enrichedShippingAddress = {
@@ -162,7 +171,7 @@ export async function POST(req: Request) {
       grandTotal,
       discountAmount,
       couponCode: appliedDiscountCode, // C8: atomic increment inside createOrder transaction
-      stitchingFee: stitchingFee ?? 0,
+      stitchingFee: finalStitchingFee,
       stitchingItems: stitchingItems ?? [],
     }, isManualPayment);
 

@@ -12,9 +12,10 @@ import { cn } from "@/lib/utils";
 
 export function CartDrawer() {
   const [mounted, setMounted] = useState(false);
-  const { items, isOpen, closeCart, updateQuantity, removeItem, getTotalPrice } =
+  const { items, isOpen, closeCart, updateQuantity, removeItem, getTotalPrice, getStitchingTotal } =
     useCartStore();
   const totalPrice = getTotalPrice();
+  const stitchingTotal = getStitchingTotal();
 
   useEffect(() => {
     setMounted(true);
@@ -88,6 +89,14 @@ export function CartDrawer() {
                     <p className="text-sm text-muted-foreground mt-1">
                       {item.product.fabricType}
                     </p>
+                    {item.stitchingProfileName && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        ✂ {item.stitchingProfileName}{" "}
+                        {item.stitchingPrice && item.stitchingPrice > 0
+                          ? `(+${formatPrice(item.stitchingPrice)} stitching)`
+                          : ""}
+                      </p>
+                    )}
                     <p className="text-sm font-semibold mt-2">
                       {formatPrice(item.product.price)}
                     </p>
@@ -134,6 +143,14 @@ export function CartDrawer() {
                   {formatPrice(totalPrice)}
                 </span>
               </div>
+              {stitchingTotal > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Stitching Fee</span>
+                  <span className="text-sm font-medium text-amber-600">
+                    +{formatPrice(stitchingTotal)}
+                  </span>
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">
                 Shipping and taxes calculated at checkout
               </p>

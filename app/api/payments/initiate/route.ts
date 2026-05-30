@@ -59,12 +59,19 @@ export async function POST(req: Request) {
       returnUrl ||
       `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/payments/callback/${provider}`;
 
+    // Determine amount to charge
+    // If stitching is included, we only charge the upfront fabric cost. The rest is COD.
+    const hasStitching = Number(order.stitchingFee || 0) > 0;
+    const chargeAmount = hasStitching
+      ? Number(order.subtotal) - Number(order.discountAmount || 0)
+      : Number(order.grandTotal);
+
     // Initiate with provider
     const paymentProvider = getProvider(provider);
     const initiateResult = await paymentProvider.initiate({
       orderId: order.id,
       orderNumber: order.orderNumber,
-      amount: Number(order.grandTotal),
+      amount: chargeAmount,
       customerEmail: (order.shippingAddress as any)?.email || "",
       customerPhone: (order.shippingAddress as any)?.phone || "",
       returnUrl: baseReturnUrl,
@@ -81,7 +88,7 @@ export async function POST(req: Request) {
     const transaction = await createPaymentTransaction({
       orderId: order.id,
       provider,
-      amount: Number(order.grandTotal),
+      amount: chargeAmount,
       transactionRef: initiateResult.transactionId,
       status: "INITIATED",
     });

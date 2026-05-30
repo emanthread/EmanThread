@@ -40,6 +40,10 @@ interface Order {
   orderNumber: string;
   date: string;
   status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
+  subtotal: number;
+  shippingCost: number;
+  stitchingFee?: number;
+  discountAmount?: number;
   total: number;
   items: {
     id: string;
@@ -49,64 +53,6 @@ interface Order {
     price: number;
   }[];
 }
-
-const mockOrders: Order[] = [
-  {
-    id: "1",
-    orderNumber: "ET-2024-001234",
-    date: "2024-01-15",
-    status: "delivered",
-    total: 9800,
-    items: [
-      {
-        id: "1",
-        name: "Royal Ivory Premium Wash & Wear",
-        image: "https://images.unsplash.com/photo-1612423284241-c1f9f2dd0cd1?w=200&h=200&fit=crop",
-        quantity: 1,
-        price: 4500,
-      },
-      {
-        id: "2",
-        name: "Midnight Black Cotton Suit",
-        image: "https://images.unsplash.com/photo-1528460033278-a6ba57020470?w=200&h=200&fit=crop",
-        quantity: 1,
-        price: 3800,
-      },
-    ],
-  },
-  {
-    id: "2",
-    orderNumber: "ET-2024-001235",
-    date: "2024-01-18",
-    status: "shipped",
-    total: 7500,
-    items: [
-      {
-        id: "3",
-        name: "Champagne Boski Silk Blend",
-        image: "https://images.unsplash.com/photo-1605902394595-f14d8ff2bc3b?w=200&h=200&fit=crop",
-        quantity: 1,
-        price: 7500,
-      },
-    ],
-  },
-  {
-    id: "3",
-    orderNumber: "ET-2024-001236",
-    date: "2024-01-20",
-    status: "processing",
-    total: 6200,
-    items: [
-      {
-        id: "4",
-        name: "Charcoal Grey Wool Blend",
-        image: "https://images.unsplash.com/photo-1574738596662-7f28ed5dd75c?w=200&h=200&fit=crop",
-        quantity: 1,
-        price: 6200,
-      },
-    ],
-  },
-];
 
 const statusConfig = {
   pending: { label: "Pending", color: "bg-yellow-100 text-yellow-700", icon: Clock },
@@ -342,10 +288,34 @@ export default function OrdersPage() {
                       </div>
 
                       {/* Order Total & Actions */}
-                      <div className="flex items-center justify-between pt-4 border-t">
-                        <div>
-                          <p className="text-sm text-muted-foreground">Total</p>
-                          <p className="text-lg font-semibold">{formatPrice(order.total)}</p>
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-4 border-t gap-4">
+                        <div className="space-y-1 w-full sm:w-auto">
+                          <div className="flex justify-between sm:justify-start sm:gap-4 text-sm">
+                            <span className="text-muted-foreground">Subtotal</span>
+                            <span>{formatPrice(order.subtotal)}</span>
+                          </div>
+                          {order.shippingCost > 0 && (
+                            <div className="flex justify-between sm:justify-start sm:gap-4 text-sm">
+                              <span className="text-muted-foreground">Shipping</span>
+                              <span>{formatPrice(order.shippingCost)}</span>
+                            </div>
+                          )}
+                          {order.stitchingFee && order.stitchingFee > 0 ? (
+                            <div className="flex justify-between sm:justify-start sm:gap-4 text-sm">
+                              <span className="text-muted-foreground">Stitching Fee</span>
+                              <span className="text-amber-600 font-medium">{formatPrice(order.stitchingFee)}</span>
+                            </div>
+                          ) : null}
+                          {order.discountAmount && order.discountAmount > 0 ? (
+                            <div className="flex justify-between sm:justify-start sm:gap-4 text-sm text-emerald-600">
+                              <span>Discount</span>
+                              <span>-{formatPrice(order.discountAmount)}</span>
+                            </div>
+                          ) : null}
+                          <div className="flex justify-between sm:justify-start sm:gap-4 font-semibold text-base pt-1">
+                            <span>Total</span>
+                            <span>{formatPrice(order.total)}</span>
+                          </div>
                         </div>
                         <div className="flex gap-2 flex-wrap justify-end">
                           {/* WhatsApp button hidden */}

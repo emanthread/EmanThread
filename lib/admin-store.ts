@@ -33,6 +33,7 @@ export interface Order {
   items: OrderItem[];
   subtotal: number;
   shippingCost: number;
+  stitchingFee?: number;
   discount: number;
   total: number;
   status: OrderStatus;

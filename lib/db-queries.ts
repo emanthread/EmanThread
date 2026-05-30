@@ -118,7 +118,12 @@ export async function getFilteredProducts(
 ): Promise<Product[]> {
   const where: any = {};
   if (filter.category) {
-    where.categoryId = filter.category;
+    const cats = filter.category.split(",");
+    if (cats.length > 1) {
+      where.categoryId = { in: cats };
+    } else {
+      where.categoryId = filter.category;
+    }
   }
   if (filter.minPrice !== undefined || filter.maxPrice !== undefined) {
     where.price = {};
@@ -476,6 +481,10 @@ export async function getOrdersByUser(userId: string) {
       | "shipped"
       | "delivered"
       | "cancelled",
+    subtotal: Number(order.subtotal),
+    shippingCost: Number(order.shippingCost),
+    stitchingFee: Number(order.stitchingFee),
+    discountAmount: Number(order.discountAmount || 0),
     total: Number(order.grandTotal),
     paymentMethod: order.paymentMethod,
     items: order.items.map((item) => ({
@@ -597,7 +606,8 @@ export async function getAdminOrders(options: {
       })),
       subtotal: Number(order.subtotal),
       shippingCost: Number(order.shippingCost),
-      discount: 0,
+      stitchingFee: Number(order.stitchingFee),
+      discount: Number(order.discountAmount || 0),
       total: Number(order.grandTotal),
       status: order.status.toLowerCase() as
         | "pending"
