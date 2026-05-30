@@ -303,19 +303,43 @@ export async function getRelatedProducts(
 }
 
 export async function getAllCategories(): Promise<Category[]> {
-  // Group products by fabricType so counts and IDs reflect actual data,
-  // regardless of how categoryId was assigned in the database.
+  // Fetch ALL categories from the Category table so every category always
+  // appears in the sidebar — even those with 0 products currently.
+  const allCategories = await prisma.category.findMany({
+    orderBy: { name: "asc" },
+  });
+
+  // Get real product counts grouped by fabricType (case-sensitive as stored).
   const fabricGroups = await prisma.product.groupBy({
     by: ["fabricType"],
     _count: { fabricType: true },
-    orderBy: { fabricType: "asc" },
   });
-  return fabricGroups.map((g) => ({
-    id: g.fabricType,          // use fabricType as the filter key
-    name: g.fabricType,
-    description: "",
-    image: "",
-    productCount: g._count.fabricType,
+
+  // Build a lowercase lookup map: fabricType → count
+  const countMap = new Map<string, number>();
+  for (const g of fabricGroups) {
+    countMap.set(g.fabricType.toLowerCase(), g._count.fabricType);
+  }
+
+  // Fallback images keyed by lowercase category name.
+  // Used when the Category record has no image set in the database.
+  const fallbackImages: Record<string, string> = {
+    "cotton":     "/images/fabrics/cat_cotton_1776582727723.png",
+    "wash & wear":"/images/fabrics/hero_wash_1776582631696.png",
+    "boski":      "/images/fabrics/hero_boski_1776582616605.png",
+    "wool blend": "/images/fabrics/cat_wool_1776583171222.png",
+    "khaddar":    "/images/fabrics/promo_1776582682565.png",
+  };
+
+  // Return all categories. The `id` is the category name so it matches the
+  // fabricType field used in getFilteredProducts — keeping filtering correct.
+  return allCategories.map((c) => ({
+    id: c.name,                                    // matches fabricType for filtering
+    name: c.name,
+    description: c.description || "",
+    // Use the DB image if present, otherwise fall back to the known local asset.
+    image: c.image || fallbackImages[c.name.toLowerCase()] || "/placeholder.jpg",
+    productCount: countMap.get(c.name.toLowerCase()) ?? 0,
   }));
 }
 
