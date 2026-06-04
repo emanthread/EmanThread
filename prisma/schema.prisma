@@ -364,6 +364,8 @@ model OrderItemMeasurement {
   measurementProfileId String?
   measurementSnapshot  Json
   createdAt            DateTime            @default(now())
+  updatedAt            DateTime?           @updatedAt // Populated when admin edits
+  updatedBy            String?                        // Admin user ID who last modified
   measurementProfile   MeasurementProfile? @relation(fields: [measurementProfileId], references: [id])
   order                Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
 

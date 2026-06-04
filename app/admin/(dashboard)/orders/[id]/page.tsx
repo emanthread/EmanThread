@@ -3,13 +3,25 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Package, User, MapPin, CreditCard, Calendar, Truck, FileText, Ruler } from "lucide-react";
+import { ArrowLeft, Package, User, MapPin, CreditCard, Calendar, Truck, FileText, Ruler, Edit2, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAdminStore } from "@/lib/admin-store";
 import { formatPrice } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   pending: { label: "Pending", color: "bg-yellow-100 text-yellow-700" },
@@ -51,6 +63,14 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
   const [loading, setLoading] = useState(true);
   const [orderMeasurements, setOrderMeasurements] = useState<OrderMeasurement[]>([]);
   const [measurementsLoading, setMeasurementsLoading] = useState(true);
+  const { toast } = useToast();
+
+  // Edit measurement dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingMeasurement, setEditingMeasurement] = useState<OrderMeasurement | null>(null);
+  const [editMeasurements, setEditMeasurements] = useState<Record<string, string>>({});
+  const [editNotes, setEditNotes] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -73,6 +93,53 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
         .finally(() => setMeasurementsLoading(false));
     }
   }, [loading, resolvedParams.id]);
+
+  const openEditDialog = (om: OrderMeasurement) => {
+    const snapshot = om.measurementSnapshot || {};
+    const m = (snapshot.measurements || {}) as Record<string, string>;
+    setEditingMeasurement(om);
+    setEditMeasurements({ ...m });
+    setEditNotes(snapshot.notes || "");
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveMeasurement = async () => {
+    if (!editingMeasurement) return;
+    setEditSaving(true);
+    try {
+      const snapshot = editingMeasurement.measurementSnapshot || {};
+      const updatedSnapshot = {
+        ...snapshot,
+        measurements: editMeasurements,
+        notes: editNotes,
+      };
+      const res = await fetch(`/api/admin/orders/${resolvedParams.id}/measurements/${editingMeasurement.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ measurementSnapshot: updatedSnapshot }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to update measurements");
+      }
+      toast({
+        title: "Measurements updated",
+        description: "The measurement snapshot has been saved.",
+      });
+      setEditDialogOpen(false);
+      // Refresh measurements list
+      const updated = await fetch(`/api/admin/orders/${resolvedParams.id}/measurements`).then((r) => r.json());
+      if (updated.measurements) setOrderMeasurements(updated.measurements);
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to update measurements",
+        variant: "destructive",
+      });
+    } finally {
+      setEditSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -227,7 +294,12 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
                           <p className="font-medium text-sm">{om.productName}</p>
                           {garmentType && <p className="text-xs text-muted-foreground capitalize">{garmentType.replace(/_/g, " ")}</p>}
                         </div>
-                        <Badge variant="outline" className="text-xs">{profileName}</Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">{profileName}</Badge>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditDialog(om)} title="Edit measurements">
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1">
                         {Object.entries(m).map(([key, val]) => {
@@ -307,6 +379,64 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
           </Card>
         </div>
       </div>
+
+      {/* Edit Measurement Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Measurements</DialogTitle>
+            <DialogDescription>
+              {editingMeasurement?.productName} — Update the measurement snapshot for this order item.
+            </DialogDescription>
+          </DialogHeader>
+          {editingMeasurement && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                {Object.entries(editMeasurements).map(([key, val]) => (
+                  <div key={key} className="space-y-1">
+                    <Label className="text-xs capitalize">
+                      {key.replace(/_/g, " ")}
+                    </Label>
+                    <Input
+                      value={val || ""}
+                      onChange={(e) =>
+                        setEditMeasurements((prev) => ({
+                          ...prev,
+                          [key]: e.target.value,
+                        }))
+                      }
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Notes</Label>
+                <Textarea
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={editSaving}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveMeasurement} disabled={editSaving}>
+              {editSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,4 +1,7 @@
-"use client";
+const fs = require('fs');
+const file = 'd:\\Eman Thread\\components\\admin\\tailor-print-card.tsx';
+
+const newContent = `"use client";
 
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
@@ -31,7 +34,7 @@ export function TailorPrintCard({ data }: { data: TailorCardData }) {
 
   return (
     <div>
-      <style>{`
+      <style>{\`
         @media print {
           @page { size: A4; margin: 10mm; }
           body * {
@@ -53,7 +56,7 @@ export function TailorPrintCard({ data }: { data: TailorCardData }) {
             print-color-adjust: exact !important;
           }
         }
-      `}</style>
+      \`}</style>
 
       <Button variant="outline" size="sm" onClick={handlePrint} className="mb-4 print:hidden">
         <Printer className="h-4 w-4 mr-2" /> Print Tailor Card
@@ -114,3 +117,7 @@ export function TailorPrintCard({ data }: { data: TailorCardData }) {
     </div>
   );
 }
+`;
+
+fs.writeFileSync(file, newContent);
+console.log("Updated tailor-print-card.tsx successfully");

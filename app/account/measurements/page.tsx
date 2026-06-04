@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { UnifiedLayoutEngine } from "@/components/measurements/UnifiedLayoutEngine";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { CartDrawer } from "@/components/cart/cart-drawer";
@@ -157,55 +158,43 @@ const FEMALE_LK_LEHNGA_FIELDS: MeasurementFieldDef[] = [
   { key: "lehnga_w", en: "Lehnga W", ur: "لیہنگا چوڑائی" },
 ];
 
-function MeasurementField({
-  field,
-  value,
-  onChange,
-}: {
-  field: MeasurementFieldDef;
-  value: string;
-  onChange: (key: string, val: string) => void;
-}) {
-  const parts = value.split(" ");
-  const whole = parts[0] || "";
-  const frac = parts[1] || "";
-
+// Unified Measurement Field component
+function NumInput({ label, urdu, value, onChange, className = "" }: any) {
   return (
-    <div className="space-y-1">
-      <Label className="text-xs font-medium">
-        <span>{field.en}</span>
-        <span className="text-muted-foreground text-sm ml-1.5 font-semibold" dir="rtl" style={{ fontFamily: '"Noto Nastaliq Urdu", "Jameel Noori Nastaleeq", serif', fontSize: '14px' }}>
-          {field.ur}
-        </span>
-      </Label>
-      <div className="flex gap-1">
-        <Input
-          type="number"
-          min={0}
-          step={1}
-          placeholder="0"
-          value={whole}
-          onChange={(e) => onChange(field.key, [e.target.value, frac].join(" ").trim())}
-          className="w-20 h-8 text-sm"
-        />
-        <Select
-          value={frac || "__none__"}
-          onValueChange={(v) =>
-            onChange(field.key, [whole, v === "__none__" ? "" : v].join(" ").trim())
-          }
-        >
-          <SelectTrigger className="w-20 h-8 text-xs">
-            <SelectValue placeholder="—" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__none__">—</SelectItem>
-            {FRACTIONS.filter(Boolean).map((f) => (
-              <SelectItem key={f} value={f}>{f}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+    <div className={`flex flex-col justify-end ${className}`}>
+      {(label || urdu) && (
+        <Label className="text-[11px] font-medium flex items-center justify-between mb-1 text-muted-foreground whitespace-nowrap">
+          <span>{label}</span>
+          {urdu && <span dir="rtl" className="ml-1 font-semibold">{urdu}</span>}
+        </Label>
+      )}
+      <Input
+        type="number"
+        min={0}
+        step={0.25}
+        placeholder="0"
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-8 text-sm px-2 text-center"
+      />
     </div>
+  );
+}
+
+function CheckInput({ label, urdu, checked, onChange, className = "" }: any) {
+  return (
+    <label className={`flex flex-col items-center justify-end gap-1 cursor-pointer p-1 border rounded hover:bg-muted/50 ${checked ? 'bg-primary/5 border-primary/30' : 'bg-background'} ${className}`}>
+      <div className="flex flex-col items-center leading-none mb-1 text-center">
+        <span className="text-[10px] font-medium text-muted-foreground whitespace-nowrap">{label}</span>
+        {urdu && <span className="text-[10px] text-muted-foreground whitespace-nowrap" dir="rtl">{urdu}</span>}
+      </div>
+      <input
+        type="checkbox"
+        checked={!!checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-3.5 w-3.5 rounded border-muted-foreground/50"
+      />
+    </label>
   );
 }
 
@@ -221,25 +210,16 @@ function WizardDialog({
   editProfile: MeasurementProfile | null;
 }) {
   type Gender = "male" | "female";
-  type Category =
-    | "shalwar_kameez"
-    | "prince_coat"
-    | "simple_pent_coat"
-    | "simple_shalwar"
-    | "frock"
-    | "saari"
-    | "lehnga_kurti"
-    | "";
+  type Category = string;
 
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [profileName, setProfileName] = useState("");
   const [gender, setGender] = useState<Gender>("male");
   const [category, setCategory] = useState<Category>("");
-  const [includeShirt, setIncludeShirt] = useState(false);
-  const [notes, setNotes] = useState("");
   const [measurements, setMeasurements] = useState<Record<string, string>>({});
-  const [pockets, setPockets] = useState({ front: "", side: "", shalwar: "" });
+  const [stylingPrefs, setStylingPrefs] = useState<Record<string, any>>({});
+  const [notes, setNotes] = useState("");
 
   useEffect(() => {
     if (editProfile) {
@@ -247,59 +227,47 @@ function WizardDialog({
       const gt = editProfile.garmentType;
       if (gt.startsWith("male_")) {
         setGender("male");
-        setCategory(gt.replace("male_", "") as Category);
+        setCategory(gt.replace("male_", ""));
       } else if (gt.startsWith("female_")) {
         setGender("female");
-        setCategory(gt.replace("female_", "") as Category);
+        setCategory(gt.replace("female_", ""));
       } else {
         setGender(gt === "gents" ? "male" : "female");
-        setCategory("");
+        setCategory(gt);
       }
       setNotes(editProfile.notes || "");
-      setMeasurements((editProfile.measurements as Record<string, string>) || {});
-      const sp = (editProfile.stylingPrefs as Record<string, unknown>) || {};
-      setPockets({
-        front: (sp.frontpocket as string) || "",
-        side: (sp.sidepocket as string) || "",
-        shalwar: (sp.shalwarpocket as string) || "",
-      });
-      setIncludeShirt(!!(sp.includeShirt));
+      setMeasurements(editProfile.measurements || {});
+      setStylingPrefs(editProfile.stylingPrefs || {});
     } else {
       setProfileName("");
       setGender("male");
       setCategory("");
       setNotes("");
       setMeasurements({});
-      setPockets({ front: "", side: "", shalwar: "" });
-      setIncludeShirt(false);
+      setStylingPrefs({});
     }
     setStep(1);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editProfile, open]);
 
-  const setM = (key: string, val: string) =>
-    setMeasurements((prev) => ({ ...prev, [key]: val }));
+  const setM = (key: string, val: string) => setMeasurements((prev) => ({ ...prev, [key]: val }));
+  const setS = (key: string, val: any) => setStylingPrefs((prev) => ({ ...prev, [key]: val }));
 
-  const hasPockets = !(gender === "female" && ["frock", "saari", "lehnga_kurti"].includes(category));
-  const TOTAL_STEPS = hasPockets ? 4 : 3;
+  const TOTAL_STEPS = 3;
 
   const handleSave = async () => {
     setSaving(true);
     try {
       const garmentType = `${gender}_${category}`;
-      const shouldIncludePockets = !(gender === "female" && ["frock", "saari", "lehnga_kurti"].includes(category));
-      const stylingPrefs: Record<string, unknown> = { includeShirt };
-      if (shouldIncludePockets) {
-        stylingPrefs.frontpocket = pockets.front;
-        stylingPrefs.sidepocket = pockets.side;
-        stylingPrefs.shalwarpocket = pockets.shalwar;
-      }
       const url = editProfile ? `/api/measurements/${editProfile.id}` : "/api/measurements";
       const method = editProfile ? "PUT" : "POST";
+      
+      // Merge tailorNotes into stylingPrefs
+      const finalStyling = { ...stylingPrefs, tailorNotes: notes };
+      
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profileName, garmentType, measurements, stylingPrefs, notes }),
+        body: JSON.stringify({ profileName, garmentType, measurements, stylingPrefs: finalStyling }),
       });
       if (res.ok) { onSaved(); onClose(); }
     } finally {
@@ -309,16 +277,8 @@ function WizardDialog({
 
   const maleCategories = [
     { value: "shalwar_kameez", label: "Shalwar Kameez", desc: "Traditional shirt + shalwar" },
-    {
-      value: "prince_coat",
-      label: "3 Piece Suit — Prince Coat",
-      desc: "Prince coat (Bane, Single, Choras, Straight Ghierra) + trousers",
-    },
-    {
-      value: "simple_pent_coat",
-      label: "3 Piece Suit — Simple Pent Coat",
-      desc: "Simple pent coat (Collar, Hip) + trousers",
-    },
+    { value: "prince_coat", label: "3 Piece Suit — Prince Coat", desc: "Prince coat + trousers" },
+    { value: "simple_pent_coat", label: "3 Piece Suit — Simple Pent Coat", desc: "Simple pent coat + trousers" },
   ];
   const femaleCategories = [
     { value: "simple_shalwar", label: "Simple Shalwar Kameez", desc: "Traditional shirt + shalwar" },
@@ -329,7 +289,7 @@ function WizardDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-50 dark:bg-slate-950">
         <DialogHeader>
           <DialogTitle>{editProfile ? "Edit" : "New"} Measurement Profile</DialogTitle>
           <div className="flex gap-1 mt-2">
@@ -340,29 +300,19 @@ function WizardDialog({
           <p className="text-xs text-muted-foreground">Step {step} of {TOTAL_STEPS}</p>
         </DialogHeader>
 
-        {/* ── STEP 1: Profile name + gender ─────────────────────────────── */}
         {step === 1 && (
           <div className="space-y-5">
             <div>
               <Label>Profile Name *</Label>
-              <Input
-                placeholder='e.g. "My Eid Suit"'
-                value={profileName}
-                onChange={(e) => setProfileName(e.target.value)}
-                className="mt-1"
-              />
+              <Input placeholder='e.g. "My Eid Suit"' value={profileName} onChange={(e) => setProfileName(e.target.value)} className="mt-1" />
             </div>
             <div>
               <Label className="mb-2 block">Gender *</Label>
               <div className="grid grid-cols-2 gap-3">
                 {(["male", "female"] as Gender[]).map((g) => (
                   <button
-                    key={g}
-                    type="button"
-                    onClick={() => { setGender(g); setCategory(""); }}
-                    className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all text-left ${
-                      gender === g ? "border-primary bg-primary/5 text-primary" : "border-muted hover:border-primary/40"
-                    }`}
+                    key={g} type="button" onClick={() => { setGender(g); setCategory(""); }}
+                    className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all text-left ${gender === g ? "border-primary bg-primary/5 text-primary" : "border-muted hover:border-primary/40"}`}
                   >
                     <span className="text-2xl">{g === "male" ? "👨" : "👩"}</span>
                     <span className="font-medium capitalize">{g === "male" ? "Male" : "Female"}</span>
@@ -370,36 +320,19 @@ function WizardDialog({
                 ))}
               </div>
             </div>
-            <div>
-              <Label>Notes (Optional)</Label>
-              <Textarea
-                placeholder="Special tailoring instructions..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-                className="mt-1"
-              />
-            </div>
           </div>
         )}
 
-        {/* ── STEP 2: Category selection ─────────────────────────────────── */}
         {step === 2 && (
           <div className="space-y-3">
             <h3 className="font-medium">{gender === "male" ? "Select Garment Category" : "Select Garment Type"}</h3>
-            <div className="grid gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {(gender === "male" ? maleCategories : femaleCategories).map((cat) => (
                 <button
-                  key={cat.value}
-                  type="button"
-                  onClick={() => setCategory(cat.value as Category)}
-                  className={`flex items-start gap-3 p-4 rounded-lg border-2 transition-all text-left w-full ${
-                    category === cat.value ? "border-primary bg-primary/5" : "border-muted hover:border-primary/40"
-                  }`}
+                  key={cat.value} type="button" onClick={() => setCategory(cat.value)}
+                  className={`flex items-start gap-3 p-4 rounded-lg border-2 transition-all text-left w-full ${category === cat.value ? "border-primary bg-primary/5" : "border-muted hover:border-primary/40"}`}
                 >
-                  <div className={`mt-0.5 h-4 w-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
-                    category === cat.value ? "border-primary" : "border-muted-foreground"
-                  }`}>
+                  <div className={`mt-0.5 h-4 w-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${category === cat.value ? "border-primary" : "border-muted-foreground"}`}>
                     {category === cat.value && <div className="h-2 w-2 rounded-full bg-primary" />}
                   </div>
                   <div>
@@ -409,188 +342,52 @@ function WizardDialog({
                 </button>
               ))}
             </div>
-            {gender === "male" && category === "prince_coat" && (
-              <label className="flex items-center gap-2 cursor-pointer mt-2 p-3 bg-muted/40 rounded-lg">
-                <input
-                  type="checkbox"
-                  checked={includeShirt}
-                  onChange={(e) => setIncludeShirt(e.target.checked)}
-                  className="h-4 w-4 rounded"
-                />
-                <span className="text-sm font-medium">Also include Shirt measurements</span>
-              </label>
-            )}
-            {gender === "male" && category === "simple_pent_coat" && (
-              <label className="flex items-center gap-2 cursor-pointer mt-2 p-3 bg-muted/40 rounded-lg">
-                <input
-                  type="checkbox"
-                  checked={includeShirt}
-                  onChange={(e) => setIncludeShirt(e.target.checked)}
-                  className="h-4 w-4 rounded"
-                />
-                <span className="text-sm font-medium">Also include Shirt measurements</span>
-              </label>
-            )}
           </div>
         )}
 
-        {/* ── STEP 3: Main measurements ──────────────────────────────────── */}
         {step === 3 && (
-          <div className="space-y-6">
-            {/* Male – Shalwar Kameez */}
-            {gender === "male" && category === "shalwar_kameez" && (<>
-              <div>
-                <h3 className="font-medium mb-3">Shirt Measurements</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {MALE_SK_SHIRT_FIELDS.map((field) => <MeasurementField key={field.key} field={field} value={measurements[field.key] || ""} onChange={setM} />)}
+          <div className="mt-2 border-2 border-blue-900/30 dark:border-blue-500/30 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm text-blue-950 dark:text-blue-100">
+            {/* Header Area */}
+            <div className="bg-blue-50 dark:bg-blue-950/40 p-4 border-b-2 border-blue-900/20 dark:border-blue-500/20 flex flex-wrap justify-between items-center gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-blue-900 dark:bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-xl">
+                  EC
                 </div>
-              </div>
-              <div>
-                <h3 className="font-medium mb-3">Shalwar</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {MALE_SK_SHALWAR_FIELDS.map((field) => <MeasurementField key={field.key} field={field} value={measurements[field.key] || ""} onChange={setM} />)}
-                </div>
-              </div>
-            </>)}
-            {/* Male – 3 Piece Suit: Prince Coat */}
-            {gender === "male" && category === "prince_coat" && (<>
-              <div>
-                <h3 className="font-medium mb-3">Prince Coat Measurements</h3>
-                <p className="text-xs text-muted-foreground mb-3">Bane: Selected · Single: Selected · Ghierra: Straight · Choras: 1</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {MALE_PC_COAT_FIELDS.map((field) => <MeasurementField key={field.key} field={field} value={measurements[field.key] || ""} onChange={setM} />)}
-                </div>
-              </div>
-              <div>
-                <h3 className="font-medium mb-3">Trousers / Pent</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {MALE_PC_TROUSER_FIELDS.map((field) => <MeasurementField key={field.key} field={field} value={measurements[field.key] || ""} onChange={setM} />)}
-                </div>
-              </div>
-              {includeShirt && (
                 <div>
-                  <h3 className="font-medium mb-3">Shirt Measurements</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    {MALE_PC_SHIRT_FIELDS.map((field) => <MeasurementField key={field.key} field={field} value={measurements[field.key] || ""} onChange={setM} />)}
-                  </div>
-                </div>
-              )}
-            </>)}
-            {/* Male – 3 Piece Suit: Simple Pent Coat */}
-            {gender === "male" && category === "simple_pent_coat" && (<>
-              <div>
-                <h3 className="font-medium mb-3">Simple Pent Coat Measurements</h3>
-                <p className="text-xs text-muted-foreground mb-3">Collar: Selected</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {MALE_SPC_COAT_FIELDS.map((field) => <MeasurementField key={field.key} field={field} value={measurements[field.key] || ""} onChange={setM} />)}
+                  <h2 className="text-xl font-bold tracking-tight uppercase">EMAN THREADS</h2>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 font-medium tracking-widest">
+                    {gender === "male" ? "MEN " : "LADIES "} 
+                    {category ? category.replace(/_/g, " ").toUpperCase() : ""}
+                  </p>
                 </div>
               </div>
-              <div>
-                <h3 className="font-medium mb-3">Trousers / Pent</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {MALE_PC_TROUSER_FIELDS.map((field) => <MeasurementField key={field.key} field={field} value={measurements[field.key] || ""} onChange={setM} />)}
+              <div className="flex gap-4">
+                <div className="bg-white dark:bg-slate-800 px-3 py-1.5 rounded border border-blue-200 dark:border-blue-800">
+                  <span className="text-xs font-semibold text-blue-800 dark:text-blue-300 mr-2">Name:</span>
+                  <span className="text-sm font-medium">{profileName || "________________"}</span>
                 </div>
               </div>
-              {includeShirt && (
-                <div>
-                  <h3 className="font-medium mb-3">Shirt Measurements</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    {MALE_PC_SHIRT_FIELDS.map((field) => <MeasurementField key={field.key} field={field} value={measurements[field.key] || ""} onChange={setM} />)}
-                  </div>
-                </div>
-              )}
-            </>)}
-            {/* Female – Simple Shalwar */}
-            {gender === "female" && category === "simple_shalwar" && (<>
-              <div>
-                <h3 className="font-medium mb-3">Shirt Measurements</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {FEMALE_SS_SHIRT_FIELDS.map((field) => <MeasurementField key={field.key} field={field} value={measurements[field.key] || ""} onChange={setM} />)}
-                </div>
-              </div>
-              <div>
-                <h3 className="font-medium mb-3">Shalwar</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {FEMALE_SS_SHALWAR_FIELDS.map((field) => <MeasurementField key={field.key} field={field} value={measurements[field.key] || ""} onChange={setM} />)}
-                </div>
-              </div>
-            </>)}
-            {/* Female – Frock */}
-            {gender === "female" && category === "frock" && (<>
-              <div>
-                <h3 className="font-medium mb-3">Frock Measurements</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {FEMALE_FROCK_FIELDS.map((field) => <MeasurementField key={field.key} field={field} value={measurements[field.key] || ""} onChange={setM} />)}
-                </div>
-              </div>
-              <div>
-                <h3 className="font-medium mb-3">Trousers</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {FEMALE_FROCK_TROUSER_FIELDS.map((field) => <MeasurementField key={field.key} field={field} value={measurements[field.key] || ""} onChange={setM} />)}
-                </div>
-              </div>
-            </>)}
-            {/* Female – Saari */}
-            {gender === "female" && category === "saari" && (<>
-              <div>
-                <h3 className="font-medium mb-3">Saari Blouse Measurements</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {FEMALE_SAARI_BLOUSE_FIELDS.map((field) => <MeasurementField key={field.key} field={field} value={measurements[field.key] || ""} onChange={setM} />)}
-                </div>
-              </div>
-              <div>
-                <h3 className="font-medium mb-3">Saari</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {FEMALE_SAARI_BOTTOM_FIELDS.map((field) => <MeasurementField key={field.key} field={field} value={measurements[field.key] || ""} onChange={setM} />)}
-                </div>
-              </div>
-            </>)}
-            {/* Female – Lehnga Kurti */}
-            {gender === "female" && category === "lehnga_kurti" && (<>
-              <div>
-                <h3 className="font-medium mb-3">Kurti Measurements</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {FEMALE_LK_KURTI_FIELDS.map((field) => <MeasurementField key={field.key} field={field} value={measurements[field.key] || ""} onChange={setM} />)}
-                </div>
-              </div>
-              <div>
-                <h3 className="font-medium mb-3">Lehnga</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {FEMALE_LK_LEHNGA_FIELDS.map((field) => <MeasurementField key={field.key} field={field} value={measurements[field.key] || ""} onChange={setM} />)}
-                </div>
-              </div>
-            </>)}
-          </div>
-        )}
-
-        {/* ── STEP 4: Pockets ───────────────────────────────────────────── */}
-        {step === 4 && hasPockets && (
-          <div className="space-y-4">
-            <h3 className="font-medium mb-3">Pocket Details</h3>
-            <div className="grid grid-cols-3 gap-3">
-              {([["front", "Front Pocket"], ["side", "Side Pocket"], ["shalwar", "Shalwar Pocket"]] as [keyof typeof pockets, string][]).map(([key, label]) => (
-                <div key={key}>
-                  <Label className="text-xs">{label}</Label>
-                  <Input
-                    value={pockets[key]}
-                    onChange={(e) => setPockets((prev) => ({ ...prev, [key]: e.target.value }))}
-                    className="mt-1 h-8"
-                  />
-                </div>
-              ))}
             </div>
+
+            {/* Main Form Body */}
+            <UnifiedLayoutEngine 
+              gender={gender}
+              measurements={measurements as Record<string, string>}
+              stylingPrefs={stylingPrefs}
+              notes={notes}
+              setM={setM}
+              setS={setS}
+              setNotes={setNotes}
+              readOnly={false}
+            />
           </div>
         )}
-
-        <div className="flex justify-between pt-4 border-t">
+<div className="flex justify-between pt-4 border-t">
           <Button variant="outline" onClick={() => step > 1 ? setStep(step - 1) : onClose()}>
             {step === 1 ? "Cancel" : "Back"}
           </Button>
           {step < TOTAL_STEPS ? (
-            <Button
-              onClick={() => setStep(step + 1)}
-              disabled={(step === 1 && !profileName.trim()) || (step === 2 && !category)}
-            >
+            <Button onClick={() => setStep(step + 1)} disabled={(step === 1 && !profileName.trim()) || (step === 2 && !category)}>
               Next
             </Button>
           ) : (
