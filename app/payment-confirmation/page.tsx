@@ -212,6 +212,12 @@ function PaymentConfirmationContent() {
                     </p>
                   </div>
                 </div>
+                <div className="mt-3 pt-3 border-t border-amber-200/50 flex items-start gap-2">
+                  <span className="text-red-600 font-bold shrink-0">⚠️ Note:</span>
+                  <p className="text-sm font-medium text-red-600 dark:text-red-400">
+                    Orders placed after 12:00 PM will have their payments confirmed the next working day.
+                  </p>
+                </div>
               </div>
 
               <h3 className="font-medium mb-3">Payment Details Submitted</h3>
@@ -519,6 +525,12 @@ function PaymentConfirmationContent() {
                       <p className="text-xs text-amber-800 dark:text-amber-200">
                         Your order will be confirmed within 1-2 hours after payment verification by our team.
                         You'll receive an email confirmation once approved.
+                      </p>
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-amber-200/50 flex items-start gap-2">
+                      <span className="text-red-600 text-xs font-bold shrink-0">⚠️ Note:</span>
+                      <p className="text-xs font-medium text-red-600 dark:text-red-400">
+                        Orders placed after 12:00 PM will have their payments confirmed the next working day.
                       </p>
                     </div>
                   </div>
