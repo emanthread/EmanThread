@@ -77,7 +77,7 @@ export function UnifiedLayoutEngine({
   const isCoat = category === "prince_coat" || category === "simple_pent_coat";
   const isShirt = category === "shirt";
   // Shalwar Kameez is the baseline; no category = show everything
-  const hasShalwar = category === "shalwar_kameez" || category === "shirt" || !category;
+  const hasShalwar = category === "shalwar_kameez" || !category;
   // Shirt has no trouser column; Coat and Shalwar Kameez do
   const hasTrouser = !isShirt;
 
@@ -91,7 +91,7 @@ export function UnifiedLayoutEngine({
   const femaleRightSimple = isLehnga || isSaari;
   // Zip+Plate absent for Lehnga, Saari, Frock
   const showFemaleZip = !isLehnga && !isSaari && !isFrock;
-  const femaleRightLabel = isLehnga ? "LEHNGA" : isSaari ? "SAARI" : "Trouser";
+  const femaleRightLabel = isLehnga ? "LENGHA" : isSaari ? "SAARI" : "Trouser";
 
   return (
     <div className={`flex flex-col md:flex-row ${readOnly ? "text-black print:text-black" : ""}`}>
@@ -162,7 +162,7 @@ export function UnifiedLayoutEngine({
                     <span className="absolute -top-3 -left-1 text-blue-600 dark:text-blue-400 font-bold text-lg" style={{ fontFamily: "cursive, 'Comic Sans MS'", transform: "rotate(-5deg)" }}>HIP</span>
                   </span>
                 ) : (
-                  "Hip / Gherra"
+                  "Gherra"
                 )}
               </div>
               <NumInput value={isCoat ? measurements.hip : measurements.gherra} onChange={(v: string) => isCoat ? setM?.('hip', v) : setM?.('gherra', v)} className="w-20 mr-2" />
@@ -175,8 +175,8 @@ export function UnifiedLayoutEngine({
               )}
             </div>
 
-            {/* Row 8: Shalwar — omitted for Coat */}
-            {hasShalwar && (
+            {/* Row 8: Shalwar — omitted for Coat and Shirt */}
+            {hasShalwar && !isShirt && (
               <div className={`flex gap-2 items-end pb-3 ${readOnly ? "border-b border-gray-300" : "border-b border-blue-100 dark:border-blue-900/30"}`}>
                 <div className="w-24 font-medium text-sm text-blue-900 dark:text-blue-300 print:text-black">Shalwar</div>
                 <NumInput value={measurements.shalwar} onChange={(v: string) => setM?.('shalwar', v)} className="w-20 mr-2" />
@@ -193,8 +193,8 @@ export function UnifiedLayoutEngine({
               </div>
             )}
 
-            {/* Row 10: Pocket — Front/Side omitted for Coat */}
-            {!isCoat && (
+            {/* Row 10: Pocket — Front/Side omitted for Coat and Shirt; Shalwar pocket omitted when no shalwar */}
+            {(!isCoat && !isShirt) && (
               <div className="flex gap-2 items-end mt-2">
                 <div className="w-24 font-medium text-sm text-blue-900 dark:text-blue-300 print:text-black">Pocket</div>
                 <div className="w-20 mr-2" />
@@ -209,38 +209,19 @@ export function UnifiedLayoutEngine({
                 )}
               </div>
             )}
-            
-            {/* Stitching Charges / Notes for Shirt only (since right panel is removed) */}
-            {isShirt && (
-              <div className={`mt-6 pt-4 ${readOnly ? "border-t border-gray-300" : "border-t border-blue-100 dark:border-blue-900/30"}`}>
-                <Label className={`text-xs font-bold mb-1.5 block ${readOnly ? "text-black" : "text-blue-800 dark:text-blue-300"}`}>Stitching Charges / Notes</Label>
-                {readOnly ? (
-                  <div className={`text-sm min-h-[80px] p-2 italic rounded ${readOnly ? "border border-gray-300 bg-transparent" : "bg-white/50 dark:bg-slate-950/50"}`}>
-                    {notes || "No notes provided."}
-                  </div>
-                ) : (
-                  <Textarea 
-                    placeholder="Stitching Charges For trouser is 3000..." 
-                    value={notes} 
-                    onChange={(e) => setNotes?.(e.target.value)} 
-                    className="min-h-[100px] text-xs resize-none bg-white/80 dark:bg-slate-950/80 border-blue-200 dark:border-blue-800 focus-visible:ring-blue-500"
-                  />
-                )}
-              </div>
-            )}
           </div>
 
           {/* Right Column (Trouser & Extras) */}
-          {!isShirt && (
-            <div className={`w-full md:w-64 flex flex-col ${readOnly ? "border-l border-gray-400" : "border-l-2 border-blue-900/10 dark:border-blue-500/10 bg-blue-50/30 dark:bg-blue-950/10"}`}>
+          <div className={`w-full md:w-64 flex flex-col ${readOnly ? "border-l border-gray-400" : "border-l-2 border-blue-900/10 dark:border-blue-500/10 bg-blue-50/30 dark:bg-blue-950/10"}`}>
             <div className="flex flex-col h-full">
               
-              <div className={`flex-1 p-3 relative`}>
+              <div className={`flex-1 p-3 relative ${!hasTrouser ? "opacity-20 pointer-events-none grayscale" : ""}`}>
+                {!hasTrouser && <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none"><div className="w-full h-full border-l-[3px] border-black/40 rotate-[20deg] origin-center translate-x-6"></div></div>}
                 <div className={`border border-blue-200 dark:border-blue-800 ${readOnly ? "border-gray-400" : ""} rounded-sm overflow-hidden`}>
                   
                   {/* Pent / Trouser Header */}
                   <div className={`p-1.5 text-center font-bold text-sm ${readOnly ? "border-b border-gray-400 bg-gray-100" : "border-b border-blue-200 dark:border-blue-800 bg-blue-100/50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-300"}`}>
-                    Pent
+                    {isCoat ? "Pent" : "Pent / Trouser"}
                   </div>
 
                   {/* Rows */}
@@ -252,9 +233,9 @@ export function UnifiedLayoutEngine({
                       <div className="w-16 flex items-center px-1 text-xs font-medium text-blue-900 dark:text-blue-300 print:text-black">Length</div>
                       <div className="flex-1 flex items-center justify-center p-0.5 bg-white/50 dark:bg-slate-950/50">
                         {readOnly ? (
-                          <span className="font-semibold text-sm">{measurements.pent_length || measurements.trouser_length || "—"}</span>
+                          <span className="font-semibold text-sm">{measurements.trouser_length || "—"}</span>
                         ) : (
-                          <Input type="number" step="0.25" min="0" placeholder="0" value={measurements.pent_length || ""} onChange={(e) => setM?.('pent_length', e.target.value)} className="h-full w-full px-1 text-center font-medium border-0 focus-visible:ring-1 focus-visible:ring-blue-500 rounded-none bg-transparent" />
+                          <Input type="number" step="0.25" min="0" placeholder="0" value={measurements.trouser_length || ""} onChange={(e) => setM?.('trouser_length', e.target.value)} className="h-full w-full px-1 text-center font-medium border-0 focus-visible:ring-1 focus-visible:ring-blue-500 rounded-none bg-transparent" />
                         )}
                       </div>
                     </div>
@@ -265,9 +246,9 @@ export function UnifiedLayoutEngine({
                       <div className="w-16 flex items-center px-1 text-xs font-medium text-blue-900 dark:text-blue-300 print:text-black">Pencha</div>
                       <div className="flex-1 flex items-center justify-center p-0.5 bg-white/50 dark:bg-slate-950/50">
                         {readOnly ? (
-                          <span className="font-semibold text-sm">{measurements.pent_pancha || measurements.trouser_pancha || "—"}</span>
+                          <span className="font-semibold text-sm">{measurements.trouser_pancha || "—"}</span>
                         ) : (
-                          <Input type="number" step="0.25" min="0" placeholder="0" value={measurements.pent_pancha || ""} onChange={(e) => setM?.('pent_pancha', e.target.value)} className="h-full w-full px-1 text-center font-medium border-0 focus-visible:ring-1 focus-visible:ring-blue-500 rounded-none bg-transparent" />
+                          <Input type="number" step="0.25" min="0" placeholder="0" value={measurements.trouser_pancha || ""} onChange={(e) => setM?.('trouser_pancha', e.target.value)} className="h-full w-full px-1 text-center font-medium border-0 focus-visible:ring-1 focus-visible:ring-blue-500 rounded-none bg-transparent" />
                         )}
                       </div>
                     </div>
@@ -278,9 +259,9 @@ export function UnifiedLayoutEngine({
                       <div className="w-16 flex items-center px-1 text-xs font-medium text-blue-900 dark:text-blue-300 print:text-black">Tigh</div>
                       <div className="flex-1 flex items-center justify-center p-0.5 bg-white/50 dark:bg-slate-950/50">
                         {readOnly ? (
-                          <span className="font-semibold text-sm">{measurements.pent_tigh || measurements.trouser_thigh || "—"}</span>
+                          <span className="font-semibold text-sm">{measurements.trouser_thigh || "—"}</span>
                         ) : (
-                          <Input type="number" step="0.25" min="0" placeholder="0" value={measurements.pent_tigh || ""} onChange={(e) => setM?.('pent_tigh', e.target.value)} className="h-full w-full px-1 text-center font-medium border-0 focus-visible:ring-1 focus-visible:ring-blue-500 rounded-none bg-transparent" />
+                          <Input type="number" step="0.25" min="0" placeholder="0" value={measurements.trouser_thigh || ""} onChange={(e) => setM?.('trouser_thigh', e.target.value)} className="h-full w-full px-1 text-center font-medium border-0 focus-visible:ring-1 focus-visible:ring-blue-500 rounded-none bg-transparent" />
                         )}
                       </div>
                     </div>
@@ -289,12 +270,12 @@ export function UnifiedLayoutEngine({
                     {isCoat && (
                       <div className={`flex items-stretch h-8 ${readOnly ? "divide-gray-400 divide-x" : "divide-x divide-blue-200 dark:divide-blue-800"}`}>
                         <div className="w-6 flex items-center justify-center font-bold text-sm text-blue-800 dark:text-blue-400 print:text-black">W</div>
-                        <div className="w-16 flex items-center px-1 text-xs font-medium text-blue-900 dark:text-blue-300 print:text-black">Waist</div>
+                        <div className="w-16 flex items-center px-1 text-xs font-medium text-blue-900 dark:text-blue-300 print:text-black">waist</div>
                         <div className="flex-1 flex items-center justify-center p-0.5 bg-white/50 dark:bg-slate-950/50">
                           {readOnly ? (
-                            <span className="font-semibold text-sm">{measurements.pent_waist || measurements.trouser_waist || "—"}</span>
+                            <span className="font-semibold text-sm">{measurements.trouser_waist || "—"}</span>
                           ) : (
-                            <Input type="number" step="0.25" min="0" placeholder="0" value={measurements.pent_waist || ""} onChange={(e) => setM?.('pent_waist', e.target.value)} className="h-full w-full px-1 text-center font-medium border-0 focus-visible:ring-1 focus-visible:ring-blue-500 rounded-none bg-transparent" />
+                            <Input type="number" step="0.25" min="0" placeholder="0" value={measurements.trouser_waist || ""} onChange={(e) => setM?.('trouser_waist', e.target.value)} className="h-full w-full px-1 text-center font-medium border-0 focus-visible:ring-1 focus-visible:ring-blue-500 rounded-none bg-transparent" />
                           )}
                         </div>
                       </div>
@@ -306,13 +287,13 @@ export function UnifiedLayoutEngine({
                       <div className="w-16 flex items-center px-1 text-xs font-medium text-blue-900 dark:text-blue-300 print:text-black">Lastic</div>
                       <div className="flex-1 flex items-center justify-center bg-white/50 dark:bg-slate-950/50">
                         {readOnly ? (
-                          <span className="text-lg leading-none">{(stylingPrefs.pent_lastic ?? stylingPrefs.trouser_elastic) ? "☑" : "☐"}</span>
+                          <span className="text-lg leading-none">{stylingPrefs.trouser_elastic ? "☑" : "☐"}</span>
                         ) : (
                           <label className="cursor-pointer flex items-center justify-center w-full h-full group hover:bg-white dark:hover:bg-slate-900 transition-colors">
-                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${(stylingPrefs.pent_lastic ?? stylingPrefs.trouser_elastic) ? "bg-blue-600 border-blue-600 text-white" : "border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-900 group-hover:border-blue-400"}`}>
-                              {(stylingPrefs.pent_lastic ?? stylingPrefs.trouser_elastic) && <svg width="10" height="10" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 3L4.5 8.5L2 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${stylingPrefs.trouser_elastic ? "bg-blue-600 border-blue-600 text-white" : "border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-900 group-hover:border-blue-400"}`}>
+                              {stylingPrefs.trouser_elastic && <svg width="10" height="10" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 3L4.5 8.5L2 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                             </div>
-                            <input type="checkbox" className="hidden" checked={!!(stylingPrefs.pent_lastic ?? stylingPrefs.trouser_elastic)} onChange={(e) => setS?.('pent_lastic', e.target.checked)} />
+                            <input type="checkbox" className="hidden" checked={!!stylingPrefs.trouser_elastic} onChange={(e) => setS?.('trouser_elastic', e.target.checked)} />
                           </label>
                         )}
                       </div>
@@ -324,13 +305,13 @@ export function UnifiedLayoutEngine({
                       <div className="w-16 flex items-center px-1 text-xs font-medium text-blue-900 dark:text-blue-300 print:text-black">Pocket</div>
                       <div className="flex-1 flex items-center justify-center bg-white/50 dark:bg-slate-950/50">
                         {readOnly ? (
-                          <span className="text-lg leading-none">{(stylingPrefs.pent_pocket ?? stylingPrefs.trouser_pocket) ? "☑" : "☐"}</span>
+                          <span className="text-lg leading-none">{stylingPrefs.trouser_pocket ? "☑" : "☐"}</span>
                         ) : (
                           <label className="cursor-pointer flex items-center justify-center w-full h-full group hover:bg-white dark:hover:bg-slate-900 transition-colors">
-                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${(stylingPrefs.pent_pocket ?? stylingPrefs.trouser_pocket) ? "bg-blue-600 border-blue-600 text-white" : "border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-900 group-hover:border-blue-400"}`}>
-                              {(stylingPrefs.pent_pocket ?? stylingPrefs.trouser_pocket) && <svg width="10" height="10" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 3L4.5 8.5L2 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${stylingPrefs.trouser_pocket ? "bg-blue-600 border-blue-600 text-white" : "border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-900 group-hover:border-blue-400"}`}>
+                              {stylingPrefs.trouser_pocket && <svg width="10" height="10" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 3L4.5 8.5L2 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                             </div>
-                            <input type="checkbox" className="hidden" checked={!!(stylingPrefs.pent_pocket ?? stylingPrefs.trouser_pocket)} onChange={(e) => setS?.('pent_pocket', e.target.checked)} />
+                            <input type="checkbox" className="hidden" checked={!!stylingPrefs.trouser_pocket} onChange={(e) => setS?.('trouser_pocket', e.target.checked)} />
                           </label>
                         )}
                       </div>
@@ -380,7 +361,6 @@ export function UnifiedLayoutEngine({
 
             </div>
           </div>
-          )}
         </div>
       ) : (
         <div className="flex flex-col md:flex-row w-full">
@@ -388,9 +368,6 @@ export function UnifiedLayoutEngine({
           <div className={`flex-1 p-4 grid gap-3 border-blue-900/10 dark:border-blue-500/10 ${readOnly ? "border-r border-gray-400" : "border-r-2"}`}>
             {/* Top Block (Shirt) */}
             <div className={`space-y-3 pb-4 border-b-2 border-blue-900/10 dark:border-blue-500/10 ${readOnly ? "border-gray-400" : ""}`}>
-              <h4 className={`text-center font-semibold text-sm pb-2 mb-2 ${readOnly ? "text-black border-b border-gray-400" : "text-blue-900 dark:text-blue-300 border-b border-blue-200 dark:border-blue-800"}`}>
-                {isSaari ? "Blouse" : isLehnga ? "Kurti" : isFrock ? "Frock" : "Shirt"}
-              </h4>
               <div className={`flex gap-4 items-end pb-3 ${readOnly ? "border-b border-gray-300" : "border-b border-blue-100 dark:border-blue-900/30"}`}>
                 <div className="w-24 font-medium text-sm text-blue-900 dark:text-blue-300 print:text-black">Length</div>
                 <NumInput value={measurements.length} onChange={(v: string) => setM?.('length', v)} className="w-20" />
@@ -407,8 +384,8 @@ export function UnifiedLayoutEngine({
                 
                 <NumInput label="arm hole Golai" value={measurements.arm_hole_golai} onChange={(v: string) => setM?.('arm_hole_golai', v)} className="w-20" />
                 <NumInput label="Mori" value={measurements.mori} onChange={(v: string) => setM?.('mori', v)} className="w-20" />
-                {/* Bell Bazoo: only for Shalwar Kameez */}
-                {(!isSaari && !isFrock && !isLehnga) && <CheckInput label="Bell Bazoo" checked={stylingPrefs.bell_bazoo} onChange={(v: boolean) => setS?.('bell_bazoo', v)} className="w-20 ml-2" />}
+                {/* Bell Bazoo: omitted for Saari */}
+                {!isSaari && <CheckInput label="Bell Bazoo" checked={stylingPrefs.bell_bazoo} onChange={(v: boolean) => setS?.('bell_bazoo', v)} className="w-20 ml-2" />}
               </div>
 
               <div className={`flex gap-4 items-end pb-3 ${readOnly ? "border-b border-gray-300" : "border-b border-blue-100 dark:border-blue-900/30"}`}>
@@ -426,16 +403,16 @@ export function UnifiedLayoutEngine({
                 <NumInput value={measurements.waist} onChange={(v: string) => setM?.('waist', v)} className="w-20" />
               </div>
 
-              {/* Hip row */}
+              {/* Hip row — Frock shows label as "Gherra" directly; all others show "Hip" */}
               <div className={`flex gap-4 items-end pb-3 ${readOnly ? "border-b border-gray-300" : "border-b border-blue-100 dark:border-blue-900/30"}`}>
                 <div className="w-24 font-medium text-sm text-blue-900 dark:text-blue-300 print:text-black">
-                  Hip
+                  {isFrock ? "Gherra" : "Hip"}
                 </div>
-                <NumInput value={measurements.hip} onChange={(v: string) => setM?.('hip', v)} className="w-20" />
+                <NumInput value={isFrock ? measurements.gherra : measurements.hip} onChange={(v: string) => isFrock ? setM?.('gherra', v) : setM?.('hip', v)} className="w-20" />
               </div>
 
-              {/* Chaak: omitted for Frock, Saari, Lehnga */}
-              {(!isFrock && !isSaari && !isLehnga) && (
+              {/* Chaak: omitted for Frock and Saari */}
+              {!isFrock && !isSaari && (
                 <div className="flex gap-4 items-end pb-1 mt-2">
                   <div className="w-24 font-medium text-sm text-blue-900 dark:text-blue-300 print:text-black">Chaak</div>
                   <NumInput value={measurements.chaak} onChange={(v: string) => setM?.('chaak', v)} className="w-20" />
