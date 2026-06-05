@@ -279,14 +279,12 @@ function WizardDialog({
     { value: "shalwar_kameez", label: "Shalwar Kameez", desc: "Traditional shirt + shalwar" },
     { value: "prince_coat", label: "3 Piece Suit — Prince Coat", desc: "Prince coat + trousers" },
     { value: "simple_pent_coat", label: "3 Piece Suit — Simple Pent Coat", desc: "Simple pent coat + trousers" },
-    { value: "shirt", label: "Standalone Shirt", desc: "Shirt only" },
   ];
   const femaleCategories = [
     { value: "simple_shalwar", label: "Simple Shalwar Kameez", desc: "Traditional shirt + shalwar" },
     { value: "frock", label: "Frock", desc: "Frock + trousers" },
     { value: "saari", label: "Saari", desc: "Saari blouse + saari" },
     { value: "lehnga_kurti", label: "Lehnga Kurti", desc: "Kurti + lehnga" },
-    { value: "shirt", label: "Standalone Shirt", desc: "Shirt only" },
   ];
 
   return (
@@ -374,7 +372,6 @@ function WizardDialog({
             {/* Main Form Body */}
             <UnifiedLayoutEngine 
               gender={gender}
-              category={category}
               measurements={measurements as Record<string, string>}
               stylingPrefs={stylingPrefs}
               notes={notes}

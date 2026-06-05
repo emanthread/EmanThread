@@ -21,12 +21,6 @@ export function TailorPrintCard({ data }: { data: TailorCardData }) {
   const gt = (data.garmentType || "").toLowerCase();
   const isGents = gt.startsWith("male") || gt === "gents" || gt.includes("men_");
   const gender = isGents ? "male" : "female";
-  
-  // Extract category (e.g. "male_prince_coat" -> "prince_coat")
-  let category = "";
-  if (gt.startsWith("male_")) category = gt.replace("male_", "");
-  else if (gt.startsWith("female_")) category = gt.replace("female_", "");
-  else category = gt;
 
   const m = data.measurements || {};
   const s = data.stylingPrefs || {};
@@ -105,7 +99,6 @@ export function TailorPrintCard({ data }: { data: TailorCardData }) {
         <div className="px-1 py-3 text-black">
           <UnifiedLayoutEngine
             gender={gender}
-            category={category}
             measurements={m}
             stylingPrefs={s}
             notes={data.notes || ""}
