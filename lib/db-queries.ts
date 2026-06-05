@@ -358,7 +358,7 @@ export async function getFeaturedCategories(): Promise<Category[]> {
           // Find real product count if it exists in DB, otherwise use manual fallback
           const dbMatch = allCategories.find(c => c.id.toLowerCase() === fc.id.toLowerCase() || c.name.toLowerCase() === fc.name.toLowerCase());
           return {
-            id: fc.id || dbMatch?.id || fc.name.toLowerCase(),
+            id: dbMatch?.id || fc.name || fc.id,
             name: fc.name,
             description: fc.description || "",
             image: fc.image || dbMatch?.image || "/placeholder.jpg",

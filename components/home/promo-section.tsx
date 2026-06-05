@@ -130,7 +130,7 @@ export function PromoSection() {
 
           {/* Image */}
           <div className="order-1 lg:order-2">
-            <div className="relative aspect-[3/4] lg:aspect-[2/3] overflow-hidden rounded-2xl shadow-xl">
+            <div className="relative aspect-square md:aspect-[3/4] lg:aspect-[2/3] overflow-hidden rounded-2xl shadow-xl">
               <Image
                 src={promo.image}
                 alt={promo.title}

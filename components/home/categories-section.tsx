@@ -57,9 +57,7 @@ export function CategoriesSection({ categories }: { categories: Category[] }) {
 
                 {/* Content */}
                 <div className="absolute inset-0 p-6 flex flex-col justify-end">
-                  <p className="text-xs tracking-widest uppercase text-primary-foreground/70 mb-1">
-                    {category.productCount} Products
-                  </p>
+
                   <h3 className="text-2xl font-semibold text-primary-foreground">
                     {category.name}
                   </h3>
@@ -94,9 +92,7 @@ export function CategoriesSection({ categories }: { categories: Category[] }) {
 
                 {/* Content */}
                 <div className="absolute inset-0 p-6 flex flex-col justify-end">
-                  <p className="text-xs tracking-widest uppercase text-primary-foreground/70 mb-1">
-                    {category.productCount} Products
-                  </p>
+
                   <h3 className="text-2xl font-semibold text-primary-foreground">
                     {category.name}
                   </h3>

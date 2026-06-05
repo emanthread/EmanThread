@@ -53,10 +53,6 @@ export const metadata: Metadata = {
   },
   description:
     "Discover the finest collection of premium men's unstitched fabrics. The Style Never Dies.",
-  icons: {
-    icon: "/logo-circle.jpg",
-    apple: "/logo-circle.jpg",
-  },
   keywords: [
     "premium fabrics",
     "unstitched suits",

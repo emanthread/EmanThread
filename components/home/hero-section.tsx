@@ -90,7 +90,7 @@ export function HeroSection() {
   const slide = heroSlides[currentSlide];
 
   return (
-    <section className="relative h-screen min-h-[700px] max-h-[900px] overflow-hidden">
+    <section className="relative h-[60vh] min-h-[450px] md:h-screen md:min-h-[700px] max-h-[900px] overflow-hidden">
       {/* Background Images */}
       {heroSlides.map((s, index) => (
         <div

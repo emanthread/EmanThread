@@ -11,6 +11,29 @@ interface Message {
   content: string
 }
 
+interface ProductCard {
+  name: string
+  slug: string
+  sku: string
+  fabricType: string
+  price: string
+  originalPrice?: string
+  color: string
+  colorHex?: string
+  image: string
+  link: string
+  badge?: string | null
+  inStock: boolean
+  stockQuantity?: number | null
+}
+
+interface ChatResponse {
+  reply: string
+  products: ProductCard[]
+  recommendations: ProductCard[]
+  paymentVerification: string
+}
+
 // ── Language config ───────────────────────────────────────────────
 const LANG_CONFIG = {
   en: {
@@ -28,6 +51,9 @@ const LANG_CONFIG = {
     sendLabel: 'Send',
     chooseLang: 'Choose your language',
     langPrompt: '',
+    viewProduct: 'View',
+    recommendations: 'Recommended for you',
+    paymentVerification: 'Payment Status',
   },
   ur: {
     label: 'Roman Urdu',
@@ -44,7 +70,63 @@ const LANG_CONFIG = {
     sendLabel: 'Bhejen',
     chooseLang: 'Choose your language',
     langPrompt: '',
+    viewProduct: 'Dekhein',
+    recommendations: 'Aap ke liye tajweez',
+    paymentVerification: 'Payment Status',
   },
+}
+
+// ── Product Card Component ────────────────────────────────────────
+function ProductCardView({ card }: { card: ProductCard }) {
+  return (
+    <a
+      href={card.link}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex-shrink-0 w-40 bg-white dark:bg-zinc-800 rounded-xl border border-border overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+    >
+      <div className="h-32 w-full bg-muted overflow-hidden">
+        <img
+          src={card.image}
+          alt={card.name}
+          className="w-full h-full object-cover"
+          loading="lazy"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = '/placeholder.svg'
+          }}
+        />
+      </div>
+      <div className="p-2 space-y-1">
+        <p className="text-xs font-semibold text-foreground truncate leading-tight">
+          {card.name}
+        </p>
+        <p className="text-[10px] text-muted-foreground truncate">
+          {card.color}
+        </p>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+            PKR {card.price}
+          </span>
+          {card.originalPrice && Number(card.originalPrice) > Number(card.price) && (
+            <span className="text-[10px] text-muted-foreground line-through">
+              PKR {card.originalPrice}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          <span
+            className={`text-[9px] px-1 py-0.5 rounded-full ${
+              card.inStock
+                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+            }`}
+          >
+            {card.inStock ? 'In Stock' : 'Out of Stock'}
+          </span>
+        </div>
+      </div>
+    </a>
+  )
 }
 
 // ── Chat Widget ───────────────────────────────────────────────────
@@ -55,6 +137,9 @@ export function ChatWidget() {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [hasUnread, setHasUnread] = useState(false)
+  const [lastProducts, setLastProducts] = useState<ProductCard[]>([])
+  const [lastRecommendations, setLastRecommendations] = useState<ProductCard[]>([])
+  const [lastPaymentVerification, setLastPaymentVerification] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -132,6 +217,9 @@ export function ChatWidget() {
     setMessages(newMessages)
     setInput('')
     setIsLoading(true)
+    setLastProducts([])
+    setLastRecommendations([])
+    setLastPaymentVerification('')
 
     try {
       const res = await fetch('/api/chat', {
@@ -139,11 +227,20 @@ export function ChatWidget() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: newMessages, language }),
       })
-      const data = await res.json()
+      const data: ChatResponse = await res.json()
       setMessages((prev) => [
         ...prev,
         { role: 'assistant', content: data.reply },
       ])
+      if (data.products && data.products.length > 0) {
+        setLastProducts(data.products)
+      }
+      if (data.recommendations && data.recommendations.length > 0) {
+        setLastRecommendations(data.recommendations)
+      }
+      if (data.paymentVerification) {
+        setLastPaymentVerification(data.paymentVerification)
+      }
     } catch {
       const fallback =
         language === 'ur'
@@ -167,11 +264,28 @@ export function ChatWidget() {
 
   return (
     <>
+      {/* ── Chat bubble button ──────────────────────────────────── */}
+      {!isOpen && (
+        <button
+          onClick={() => setIsOpen(true)}
+          className="fixed bottom-5 right-5 z-50 w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer"
+          style={{
+            background: 'linear-gradient(135deg, #4f46e5, #6d28d9)',
+          }}
+          aria-label="Open chat"
+        >
+          <MessageCircle className="w-7 h-7 text-white" />
+          {hasUnread && (
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 border-2 border-white rounded-full" />
+          )}
+        </button>
+      )}
+
       {/* ── Chat window ─────────────────────────────────────────── */}
       {isOpen && (
         <div
           className="fixed bottom-24 right-5 z-50 w-80 sm:w-96 bg-background border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden"
-          style={{ height: '520px', maxHeight: '70vh' }}
+          style={{ height: '600px', maxHeight: '80vh' }}
         >
           {/* Header */}
           <div
@@ -199,7 +313,6 @@ export function ChatWidget() {
             </div>
 
             <div className="flex items-center gap-1">
-
               <button
                 onClick={() => setIsOpen(false)}
                 className="text-white/70 hover:text-white transition-colors rounded-full p-1 hover:bg-white/10"
@@ -271,6 +384,43 @@ export function ChatWidget() {
                     </div>
                   </div>
                 ))}
+
+                {/* ── Product Cards Carousel ─────────────────── */}
+                {lastProducts.length > 0 && (
+                  <div className="pt-2">
+                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                      {lastProducts.map((card, idx) => (
+                        <ProductCardView key={`prod-${card.sku}-${idx}`} card={card} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Recommendations ───────────────────────── */}
+                {lastRecommendations.length > 0 && (
+                  <div className="pt-2">
+                    <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                      {cfg.recommendations}
+                    </p>
+                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                      {lastRecommendations.map((card, idx) => (
+                        <ProductCardView key={`rec-${card.sku}-${idx}`} card={card} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Payment Verification ──────────────────── */}
+                {lastPaymentVerification && (
+                  <div className="pt-2">
+                    <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-1">
+                      {cfg.paymentVerification}
+                    </p>
+                    <div className="bg-indigo-50 dark:bg-indigo-950/30 rounded-xl p-3 text-xs whitespace-pre-wrap text-foreground leading-relaxed">
+                      {lastPaymentVerification}
+                    </div>
+                  </div>
+                )}
 
                 {/* Typing indicator */}
                 {isLoading && (

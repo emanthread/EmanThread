@@ -1,5 +1,24 @@
 import { prisma } from '@/lib/db'
 
+// ── Product card interface for structured chat returns ─────────────
+export interface ProductCard {
+  name: string
+  slug: string
+  sku: string
+  fabricType: string
+  price: string
+  originalPrice?: string
+  color: string
+  colorHex?: string
+  image: string       // first image from the product images array
+  link: string
+  badge?: string | null
+  inStock: boolean
+  stockQuantity?: number | null
+}
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://emanthread.com'
+
 // ── Active fabric types from DB ───────────────────────────────────
 export async function getActiveFabricTypes(): Promise<string[]> {
   try {
@@ -256,23 +275,81 @@ export async function getStoreConfigContext(): Promise<string> {
 }
 
 // ── Product search ───────────────────────────────────────────────
+// ── Shared product selection fields (includes images) ─────────────
+const PRODUCT_SELECT = {
+  name: true,
+  slug: true,
+  sku: true,
+  fabricType: true,
+  price: true,
+  originalPrice: true,
+  color: true,
+  colorHex: true,
+  images: true,
+  description: true,
+  badge: true,
+  inStock: true,
+  stockQuantity: true,
+  tags: true,
+} as const
+
+function rawProductToCard(p: {
+  name: string
+  slug: string | null
+  sku: string
+  fabricType: string
+  price: { toString(): string }
+  originalPrice: { toString(): string } | null
+  color: string
+  colorHex: string | null
+  images: string
+  badge: string | null
+  inStock: boolean
+  stockQuantity: number | null
+}): ProductCard {
+  const productUrl = p.slug
+    ? `${siteUrl}/product/${p.slug}`
+    : `${siteUrl}/shop`
+  const imagesArr: string[] = (() => {
+    try {
+      const parsed = JSON.parse(p.images)
+      return Array.isArray(parsed) ? parsed : [p.images]
+    } catch {
+      return p.images ? [p.images] : ['/placeholder.svg']
+    }
+  })()
+  return {
+    name: p.name,
+    slug: p.slug ?? '',
+    sku: p.sku,
+    fabricType: p.fabricType,
+    price: p.price.toString(),
+    originalPrice: p.originalPrice?.toString(),
+    color: p.color,
+    colorHex: p.colorHex ?? undefined,
+    image: imagesArr[0] || '/placeholder.svg',
+    link: productUrl,
+    badge: p.badge,
+    inStock: p.inStock,
+    stockQuantity: p.stockQuantity,
+  }
+}
+
+// ── Product search (returns both text prompt + card array) ──────
 export async function searchProductsForChat(
   keywords: string[],
   nameSearch?: string,
   colorSearch?: string,
   limit = 6
-): Promise<string> {
+): Promise<{ text: string; cards: ProductCard[] }> {
   try {
-    // Build the WHERE clause
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const baseWhere: any = { inStock: true }
 
-    // If fabric types were detected, filter by those
     if (keywords.length > 0) {
       baseWhere.fabricType = { in: keywords }
     }
 
-    // If a color was detected, filter by color (case-insensitive contains)
     if (colorSearch) {
       baseWhere.color = { contains: colorSearch, mode: 'insensitive' }
     }
@@ -281,23 +358,9 @@ export async function searchProductsForChat(
       where: baseWhere,
       take: limit,
       orderBy: { createdAt: 'desc' },
-      select: {
-        name: true,
-        slug: true,
-        sku: true,
-        fabricType: true,
-        price: true,
-        originalPrice: true,
-        color: true,
-        description: true,
-        badge: true,
-        inStock: true,
-        stockQuantity: true,
-        tags: true,
-      },
+      select: PRODUCT_SELECT,
     })
 
-    // If name/text search terms exist, also try a name-based search to enrich results
     if (nameSearch && nameSearch.trim().length > 2) {
       const nameResults = await prisma.product.findMany({
         where: {
@@ -310,23 +373,9 @@ export async function searchProductsForChat(
         },
         take: limit,
         orderBy: { createdAt: 'desc' },
-        select: {
-          name: true,
-          slug: true,
-          sku: true,
-          fabricType: true,
-          price: true,
-          originalPrice: true,
-          color: true,
-          description: true,
-          badge: true,
-          inStock: true,
-          stockQuantity: true,
-          tags: true,
-        },
+        select: PRODUCT_SELECT,
       })
 
-      // Merge results: prefer name matches, deduplicate by SKU
       const seenSkus = new Set(products.map((p) => p.sku))
       for (const p of nameResults) {
         if (!seenSkus.has(p.sku)) {
@@ -335,62 +384,159 @@ export async function searchProductsForChat(
         }
       }
 
-      // Cap at limit
       products = products.slice(0, limit)
     }
 
-    // If still no results and we had fabric filters, widen search without color/name constraints
     if (products.length === 0 && (keywords.length > 0 || colorSearch)) {
       products = await prisma.product.findMany({
         where: { inStock: true },
         take: limit,
         orderBy: { createdAt: 'desc' },
-        select: {
-          name: true,
-          slug: true,
-          sku: true,
-          fabricType: true,
-          price: true,
-          originalPrice: true,
-          color: true,
-          description: true,
-          badge: true,
-          inStock: true,
-          stockQuantity: true,
-          tags: true,
-        },
+        select: PRODUCT_SELECT,
       })
     }
 
     if (products.length === 0) {
-      return 'No matching products found in our current inventory.'
+      return {
+        text: 'No matching products found in our current inventory.',
+        cards: [],
+      }
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://emanthread.com'
+    const cards = products.map(rawProductToCard)
 
-    const productList = products
-      .map((p) => {
-        const productUrl = p.slug
-          ? `${siteUrl}/product/${p.slug}`
-          : `${siteUrl}/shop`
+    const text = cards
+      .map((c) => {
         const discountNote =
-          p.originalPrice && Number(p.originalPrice) > Number(p.price)
-            ? ` (was PKR ${p.originalPrice.toString()} — SALE!)`
+          c.originalPrice && Number(c.originalPrice) > Number(c.price)
+            ? ` (was PKR ${c.originalPrice} — SALE!)`
             : ''
         return `
-Product: ${p.name}
-Fabric: ${p.fabricType.replace(/_/g, ' ')}
-Color: ${p.color}
-Price: PKR ${p.price.toString()}${discountNote}
-Status: ${p.inStock ? `In Stock (${p.stockQuantity ?? 'available'} units)` : 'Out of Stock'}
-${p.badge ? `Badge: ${p.badge}` : ''}
-Description: ${p.description}
-Link: ${productUrl}
+Product: ${c.name}
+Fabric: ${c.fabricType.replace(/_/g, ' ')}
+Color: ${c.color}
+Price: PKR ${c.price}${discountNote}
+Status: ${c.inStock ? `In Stock (${c.stockQuantity ?? 'available'} units)` : 'Out of Stock'}
+${c.badge ? `Badge: ${c.badge}` : ''}
+Link: ${c.link}
         `.trim()
       })
       .join('\n\n---\n\n')
 
-    return productList
+    return { text, cards }
+  } catch {
+    return { text: '', cards: [] }
+  }
+}
+
+// ── Personalized recommendations for logged-in users ──────────────
+export async function getRecommendationsForUser(userId: string): Promise<{
+  text: string
+  cards: ProductCard[]
+}> {
+  try {
+    // 1. Find fabric types the user has purchased before
+    const pastOrders = await prisma.order.findMany({
+      where: { userId, status: { not: 'CANCELLED' } },
+      include: {
+        items: { include: { product: { select: { fabricType: true } } } },
+      },
+      take: 10,
+      orderBy: { createdAt: 'desc' },
+    })
+
+    const purchasedFabricTypes = new Set<string>()
+    for (const order of pastOrders) {
+      for (const item of order.items) {
+        purchasedFabricTypes.add(item.product.fabricType)
+      }
+    }
+
+    if (purchasedFabricTypes.size === 0) {
+      return { text: '', cards: [] }
+    }
+
+    // 2. Find the SKUs the user already ordered to exclude them
+    const orderedItemSkus = await prisma.orderItem.findMany({
+      where: {
+        order: { userId, status: { not: 'CANCELLED' } },
+      },
+      select: { product: { select: { sku: true } } },
+    })
+    const excludedSkus = new Set(orderedItemSkus.map((i) => i.product.sku))
+
+    // 3. Find in-stock products of those fabric types, excluding already-ordered ones
+    const recommended = await prisma.product.findMany({
+      where: {
+        inStock: true,
+        fabricType: { in: Array.from(purchasedFabricTypes) },
+        sku: { notIn: Array.from(excludedSkus) },
+      },
+      take: 6,
+      orderBy: { createdAt: 'desc' },
+      select: PRODUCT_SELECT,
+    })
+
+    if (recommended.length === 0) {
+      return { text: '', cards: [] }
+    }
+
+    const fabricSummary = Array.from(purchasedFabricTypes)
+      .map((ft) => ft.replace(/_/g, ' '))
+      .join(', ')
+
+    const cards = recommended.map(rawProductToCard)
+    const text = `Based on your past orders (${fabricSummary}), you might like these:`
+
+    return { text, cards }
+  } catch {
+    return { text: '', cards: [] }
+  }
+}
+
+// ── Payment verification status for logged-in users ───────────────
+export async function getPaymentVerificationStatus(userId: string): Promise<string> {
+  try {
+    const submissions = await prisma.manualPaymentSubmission.findMany({
+      where: {
+        order: { userId },
+      },
+      include: {
+        order: {
+          select: {
+            orderNumber: true,
+            grandTotal: true,
+            paymentMethod: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    })
+
+    if (submissions.length === 0) {
+      return ''
+    }
+
+    return submissions
+      .map((s) => {
+        const statusLabel =
+          s.status === 'VERIFIED'
+            ? 'Verified'
+            : s.status === 'REJECTED'
+            ? `Rejected (reason: ${s.rejectionReason || 'N/A'})`
+            : s.status === 'EXPIRED'
+            ? 'Expired'
+            : 'Pending — awaiting admin verification'
+        return `
+Order: ${s.order.orderNumber}
+Method: ${s.paymentMethod}
+Amount: PKR ${s.order.grandTotal.toString()}
+Status: ${statusLabel}
+Submitted: ${s.createdAt.toLocaleDateString('en-PK')}
+        `.trim()
+      })
+      .join('\n\n---\n\n')
   } catch {
     return ''
   }
@@ -488,12 +634,12 @@ export async function getDBContextForMessage(
   const contextParts: string[] = []
 
   if (intent.type === 'product') {
-    const data = await searchProductsForChat(
+    const result = await searchProductsForChat(
       intent.keywords,
       intent.nameSearch,
       intent.colorSearch
     )
-    if (data) contextParts.push(`[STORE DATA — Products]\n${data}`)
+    if (result.text) contextParts.push(`[STORE DATA — Products]\n${result.text}`)
   }
 
   if (intent.type === 'order') {
@@ -533,4 +679,49 @@ export async function getDBContextForMessage(
   }
 
   return contextParts.join('\n\n')
+}
+
+// ── Structured response for the frontend widget ──────────────────
+export interface StructuredChatResponse {
+  products: ProductCard[]
+  recommendations: ProductCard[]
+  paymentVerification: string
+}
+
+export async function getStructuredChatData(
+  message: string,
+  userId?: string
+): Promise<StructuredChatResponse> {
+  const activeFabricTypes = await getActiveFabricTypes()
+  const intent = extractSearchIntent(message, activeFabricTypes)
+
+  const result: StructuredChatResponse = {
+    products: [],
+    recommendations: [],
+    paymentVerification: '',
+  }
+
+  if (intent.type === 'product' || intent.type === 'general') {
+    if (intent.type === 'product') {
+      const searchResult = await searchProductsForChat(
+        intent.keywords,
+        intent.nameSearch,
+        intent.colorSearch
+      )
+      result.products = searchResult.cards
+    }
+
+    // Also fetch recommendations for logged-in users
+    if (userId) {
+      const recs = await getRecommendationsForUser(userId)
+      result.recommendations = recs.cards
+    }
+  }
+
+  // Payment verification status
+  if (userId && (message.toLowerCase().includes('payment') || message.toLowerCase().includes('verify') || message.toLowerCase().includes('verified'))) {
+    result.paymentVerification = await getPaymentVerificationStatus(userId)
+  }
+
+  return result
 }

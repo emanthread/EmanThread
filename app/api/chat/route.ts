@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { auth } from '@/auth'
 import { CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT_URDU } from '@/lib/chat-system-prompt'
-import { getDBContextForMessage } from '@/lib/chat-db-search'
+import { getDBContextForMessage, getStructuredChatData } from '@/lib/chat-db-search'
 import { checkRateLimit } from '@/lib/rate-limiter'
 
 export const dynamic = 'force-dynamic'
@@ -79,8 +79,10 @@ export async function POST(request: Request) {
     const latestMessage = messages[messages.length - 1]?.content ?? ''
 
     // Option 1: Search DB for relevant context (RAG)
-    // Now handles: products, orders, shipping, payment, return, config
     const dbContext = await getDBContextForMessage(latestMessage, userId)
+
+    // Option 2: Get structured data for the frontend (product cards, recs, payment verification)
+    const structuredData = await getStructuredChatData(latestMessage, userId)
 
     // Pick system prompt based on chosen language
     const basePrompt = language === 'ur' ? CHAT_SYSTEM_PROMPT_URDU : CHAT_SYSTEM_PROMPT
@@ -112,7 +114,13 @@ export async function POST(request: Request) {
     // Safety net: strip any remaining Markdown formatting the AI may still generate
     const reply = rawReply.replace(/\*{1,2}/g, '')
 
-    return NextResponse.json({ reply })
+    // Return both the AI reply AND structured data for the frontend
+    return NextResponse.json({
+      reply,
+      products: structuredData.products,
+      recommendations: structuredData.recommendations,
+      paymentVerification: structuredData.paymentVerification,
+    })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
@@ -123,6 +131,9 @@ export async function POST(request: Request) {
       {
         reply:
           "Sorry, I'm having trouble right now. Please contact us on WhatsApp for immediate assistance.",
+        products: [],
+        recommendations: [],
+        paymentVerification: '',
       },
       { status: 200 }
     )
