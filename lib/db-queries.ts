@@ -345,24 +345,33 @@ export async function getAllCategories(): Promise<Category[]> {
 
 export async function getFeaturedCategories(): Promise<Category[]> {
   const allCategories = await getAllCategories();
-  
+
+  // Normalize: strip all non-alphanumeric chars and lowercase.
+  // e.g. "Wash And Wear " → "washandwear", "Wash & Wear" → "washandwear"
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
   try {
     const row = await prisma.storeConfig.findUnique({
       where: { key: "featured_categories" }
     });
-    
+
     if (row) {
       const parsed = JSON.parse(row.value);
       if (Array.isArray(parsed) && parsed.length > 0) {
         return parsed.map((fc: any) => {
-          // Find real product count if it exists in DB, otherwise use manual fallback
-          const dbMatch = allCategories.find(c => c.id.toLowerCase() === fc.id.toLowerCase() || c.name.toLowerCase() === fc.name.toLowerCase());
+          // Match by exact id first, then by normalized name so "Wash And Wear"
+          // correctly resolves to the "Wash & Wear" category from allCategories.
+          const dbMatch = allCategories.find(c =>
+            (fc.id && c.id.toLowerCase() === fc.id.toLowerCase()) ||
+            normalize(c.name) === normalize(fc.name)
+          );
           return {
-            id: dbMatch?.id || fc.name || fc.id,
+            // Use the real category id (= fabricType name) from DB so filtering works.
+            id: dbMatch?.id ?? fc.name ?? fc.id,
             name: fc.name,
             description: fc.description || "",
             image: fc.image || dbMatch?.image || "/placeholder.jpg",
-            productCount: dbMatch?.productCount || fc.productCount || 0
+            productCount: dbMatch?.productCount ?? fc.productCount ?? 0,
           };
         });
       }
@@ -370,7 +379,7 @@ export async function getFeaturedCategories(): Promise<Category[]> {
   } catch (error) {
     console.error("Error fetching featured categories from StoreConfig:", error);
   }
-  
+
   // Fallback to the regular categories if no StoreConfig is set
   return allCategories;
 }

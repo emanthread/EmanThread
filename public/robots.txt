@@ -4,4 +4,4 @@ Disallow: /admin/
 Disallow: /account/
 Disallow: /api/
 
-Sitemap: https://emaanthreads.com/sitemap.xml
+Sitemap: https://www.emanthread.com/sitemap.xml

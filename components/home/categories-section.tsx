@@ -29,7 +29,7 @@ export function CategoriesSection({ categories }: { categories: Category[] }) {
           {categories.slice(0, 3).map((category, index) => (
             <Link
               key={category.id}
-              href={`/shop?category=${category.id}`}
+              href={`/shop?category=${encodeURIComponent(category.id)}`}
               className={cn(
                 "group relative overflow-hidden bg-secondary rounded-2xl shadow-md transition-all duration-500 hover:shadow-xl hover:scale-[1.015] hover:-translate-y-1",
                 index === 0 ? "sm:col-span-2 lg:col-span-1 lg:row-span-2" : ""
@@ -77,7 +77,7 @@ export function CategoriesSection({ categories }: { categories: Category[] }) {
           {categories.slice(3).map((category) => (
             <Link
               key={category.id}
-              href={`/shop?category=${category.id}`}
+              href={`/shop?category=${encodeURIComponent(category.id)}`}
               className="group relative overflow-hidden bg-secondary rounded-2xl shadow-md transition-all duration-500 hover:shadow-xl hover:scale-[1.015] hover:-translate-y-1"
             >
               <div className="relative aspect-[5/4]">

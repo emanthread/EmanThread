@@ -95,10 +95,7 @@ export function UnifiedWidget() {
           )}
         </button>
 
-        {/* Pulse ring — visible when closed */}
-        {!isOpen && (
-          <span className="absolute inset-0 rounded-full animate-ping opacity-30 pointer-events-none bg-primary" />
-        )}
+
       </div>
     </div>
   );

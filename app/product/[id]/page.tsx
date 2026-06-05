@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getProductById, getProductRecommendations } from "@/lib/db-queries";
+import { getProductById, getProductBySlug, getProductRecommendations } from "@/lib/db-queries";
 import ProductPageClient from "./product-page-client";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://emaanthreads.com";
@@ -9,9 +9,16 @@ interface Props {
   params: Promise<{ id: string }>;
 }
 
+// Try slug first, fall back to DB id — chatbot sends slug-based URLs
+async function getProductByIdOrSlug(idOrSlug: string) {
+  const bySlug = await getProductBySlug(idOrSlug);
+  if (bySlug) return bySlug;
+  return getProductById(idOrSlug);
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  const product = await getProductById(id);
+  const product = await getProductByIdOrSlug(id);
 
   if (!product) {
     return {
@@ -75,7 +82,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ProductPage({ params }: Props) {
   const { id } = await params;
-  const product = await getProductById(id);
+  const product = await getProductByIdOrSlug(id);
 
   if (!product) {
     notFound();

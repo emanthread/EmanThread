@@ -374,7 +374,7 @@ export function ChatWidget() {
                       )}
                     </div>
                     <div
-                      className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+                      className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:break-word] [word-break:break-word] ${
                         msg.role === 'user'
                           ? 'bg-indigo-600 text-white rounded-tr-sm'
                           : 'bg-muted text-foreground rounded-tl-sm'
