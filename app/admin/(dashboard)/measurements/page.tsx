@@ -98,44 +98,47 @@ const GARMENT_FIELDS: Record<string, CategoryFieldDef> = {
     sections: [
       { name: "Shirt (Kameez)", fields: [["length","Length"],["shoulder","Shoulder"],["neck","Neck"],["sleeves","Sleeves (Single Stitch)"],["chest","Chest"],["waist","Waist"],["gherra","Gherra"]] },
       { name: "Shalwar", fields: [["shalwar","Shalwar"],["pancha","Pancha"]] },
+      { name: "Pent", fields: [["pent_length","Length"],["pent_pancha","Pencha"],["pent_tigh","Tigh"]] },
     ],
   },
   male_prince_coat: {
     sections: [
       { name: "Prince Coat", fields: [["length","Length"],["shoulder","Shoulder"],["neck","Neck"],["sleeves","Sleeves (Straight)"],["chest","Chest"],["waist","Waist"],["gherra","Gherra (Straight)"],["choras","Choras"]] },
-      { name: "Trousers / Pent", fields: [["trouser_length","Length"],["trouser_bottom","Bottom (Tight)"],["trouser_waist","Waist"]] },
+      { name: "Pent", fields: [["pent_length","Length"],["pent_pancha","Pencha"],["pent_tigh","Tigh"],["pent_waist","Waist"]] },
       { name: "Shirt (Optional)", fields: [["shirt_length","Shirt Length"],["shirt_shoulder","Shirt Shoulder"],["shirt_neck","Shirt Neck"],["shirt_chest","Shirt Chest"],["shirt_waist","Shirt Waist"],["shirt_gherra","Shirt Gherra"]] },
     ],
   },
   male_simple_pent_coat: {
     sections: [
       { name: "Simple Pent Coat", fields: [["length","Length"],["shoulder","Shoulder"],["neck","Neck"],["chest","Chest"],["waist","Waist"],["hip","Hip"]] },
-      { name: "Trousers / Pent", fields: [["trouser_length","Length"],["trouser_bottom","Bottom (Tight)"],["trouser_waist","Waist"]] },
+      { name: "Pent", fields: [["pent_length","Length"],["pent_pancha","Pencha"],["pent_tigh","Tigh"],["pent_waist","Waist"]] },
       { name: "Shirt (Optional)", fields: [["shirt_length","Shirt Length"],["shirt_shoulder","Shirt Shoulder"],["shirt_neck","Shirt Neck"],["shirt_chest","Shirt Chest"],["shirt_waist","Shirt Waist"],["shirt_gherra","Shirt Gherra"]] },
     ],
   },
   female_simple_shalwar: {
     sections: [
-      { name: "Shirt", fields: [["length","Length"],["shoulder","Shoulder"],["sleeves","Sleeves"],["neck","Neck"],["chest","Chest"],["waist","Waist"],["gherra","Gherra"]] },
-      { name: "Shalwar", fields: [["shalwar","Shalwar"],["pancha","Pancha"]] },
+      { name: "Shirt", fields: [["length","Length"],["shoulder","Shoulder"],["sleeves","Sleeves"],["arm_hole_golai","Arm Hole Golai"],["mori","Mori"],["neck","Neck"],["chest","Chest"],["waist","Waist"],["hip","Hip"],["chaak","Chaak"]] },
+      { name: "Trouser", fields: [["trouser_length","Length"],["trouser_pancha","(Pencha) Bottom"],["trouser_thigh","Thigh"]] },
+      { name: "Simple Shalwar", fields: [["simple_shalwar_pancha","Pancha"],["simple_shalwar_gherra","Gherra"]] },
+      { name: "Shalwar Belt", fields: [["shalwar_belt_pancha","Pancha"],["shalwar_belt_gherra","Gherra"]] },
     ],
   },
   female_frock: {
     sections: [
-      { name: "Frock", fields: [["length","Length"],["shoulder","Shoulder"],["neck","Neck"],["chest","Chest"],["waist","Waist"]] },
-      { name: "Trousers", fields: [["trouser_length","Length"],["trouser_tight","Tight"],["trouser_waist","Waist"]] },
+      { name: "Frock", fields: [["length","Length"],["shoulder","Shoulder"],["sleeves","Sleeves"],["arm_hole_golai","Arm Hole Golai"],["mori","Mori"],["neck","Neck"],["chest","Chest"],["waist","Waist"],["hip","Hip"]] },
+      { name: "Trouser", fields: [["trouser_length","Length"],["trouser_pancha","(Pencha) Bottom"],["trouser_thigh","Thigh"]] },
     ],
   },
   female_saari: {
     sections: [
-      { name: "Saari Blouse", fields: [["length","Length"],["shoulder","Shoulder"],["neck","Neck"],["chest","Chest"],["waist","Waist"],["hip","Hip"],["blouse","Blouse"]] },
-      { name: "Saari", fields: [["saari_length","Saari Length"],["saari_waist","Waist (Pati Coat) Length"]] },
+      { name: "Saari Blouse", fields: [["length","Length"],["shoulder","Shoulder"],["sleeves","Sleeves"],["arm_hole_golai","Arm Hole Golai"],["mori","Mori"],["neck","Neck"],["chest","Chest"],["waist","Waist"],["hip","Hip"]] },
+      { name: "Saari", fields: [["trouser_length","Length"],["trouser_waist","Waist"]] },
     ],
   },
   female_lehnga_kurti: {
     sections: [
-      { name: "Kurti", fields: [["length","Length"],["shoulder","Shoulder"],["neck","Neck"],["chest","Chest"],["waist","Waist"],["hip","Hip"]] },
-      { name: "Lehnga", fields: [["lehnga_l","Lehnga Length"],["lehnga_w","Lehnga Width"]] },
+      { name: "Kurti", fields: [["length","Length"],["shoulder","Shoulder"],["sleeves","Sleeves"],["arm_hole_golai","Arm Hole Golai"],["mori","Mori"],["neck","Neck"],["chest","Chest"],["waist","Waist"],["hip","Hip"]] },
+      { name: "Lehnga", fields: [["trouser_length","Length"],["trouser_waist","Waist"]] },
     ],
   },
 };
