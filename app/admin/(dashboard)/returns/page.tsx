@@ -108,7 +108,8 @@ export default function AdminReturnsPage() {
     const matchesSearch =
       req.orderNumber.toLowerCase().includes(search.toLowerCase()) ||
       req.customerName.toLowerCase().includes(search.toLowerCase()) ||
-      req.customerEmail.toLowerCase().includes(search.toLowerCase());
+      req.customerEmail.toLowerCase().includes(search.toLowerCase()) ||
+      (req.customerPhone || "").includes(search);
     const matchesStatus = statusFilter === "all" || req.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -376,7 +377,7 @@ export default function AdminReturnsPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by order, customer, or email..."
+            placeholder="Search by order, name, email or phone..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"

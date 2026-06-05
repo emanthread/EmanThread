@@ -146,6 +146,7 @@ export interface ReturnRequest {
   customerId: string;
   customerName: string;
   customerEmail: string;
+  customerPhone?: string;
   status: "pending" | "approved" | "rejected" | "completed" | "cancelled";
   type: "refund" | "exchange";
   reason: string;

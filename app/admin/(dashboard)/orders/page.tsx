@@ -92,7 +92,8 @@ export default function AdminOrdersPage() {
     const matchesSearch =
       order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customerEmail.toLowerCase().includes(searchQuery.toLowerCase());
+      order.customerEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (order.customerPhone || "").includes(searchQuery);
     const matchesStatus = statusFilter === "all" || order.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -299,7 +300,7 @@ export default function AdminOrdersPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search orders..."
+                placeholder="Search orders by number, name, email or phone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"

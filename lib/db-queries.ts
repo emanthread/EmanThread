@@ -626,6 +626,7 @@ export async function getAdminOrders(options: {
       { orderNumber: { contains: search, mode: "insensitive" } },
       { user: { name: { contains: search, mode: "insensitive" } } },
       { user: { email: { contains: search, mode: "insensitive" } } },
+      { user: { phone: { contains: search, mode: "insensitive" } } },
     ];
   }
 
@@ -649,12 +650,12 @@ export async function getAdminOrders(options: {
       orderNumber: order.orderNumber,
       customerId: order.user?.id || "guest",
       customerName: order.user?.name || "Guest",
-      customerEmail: order.user?.email || order.shippingAddress
-        ? (order.shippingAddress as any).email
-        : "",
-      customerPhone: order.user?.phone || order.shippingAddress
-        ? (order.shippingAddress as any).phone
-        : "",
+      customerEmail: order.user?.email || (order.shippingAddress
+        ? (order.shippingAddress as any).email || ""
+        : ""),
+      customerPhone: order.user?.phone || (order.shippingAddress
+        ? (order.shippingAddress as any).phone || ""
+        : ""),
       shippingAddress: order.shippingAddress
         ? {
             address: (order.shippingAddress as any).address || "",
@@ -2034,6 +2035,7 @@ export async function getAdminReturnRequests(options: {
       { order: { orderNumber: { contains: search, mode: "insensitive" } } },
       { user: { name: { contains: search, mode: "insensitive" } } },
       { user: { email: { contains: search, mode: "insensitive" } } },
+      { user: { phone: { contains: search, mode: "insensitive" } } },
     ];
   }
 
@@ -2161,6 +2163,7 @@ function transformReturnRequest(req: any) {
     customerId: req.user?.id || "guest",
     customerName: req.user?.name || "Guest",
     customerEmail: req.user?.email || "",
+    customerPhone: req.user?.phone || "",
     status: req.status.toLowerCase() as
       | "pending"
       | "approved"
@@ -2615,6 +2618,7 @@ export async function getAdminMeasurementProfiles(page = 1, limit = 20, garmentT
     where.OR = [
       { user: { name: { contains: search, mode: 'insensitive' } } },
       { user: { email: { contains: search, mode: 'insensitive' } } },
+      { user: { phone: { contains: search, mode: 'insensitive' } } },
       { profileName: { contains: search, mode: 'insensitive' } },
     ];
   }
