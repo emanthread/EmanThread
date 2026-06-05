@@ -264,22 +264,7 @@ export function ChatWidget() {
 
   return (
     <>
-      {/* ── Chat bubble button ──────────────────────────────────── */}
-      {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="fixed bottom-5 right-5 z-50 w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer"
-          style={{
-            background: 'linear-gradient(135deg, #4f46e5, #6d28d9)',
-          }}
-          aria-label="Open chat"
-        >
-          <MessageCircle className="w-7 h-7 text-white" />
-          {hasUnread && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 border-2 border-white rounded-full" />
-          )}
-        </button>
-      )}
+      {/* Chat bubble button removed - handled by UnifiedWidget */}
 
       {/* ── Chat window ─────────────────────────────────────────── */}
       {isOpen && (
