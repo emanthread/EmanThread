@@ -54,8 +54,8 @@ export const metadata: Metadata = {
   description:
     "Discover the finest collection of premium men's unstitched fabrics. The Style Never Dies.",
   icons: {
-    icon: "/logo-circle.png",
-    apple: "/apple-icon.png",
+    icon: "/logo-circle.jpg",
+    apple: "/logo-circle.jpg",
   },
   keywords: [
     "premium fabrics",
@@ -77,7 +77,7 @@ export const metadata: Metadata = {
       "Discover the finest collection of premium men's unstitched fabrics. The Style Never Dies.",
     images: [
       {
-        url: "/logo-circle.png",
+        url: "/logo-circle.jpg",
         width: 512,
         height: 512,
         alt: "Eman Thread Logo",
@@ -89,7 +89,7 @@ export const metadata: Metadata = {
     title: "Eman Thread | Premium Unstitched Fabrics",
     description:
       "Discover the finest collection of premium men's unstitched fabrics. The Style Never Dies.",
-    images: ["/logo-circle.png"],
+    images: ["/logo-circle.jpg"],
   },
 };
 

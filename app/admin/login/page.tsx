@@ -101,7 +101,7 @@ export default function AdminLoginPage() {
         <div className="relative z-10 flex flex-col justify-center items-center p-12 text-center w-full">
           <div className="relative w-32 h-32 mb-6">
             <Image
-              src="/logo-circle.png"
+              src="/logo-circle.jpg"
               alt="Eman Thread"
               fill
               className="object-contain"
@@ -123,7 +123,7 @@ export default function AdminLoginPage() {
           <div className="lg:hidden flex justify-center mb-8">
             <div className="relative h-16 w-16">
               <Image
-                src="/logo-circle.png"
+                src="/logo-circle.jpg"
                 alt="Eman Thread"
                 fill
                 className="object-contain"
