@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { formatPrice } from "@/lib/data";
 
 import { Ruler, Plus, Pencil, Trash2, Star, ClipboardCheck, Send } from "lucide-react";
 import { TailorMeasurementEditor } from "@/components/measurements/tailor-measurement-editor";
@@ -612,6 +613,16 @@ export default function MeasurementsPage() {
   const [loading, setLoading] = useState(true);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [editProfile, setEditProfile] = useState<MeasurementProfile | null>(null);
+  const [stitchingPrices, setStitchingPrices] = useState<Record<string, number>>({});
+
+  const fetchStitchingPrices = useCallback(async () => {
+    try {
+      const res = await fetch("/api/stitching-prices");
+      if (res.ok) setStitchingPrices(await res.json());
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
 
   const fetchProfiles = useCallback(async () => {
     setLoading(true);
@@ -623,7 +634,10 @@ export default function MeasurementsPage() {
     }
   }, []);
 
-  useEffect(() => { fetchProfiles(); }, [fetchProfiles]);
+  useEffect(() => { 
+    fetchProfiles(); 
+    fetchStitchingPrices();
+  }, [fetchProfiles, fetchStitchingPrices]);
 
   if (!isAuthenticated || !user) return null;
 
@@ -656,6 +670,24 @@ export default function MeasurementsPage() {
             <Button onClick={() => { setEditProfile(null); setWizardOpen(true); }}>
               <Plus className="h-4 w-4 mr-2" /> Add New Profile
             </Button>
+          </div>
+
+          <div className="mb-8 bg-background rounded-lg border p-6 shadow-sm">
+            <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
+              <span className="text-primary">✂️</span> Stitching Prices by Category
+            </h2>
+            {Object.keys(stitchingPrices).length === 0 ? (
+               <div className="text-sm text-muted-foreground">Loading prices...</div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {Object.entries(stitchingPrices).map(([fabric, price]) => (
+                  <div key={fabric} className="p-3 bg-muted/30 border rounded-md flex flex-col justify-center items-center text-center">
+                    <span className="text-sm font-medium capitalize mb-1">{fabric}</span>
+                    <span className="text-primary font-bold">{formatPrice(price)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {loading ? (
