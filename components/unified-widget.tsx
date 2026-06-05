@@ -84,7 +84,7 @@ export function UnifiedWidget() {
       <div className="relative pointer-events-auto">
         <button
           onClick={toggleMenu}
-          className="relative w-14 h-14 rounded-full metallic-gradient text-primary-foreground shadow-xl shadow-primary/20 flex items-center justify-center hover:scale-110 hover:shadow-primary/40 hover:brightness-110 transition-all duration-300 active:scale-95 cursor-pointer"
+          className="relative w-14 h-14 rounded-full metallic-gradient text-primary-foreground shadow-xl flex items-center justify-center hover:scale-110 hover:shadow-xl hover:brightness-110 transition-all duration-300 active:scale-95 cursor-pointer"
           aria-label="Support options"
         >
           {isOpen ? <X className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
@@ -95,7 +95,10 @@ export function UnifiedWidget() {
           )}
         </button>
 
-
+        {/* Pulse ring — visible when closed */}
+        {!isOpen && (
+          <span className="absolute inset-0 rounded-full animate-ping opacity-30 pointer-events-none bg-primary" />
+        )}
       </div>
     </div>
   );
