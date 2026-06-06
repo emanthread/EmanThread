@@ -2,31 +2,20 @@
 
 import React from "react";
 import Image from "next/image";
-import type { MeasurementForm } from "../maleMeasurements";
-import { MeasurementCard } from "./MeasurementCard";
+import type { FemaleMeasurementForm, FemaleMeasurementField, FemaleBottomTypeOption } from "../femaleMeasurements";
+import { FemaleMeasurementRow } from "./FemaleMeasurementRow";
+import { FemaleBottomTypeSelector } from "./FemaleBottomTypeSelector";
 
-interface PrintableA4SheetProps {
-  form: MeasurementForm;
+interface FemalePrintableA4SheetProps {
+  form: FemaleMeasurementForm;
 }
 
-/**
- * A single A4 print sheet (210mm × 297mm) that reproduces the exact visual
- * structure of the HTML reference files:
- * - Watermark "EMAN THREADS"
- * - Logo / title header
- * - Customer / date / order meta row
- * - Measurement cards in split (main + side panel) or full layout
- * - Footer
- */
-export function PrintableA4Sheet({ form }: PrintableA4SheetProps) {
-  // Separate main vs. side sections
+export function FemalePrintableA4Sheet({ form }: FemalePrintableA4SheetProps) {
   const mainSections = form.sections.filter((s) => !s.isSide);
   const sideSections = form.sections.filter((s) => s.isSide);
-  const isFullLayout = form.layout === "full";
 
   return (
     <section
-      id="tailor-print-card"
       className="relative bg-white overflow-hidden"
       style={{
         width: "210mm",
@@ -72,7 +61,6 @@ export function PrintableA4Sheet({ form }: PrintableA4SheetProps) {
           background: "linear-gradient(180deg,#fff,#f8fafc)",
         }}
       >
-        {/* Logo area */}
         <div
           style={{
             borderRight: "2px solid #172554",
@@ -90,8 +78,6 @@ export function PrintableA4Sheet({ form }: PrintableA4SheetProps) {
             priority
           />
         </div>
-
-        {/* Title */}
         <div style={{ padding: "4mm 5mm 3mm", textAlign: "center" }}>
           <h1
             style={{
@@ -103,7 +89,10 @@ export function PrintableA4Sheet({ form }: PrintableA4SheetProps) {
               textTransform: "uppercase",
             }}
           >
-            Eman Threads
+            {form.id === "ladies-frock" ? "Ladies Frock" :
+             form.id === "ladies-shalwar-kameez" ? "Ladies Shalwar Kameez" :
+             form.id === "lehnga-kurti" ? "Lehnga Kurti" :
+             "Saari Blouse"}
           </h1>
           <h2
             style={{
@@ -115,12 +104,12 @@ export function PrintableA4Sheet({ form }: PrintableA4SheetProps) {
               fontWeight: 400,
             }}
           >
-            {form.label}
+            EMAN THREADS
           </h2>
         </div>
       </header>
 
-      {/* ── Meta row (Serial# / Name / Delivery Date) ── */}
+      {/* ── Meta row ── */}
       <div
         style={{
           display: "grid",
@@ -162,24 +151,23 @@ export function PrintableA4Sheet({ form }: PrintableA4SheetProps) {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: isFullLayout ? "1fr" : "1fr 62mm",
+          gridTemplateColumns: "1fr 62mm",
           gap: "4mm",
           marginTop: "3mm",
-          height: "232mm",
         }}
       >
         {/* Main (left) column */}
         <div style={{ overflowY: "hidden" }}>
           {mainSections.map((section) => (
-            <MeasurementCard key={section.title} section={section} isSide={false} />
+            <FemaleCard key={section.title} section={section} isSide={false} />
           ))}
         </div>
 
-        {/* Side (right) column — only for split layout */}
-        {!isFullLayout && sideSections.length > 0 && (
+        {/* Side (right) column */}
+        {sideSections.length > 0 && (
           <div style={{ overflowY: "hidden" }}>
             {sideSections.map((section) => (
-              <MeasurementCard key={section.title} section={section} isSide={true} />
+              <FemaleCard key={section.title} section={section} isSide={true} />
             ))}
           </div>
         )}
@@ -204,5 +192,50 @@ export function PrintableA4Sheet({ form }: PrintableA4SheetProps) {
         <span></span>
       </footer>
     </section>
+  );
+}
+
+// ─── Female Card ──────────────────────────────────────────────────────────────
+function FemaleCard({
+  section,
+  isSide,
+}: {
+  section: { title: string; fields: FemaleMeasurementField[]; bottomType?: FemaleBottomTypeOption[] };
+  isSide?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        border: "2px solid #172554",
+        background: "#fff",
+        borderRadius: "3px",
+        overflow: "hidden",
+        marginBottom: isSide ? "4mm" : "5mm",
+      }}
+    >
+      <h3
+        style={{
+          margin: 0,
+          background: "#f1f5f9",
+          color: "#172554",
+          fontSize: isSide ? "14px" : "15px",
+          letterSpacing: "0.8px",
+          textTransform: "uppercase",
+          padding: "3.5mm 4mm",
+          borderBottom: "2px solid #172554",
+          fontWeight: 800,
+        }}
+      >
+        {section.title}
+      </h3>
+      <div>
+        {section.fields.map((field) => (
+          <FemaleMeasurementRow key={field.id} field={field} isSide={isSide} />
+        ))}
+      </div>
+      {section.bottomType && section.bottomType.length > 0 && (
+        <FemaleBottomTypeSelector options={section.bottomType} isSide={isSide} />
+      )}
+    </div>
   );
 }

@@ -1,0 +1,89 @@
+⚠ `experimental.instrumentationHook` is no longer needed, because `instrumentation.js` is available by default. You can remove it from next.config.mjs.
+⚠ Invalid next.config.mjs options detected: 
+⚠     Unrecognized key(s) in object: 'instrumentationHook' at "experimental"
+⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+▲ Next.js 16.2.0 (Turbopack)
+- Environments: .env
+- Experiments (use with caution):
+  ? instrumentationHook (invalid experimental key)
+  · optimizePackageImports
+
+  Creating an optimized production build ...
+
+> Build error occurred
+Error: Turbopack build failed with 3 errors:
+./app/measurements/female/femaleMeasurements.ts:238:2
+Expression expected
+  [90m236 |[0m   saariBlouseForm,
+  [90m237 |[0m ];
+[31m[1m>[0m [90m238 |[0m </｜｜[33mDSML[0m｜｜_content>
+  [90m    |[0m  [31m[1m^[0m
+  [90m239 |[0m </write_to_file>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./app/measurements/female/femaleMeasurements.ts [Client Component Browser]
+    ./app/measurements/female/components/FemaleMeasurementPage.tsx [Client Component Browser]
+    ./app/measurements/female/components/FemaleMeasurementPage.tsx [Server Component]
+    ./app/measurements/female/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/measurements/female/femaleMeasurements.ts [Client Component SSR]
+    ./app/measurements/female/components/FemaleMeasurementPage.tsx [Client Component SSR]
+    ./app/measurements/female/components/FemaleMeasurementPage.tsx [Server Component]
+    ./app/measurements/female/page.tsx [Server Component]
+
+
+./app/measurements/female/femaleMeasurements.ts:238:3
+Unexpected character '｜'
+  [90m236 |[0m   saariBlouseForm,
+  [90m237 |[0m ];
+[31m[1m>[0m [90m238 |[0m </｜｜[33mDSML[0m｜｜_content>
+  [90m    |[0m   [31m[1m^[0m
+  [90m239 |[0m </write_to_file>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./app/measurements/female/femaleMeasurements.ts [Client Component Browser]
+    ./app/measurements/female/components/FemaleMeasurementPage.tsx [Client Component Browser]
+    ./app/measurements/female/components/FemaleMeasurementPage.tsx [Server Component]
+    ./app/measurements/female/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/measurements/female/femaleMeasurements.ts [Client Component SSR]
+    ./app/measurements/female/components/FemaleMeasurementPage.tsx [Client Component SSR]
+    ./app/measurements/female/components/FemaleMeasurementPage.tsx [Server Component]
+    ./app/measurements/female/page.tsx [Server Component]
+
+
+./app/measurements/female/femaleMeasurements.ts:238:6
+Unexpected character '｜'
+  [90m236 |[0m   saariBlouseForm,
+  [90m237 |[0m ];
+[31m[1m>[0m [90m238 |[0m </｜｜[33mDSML[0m｜｜_content>
+  [90m    |[0m     [31m[1m^[0m
+  [90m239 |[0m </write_to_file>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./app/measurements/female/femaleMeasurements.ts [Client Component Browser]
+    ./app/measurements/female/components/FemaleMeasurementPage.tsx [Client Component Browser]
+    ./app/measurements/female/components/FemaleMeasurementPage.tsx [Server Component]
+    ./app/measurements/female/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/measurements/female/femaleMeasurements.ts [Client Component SSR]
+    ./app/measurements/female/components/FemaleMeasurementPage.tsx [Client Component SSR]
+    ./app/measurements/female/components/FemaleMeasurementPage.tsx [Server Component]
+    ./app/measurements/female/page.tsx [Server Component]
+
+
+    at <unknown> (./app/measurements/female/femaleMeasurements.ts:238:2)
+    at <unknown> (./app/measurements/female/femaleMeasurements.ts:238:3)
+    at <unknown> (./app/measurements/female/femaleMeasurements.ts:238:6)
