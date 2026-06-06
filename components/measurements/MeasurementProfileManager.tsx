@@ -294,6 +294,7 @@ export function MeasurementProfileManager({
           <UnifiedMeasurementForm
             data={{}}
             mode="edit"
+            wizard={true}
             onSave={handleSaveNew}
           />
         </DialogContent>

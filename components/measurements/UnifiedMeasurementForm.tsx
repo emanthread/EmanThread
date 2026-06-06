@@ -37,6 +37,7 @@ export interface UnifiedMeasurementFormProps {
   customerEmail?: string;
   customerPhone?: string;
   measurementId?: string;
+  wizard?: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -581,8 +582,10 @@ export function UnifiedMeasurementForm({
   customerEmail,
   customerPhone,
   measurementId,
+  wizard = false,
 }: UnifiedMeasurementFormProps) {
   const readOnly = mode === "readonly" || mode === "print";
+  const [step, setStep] = useState(wizard ? 1 : 3);
   const [data, setData] = useState<Data>({
     ...UNIFIED_MEASUREMENT_EMPTY,
     ...initialData,
@@ -624,16 +627,98 @@ export function UnifiedMeasurementForm({
     await onSave(data);
   };
 
+  if (wizard && step === 1) {
+    return (
+      <div className="space-y-6 max-w-sm mx-auto py-6">
+        <div className="space-y-2">
+          <Label>Profile Name</Label>
+          <Input 
+            value={data.profileName || ""} 
+            onChange={(e) => set("profileName", e.target.value)} 
+            placeholder="e.g. My Size, Brother's Size"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Gender</Label>
+          <Select
+            value={data.gender}
+            onValueChange={(v) => {
+              set("gender", v);
+              setGarmentType(v === "Male" ? "male_shalwar_kameez" : "female_simple_shalwar");
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Male">Male (مرد)</SelectItem>
+              <SelectItem value="Female">Female (عورت)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex justify-end pt-4">
+          <Button onClick={() => setStep(2)} disabled={!data.profileName?.trim()}>Next</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (wizard && step === 2) {
+    return (
+      <div className="space-y-6 max-w-sm mx-auto py-6">
+        <div className="space-y-2">
+          <Label>Garment Type</Label>
+          <Select
+            value={data.garmentType}
+            onValueChange={setGarmentType}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {GARMENT_TYPES.filter(gt => gt.startsWith(data.gender.toLowerCase() + "_")).map((gt) => (
+                <SelectItem key={gt} value={gt}>
+                  {garmentTypeLabel(gt)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex justify-between pt-4">
+          <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
+          <Button onClick={() => setStep(3)}>Next</Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {wizard && (
+        <div className="flex items-center gap-2 -mb-2">
+          <Button variant="ghost" size="sm" onClick={() => setStep(2)} className="h-8 text-xs">
+            ← Back to Garment Type
+          </Button>
+        </div>
+      )}
       {/* ── Top Meta ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs">Profile Name</Label>
+          <Input
+            value={data.profileName || ""}
+            onChange={(e) => set("profileName", e.target.value)}
+            disabled={readOnly || wizard}
+            className="h-8 text-xs"
+          />
+        </div>
+
         <div className="space-y-1">
           <Label className="text-xs">Gender</Label>
           <Select
             value={data.gender}
             onValueChange={(v) => set("gender", v)}
-            disabled={readOnly}
+            disabled={readOnly || wizard}
           >
             <SelectTrigger className="h-8 text-sm">
               <SelectValue />
@@ -650,7 +735,7 @@ export function UnifiedMeasurementForm({
           <Select
             value={data.garmentType}
             onValueChange={setGarmentType}
-            disabled={readOnly || !!garmentTypeFixed}
+            disabled={readOnly || !!garmentTypeFixed || wizard}
           >
             <SelectTrigger className="h-8 text-sm">
               <SelectValue />
