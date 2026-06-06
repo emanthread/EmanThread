@@ -1,0 +1,3 @@
+{
+  "/api/payments/manual/submit/route": "app/api/payments/manual/submit/route.js"
+}

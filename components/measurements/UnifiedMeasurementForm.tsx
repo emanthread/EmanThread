@@ -188,288 +188,310 @@ interface SectionDef {
   title: string;
   fields: { label: string; urdu?: string; k1: DataKey; k2: DataKey }[];
   checkboxes?: { label: string; k: DataKey }[];
+  stylings?: { label: string; k: DataKey }[];
   textInputs?: { label: string; k: DataKey }[];
 }
 
 function getSections(gt: string): SectionDef[] {
-  const isMale = gt.startsWith("male_");
-
-  // All garment types share these core fields
-  const kameezSection: SectionDef = {
-    title: isMale ? "Kameez" : "Shirt",
-    fields: [
-      { label: "Length", urdu: "لمبائی", k1: "length1", k2: "length2" },
-      { label: "Shoulder", urdu: "کندھا", k1: "shoulder1", k2: "shoulder2" },
-      { label: "Chest", urdu: "سینہ", k1: "chest1", k2: "chest2" },
-      { label: "Waist", urdu: "کمر", k1: "waist1", k2: "waist2" },
-    ],
-  };
-
-  switch (gt) {
-    case "male_shalwar_kameez":
-      return [
-        {
-          ...kameezSection,
-          fields: [
-            ...kameezSection.fields,
-            { label: "Gherra", urdu: "گھیرا", k1: "gherra1", k2: "gherra2" },
-            { label: "Neck", urdu: "گلا", k1: "neck1", k2: "neck2" },
-            { label: "Sleeves", urdu: "آستین", k1: "sleeves1", k2: "sleeves2" },
-            { label: "Golai", urdu: "گولائی", k1: "golai1", k2: "golai2" },
-            { label: "Cuff", urdu: "کف", k1: "armcuff1", k2: "armcuff2" },
-            { label: "Plate", urdu: "پلیٹ", k1: "armplate1", k2: "armplate2" },
-            { label: "Gol Bazoo", urdu: "گول بازو", k1: "golbazoo1", k2: "golbazoo2" },
-            { label: "Patti", urdu: "پٹی", k1: "armpatti1", k2: "armpatti2" },
-            { label: "Collar Nok", urdu: "کالر نوک", k1: "collarnok1", k2: "collarnok2" },
-            { label: "Bane", urdu: "بنے", k1: "bane1", k2: "bane2" },
-          ],
-          checkboxes: [
-            { label: "Double", k: "doubleCb" },
-            { label: "Single", k: "singleCb" },
-            { label: "Gol", k: "golCb" },
-            { label: "Choras", k: "chorasCb" },
-            { label: "Bane", k: "baneCb" },
-            { label: "Collar", k: "collarCb" },
-            { label: "Round Neck", k: "roundneck" },
-          ],
-        },
-        {
-          title: "Shalwar",
-          fields: [
-            { label: "Length", urdu: "لمبائی", k1: "shalwar1", k2: "shalwar2" },
-            { label: "Gherra", urdu: "گھیرا", k1: "shalwarGherra1", k2: "shalwarGherra2" },
-            { label: "Assan", urdu: "اسن", k1: "shalwarAssan1", k2: "shalwarAssan2" },
-            { label: "Pancha", urdu: "پنچہ", k1: "shalwarPancha1", k2: "shalwarPancha2" },
-          ],
-        },
-        {
-          title: "Trouser",
-          fields: [
-            { label: "Length", k1: "trouserdata1", k2: "trouserdata2" },
-            { label: "Gherra", k1: "trouserdata3", k2: "trouserdata4" },
-            { label: "Assan", k1: "trouserdata5", k2: "trouserdata6" },
-            { label: "Side", k1: "trouserdata7", k2: "trouserdata8" },
-            { label: "Front", k1: "trouserdata9", k2: "trouserdata10" },
-            { label: "Pancha", k1: "trouserdata11", k2: "trouserdata12" },
-          ],
-          textInputs: [{ label: "Other", k: "trouserdata13" }],
-        },
-        {
-          title: "Pockets",
-          fields: [],
-          textInputs: [
-            { label: "Front Pocket", k: "frontPocket" },
-            { label: "Side Pocket", k: "sidePocket" },
-            { label: "Shalwar Pocket", k: "shalwarPocket" },
-          ],
-        },
-      ];
-
-    case "male_simple_3_piece":
-      return [
-        {
-          title: "Coat",
-          fields: [
-            ...kameezSection.fields,
-            { label: "Gherra", urdu: "گھیرا", k1: "gherra1", k2: "gherra2" },
-            { label: "Neck", urdu: "گلا", k1: "neck1", k2: "neck2" },
-            { label: "Assan", urdu: "اسن", k1: "shalwarAssan1", k2: "shalwarAssan2" },
-          ],
-        },
-        {
-          title: "Pent",
-          fields: [
-            { label: "Length", k1: "trouserdata1", k2: "trouserdata2" },
-            { label: "Pancha", k1: "trouserdata11", k2: "trouserdata12" },
-            { label: "Tigh", k1: "trouserdata3", k2: "trouserdata4" },
-            { label: "Waist", k1: "trouserdata5", k2: "trouserdata6" },
-          ],
-        },
-      ];
-
-    case "male_prince_coat":
-      return [
-        {
-          title: "Prince Coat",
-          fields: [
-            ...kameezSection.fields,
-            { label: "Gherra", urdu: "گھیرا", k1: "gherra1", k2: "gherra2" },
-            { label: "Neck", urdu: "گلا", k1: "neck1", k2: "neck2" },
-            { label: "Sleeves (Straight)", urdu: "آستین (سیدھی)", k1: "sleeves1", k2: "sleeves2" },
-            { label: "Arm Hole Golai", k1: "golai1", k2: "golai2" },
-          ],
-          checkboxes: [
-            { label: "Straight", k: "singleCb" },
-            { label: "Down", k: "doubleCb" },
-            { label: "Gol", k: "golCb" },
-            { label: "Choras", k: "chorasCb" },
-          ],
-        },
-        {
-          title: "Pent",
-          fields: [
-            { label: "Length", k1: "trouserdata1", k2: "trouserdata2" },
-            { label: "Pancha (Tight)", k1: "trouserdata11", k2: "trouserdata12" },
-            { label: "Waist", k1: "trouserdata5", k2: "trouserdata6" },
-          ],
-        },
-      ];
-
-    case "male_shirt":
-      return [
-        {
-          title: "Shirt",
-          fields: [
-            ...kameezSection.fields,
-            { label: "Gherra", urdu: "گھیرا", k1: "gherra1", k2: "gherra2" },
-            { label: "Neck", urdu: "گلا", k1: "neck1", k2: "neck2" },
-            { label: "Sleeves", urdu: "آستین", k1: "sleeves1", k2: "sleeves2" },
-            { label: "Arm Hole Golai", k1: "golai1", k2: "golai2" },
-            { label: "Cuff", urdu: "کف", k1: "armcuff1", k2: "armcuff2" },
-            { label: "Cuff Plate", urdu: "کف پلیٹ", k1: "armplate1", k2: "armplate2" },
-            { label: "Patti Width", urdu: "پٹی چوڑائی", k1: "armpatti1", k2: "armpatti2" },
-            { label: "Collar Nok", urdu: "کالر نوک", k1: "collarnok1", k2: "collarnok2" },
-            { label: "Hip", urdu: "ہپ", k1: "ladHip1", k2: "ladHip2" },
-          ],
-          checkboxes: [
-            { label: "Collar", k: "collarCb" },
-            { label: "Bane", k: "baneCb" },
-          ],
-          textInputs: [
-            { label: "Front Pocket", k: "frontPocket" },
-          ],
-        },
-      ];
-
-    // -- Female types --
-    case "female_simple_shalwar":
-      return [
-        {
-          title: "Shirt",
-          fields: [
-            { label: "Length", urdu: "لمبائی", k1: "length1", k2: "length2" },
-            { label: "Shoulder", urdu: "کندھا", k1: "shoulder1", k2: "shoulder2" },
-            { label: "Sleeves", urdu: "آستین", k1: "sleeves1", k2: "sleeves2" },
-            { label: "Arm Hole Golai", k1: "ladGolai1", k2: "ladGolai2" },
-            { label: "Mori", urdu: "موری", k1: "ladMori1", k2: "ladMori2" },
-            { label: "Bell Bazoo", k1: "ladBellbazoo1", k2: "ladBellbazoo2" },
-            { label: "Neck", urdu: "گلا", k1: "neck1", k2: "neck2" },
-            { label: "Chest", urdu: "سینہ", k1: "chest1", k2: "chest2" },
-            { label: "Waist", urdu: "کمر", k1: "waist1", k2: "waist2" },
-            { label: "Gherra", urdu: "گھیرا", k1: "gherra1", k2: "gherra2" },
-            { label: "Chaak", urdu: "چاک", k1: "ladChaak1", k2: "ladChaak2" },
-          ],
-        },
-        {
-          title: "Trouser",
-          fields: [
-            { label: "Length", k1: "trouserdata1", k2: "trouserdata2" },
-            { label: "Pancha (Bottom)", k1: "trouserdata11", k2: "trouserdata12" },
-            { label: "Tigh", k1: "trouserdata3", k2: "trouserdata4" },
-            { label: "Elastic", k1: "ladTrouserdata15", k2: "ladTrouserdata16" as DataKey },
-          ],
-        },
-        {
-          title: "Shalwar",
-          fields: [
-            { label: "Length", k1: "ladSimpleShalwar1", k2: "ladSimpleShalwar2" },
-            { label: "Pancha", k1: "ladSimpleShalwarPancha1", k2: "ladSimpleShalwarPancha2" },
-            { label: "Gherra", k1: "ladSimpleShalwarGherra1", k2: "ladSimpleShalwarGherra2" },
-            { label: "Elastic", k1: "ladLasticSimpleShalwar", k2: "ladTrouserdata16" as DataKey },
-          ],
-        },
-        {
-          title: "Plazo / Belt Shalwar",
-          fields: [
-            { label: "Length", k1: "ladShalwarBelt1", k2: "ladShalwarBelt2" },
-            { label: "Pancha", k1: "ladShalwarBeltPancha1", k2: "ladShalwarBeltPancha2" },
-            { label: "Gherra", k1: "ladShalwarBeltGherra1", k2: "ladShalwarBeltGherra2" },
-            { label: "Elastic", k1: "ladLasticShalwarBelt", k2: "ladTrouserdata16" as DataKey },
-          ],
-        },
-      ];
-
-    case "female_frock":
-      return [
-        {
-          title: "Frock",
-          fields: [
-            { label: "Length", urdu: "لمبائی", k1: "length1", k2: "length2" },
-            { label: "Shoulder", urdu: "کندھا", k1: "shoulder1", k2: "shoulder2" },
-            { label: "Sleeves", urdu: "آستین", k1: "sleeves1", k2: "sleeves2" },
-            { label: "Arm Hole Golai", k1: "ladGolai1", k2: "ladGolai2" },
-            { label: "Mori", urdu: "موری", k1: "ladMori1", k2: "ladMori2" },
-            { label: "Neck", urdu: "گلا", k1: "neck1", k2: "neck2" },
-            { label: "Chest", urdu: "سینہ", k1: "chest1", k2: "chest2" },
-            { label: "Waist", urdu: "کمر", k1: "waist1", k2: "waist2" },
-            { label: "Gherra", urdu: "گھیرا", k1: "gherra1", k2: "gherra2" },
-          ],
-        },
-        {
-          title: "Trouser",
-          fields: [
-            { label: "Length", k1: "trouserdata1", k2: "trouserdata2" },
-            { label: "Pancha", k1: "trouserdata11", k2: "trouserdata12" },
-            { label: "Tigh", k1: "trouserdata3", k2: "trouserdata4" },
-            { label: "Elastic", k1: "ladTrouserdata15", k2: "ladTrouserdata16" as DataKey },
-          ],
-        },
-      ];
-
-    case "female_saari":
-      return [
-        {
-          title: "Saari Blouse",
-          fields: [
-            { label: "Length", urdu: "لمبائی", k1: "length1", k2: "length2" },
-            { label: "Shoulder", urdu: "کندھا", k1: "shoulder1", k2: "shoulder2" },
-            { label: "Sleeves", urdu: "آستین", k1: "sleeves1", k2: "sleeves2" },
-            { label: "Arm Hole Golai", k1: "ladGolai1", k2: "ladGolai2" },
-            { label: "Mori", urdu: "موری", k1: "ladMori1", k2: "ladMori2" },
-            { label: "Neck", urdu: "گلا", k1: "neck1", k2: "neck2" },
-            { label: "Chest", urdu: "سینہ", k1: "chest1", k2: "chest2" },
-            { label: "Waist", urdu: "کمر", k1: "waist1", k2: "waist2" },
-            { label: "Hip", urdu: "ہپ", k1: "ladHip1", k2: "ladHip2" },
-          ],
-        },
-        {
-          title: "Saari",
-          fields: [
-            { label: "Length", k1: "trouserdata1", k2: "trouserdata2" },
-            { label: "Waist", k1: "trouserdata3", k2: "trouserdata4" },
-          ],
-        },
-      ];
-
-    case "female_lehnga_kurti":
-      return [
-        {
-          title: "Kurti",
-          fields: [
-            { label: "Length", urdu: "لمبائی", k1: "length1", k2: "length2" },
-            { label: "Shoulder", urdu: "کندھا", k1: "shoulder1", k2: "shoulder2" },
-            { label: "Sleeves", urdu: "آستین", k1: "sleeves1", k2: "sleeves2" },
-            { label: "Arm Hole Golai", k1: "ladGolai1", k2: "ladGolai2" },
-            { label: "Mori", urdu: "موری", k1: "ladMori1", k2: "ladMori2" },
-            { label: "Neck", urdu: "گلا", k1: "neck1", k2: "neck2" },
-            { label: "Chest", urdu: "سینہ", k1: "chest1", k2: "chest2" },
-            { label: "Waist", urdu: "کمر", k1: "waist1", k2: "waist2" },
-            { label: "Hip", urdu: "ہپ", k1: "ladHip1", k2: "ladHip2" },
-            { label: "Chaak", urdu: "چاک", k1: "ladChaak1", k2: "ladChaak2" },
-          ],
-        },
-        {
-          title: "Lehnga",
-          fields: [
-            { label: "Length", k1: "trouserdata1", k2: "trouserdata2" },
-            { label: "Waist", k1: "trouserdata3", k2: "trouserdata4" },
-          ],
-        },
-      ];
-
-    default:
-      return [kameezSection];
+  // ─── Male Shalwar Kameez ────────────────────────────────────────────────
+  if (gt === "male_shalwar_kameez") {
+    return [
+      {
+        title: "Kameez",
+        fields: [
+          { label: "Length", urdu: "لمبائی", k1: "length1", k2: "length2" },
+          { label: "Shoulder", urdu: "کندھا", k1: "shoulder1", k2: "shoulder2" },
+          { label: "Sleeves", urdu: "آستین", k1: "sleeves1", k2: "sleeves2" },
+          { label: "Arm Hole Golai", urdu: "گولائی", k1: "golai1", k2: "golai2" },
+          { label: "Cuff", urdu: "کف", k1: "armcuff1", k2: "armcuff2" },
+          { label: "Cuff Plate", urdu: "پلیٹ", k1: "armplate1", k2: "armplate2" },
+          { label: "Gol Bazoo", urdu: "گول بازو", k1: "golbazoo1", k2: "golbazoo2" },
+          { label: "Neck", urdu: "گلا", k1: "neck1", k2: "neck2" },
+          { label: "Patti Width", urdu: "پٹی", k1: "armpatti1", k2: "armpatti2" },
+          { label: "Bane Width", urdu: "بنے", k1: "bane1", k2: "bane2" },
+          { label: "Collar Nok", urdu: "کالر نوک", k1: "collarnok1", k2: "collarnok2" },
+          { label: "Chest", urdu: "سینہ", k1: "chest1", k2: "chest2" },
+          { label: "Waist", urdu: "کمر", k1: "waist1", k2: "waist2" },
+          { label: "Hip", urdu: "ہپ", k1: "ladHip1", k2: "ladHip2" },
+        ],
+        stylings: [
+          { label: "Double", k: "doubleCb" },
+          { label: "Single", k: "singleCb" },
+          { label: "Gol", k: "golCb" },
+          { label: "Choras", k: "chorasCb" },
+          { label: "Collar", k: "collarCb" },
+          { label: "Bane", k: "baneCb" },
+        ],
+        textInputs: [
+          { label: "Front Pocket", k: "frontPocket" },
+          { label: "Side Pocket", k: "sidePocket" },
+          { label: "Shalwar Pocket", k: "shalwarPocket" },
+        ],
+      },
+      {
+        title: "Bottom (Shalwar)",
+        fields: [
+          { label: "Length", urdu: "لمبائی", k1: "shalwar1", k2: "shalwar2" },
+          { label: "Pancha", urdu: "پنچہ", k1: "shalwarPancha1", k2: "shalwarPancha2" },
+          { label: "Tigh", urdu: "تیغ", k1: "trouserdata3", k2: "trouserdata4" },
+          { label: "Gherra", urdu: "گھیرا", k1: "shalwarGherra1", k2: "shalwarGherra2" },
+          { label: "Assan", urdu: "اسن", k1: "shalwarAssan1", k2: "shalwarAssan2" },
+        ],
+      },
+      {
+        title: "Bottom (Trouser)",
+        fields: [
+          { label: "Length", k1: "trouserdata1", k2: "trouserdata2" },
+          { label: "Pancha", k1: "trouserdata11", k2: "trouserdata12" },
+          { label: "Tigh", k1: "trouserdata3", k2: "trouserdata4" },
+          { label: "Elastic Length", k1: "trouserdata5", k2: "trouserdata6" },
+          { label: "Front Pocket", k1: "frontPocket" },
+          { label: "Side Pocket", k1: "sidePocket" },
+          { label: "Shalwar Pocket", k1: "shalwarPocket" },
+        ],
+      },
+    ];
   }
+
+  // ─── Male Simple 3 Piece Suit ───────────────────────────────────────────
+  if (gt === "male_simple_3_piece") {
+    return [
+      {
+        title: "Coat",
+        fields: [
+          { label: "Length", urdu: "لمبائی", k1: "length1", k2: "length2" },
+          { label: "Shoulder", urdu: "کندھا", k1: "shoulder1", k2: "shoulder2" },
+          { label: "Sleeves", urdu: "آستین", k1: "sleeves1", k2: "sleeves2" },
+          { label: "Gol Bazoo", urdu: "گول بازو", k1: "golbazoo1", k2: "golbazoo2" },
+          { label: "Neck", urdu: "گلا", k1: "neck1", k2: "neck2" },
+          { label: "Chest", urdu: "سینہ", k1: "chest1", k2: "chest2" },
+          { label: "Waist", urdu: "کمر", k1: "waist1", k2: "waist2" },
+          { label: "Gherra", urdu: "گھیرا", k1: "gherra1", k2: "gherra2" },
+          { label: "Assan", urdu: "اسن", k1: "shalwarAssan1", k2: "shalwarAssan2" },
+        ],
+        stylings: [
+          { label: "Collar", k: "collarCb" },
+          { label: "Bane", k: "baneCb" },
+        ],
+      },
+      {
+        title: "Pent",
+        fields: [
+          { label: "Length", k1: "trouserdata1", k2: "trouserdata2" },
+          { label: "Pancha", k1: "trouserdata11", k2: "trouserdata12" },
+          { label: "Tigh", k1: "trouserdata3", k2: "trouserdata4" },
+          { label: "Waist", k1: "trouserdata5", k2: "trouserdata6" },
+        ],
+      },
+    ];
+  }
+
+  // ─── Male Prince Coat 3 Piece Suit ──────────────────────────────────────
+  if (gt === "male_prince_coat") {
+    return [
+      {
+        title: "Coat",
+        fields: [
+          { label: "Length", urdu: "لمبائی", k1: "length1", k2: "length2" },
+          { label: "Shoulder", urdu: "کندھا", k1: "shoulder1", k2: "shoulder2" },
+          { label: "Sleeves", urdu: "آستین", k1: "sleeves1", k2: "sleeves2" },
+          { label: "Arm Hole Golai", urdu: "گولائی", k1: "golai1", k2: "golai2" },
+          { label: "Gol Bazoo", urdu: "گول بازو", k1: "golbazoo1", k2: "golbazoo2" },
+          { label: "Neck", urdu: "گلا", k1: "neck1", k2: "neck2" },
+          { label: "Chest", urdu: "سینہ", k1: "chest1", k2: "chest2" },
+          { label: "Waist", urdu: "کمر", k1: "waist1", k2: "waist2" },
+          { label: "Hip", urdu: "ہپ", k1: "ladHip1", k2: "ladHip2" },
+        ],
+        stylings: [
+          { label: "Straight", k: "singleCb" },
+          { label: "Down", k: "doubleCb" },
+          { label: "Gol", k: "golCb" },
+          { label: "Choras", k: "chorasCb" },
+          { label: "Collar", k: "collarCb" },
+          { label: "Bane", k: "baneCb" },
+        ],
+      },
+      {
+        title: "Pent",
+        fields: [
+          { label: "Length", k1: "trouserdata1", k2: "trouserdata2" },
+          { label: "Pancha", k1: "trouserdata11", k2: "trouserdata12" },
+          { label: "Tigh", k1: "trouserdata3", k2: "trouserdata4" },
+          { label: "Waist", k1: "trouserdata5", k2: "trouserdata6" },
+        ],
+      },
+    ];
+  }
+
+  // ─── Male Shirt ─────────────────────────────────────────────────────────
+  if (gt === "male_shirt") {
+    return [
+      {
+        title: "Shirt",
+        fields: [
+          { label: "Length", urdu: "لمبائی", k1: "length1", k2: "length2" },
+          { label: "Shoulder", urdu: "کندھا", k1: "shoulder1", k2: "shoulder2" },
+          { label: "Sleeves", urdu: "آستین", k1: "sleeves1", k2: "sleeves2" },
+          { label: "Arm Hole Golai", urdu: "گولائی", k1: "golai1", k2: "golai2" },
+          { label: "Cuff", urdu: "کف", k1: "armcuff1", k2: "armcuff2" },
+          { label: "Cuff Plate", urdu: "کف پلیٹ", k1: "armplate1", k2: "armplate2" },
+          { label: "Neck", urdu: "گلا", k1: "neck1", k2: "neck2" },
+          { label: "Patti Width", urdu: "پٹی چوڑائی", k1: "armpatti1", k2: "armpatti2" },
+          { label: "Collar Width", urdu: "کالر چوڑائی", k1: "collarnok1", k2: "collarnok2" },
+          { label: "Collar Nok", urdu: "کالر نوک", k1: "bane1", k2: "bane2" },
+          { label: "Chest", urdu: "سینہ", k1: "chest1", k2: "chest2" },
+          { label: "Waist", urdu: "کمر", k1: "waist1", k2: "waist2" },
+          { label: "Hip", urdu: "ہپ", k1: "ladHip1", k2: "ladHip2" },
+        ],
+        stylings: [
+          { label: "Collar", k: "collarCb" },
+          { label: "Bane", k: "baneCb" },
+        ],
+        textInputs: [
+          { label: "Front Pocket", k: "frontPocket" },
+        ],
+      },
+    ];
+  }
+
+  // ─── Female Frock ───────────────────────────────────────────────────────
+  if (gt === "female_frock") {
+    return [
+      {
+        title: "Frock",
+        fields: [
+          { label: "Length", urdu: "لمبائی", k1: "length1", k2: "length2" },
+          { label: "Shoulder", urdu: "کندھا", k1: "shoulder1", k2: "shoulder2" },
+          { label: "Sleeves", urdu: "آستین", k1: "sleeves1", k2: "sleeves2" },
+          { label: "Arm Hole Golai", urdu: "گولائی", k1: "ladGolai1", k2: "ladGolai2" },
+          { label: "Mori", urdu: "موری", k1: "ladMori1", k2: "ladMori2" },
+          { label: "Neck", urdu: "گلا", k1: "neck1", k2: "neck2" },
+          { label: "Chest", urdu: "سینہ", k1: "chest1", k2: "chest2" },
+          { label: "Waist", urdu: "کمر", k1: "waist1", k2: "waist2" },
+          { label: "Gherra", urdu: "گھیرا", k1: "gherra1", k2: "gherra2" },
+        ],
+      },
+      {
+        title: "Trouser",
+        fields: [
+          { label: "Length", k1: "trouserdata1", k2: "trouserdata2" },
+          { label: "Pancha", k1: "trouserdata11", k2: "trouserdata12" },
+          { label: "Tigh", k1: "trouserdata3", k2: "trouserdata4" },
+          { label: "Elastic", k1: "ladTrouserdata15", k2: "ladTrouserdata16" as DataKey },
+        ],
+      },
+    ];
+  }
+
+  // ─── Female Shalwar Kameez ─────────────────────────────────────────────
+  if (gt === "female_simple_shalwar") {
+    return [
+      {
+        title: "Kameez",
+        fields: [
+          { label: "Length", urdu: "لمبائی", k1: "length1", k2: "length2" },
+          { label: "Shoulder", urdu: "کندھا", k1: "shoulder1", k2: "shoulder2" },
+          { label: "Sleeves", urdu: "آستین", k1: "sleeves1", k2: "sleeves2" },
+          { label: "Arm Hole Golai", urdu: "گولائی", k1: "ladGolai1", k2: "ladGolai2" },
+          { label: "Mori", urdu: "موری", k1: "ladMori1", k2: "ladMori2" },
+          { label: "Bell Bazoo", urdu: "بیل بازو", k1: "ladBellbazoo1", k2: "ladBellbazoo2" },
+          { label: "Neck", urdu: "گلا", k1: "neck1", k2: "neck2" },
+          { label: "Chest", urdu: "سینہ", k1: "chest1", k2: "chest2" },
+          { label: "Waist", urdu: "کمر", k1: "waist1", k2: "waist2" },
+          { label: "Gherra", urdu: "گھیرا", k1: "gherra1", k2: "gherra2" },
+          { label: "Chaak", urdu: "چاک", k1: "ladChaak1", k2: "ladChaak2" },
+        ],
+        textInputs: [
+          { label: "Zip", k: "trouserdata13" },
+          { label: "Plate", k: "trouserdata14" },
+        ],
+      },
+      {
+        title: "Trouser",
+        fields: [
+          { label: "Length", k1: "trouserdata1", k2: "trouserdata2" },
+          { label: "Pancha (Bottom)", k1: "trouserdata11", k2: "trouserdata12" },
+          { label: "Tigh", k1: "trouserdata3", k2: "trouserdata4" },
+          { label: "Elastic", k1: "ladTrouserdata15", k2: "ladTrouserdata16" as DataKey },
+        ],
+      },
+      {
+        title: "Simple Shalwar",
+        fields: [
+          { label: "Length", k1: "ladSimpleShalwar1", k2: "ladSimpleShalwar2" },
+          { label: "Pancha", k1: "ladSimpleShalwarPancha1", k2: "ladSimpleShalwarPancha2" },
+          { label: "Gherra", k1: "ladSimpleShalwarGherra1", k2: "ladSimpleShalwarGherra2" },
+          { label: "Elastic", k1: "ladLasticSimpleShalwar", k2: "ladTrouserdata16" as DataKey },
+        ],
+      },
+      {
+        title: "Belt Shalwar",
+        fields: [
+          { label: "Length", k1: "ladShalwarBelt1", k2: "ladShalwarBelt2" },
+          { label: "Pancha", k1: "ladShalwarBeltPancha1", k2: "ladShalwarBeltPancha2" },
+          { label: "Gherra", k1: "ladShalwarBeltGherra1", k2: "ladShalwarBeltGherra2" },
+          { label: "Elastic", k1: "ladLasticShalwarBelt", k2: "ladTrouserdata16" as DataKey },
+        ],
+      },
+    ];
+  }
+
+  // ─── Female Lehnga Kurti ───────────────────────────────────────────────
+  if (gt === "female_lehnga_kurti") {
+    return [
+      {
+        title: "Kurti",
+        fields: [
+          { label: "Length", urdu: "لمبائی", k1: "length1", k2: "length2" },
+          { label: "Shoulder", urdu: "کندھا", k1: "shoulder1", k2: "shoulder2" },
+          { label: "Sleeves", urdu: "آستین", k1: "sleeves1", k2: "sleeves2" },
+          { label: "Arm Hole Golai", urdu: "گولائی", k1: "ladGolai1", k2: "ladGolai2" },
+          { label: "Mori", urdu: "موری", k1: "ladMori1", k2: "ladMori2" },
+          { label: "Neck", urdu: "گلا", k1: "neck1", k2: "neck2" },
+          { label: "Chest", urdu: "سینہ", k1: "chest1", k2: "chest2" },
+          { label: "Waist", urdu: "کمر", k1: "waist1", k2: "waist2" },
+          { label: "Hip", urdu: "ہپ", k1: "ladHip1", k2: "ladHip2" },
+          { label: "Chak", urdu: "چاک", k1: "ladChaak1", k2: "ladChaak2" },
+        ],
+      },
+      {
+        title: "Lehnga",
+        fields: [
+          { label: "Length", k1: "trouserdata1", k2: "trouserdata2" },
+          { label: "Waist", k1: "trouserdata5", k2: "trouserdata6" },
+        ],
+      },
+    ];
+  }
+
+  // ─── Female Saari Blouse ───────────────────────────────────────────────
+  if (gt === "female_saari") {
+    return [
+      {
+        title: "Blouse",
+        fields: [
+          { label: "Length", urdu: "لمبائی", k1: "length1", k2: "length2" },
+          { label: "Shoulder", urdu: "کندھا", k1: "shoulder1", k2: "shoulder2" },
+          { label: "Sleeves", urdu: "آستین", k1: "sleeves1", k2: "sleeves2" },
+          { label: "Arm Hole Golai", urdu: "گولائی", k1: "ladGolai1", k2: "ladGolai2" },
+          { label: "Mori", urdu: "موری", k1: "ladMori1", k2: "ladMori2" },
+          { label: "Neck", urdu: "گلا", k1: "neck1", k2: "neck2" },
+          { label: "Chest", urdu: "سینہ", k1: "chest1", k2: "chest2" },
+          { label: "Waist", urdu: "کمر", k1: "waist1", k2: "waist2" },
+          { label: "Hip", urdu: "ہپ", k1: "ladHip1", k2: "ladHip2" },
+        ],
+      },
+      {
+        title: "Saari",
+        fields: [
+          { label: "Length", k1: "trouserdata1", k2: "trouserdata2" },
+          { label: "Waist", k1: "trouserdata5", k2: "trouserdata6" },
+        ],
+      },
+    ];
+  }
+
+  return [];
 }
 
 // ─── Print slip generator ─────────────────────────────────────────────────────
@@ -513,6 +535,16 @@ function generatePrintHTML(
 
     if (section.checkboxes) {
       const checks = section.checkboxes
+        .filter((c) => String(data[c.k] ?? "0") === "1")
+        .map((c) => `<span style="display:inline-block;margin:1px 4px;background:#f3f4f6;border-radius:3px;padding:1px 5px;font-size:9px;">✓ ${esc(c.label)}</span>`)
+        .join("");
+      if (checks) {
+        body += `<div style="margin-bottom:6px;font-size:9px;color:#374151;">${checks}</div>`;
+      }
+    }
+
+    if (section.stylings) {
+      const checks = section.stylings
         .filter((c) => String(data[c.k] ?? "0") === "1")
         .map((c) => `<span style="display:inline-block;margin:1px 4px;background:#f3f4f6;border-radius:3px;padding:1px 5px;font-size:9px;">✓ ${esc(c.label)}</span>`)
         .join("");
@@ -803,13 +835,23 @@ export function UnifiedMeasurementForm({
                 readOnly={readOnly}
               />
             ))}
-            {section.checkboxes && section.checkboxes.length > 0 && (
+            {(section.checkboxes && section.checkboxes.length > 0 || section.stylings && section.stylings.length > 0) && (
               <div className="mt-2 p-2 bg-muted/20 rounded-md">
                 <p className="text-xs font-medium mb-1">Style</p>
                 <div className="flex flex-wrap gap-3">
-                  {section.checkboxes.map((c, ci) => (
+                  {section.checkboxes?.map((c, ci) => (
                     <CheckRow
                       key={ci}
+                      label={c.label}
+                      k={c.k}
+                      data={data}
+                      onChange={set}
+                      readOnly={readOnly}
+                    />
+                  ))}
+                  {section.stylings?.map((c, ci) => (
+                    <CheckRow
+                      key={`st-${ci}`}
                       label={c.label}
                       k={c.k}
                       data={data}

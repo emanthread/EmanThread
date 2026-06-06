@@ -1,0 +1,3 @@
+{
+  "/api/measurements/[id]/set-default/route": "app/api/measurements/[id]/set-default/route.js"
+}

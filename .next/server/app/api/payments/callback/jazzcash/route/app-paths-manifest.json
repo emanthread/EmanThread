@@ -1,0 +1,3 @@
+{
+  "/api/payments/callback/jazzcash/route": "app/api/payments/callback/jazzcash/route.js"
+}

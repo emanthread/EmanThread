@@ -1,0 +1,3 @@
+{
+  "/api/cron/flash-sales/route": "app/api/cron/flash-sales/route.js"
+}

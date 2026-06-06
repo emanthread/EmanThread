@@ -1,0 +1,3 @@
+{
+  "/api/payments/callback/safepay/route": "app/api/payments/callback/safepay/route.js"
+}

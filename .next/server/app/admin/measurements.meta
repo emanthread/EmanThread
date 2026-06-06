@@ -1,0 +1,17 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/(dashboard)/layout,_N_T_/admin/(dashboard)/measurements/layout,_N_T_/admin/(dashboard)/measurements/page,_N_T_/admin/measurements,store-config"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/admin/!KGRhc2hib2FyZCk/measurements/__PAGE__",
+    "/admin/!KGRhc2hib2FyZCk/measurements",
+    "/admin/!KGRhc2hib2FyZCk",
+    "/admin",
+    "/_index",
+    "/_head"
+  ]
+}

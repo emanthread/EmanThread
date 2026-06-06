@@ -1,0 +1,3 @@
+{
+  "/api/admin/inventory/low-stock/route": "app/api/admin/inventory/low-stock/route.js"
+}
