@@ -2,7 +2,7 @@ import { z } from "zod";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { unifiedMeasurementSchema } from "@/lib/validators/measurements-unified";
+import { unifiedMeasurementSchema, mapToPrismaFields } from "@/lib/validators/measurements-unified";
 
 /**
  * GET /api/measurements
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
 
     const profile = await prisma.measurementProfile.create({
       data: {
-        ...parsed,
+        ...mapToPrismaFields(parsed),
         userId: session.user.id,
         isDefault,
         status: "pending",

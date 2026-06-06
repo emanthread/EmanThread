@@ -362,10 +362,9 @@ export function A4PageLayout({
         }
         .a4-scale-wrapper {
           position: relative;
-          height: 193mm;
-          width: 136.5mm;
+          height: 203mm;
+          width: 147mm;
           margin: 0 auto;
-          overflow: hidden;
         }
         .a4-scale-inner {
           position: absolute;

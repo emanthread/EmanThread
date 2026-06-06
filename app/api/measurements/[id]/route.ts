@@ -2,7 +2,7 @@ import { z } from "zod";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { unifiedMeasurementSchema } from "@/lib/validators/measurements-unified";
+import { unifiedMeasurementSchema, mapToPrismaFields } from "@/lib/validators/measurements-unified";
 
 /**
  * Helper: fetch a profile ensuring it belongs to the current user.
@@ -98,7 +98,10 @@ export async function PUT(
 
     const updated = await prisma.measurementProfile.update({
       where: { id },
-      data: parsed,
+      data: {
+        ...mapToPrismaFields(parsed as any),
+        ...(parsed.isDefault !== undefined ? { isDefault: parsed.isDefault } : {}),
+      },
     });
 
     return NextResponse.json({ profile: updated });

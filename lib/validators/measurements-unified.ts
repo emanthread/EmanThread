@@ -154,6 +154,79 @@ export const unifiedMeasurementRequestSchema = z.object({
   selectedProfileName: z.string().optional(),
 });
 
+// ─── Mapper: Zod schema → Prisma model fields ────────────────────────────
+// Maps from the unified schema field names to the Prisma MeasurementProfile field names.
+// Some fields (trouser*, shalwarLength1) map to legacy Prisma column names.
+export function mapToPrismaFields(parsed: UnifiedMeasurementFormData) {
+  return {
+    gender: parsed.gender,
+    garmentType: parsed.garmentType,
+    profileName: parsed.profileName,
+    notes: parsed.notes,
+    deliveryDate: parsed.deliveryDate ? new Date(parsed.deliveryDate) : undefined,
+    // Common
+    length1: parsed.length1, length2: parsed.length2,
+    shoulder1: parsed.shoulder1, shoulder2: parsed.shoulder2,
+    chest1: parsed.chest1, chest2: parsed.chest2,
+    waist1: parsed.waist1, waist2: parsed.waist2,
+    gherra1: parsed.gherra1, gherra2: parsed.gherra2,
+    neck1: parsed.neck1, neck2: parsed.neck2,
+    sleeves1: parsed.sleeves1, sleeves2: parsed.sleeves2,
+    golai1: parsed.golai1, golai2: parsed.golai2,
+    armcuff1: parsed.armcuff1, armcuff2: parsed.armcuff2,
+    armplate1: parsed.armplate1, armplate2: parsed.armplate2,
+    golbazoo1: parsed.golbazoo1, golbazoo2: parsed.golbazoo2,
+    armpatti1: parsed.armpatti1, armpatti2: parsed.armpatti2,
+    collarnok1: parsed.collarnok1, collarnok2: parsed.collarnok2,
+    bane1: parsed.bane1, bane2: parsed.bane2,
+    ladHip1: parsed.ladHip1, ladHip2: parsed.ladHip2,
+    // Toggles
+    doubleCb: parsed.doubleCb, singleCb: parsed.singleCb,
+    golCb: parsed.golCb, chorasCb: parsed.chorasCb,
+    baneCb: parsed.baneCb, collarCb: parsed.collarCb,
+    roundneck: parsed.roundneck,
+    // Pockets
+    frontPocket: parsed.frontPocket,
+    sidePocket: parsed.sidePocket,
+    shalwarPocket: parsed.shalwarPocket,
+    zipCb: parsed.zipCb,
+    // Shalwar (legacy shalwar1 maps to shalwarLength1)
+    shalwar1: parsed.shalwarLength1 || "",
+    shalwar2: parsed.shalwarLength2 || "",
+    shalwarPancha1: parsed.shalwarPancha1,
+    shalwarPancha2: parsed.shalwarPancha2,
+    shalwarGherra1: parsed.shalwarGherra1,
+    shalwarGherra2: parsed.shalwarGherra2,
+    shalwarAssan1: parsed.shalwarAssan1,
+    shalwarAssan2: parsed.shalwarAssan2,
+    // Trouser → legacy trouserdata fields
+    trouserdata1: parsed.trouserLength1 || "",
+    trouserdata2: parsed.trouserPancha1 || "",
+    trouserdata3: parsed.trouserTigh1 || "",
+    trouserdata4: parsed.trouserWaist1 || "",
+    trouserdata5: parsed.trouserElastic1 || "",
+    // Ladies extras
+    ladGolai1: parsed.ladGolai1, ladGolai2: parsed.ladGolai2,
+    ladMori1: parsed.ladMori1, ladMori2: parsed.ladMori2,
+    ladBellbazoo1: parsed.ladBellbazoo1, ladBellbazoo2: parsed.ladBellbazoo2,
+    ladChaak1: parsed.ladChaak1, ladChaak2: parsed.ladChaak2,
+    ladSimpleShalwar1: parsed.ladSimpleShalwar1,
+    ladSimpleShalwar2: parsed.ladSimpleShalwar2,
+    ladSimpleShalwarPancha1: parsed.ladSimpleShalwarPancha1,
+    ladSimpleShalwarPancha2: parsed.ladSimpleShalwarPancha2,
+    ladSimpleShalwarGherra1: parsed.ladSimpleShalwarGherra1,
+    ladSimpleShalwarGherra2: parsed.ladSimpleShalwarGherra2,
+    ladLasticSimpleShalwar: parsed.ladLasticSimpleShalwar,
+    ladShalwarBelt1: parsed.ladShalwarBelt1,
+    ladShalwarBelt2: parsed.ladShalwarBelt2,
+    ladShalwarBeltPancha1: parsed.ladShalwarBeltPancha1,
+    ladShalwarBeltPancha2: parsed.ladShalwarBeltPancha2,
+    ladShalwarBeltGherra1: parsed.ladShalwarBeltGherra1,
+    ladShalwarBeltGherra2: parsed.ladShalwarBeltGherra2,
+    ladLasticShalwarBelt: parsed.ladLasticShalwarBelt,
+  };
+}
+
 // ─── Empty default ───────────────────────────────────────────────────────────
 function mk(): string { return ""; }
 const mkToggle = "0";
