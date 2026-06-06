@@ -361,20 +361,28 @@ export function A4PageLayout({
           color: #64748b;
         }
         .a4-scale-wrapper {
-          display: flex;
-          justify-content: center;
+          position: relative;
+          height: 193mm;
+          width: 136.5mm;
+          margin: 0 auto;
           overflow: hidden;
         }
         .a4-scale-inner {
+          position: absolute;
+          top: 0;
+          left: 0;
           transform: scale(0.65);
-          transform-origin: top center;
-          margin-bottom: calc(297mm * -0.35);
+          transform-origin: top left;
         }
         @media print {
+          .a4-scale-wrapper {
+            height: auto;
+            width: auto;
+            margin: 0;
+          }
           .a4-scale-inner {
+            position: static;
             transform: none;
-            transform-origin: initial;
-            margin-bottom: 0;
           }
         }
       `}</style>

@@ -244,7 +244,7 @@ export function UnifiedMeasurementForm({
 
   // ─── Step 3: Measurements (A4 Form) ─────────────────────────────────────
   return (
-    <div className="space-y-6">
+    <div className="space-y-2">
       {wizard && (
         <div className="flex items-center gap-2 -mb-2">
           <Button
