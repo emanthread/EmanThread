@@ -29,7 +29,7 @@ export interface A4PageLayoutProps {
  */
 export function A4PageLayout({
   title,
-  subtitle = "EMAN THREADS",
+  subtitle = "EMAN THREAD",
   formTitle,
   children,
   sideChildren,
@@ -124,14 +124,11 @@ export function A4PageLayout({
           color: var(--ink);
           font-size: 28px;
         }
-        .a4-logo span {
-          border: 2px solid var(--ink);
-          border-radius: 50%;
-          width: 50px;
-          height: 50px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+        .a4-logo img {
+          max-width: 31mm;
+          max-height: 29mm;
+          object-fit: contain;
+          display: block;
         }
         .a4-title-area {
           padding: 4mm 5mm 3mm;
@@ -150,7 +147,7 @@ export function A4PageLayout({
           font-family: Georgia, serif;
           font-size: 30px;
           letter-spacing: 3px;
-          color: #0f172a99;
+          color: var(--gold);
         }
         .a4-meta {
           display: grid;
@@ -383,12 +380,12 @@ export function A4PageLayout({
         <div className="a4-scale-wrapper">
           <div className="a4-scale-inner">
             <div className="a4-page">
-          <div className="a4-watermark">EMAN THREADS</div>
+          <div className="a4-watermark">EMAN THREAD</div>
 
           {/* Header */}
           <header className="a4-header">
             <div className="a4-logo">
-              <span>ET</span>
+              <img src="/logo.png" alt="Eman Thread" />
             </div>
             <div className="a4-title-area">
               <h1>{title}</h1>
