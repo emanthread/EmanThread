@@ -446,15 +446,25 @@ input[type="range"]::-webkit-slider-thumb {
 /* ═══════════════════════════════════════════════════════════
    PRINT — Tailor Card
 ═══════════════════════════════════════════════════════════ */
+@page { size: A4; margin: 0; }
+
 @media print {
+  body { background: #fff !important; }
   body > *:not(#tailor-print-card) { display: none !important; }
   #tailor-print-card {
     display: block !important;
     visibility: visible !important;
-    position: absolute;
+    position: fixed;
     left: 0;
     top: 0;
-    width: 100%;
+    width: 210mm;
+    height: 297mm;
+    margin: 0;
+    border: none !important;
+    box-shadow: none !important;
   }
   #tailor-print-card * { visibility: visible !important; }
+  /* Hide the sticky nav and print button when printing */
+  .print\:hidden { display: none !important; }
 }
+
