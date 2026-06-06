@@ -62,6 +62,8 @@ export function UnifiedMeasurementForm({
 }: UnifiedMeasurementFormProps) {
   const readOnly = mode === "readonly" || mode === "print";
   const [step, setStep] = useState(wizard ? 1 : 3);
+  const [localSaving, setLocalSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const [data, setData] = useState<Data>({
     ...UNIFIED_MEASUREMENT_EMPTY,
@@ -104,7 +106,15 @@ export function UnifiedMeasurementForm({
 
   const handleSubmit = async () => {
     if (!onSave) return;
-    await onSave(data);
+    setSaveError(null);
+    setLocalSaving(true);
+    try {
+      await onSave(data);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to save. Please try again.");
+    } finally {
+      setLocalSaving(false);
+    }
   };
 
   const garmentTypes =
@@ -259,10 +269,15 @@ export function UnifiedMeasurementForm({
         />
 
       {/* ── Actions ── */}
-      <div className="flex justify-end items-center pt-4">
-        {mode === "edit" && onSave && (
-          <Button onClick={handleSubmit} disabled={saving} size="lg" className="gap-2">
-            {saving ? (
+      {onSave && (
+        <div className="flex flex-col items-end gap-2 pt-4">
+          {saveError && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 w-full text-center">
+              {saveError}
+            </p>
+          )}
+          <Button onClick={handleSubmit} disabled={saving || localSaving} size="lg" className="gap-2">
+            {saving || localSaving ? (
               "Saving..."
             ) : (
               <>
@@ -271,8 +286,8 @@ export function UnifiedMeasurementForm({
               </>
             )}
           </Button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

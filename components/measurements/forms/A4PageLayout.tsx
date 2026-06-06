@@ -363,15 +363,18 @@ export function A4PageLayout({
         .a4-scale-wrapper {
           display: flex;
           justify-content: center;
+          overflow: hidden;
         }
         .a4-scale-inner {
           transform: scale(0.65);
           transform-origin: top center;
+          margin-bottom: calc(297mm * -0.35);
         }
         @media print {
           .a4-scale-inner {
             transform: none;
             transform-origin: initial;
+            margin-bottom: 0;
           }
         }
       `}</style>
@@ -505,7 +508,8 @@ export function A4Checkbox({
   return (
     <span
       className={cn("a4-box", checked && "checked", readOnly && "disabled")}
-      onClick={() => {
+      onClick={(e) => {
+        e.stopPropagation();
         if (!readOnly) onChange(!checked);
       }}
     />

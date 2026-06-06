@@ -483,7 +483,7 @@ export function A4MeasurementForm({
       {/* Section-level toggles (e.g., Pocket) */}
       {section.toggles && section.toggles.length > 0 && (
         <div className="a4-row" style={{ borderBottom: "none" }}>
-          <div className="a4-label">Pocket</div>
+          <div className="a4-label" style={{ borderRight: "none" }}>Pocket</div>
           <div className="a4-entry">
             <div style={{ display: "flex", gap: "3mm", flexWrap: "wrap" }}>
               {section.toggles.map((t) => (
