@@ -20,6 +20,7 @@ export interface A4MeasurementFormProps {
   onChange: (data: Data) => void;
   readOnly?: boolean;
   garmentType: Data["garmentType"];
+  isAdmin?: boolean;
 }
 
 // ─── Field Configurations per garment type, mirroring the HTML layouts ───────
@@ -419,6 +420,7 @@ export function A4MeasurementForm({
   onChange,
   readOnly = false,
   garmentType,
+  isAdmin = false,
 }: A4MeasurementFormProps) {
   const config = CONFIGS[garmentType];
   if (!config) {
@@ -510,6 +512,7 @@ export function A4MeasurementForm({
         onSerialChange={(v) => setField("serialNumber", v)}
         onNameChange={(v) => setField("customerName", v)}
         onDeliveryChange={(v) => setField("deliveryDate", v)}
+        isAdmin={isAdmin}
         readOnly={readOnly}
         sideChildren={
           garmentType === "male_shalwar_kameez" ? (

@@ -212,7 +212,7 @@ export function UnifiedMeasurementForm({
               <SelectContent>
                 {garmentTypes.map((gt) => (
                   <SelectItem key={gt} value={gt}>
-                    {garmentTypeLabel(gt)}
+                    {garmentTypeLabel(gt).replace(/^(Men |Ladies )/, "")}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -255,6 +255,7 @@ export function UnifiedMeasurementForm({
           onChange={handleChange}
           readOnly={readOnly}
           garmentType={data.garmentType}
+          isAdmin={isAdmin}
         />
 
       {/* ── Actions ── */}

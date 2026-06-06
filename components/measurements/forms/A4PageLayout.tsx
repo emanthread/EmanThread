@@ -19,6 +19,7 @@ export interface A4PageLayoutProps {
   onDeliveryChange?: (v: string) => void;
   readOnly?: boolean;
   className?: string;
+  isAdmin?: boolean;
 }
 
 /**
@@ -40,6 +41,7 @@ export function A4PageLayout({
   onDeliveryChange,
   readOnly = false,
   className,
+  isAdmin = false,
 }: A4PageLayoutProps) {
   return (
     <>
@@ -366,7 +368,7 @@ export function A4PageLayout({
           justify-content: center;
         }
         .a4-scale-inner {
-          transform: scale(0.45);
+          transform: scale(0.65);
           transform-origin: top center;
         }
         @media print {
@@ -394,7 +396,8 @@ export function A4PageLayout({
             </div>
           </header>
 
-          {/* Meta row */}
+          {/* Meta row — admin only */}
+          {isAdmin && (
           <div className="a4-meta">
             <div>
               Serial#:{" "}
@@ -424,6 +427,7 @@ export function A4PageLayout({
               />
             </div>
           </div>
+          )}
 
           {/* Main content */}
           <div className={cn(sideChildren ? "a4-grid" : "a4-grid-full")}>
