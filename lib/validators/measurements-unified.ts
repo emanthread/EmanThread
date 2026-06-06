@@ -189,7 +189,6 @@ export function mapToPrismaFields(parsed: UnifiedMeasurementFormData) {
     frontPocket: parsed.frontPocket,
     sidePocket: parsed.sidePocket,
     shalwarPocket: parsed.shalwarPocket,
-    zipCb: parsed.zipCb,
     // Shalwar (legacy shalwar1 maps to shalwarLength1)
     shalwar1: parsed.shalwarLength1 || "",
     shalwar2: parsed.shalwarLength2 || "",

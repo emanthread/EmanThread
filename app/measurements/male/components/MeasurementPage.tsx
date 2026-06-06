@@ -56,8 +56,10 @@ export function MeasurementPage() {
 
       {/* ── A4 Preview area ─────────────────────────────────────────── */}
       <div className="py-6 px-4 flex justify-center print:p-0 print:block">
-        <div className="print:shadow-none">
-          <PrintableA4Sheet form={activeForm} />
+        <div className="a4-scale-wrapper print:!w-auto print:!h-auto">
+          <div className="a4-scale-inner">
+            <PrintableA4Sheet form={activeForm} />
+          </div>
         </div>
       </div>
     </div>

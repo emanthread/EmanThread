@@ -47,8 +47,10 @@ export function FemaleMeasurementPage() {
 
       {/* ── A4 Preview area ── */}
       <div className="py-6 px-4 flex justify-center print:p-0 print:block">
-        <div className="print:shadow-none">
-          <FemalePrintableA4Sheet form={activeForm} />
+        <div className="a4-scale-wrapper print:!w-auto print:!h-auto">
+          <div className="a4-scale-inner">
+            <FemalePrintableA4Sheet form={activeForm} />
+          </div>
         </div>
       </div>
     </div>

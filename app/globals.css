@@ -468,3 +468,32 @@ input[type="range"]::-webkit-slider-thumb {
   .print\:hidden { display: none !important; }
 }
 
+/* ═══════════════════════════════════════════════════════════
+   A4 SCALE WRAPPER — Prevents clipping of A4 form on screen
+   while preserving full print dimensions
+   ═══════════════════════════════════════════════════════════ */
+.a4-scale-wrapper {
+  position: relative;
+  height: 203mm;
+  width: 147mm;
+  margin: 0 auto;
+}
+.a4-scale-inner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: scale(0.65);
+  transform-origin: top left;
+}
+@media print {
+  .a4-scale-wrapper {
+    height: auto;
+    width: auto;
+    margin: 0;
+  }
+  .a4-scale-inner {
+    position: static;
+    transform: none;
+  }
+}
+
