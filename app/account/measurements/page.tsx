@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { formatPrice } from "@/lib/data";
 import { UnifiedMeasurementForm } from "@/components/measurements/UnifiedMeasurementForm";
+import { MeasurementProfileManager } from "@/components/measurements/MeasurementProfileManager";
 import type { UnifiedMeasurementFormData } from "@/lib/validators/measurements-unified";
 import {
   UNIFIED_MEASUREMENT_EMPTY,
@@ -336,6 +337,11 @@ export default function MeasurementsPage() {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* ── Measurement Profiles ── */}
+          <div className="mb-8 bg-background rounded-lg border p-6 shadow-sm">
+            <MeasurementProfileManager />
           </div>
 
           {/* ── Unified Tailor Measurement Section ── */}
