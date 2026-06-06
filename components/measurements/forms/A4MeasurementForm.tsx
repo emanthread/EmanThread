@@ -502,15 +502,6 @@ export function A4MeasurementForm({
 
   return (
     <div>
-      {/* Print button */}
-      <button
-        type="button"
-        className="a4-print-btn"
-        onClick={() => window.print()}
-      >
-        Print A4
-      </button>
-
       <A4PageLayout
         title={config.title}
         serialNumber={data.serialNumber}

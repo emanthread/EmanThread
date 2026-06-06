@@ -180,8 +180,13 @@ export function UnifiedMeasurementForm({
                   key={g}
                   type="button"
                   onClick={() => {
-                    setField("gender", g);
-                    setGarmentType(g === "Male" ? "male_shalwar_kameez" : "female_simple_shalwar");
+                    const next: Data = {
+                      ...data,
+                      gender: g as Data["gender"],
+                      garmentType: (g === "Male" ? "male_shalwar_kameez" : "female_simple_shalwar") as Data["garmentType"],
+                    };
+                    setData(next);
+                    onChange?.(next);
                   }}
                   className={cn(
                     "flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all",
@@ -365,17 +370,7 @@ export function UnifiedMeasurementForm({
       </div>
 
       {/* ── Actions ── */}
-      <div className="flex justify-between items-center">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handlePrint}
-          className="gap-2"
-        >
-          <Printer className="h-4 w-4" />
-          Print A4
-        </Button>
-
+      <div className="flex justify-end items-center">
         {mode === "edit" && onSave && (
           <Button onClick={handleSubmit} disabled={saving} size="lg" className="gap-2">
             {saving ? (

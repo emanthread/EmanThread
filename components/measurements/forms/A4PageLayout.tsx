@@ -361,29 +361,26 @@ export function A4PageLayout({
           font-size: 9.5px;
           color: #64748b;
         }
-        .a4-print-btn {
-          position: fixed;
-          right: 20px;
-          top: 20px;
-          padding: 10px 14px;
-          border: 0;
-          border-radius: 8px;
-          background: #0f172a;
-          color: #fff;
-          font-weight: 700;
-          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-          cursor: pointer;
-          z-index: 100;
+        .a4-scale-wrapper {
+          display: flex;
+          justify-content: center;
+        }
+        .a4-scale-inner {
+          transform: scale(0.65);
+          transform-origin: top center;
         }
         @media print {
-          .a4-print-btn {
-            display: none;
+          .a4-scale-inner {
+            transform: none;
+            transform-origin: initial;
           }
         }
       `}</style>
 
       <div className={cn("a4-page-root", className)}>
-        <div className="a4-page">
+        <div className="a4-scale-wrapper">
+          <div className="a4-scale-inner">
+            <div className="a4-page">
           <div className="a4-watermark">EMAN THREADS</div>
 
           {/* Header */}
@@ -435,9 +432,11 @@ export function A4PageLayout({
           </div>
 
           {/* Footer */}
-          <div className="a4-footer">
-            <span>emanthread.com</span>
-            <span></span>
+              <div className="a4-footer">
+                <span>emanthread.com</span>
+                <span></span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
