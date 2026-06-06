@@ -512,17 +512,14 @@ export function A4MeasurementForm({
         onDeliveryChange={(v) => setField("deliveryDate", v)}
         readOnly={readOnly}
         sideChildren={
-          hasRightSections
+          garmentType === "male_shalwar_kameez" ? (
+            <BottomTypeTabs data={data} onChange={onChange} readOnly={readOnly} />
+          ) : hasRightSections
             ? config.rightSections!.map((s) => renderSection(s, true))
             : undefined
         }
       >
-        {/* Special: Male Shalwar Kameez bottom toggle */}
-        {garmentType === "male_shalwar_kameez" ? (
-          <BottomTypeTabs data={data} onChange={onChange} readOnly={readOnly} />
-        ) : null}
-
-        {config.sections.map((s) => renderSection(s, false))}
+          {config.sections.map((s) => renderSection(s, false))}
       </A4PageLayout>
     </div>
   );

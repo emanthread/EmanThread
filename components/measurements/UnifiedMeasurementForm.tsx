@@ -249,128 +249,16 @@ export function UnifiedMeasurementForm({
         </div>
       )}
 
-      {/* ── Top Meta ── */}
-      <div className="bg-card rounded-xl border p-4 sm:p-6">
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-4">
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Profile
-            </Label>
-            <Input
-              value={data.profileName || ""}
-              onChange={(e) => setField("profileName", e.target.value)}
-              disabled={readOnly || wizard}
-              className="h-9 text-sm font-medium"
-              placeholder="Profile Name"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Gender
-            </Label>
-            <Select
-              value={data.gender}
-              onValueChange={(v) => setField("gender", v)}
-              disabled={readOnly || wizard}
-            >
-              <SelectTrigger className="h-9 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Male">Male</SelectItem>
-                <SelectItem value="Female">Female</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className={cn("space-y-1.5", !isAdmin && "sm:col-span-2")}>
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Garment Type
-            </Label>
-            <Select
-              value={data.garmentType}
-              onValueChange={setGarmentType}
-              disabled={readOnly || !!garmentTypeFixed || wizard}
-            >
-              <SelectTrigger className="h-9 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {GARMENT_TYPES.map((gt) => (
-                  <SelectItem key={gt} value={gt}>
-                    {garmentTypeLabel(gt)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Status
-            </Label>
-            <Badge
-              className={cn(
-                "h-9 px-3 text-sm capitalize font-medium inline-flex items-center",
-                data.status === "complete"
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-                  : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
-              )}
-            >
-              {data.status}
-            </Badge>
-          </div>
-
-          {isAdmin && (
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Delivery Date
-              </Label>
-              <Input
-                type="date"
-                value={data.deliveryDate || ""}
-                onChange={(e) => setField("deliveryDate", e.target.value)}
-                disabled={readOnly}
-                className="h-9 text-sm"
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* ── A4 Measurement Form ── */}
-      <div className="bg-muted/30 rounded-xl border overflow-hidden">
         <A4MeasurementForm
           data={data}
           onChange={handleChange}
           readOnly={readOnly}
           garmentType={data.garmentType}
         />
-      </div>
-
-      {/* ── Notes ── */}
-      <div className="bg-card rounded-xl border p-4 sm:p-6 space-y-2">
-        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          Notes / Special Instructions
-        </Label>
-        {readOnly ? (
-          <p className="text-sm bg-muted/20 rounded-lg p-3 italic">
-            {data.notes || "No notes provided."}
-          </p>
-        ) : (
-          <Textarea
-            value={data.notes}
-            onChange={(e) => setField("notes", e.target.value)}
-            rows={2}
-            placeholder="e.g. Stitching details, fitting preferences..."
-            className="text-sm resize-none"
-          />
-        )}
-      </div>
 
       {/* ── Actions ── */}
-      <div className="flex justify-end items-center">
+      <div className="flex justify-end items-center pt-4">
         {mode === "edit" && onSave && (
           <Button onClick={handleSubmit} disabled={saving} size="lg" className="gap-2">
             {saving ? (

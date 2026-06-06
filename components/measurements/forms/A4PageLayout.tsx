@@ -366,7 +366,7 @@ export function A4PageLayout({
           justify-content: center;
         }
         .a4-scale-inner {
-          transform: scale(0.65);
+          transform: scale(0.45);
           transform-origin: top center;
         }
         @media print {

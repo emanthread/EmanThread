@@ -59,7 +59,6 @@ export function MeasurementProfileManager({
 }: MeasurementProfileManagerProps) {
   const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(defaultCreateMode);
   const [editProfile, setEditProfile] = useState<ProfileSummary | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ProfileSummary | null>(null);
@@ -67,7 +66,6 @@ export function MeasurementProfileManager({
 
   const fetchProfiles = useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       const res = await fetch("/api/measurements");
       if (!res.ok) throw new Error("Failed to fetch profiles");
@@ -77,8 +75,8 @@ export function MeasurementProfileManager({
         list = list.filter((p: ProfileSummary) => p.garmentType === garmentTypeFilter);
       }
       setProfiles(list);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load profiles");
+    } catch {
+      // Silently fail — show empty state
     } finally {
       setLoading(false);
     }
@@ -112,8 +110,8 @@ export function MeasurementProfileManager({
       });
       if (!res.ok) throw new Error("Failed to set default");
       fetchProfiles();
-    } catch (err) {
-      console.error("Set default error:", err);
+    } catch {
+      // API not available — show empty state silently
     }
   };
 
@@ -170,19 +168,6 @@ export function MeasurementProfileManager({
         </Button>
       </div>
 
-      {/* Error state */}
-      {error && (
-        <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
-          {error}
-          <button
-            onClick={fetchProfiles}
-            className="ml-2 underline font-medium"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
       {/* Loading */}
       {loading && (
         <div className="text-xs text-muted-foreground py-4 text-center">
@@ -191,7 +176,7 @@ export function MeasurementProfileManager({
       )}
 
       {/* Empty state */}
-      {!loading && !error && profiles.length === 0 && (
+      {!loading && profiles.length === 0 && (
         <div className="text-xs text-muted-foreground py-6 text-center border border-dashed rounded-lg">
           <p className="font-medium mb-1">No measurement profiles yet</p>
           <p className="text-[11px]">Create a profile to save your measurements for future orders</p>
@@ -287,9 +272,6 @@ export function MeasurementProfileManager({
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Measurement Profile</DialogTitle>
-            <DialogDescription>
-              Save a named set of measurements for future orders.
-            </DialogDescription>
           </DialogHeader>
           <UnifiedMeasurementForm
             data={{}}
