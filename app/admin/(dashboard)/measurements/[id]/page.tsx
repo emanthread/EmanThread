@@ -195,6 +195,7 @@ export default function AdminTailorMeasurementDetailPage() {
                 measurementId={measurement.id}
                 onSave={handleSave}
                 saving={saving}
+                isAdmin={true}
               />
             </CardContent>
           </Card>

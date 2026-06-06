@@ -38,6 +38,7 @@ export interface UnifiedMeasurementFormProps {
   customerPhone?: string;
   measurementId?: string;
   wizard?: boolean;
+  isAdmin?: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -80,7 +81,6 @@ function FieldRow({
   return (
     <div className="grid grid-cols-12 items-center gap-1 py-1.5 border-b border-border/30">
       <div className="col-span-4 sm:col-span-5 text-xs font-medium leading-tight">
-        {urdu && <span className="text-muted-foreground text-[10px] block">{urdu}</span>}
         {label}
       </div>
       <div className="col-span-4 sm:col-span-4">
@@ -196,7 +196,7 @@ function getSections(gt: string): SectionDef[] {
 
   // All garment types share these core fields
   const kameezSection: SectionDef = {
-    title: isMale ? "کمیز / Kameez" : "شرٹ / Shirt",
+    title: isMale ? "Kameez" : "Shirt",
     fields: [
       { label: "Length", urdu: "لمبائی", k1: "length1", k2: "length2" },
       { label: "Shoulder", urdu: "کندھا", k1: "shoulder1", k2: "shoulder2" },
@@ -234,7 +234,7 @@ function getSections(gt: string): SectionDef[] {
           ],
         },
         {
-          title: "شلوار / Shalwar",
+          title: "Shalwar",
           fields: [
             { label: "Length", urdu: "لمبائی", k1: "shalwar1", k2: "shalwar2" },
             { label: "Gherra", urdu: "گھیرا", k1: "shalwarGherra1", k2: "shalwarGherra2" },
@@ -243,7 +243,7 @@ function getSections(gt: string): SectionDef[] {
           ],
         },
         {
-          title: "ٹراؤزر / Trouser",
+          title: "Trouser",
           fields: [
             { label: "Length", k1: "trouserdata1", k2: "trouserdata2" },
             { label: "Gherra", k1: "trouserdata3", k2: "trouserdata4" },
@@ -255,7 +255,7 @@ function getSections(gt: string): SectionDef[] {
           textInputs: [{ label: "Other", k: "trouserdata13" }],
         },
         {
-          title: "Pockets / جیب",
+          title: "Pockets",
           fields: [],
           textInputs: [
             { label: "Front Pocket", k: "frontPocket" },
@@ -268,7 +268,7 @@ function getSections(gt: string): SectionDef[] {
     case "male_simple_3_piece":
       return [
         {
-          title: "کوٹ / Coat",
+          title: "Coat",
           fields: [
             ...kameezSection.fields,
             { label: "Gherra", urdu: "گھیرا", k1: "gherra1", k2: "gherra2" },
@@ -277,7 +277,7 @@ function getSections(gt: string): SectionDef[] {
           ],
         },
         {
-          title: "پینٹ / Pent",
+          title: "Pent",
           fields: [
             { label: "Length", k1: "trouserdata1", k2: "trouserdata2" },
             { label: "Pancha", k1: "trouserdata11", k2: "trouserdata12" },
@@ -290,7 +290,7 @@ function getSections(gt: string): SectionDef[] {
     case "male_prince_coat":
       return [
         {
-          title: "پرنس کوٹ / Prince Coat",
+          title: "Prince Coat",
           fields: [
             ...kameezSection.fields,
             { label: "Gherra", urdu: "گھیرا", k1: "gherra1", k2: "gherra2" },
@@ -306,7 +306,7 @@ function getSections(gt: string): SectionDef[] {
           ],
         },
         {
-          title: "پینٹ / Pent",
+          title: "Pent",
           fields: [
             { label: "Length", k1: "trouserdata1", k2: "trouserdata2" },
             { label: "Pancha (Tight)", k1: "trouserdata11", k2: "trouserdata12" },
@@ -318,7 +318,7 @@ function getSections(gt: string): SectionDef[] {
     case "male_shirt":
       return [
         {
-          title: "قمیض / Shirt",
+          title: "Shirt",
           fields: [
             ...kameezSection.fields,
             { label: "Gherra", urdu: "گھیرا", k1: "gherra1", k2: "gherra2" },
@@ -345,7 +345,7 @@ function getSections(gt: string): SectionDef[] {
     case "female_simple_shalwar":
       return [
         {
-          title: "شرٹ / Shirt",
+          title: "Shirt",
           fields: [
             { label: "Length", urdu: "لمبائی", k1: "length1", k2: "length2" },
             { label: "Shoulder", urdu: "کندھا", k1: "shoulder1", k2: "shoulder2" },
@@ -361,7 +361,7 @@ function getSections(gt: string): SectionDef[] {
           ],
         },
         {
-          title: "ٹراؤزر / Trouser",
+          title: "Trouser",
           fields: [
             { label: "Length", k1: "trouserdata1", k2: "trouserdata2" },
             { label: "Pancha (Bottom)", k1: "trouserdata11", k2: "trouserdata12" },
@@ -370,7 +370,7 @@ function getSections(gt: string): SectionDef[] {
           ],
         },
         {
-          title: "شلوار / Shalwar",
+          title: "Shalwar",
           fields: [
             { label: "Length", k1: "ladSimpleShalwar1", k2: "ladSimpleShalwar2" },
             { label: "Pancha", k1: "ladSimpleShalwarPancha1", k2: "ladSimpleShalwarPancha2" },
@@ -379,7 +379,7 @@ function getSections(gt: string): SectionDef[] {
           ],
         },
         {
-          title: "پلازو / Plazo / Belt Shalwar",
+          title: "Plazo / Belt Shalwar",
           fields: [
             { label: "Length", k1: "ladShalwarBelt1", k2: "ladShalwarBelt2" },
             { label: "Pancha", k1: "ladShalwarBeltPancha1", k2: "ladShalwarBeltPancha2" },
@@ -392,7 +392,7 @@ function getSections(gt: string): SectionDef[] {
     case "female_frock":
       return [
         {
-          title: "فراک / Frock",
+          title: "Frock",
           fields: [
             { label: "Length", urdu: "لمبائی", k1: "length1", k2: "length2" },
             { label: "Shoulder", urdu: "کندھا", k1: "shoulder1", k2: "shoulder2" },
@@ -406,7 +406,7 @@ function getSections(gt: string): SectionDef[] {
           ],
         },
         {
-          title: "ٹراؤزر / Trouser",
+          title: "Trouser",
           fields: [
             { label: "Length", k1: "trouserdata1", k2: "trouserdata2" },
             { label: "Pancha", k1: "trouserdata11", k2: "trouserdata12" },
@@ -419,7 +419,7 @@ function getSections(gt: string): SectionDef[] {
     case "female_saari":
       return [
         {
-          title: "ساڑی بلاؤز / Saari Blouse",
+          title: "Saari Blouse",
           fields: [
             { label: "Length", urdu: "لمبائی", k1: "length1", k2: "length2" },
             { label: "Shoulder", urdu: "کندھا", k1: "shoulder1", k2: "shoulder2" },
@@ -433,7 +433,7 @@ function getSections(gt: string): SectionDef[] {
           ],
         },
         {
-          title: "ساڑی / Saari",
+          title: "Saari",
           fields: [
             { label: "Length", k1: "trouserdata1", k2: "trouserdata2" },
             { label: "Waist", k1: "trouserdata3", k2: "trouserdata4" },
@@ -444,7 +444,7 @@ function getSections(gt: string): SectionDef[] {
     case "female_lehnga_kurti":
       return [
         {
-          title: "کرتی / Kurti",
+          title: "Kurti",
           fields: [
             { label: "Length", urdu: "لمبائی", k1: "length1", k2: "length2" },
             { label: "Shoulder", urdu: "کندھا", k1: "shoulder1", k2: "shoulder2" },
@@ -459,7 +459,7 @@ function getSections(gt: string): SectionDef[] {
           ],
         },
         {
-          title: "لیہنگا / Lehnga",
+          title: "Lehnga",
           fields: [
             { label: "Length", k1: "trouserdata1", k2: "trouserdata2" },
             { label: "Waist", k1: "trouserdata3", k2: "trouserdata4" },
@@ -579,10 +579,9 @@ export function UnifiedMeasurementForm({
   saving = false,
   garmentTypeFixed,
   customerName,
-  customerEmail,
-  customerPhone,
   measurementId,
   wizard = false,
+  isAdmin = false,
 }: UnifiedMeasurementFormProps) {
   const readOnly = mode === "readonly" || mode === "print";
   const [step, setStep] = useState(wizard ? 1 : 3);
@@ -651,8 +650,8 @@ export function UnifiedMeasurementForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Male">Male (مرد)</SelectItem>
-              <SelectItem value="Female">Female (عورت)</SelectItem>
+              <SelectItem value="Male">Male</SelectItem>
+              <SelectItem value="Female">Female</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -724,13 +723,13 @@ export function UnifiedMeasurementForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Male">Male (مرد)</SelectItem>
-              <SelectItem value="Female">Female (عورت)</SelectItem>
+              <SelectItem value="Male">Male</SelectItem>
+              <SelectItem value="Female">Female</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        <div className="space-y-1">
+        <div className={cn("space-y-1", !isAdmin && "col-span-2")}>
           <Label className="text-xs">Garment Type</Label>
           <Select
             value={data.garmentType}
@@ -764,16 +763,18 @@ export function UnifiedMeasurementForm({
           </Badge>
         </div>
 
-        <div className="space-y-1">
-          <Label className="text-xs">Delivery Date</Label>
-          <Input
-            type="date"
-            value={data.deliveryDate || ""}
-            onChange={(e) => set("deliveryDate", e.target.value)}
-            disabled={readOnly}
-            className="h-8 text-xs"
-          />
-        </div>
+        {isAdmin && (
+          <div className="space-y-1">
+            <Label className="text-xs">Delivery Date</Label>
+            <Input
+              type="date"
+              value={data.deliveryDate || ""}
+              onChange={(e) => set("deliveryDate", e.target.value)}
+              disabled={readOnly}
+              className="h-8 text-xs"
+            />
+          </div>
+        )}
       </div>
 
       {/* ── Fields grid: 2 columns ── */}
@@ -804,7 +805,7 @@ export function UnifiedMeasurementForm({
             ))}
             {section.checkboxes && section.checkboxes.length > 0 && (
               <div className="mt-2 p-2 bg-muted/20 rounded-md">
-                <p className="text-xs font-medium mb-1">Style / قسم</p>
+                <p className="text-xs font-medium mb-1">Style</p>
                 <div className="flex flex-wrap gap-3">
                   {section.checkboxes.map((c, ci) => (
                     <CheckRow
@@ -839,7 +840,7 @@ export function UnifiedMeasurementForm({
 
       {/* ── Notes ── */}
       <div className="space-y-1">
-        <Label className="text-xs">Notes / نوٹ</Label>
+        <Label className="text-xs">Notes</Label>
         {readOnly ? (
           <p className="text-sm bg-muted/20 rounded-lg p-3 italic">
             {data.notes || "No notes provided."}

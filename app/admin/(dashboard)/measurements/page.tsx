@@ -274,6 +274,7 @@ function TailorRequestsTab() {
             <UnifiedMeasurementForm
               data={viewDetail as unknown as Partial<UnifiedMeasurementFormData>}
               mode="edit"
+              isAdmin={true}
               garmentTypeFixed={viewDetail.garmentType}
               customerName={viewDetail.user.name}
               customerEmail={viewDetail.user.email}
