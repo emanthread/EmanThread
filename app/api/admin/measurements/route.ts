@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { getAdminMeasurementProfiles } from '@/lib/db-queries'
+import { prisma } from '@/lib/db'
 import { withLoggedAdminHandler } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
@@ -16,6 +16,28 @@ export const GET = withLoggedAdminHandler(async (req: Request) => {
   const garmentType = searchParams.get('garmentType') || undefined
   const search = searchParams.get('search') || undefined
 
-  const result = await getAdminMeasurementProfiles(page, limit, garmentType, search)
-  return NextResponse.json(result)
+  const where: Record<string, unknown> = { deletedAt: null }
+  if (garmentType && garmentType !== 'all') {
+    where.garmentType = { startsWith: garmentType === 'gents' ? 'male_' : 'female_' }
+  }
+  if (search) {
+    where.OR = [
+      { user: { name: { contains: search, mode: 'insensitive' } } },
+      { user: { email: { contains: search, mode: 'insensitive' } } },
+      { user: { phone: { contains: search, mode: 'insensitive' } } },
+    ]
+  }
+
+  const [profiles, total] = await Promise.all([
+    prisma.measurementProfile.findMany({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+      include: { user: { select: { name: true, email: true } } },
+      orderBy: { requestedAt: 'desc' },
+    }),
+    prisma.measurementProfile.count({ where }),
+  ])
+
+  return NextResponse.json({ profiles, total, page, limit })
 })

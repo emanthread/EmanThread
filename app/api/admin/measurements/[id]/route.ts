@@ -1,12 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import {
-  adminGetMeasurementProfile,
-  adminUpdateMeasurementProfile,
-  adminDeleteMeasurementProfile,
-} from '@/lib/db-queries'
+import { prisma } from '@/lib/db'
 import { createAuditLog } from '@/lib/db-queries'
-import { updateMeasurementProfileSchema } from '@/lib/validators/measurements'
 import { withLoggedAdminHandler } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
@@ -20,7 +15,10 @@ export const GET = withLoggedAdminHandler(async (req: Request, { params }: { par
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
   const { id } = await params
-  const profile = await adminGetMeasurementProfile(id)
+  const profile = await prisma.measurementProfile.findUnique({
+    where: { id },
+    include: { user: { select: { id: true, name: true, email: true } } },
+  })
   if (!profile) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   return NextResponse.json(profile)
 })
@@ -32,18 +30,14 @@ export const PUT = withLoggedAdminHandler(async (req: Request, { params }: { par
   }
   const { id } = await params
   const body = await req.json()
-  const parsed = updateMeasurementProfileSchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid input', details: parsed.error.flatten() }, { status: 400 })
-  }
-  const updated = await adminUpdateMeasurementProfile(id, parsed.data)
+  const updated = await prisma.measurementProfile.update({ where: { id }, data: body })
   createAuditLog({
     userId: session.user.id,
     userEmail: session.user.email ?? undefined,
     action: 'MEASUREMENT_UPDATED',
     entity: 'MeasurementProfile',
     entityId: id,
-    newValue: parsed.data as object,
+    newValue: body as object,
   })
   return NextResponse.json(updated)
 })
@@ -54,7 +48,7 @@ export const DELETE = withLoggedAdminHandler(async (req: Request, { params }: { 
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
   const { id } = await params
-  await adminDeleteMeasurementProfile(id)
+  await prisma.measurementProfile.update({ where: { id }, data: { deletedAt: new Date() } })
   createAuditLog({
     userId: session.user.id,
     userEmail: session.user.email ?? undefined,

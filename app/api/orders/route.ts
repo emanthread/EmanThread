@@ -43,7 +43,6 @@ const createOrderSchema = z.object({
   measurementItems: z.array(z.object({
     productId: z.string(),
     productName: z.string(),
-    measurementProfileId: z.string(),
   })).optional(),
 });
 
@@ -180,32 +179,54 @@ export async function POST(req: Request) {
       stitchingItems: stitchingItems ?? [],
     }, isManualPayment);
 
-    // Attach measurement profiles to order items (server-side, all payment methods)
+    // Attach unified measurement profile to order items (server-side, all payment methods)
     if (measurementItems && measurementItems.length > 0 && userId) {
       const { attachMeasurementToOrder } = await import('@/lib/db-queries');
-      for (const mItem of measurementItems) {
-        try {
-          const profile = await prisma.measurementProfile.findUnique({
-            where: { id: mItem.measurementProfileId },
-          });
-          if (profile && profile.userId === userId) {
+      
+      const unified = await prisma.measurement.findUnique({
+        where: { userId },
+      });
+
+      if (unified && !unified.deletedAt) {
+        // Build a flattened measurements map from the Measurement columns
+        const metaFields = new Set([
+          'id', 'userId', 'gender', 'garmentType', 'notes', 'status',
+          'requestedAt', 'updatedAt', 'deletedAt', 'deliveryDate',
+        ]);
+        const measurementFields: Record<string, string> = {};
+        for (const [key, val] of Object.entries(unified)) {
+          if (!metaFields.has(key) && typeof val === 'string' && val !== '') {
+            measurementFields[key] = val;
+          }
+        }
+
+        const readableName = unified.garmentType
+          .split('_')
+          .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ');
+
+        const snapshot = {
+          profileName: readableName,
+          garmentType: unified.garmentType,
+          measurements: measurementFields,
+          stylingPrefs: null,
+          notes: unified.notes ?? '',
+        };
+
+        for (const mItem of measurementItems) {
+          try {
             await attachMeasurementToOrder({
               orderId: order.id,
               productId: mItem.productId,
               productName: mItem.productName,
-              measurementProfileId: profile.id,
-              measurementSnapshot: {
-                profileName: profile.profileName,
-                garmentType: profile.garmentType,
-                measurements: profile.measurements,
-                stylingPrefs: profile.stylingPrefs,
-                notes: profile.notes,
-              },
+              measurementSnapshot: snapshot,
             });
+          } catch (err) {
+            console.error(`Failed to attach measurement for product ${mItem.productId}:`, err);
           }
-        } catch (err) {
-          console.error(`Failed to attach measurement for product ${mItem.productId}:`, err);
         }
+      } else {
+        console.warn(`User ${userId} requested stitching but has no measurement record.`);
       }
     }
 

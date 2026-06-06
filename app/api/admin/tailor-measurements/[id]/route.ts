@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { tailorMeasurementSchema } from "@/lib/validators/tailor-measurements";
+import { unifiedMeasurementSchema } from "@/lib/validators/measurements-unified";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,7 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const { id } = await params;
-  const measurement = await prisma.measurement.findUnique({
+  const measurement = await prisma.measurementProfile.findUnique({
     where: { id },
     include: {
       user: { select: { id: true, email: true, name: true, phone: true } },
@@ -39,12 +39,12 @@ export async function PUT(
   }
   const { id } = await params;
   const body = await req.json();
-  const parsed = tailorMeasurementSchema.safeParse(body);
+  const parsed = unifiedMeasurementSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
   const { deliveryDate, ...rest } = parsed.data;
-  const measurement = await prisma.measurement.update({
+  const measurement = await prisma.measurementProfile.update({
     where: { id },
     data: {
       ...rest,
@@ -65,7 +65,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const { id } = await params;
-  await prisma.measurement.update({ // FIXED: M9 — soft-delete
+  await prisma.measurementProfile.update({ // FIXED: M9 — soft-delete
     where: { id },
     data: { deletedAt: new Date() },
   });
@@ -90,7 +90,7 @@ export async function PATCH(
   if ("deliveryDate" in body)
     updateData.deliveryDate = body.deliveryDate ? new Date(body.deliveryDate) : null;
 
-  const measurement = await prisma.measurement.update({
+  const measurement = await prisma.measurementProfile.update({
     where: { id },
     data: updateData,
     include: { user: { select: { id: true, name: true, email: true, phone: true } } },

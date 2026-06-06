@@ -26,7 +26,7 @@ export async function PATCH(
   if (body.deliveryDate !== undefined)
     updateData.deliveryDate = body.deliveryDate ? new Date(body.deliveryDate) : null;
 
-  const measurement = await prisma.measurement.update({
+  const measurement = await prisma.measurementProfile.update({
     where: { id },
     data: updateData,
     include: { user: { select: { id: true, name: true, email: true, phone: true } } },

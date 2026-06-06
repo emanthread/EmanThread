@@ -19,11 +19,13 @@ export async function GET(req: NextRequest) {
   const limit = 20;
   const status = searchParams.get("status") as string | null;
   const gender = searchParams.get("gender") as string | null;
+  const garmentType = searchParams.get("garmentType") as string | null;
   const search = searchParams.get("search") as string | null;
 
   const where: Record<string, unknown> = { deletedAt: null };
   if (status) where.status = status;
   if (gender) where.gender = gender;
+  if (garmentType) where.garmentType = garmentType;
   if (search) {
     where.user = {
       OR: [
@@ -35,7 +37,7 @@ export async function GET(req: NextRequest) {
   }
 
   const [measurements, total] = await Promise.all([
-    prisma.measurement.findMany({
+    prisma.measurementProfile.findMany({
       where,
       include: {
         user: { select: { id: true, email: true, name: true, phone: true } },
@@ -44,7 +46,7 @@ export async function GET(req: NextRequest) {
       skip: (page - 1) * limit,
       take: limit,
     }),
-    prisma.measurement.count({ where }),
+    prisma.measurementProfile.count({ where }),
   ]);
 
   return NextResponse.json({ measurements, total, page, limit });

@@ -2558,100 +2558,6 @@ export async function getNewsletterSubscribers(options: {
 
 // ── Measurement Profile helpers ────────────────────────────────────
 
-export async function getUserMeasurementProfiles(userId: string) {
-  return prisma.measurementProfile.findMany({
-    where: { userId },
-    orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
-  });
-}
-
-export async function getMeasurementProfile(id: string, userId: string) {
-  return prisma.measurementProfile.findFirst({ where: { id, userId } });
-}
-
-export async function createMeasurementProfile(userId: string, data: {
-  profileName: string;
-  garmentType: string;
-  measurements: object;
-  stylingPrefs?: object;
-  notes?: string;
-  isDefault?: boolean;
-}) {
-  if (data.isDefault) {
-    await prisma.measurementProfile.updateMany({ where: { userId }, data: { isDefault: false } });
-  }
-  return prisma.measurementProfile.create({ data: { userId, ...data } });
-}
-
-export async function updateMeasurementProfile(id: string, userId: string, data: Partial<{
-  profileName: string;
-  garmentType: string;
-  measurements: object;
-  stylingPrefs: object;
-  notes: string;
-  isDefault: boolean;
-}>) {
-  if (data.isDefault) {
-    await prisma.measurementProfile.updateMany({ where: { userId }, data: { isDefault: false } });
-  }
-  return prisma.measurementProfile.update({ where: { id }, data });
-}
-
-export async function deleteMeasurementProfile(id: string, userId: string) {
-  return prisma.measurementProfile.update({ // FIXED: M9 — soft-delete
-    where: { id, userId },
-    data: { deletedAt: new Date() },
-  });
-}
-
-export async function setDefaultMeasurementProfile(id: string, userId: string) {
-  await prisma.measurementProfile.updateMany({ where: { userId }, data: { isDefault: false } });
-  return prisma.measurementProfile.update({ where: { id }, data: { isDefault: true } });
-}
-
-export async function getAdminMeasurementProfiles(page = 1, limit = 20, garmentType?: string, search?: string) {
-  const where: any = { deletedAt: null };
-  if (garmentType && garmentType !== 'all') {
-    where.garmentType = { startsWith: garmentType === 'gents' ? 'male_' : 'female_' };
-  }
-  if (search) {
-    where.OR = [
-      { user: { name: { contains: search, mode: 'insensitive' } } },
-      { user: { email: { contains: search, mode: 'insensitive' } } },
-      { user: { phone: { contains: search, mode: 'insensitive' } } },
-      { profileName: { contains: search, mode: 'insensitive' } },
-    ];
-  }
-  const [profiles, total] = await Promise.all([
-    prisma.measurementProfile.findMany({
-      where,
-      skip: (page - 1) * limit,
-      take: limit,
-      include: { user: { select: { name: true, email: true } } },
-      orderBy: { createdAt: 'desc' },
-    }),
-    prisma.measurementProfile.count({ where }),
-  ]);
-  return { profiles, total, page, limit };
-}
-
-export async function adminGetMeasurementProfile(id: string) {
-  return prisma.measurementProfile.findUnique({
-    where: { id },
-    include: { user: { select: { id: true, name: true, email: true } } },
-  });
-}
-
-export async function adminUpdateMeasurementProfile(id: string, data: object) {
-  return prisma.measurementProfile.update({ where: { id }, data });
-}
-
-export async function adminDeleteMeasurementProfile(id: string) {
-  return prisma.measurementProfile.update({ // FIXED: M9 — soft-delete
-    where: { id },
-    data: { deletedAt: new Date() },
-  });
-}
 
 // ── Order Measurement helpers ──────────────────────────────────────
 
@@ -2659,7 +2565,6 @@ export async function attachMeasurementToOrder(data: {
   orderId: string;
   productId: string;
   productName: string;
-  measurementProfileId?: string;
   measurementSnapshot: object;
 }) {
   return prisma.orderItemMeasurement.create({ data });
@@ -2668,7 +2573,6 @@ export async function attachMeasurementToOrder(data: {
 export async function getOrderMeasurements(orderId: string) {
   return prisma.orderItemMeasurement.findMany({
     where: { orderId },
-    include: { measurementProfile: true },
   });
 }
 

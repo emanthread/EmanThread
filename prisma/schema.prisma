@@ -23,7 +23,6 @@ model User {
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   addresses           Address[]
-  measurement         Measurement?
   measurementProfiles MeasurementProfile[]
   orders              Order[]
   reviews             ProductReview[]
@@ -335,47 +334,27 @@ model NewsletterSubscriber {
   @@index([subscribedAt])
 }
 
-model MeasurementProfile {
-  id           String                 @id @default(cuid())
-  userId       String
-  profileName  String
-  garmentType  String
-  measurements Json
-  stylingPrefs Json?
-  notes        String?
-  deletedAt    DateTime? // M9
-  isDefault    Boolean                @default(false)
-  createdAt    DateTime               @default(now())
-  updatedAt    DateTime               @updatedAt
-  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orderItems   OrderItemMeasurement[]
 
-  @@index([userId])
-  @@index([garmentType])
-  @@index([isDefault])
-  @@index([deletedAt]) // M9
-}
 
 model OrderItemMeasurement {
   id                   String              @id @default(cuid())
   orderId              String
   productId            String
   productName          String
-  measurementProfileId String?
   measurementSnapshot  Json
   createdAt            DateTime            @default(now())
   updatedAt            DateTime?           @updatedAt // Populated when admin edits
   updatedBy            String?                        // Admin user ID who last modified
-  measurementProfile   MeasurementProfile? @relation(fields: [measurementProfileId], references: [id])
   order                Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
-  @@index([measurementProfileId])
 }
 
-model Measurement {
+model MeasurementProfile {
   id                      String    @id @default(uuid())
-  userId                  String    @unique
+  userId                  String
+  profileName             String    @default("Default")
+  isDefault               Boolean   @default(false)
   length1                 String    @default("")
   length2                 String    @default("")
   shoulder1               String    @default("")
@@ -465,12 +444,14 @@ model Measurement {
   gender                  String    @default("Male")
   deliveryDate            DateTime?
   notes                   String    @default("")
+  garmentType             String    @default("male_shalwar_kameez")
   deletedAt               DateTime? // M9
   status                  String    @default("pending")
   requestedAt             DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
   user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, profileName])
   @@index([userId])
   @@index([status])
   @@index([deletedAt]) // M9

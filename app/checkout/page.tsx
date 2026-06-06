@@ -67,8 +67,6 @@ export default function CheckoutPage() {
   const [appliedDiscount, setAppliedDiscount] = useState<number | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [couponLoading, setCouponLoading] = useState(false);
-  const [itemMeasurements, setItemMeasurements] = useState<Record<string, string>>({});
-  const [measurementProfiles, setMeasurementProfiles] = useState<{ id: string; profileName: string; garmentType: string }[]>([]);
   const [stitchingPriceMap, setStitchingPriceMap] = useState<Record<string, number>>({});
   const [transactionId, setTransactionId] = useState('');
   const [saveAddress, setSaveAddress] = useState(false);
@@ -97,27 +95,10 @@ export default function CheckoutPage() {
   // Sync selectedIds when items change
   useEffect(() => {
     setSelectedIds(new Set(items.map((i) => i.product.id)));
-    // Initialize itemMeasurements from cart if not already set locally
-    setItemMeasurements((prev) => {
-      const next = { ...prev };
-      let changed = false;
-      items.forEach((item) => {
-        if (!next[item.product.id] && item.stitchingProfileId) {
-          next[item.product.id] = item.stitchingProfileId;
-          changed = true;
-        }
-      });
-      return changed ? next : prev;
-    });
   }, [items]);
 
-  // Fetch measurement profiles and stitching prices
+  // Fetch stitching prices
   useEffect(() => {
-    if (isAuthenticated) {
-      fetch("/api/measurements").then((r) => r.json()).then((data) => {
-        if (Array.isArray(data)) setMeasurementProfiles(data);
-      }).catch(() => {});
-    }
     fetch("/api/stitching-prices")
       .then((r) => r.json())
       .then((data) => {
@@ -234,10 +215,10 @@ export default function CheckoutPage() {
           }));
       }
 
-      // Include measurement profiles for stitching items (server-side attachment)
+      // Include measurement information for stitching items (server-side attachment)
       const itemsToAttach = selectedItems
-        .filter((item) => itemMeasurements[item.product.id] && itemMeasurements[item.product.id] !== "none")
-        .map((item) => ({ productId: item.product.id, productName: item.product.name, measurementProfileId: itemMeasurements[item.product.id] }));
+        .filter((item) => item.stitchingProfileId != null && item.stitchingProfileId !== "none")
+        .map((item) => ({ productId: item.product.id, productName: item.product.name }));
       if (itemsToAttach.length > 0) {
         payload.measurementItems = itemsToAttach;
       }
@@ -481,33 +462,24 @@ export default function CheckoutPage() {
                             <p className="text-xs text-muted-foreground">{item.product.fabricType}</p>
                             {isAuthenticated ? (
                               <select
-                                value={itemMeasurements[item.product.id] || "none"}
+                                value={item.stitchingProfileId && item.stitchingProfileId !== "none" ? "wants_stitching" : "none"}
                                 onChange={(e) => {
                                   const val = e.target.value;
-                                  if (val === "create_new") {
-                                    router.push("/account/measurements");
+                                  if (val === "none") {
+                                    updateStitching(item.product.id, { price: null, profileId: null, profileName: null });
                                   } else {
-                                    setItemMeasurements((p) => ({ ...p, [item.product.id]: val }));
-                                    if (val === "none") {
-                                      updateStitching(item.product.id, { price: null, profileId: null, profileName: null });
-                                    } else {
-                                      const profile = measurementProfiles.find((p) => p.id === val);
-                                      const price = stitchingPriceMap[item.product.fabricType.toLowerCase()] ?? DEFAULT_STITCHING_FEE;
-                                      updateStitching(item.product.id, {
-                                        price,
-                                        profileId: val,
-                                        profileName: profile?.profileName || "Stitching"
-                                      });
-                                    }
+                                    const price = stitchingPriceMap[item.product.fabricType.toLowerCase()] ?? DEFAULT_STITCHING_FEE;
+                                    updateStitching(item.product.id, {
+                                      price,
+                                      profileId: "wants_stitching",
+                                      profileName: "Stitching Required"
+                                    });
                                   }
                                 }}
                                 className="w-full text-xs border border-border rounded-md px-2 py-1 bg-background mt-1"
                               >
-                                <option value="none">No measurements</option>
-                                {measurementProfiles.map((p) => (
-                                  <option key={p.id} value={p.id}>{p.profileName} ({p.garmentType})</option>
-                                ))}
-                                <option value="create_new">+ Create new Stitching Profile</option>
+                                <option value="none">No Stitching</option>
+                                <option value="wants_stitching">Yes, Stitching Required</option>
                               </select>
                             ) : null}
                           </div>

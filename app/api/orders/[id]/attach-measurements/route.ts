@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { attachMeasurementToOrder, getMeasurementProfile, getOrderById } from '@/lib/db-queries'
+import { attachMeasurementToOrder, getOrderById } from '@/lib/db-queries'
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
 
@@ -10,7 +10,6 @@ const attachSchema = z.object({
   items: z.array(z.object({
     productId: z.string(),
     productName: z.string(),
-    measurementProfileId: z.string().optional(),
   })),
 })
 
@@ -28,31 +27,50 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const order = await prisma.order.findUnique({ where: { id: orderId }, select: { id: true, userId: true } })
     if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
 
+    // Get unified measurement
+    if (!order.userId) {
+      return NextResponse.json({ error: 'Guest orders do not have a measurement record' }, { status: 404 })
+    }
+    const unified = await prisma.measurement.findUnique({
+      where: { userId: order.userId },
+    });
+
+    if (!unified || unified.deletedAt) {
+      return NextResponse.json({ error: 'No measurement found for user' }, { status: 404 });
+    }
+
+    // Build snapshot
+    const metaFields = new Set([
+      'id', 'userId', 'gender', 'garmentType', 'notes', 'status',
+      'requestedAt', 'updatedAt', 'deletedAt', 'deliveryDate',
+    ]);
+    const measurementFields: Record<string, string> = {};
+    for (const [key, val] of Object.entries(unified)) {
+      if (!metaFields.has(key) && typeof val === 'string' && val !== '') {
+        measurementFields[key] = val;
+      }
+    }
+
+    const readableName = unified.garmentType
+      .split('_')
+      .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+
+    const snapshot = {
+      profileName: readableName,
+      garmentType: unified.garmentType,
+      measurements: measurementFields,
+      stylingPrefs: null,
+      notes: unified.notes ?? '',
+    };
+
     const results = []
     for (const item of parsed.data.items) {
-      let measurementSnapshot: object = {}
-      let measurementProfileId: string | undefined = undefined
-
-      if (item.measurementProfileId && session?.user?.id) {
-        const profile = await getMeasurementProfile(item.measurementProfileId, session.user.id)
-        if (profile) {
-          measurementProfileId = profile.id
-          measurementSnapshot = {
-            profileName: profile.profileName,
-            garmentType: profile.garmentType,
-            measurements: profile.measurements,
-            stylingPrefs: profile.stylingPrefs,
-            notes: profile.notes,
-          }
-        }
-      }
-
       const record = await attachMeasurementToOrder({
         orderId,
         productId: item.productId,
         productName: item.productName,
-        measurementProfileId,
-        measurementSnapshot,
+        measurementSnapshot: snapshot,
       })
       results.push(record)
     }

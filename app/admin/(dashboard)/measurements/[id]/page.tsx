@@ -14,16 +14,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TailorMeasurementEditor } from "@/components/measurements/tailor-measurement-editor";
-import { MeasurementPrintSlip } from "@/components/measurements/measurement-print-slip";
-import type { TailorMeasurementFormData } from "@/lib/validators/tailor-measurements";
-import { TAILOR_MEASUREMENT_EMPTY } from "@/lib/validators/tailor-measurements";
+import { UnifiedMeasurementForm } from "@/components/measurements/UnifiedMeasurementForm";
+import type { UnifiedMeasurementFormData } from "@/lib/validators/measurements-unified";
+import { UNIFIED_MEASUREMENT_EMPTY, garmentTypeLabel } from "@/lib/validators/measurements-unified";
 
 interface MeasurementDetail {
   id: string;
   userId: string;
   status: string;
   gender: string;
+  garmentType: string;
   notes: string;
   requestedAt: string;
   updatedAt: string;
@@ -64,7 +64,7 @@ export default function AdminTailorMeasurementDetailPage() {
     fetchData();
   }, [fetchData]);
 
-  const handleSave = async (formData: TailorMeasurementFormData) => {
+  const handleSave = async (formData: UnifiedMeasurementFormData) => {
     setSaving(true);
     try {
       const res = await fetch(`/api/admin/tailor-measurements/${id}`, {
@@ -95,9 +95,9 @@ export default function AdminTailorMeasurementDetailPage() {
 
   if (!measurement) return null;
 
-  const formData: TailorMeasurementFormData = {
-    ...TAILOR_MEASUREMENT_EMPTY,
-    ...(measurement as unknown as Partial<TailorMeasurementFormData>),
+  const formData: Partial<UnifiedMeasurementFormData> = {
+    ...UNIFIED_MEASUREMENT_EMPTY,
+    ...(measurement as unknown as Partial<UnifiedMeasurementFormData>),
     gender: (measurement.gender as "Male" | "Female") ?? "Male",
     status: (measurement.status as "pending" | "complete") ?? "pending",
     deliveryDate: measurement.deliveryDate
@@ -123,7 +123,8 @@ export default function AdminTailorMeasurementDetailPage() {
         <div>
           <h1 className="text-xl font-semibold">Edit Tailor Measurement</h1>
           <p className="text-sm text-muted-foreground">
-            ID: {id.slice(0, 8).toUpperCase()}
+            ID: {id.slice(0, 8).toUpperCase()} ·{" "}
+            {garmentTypeLabel(measurement.garmentType || "")}
           </p>
         </div>
         {saved && (
@@ -170,25 +171,28 @@ export default function AdminTailorMeasurementDetailPage() {
                   {measurement.status}
                 </Badge>
               </div>
-
-              {/* Print Slip button — no preview, just the action */}
               <div className="pt-1 border-t">
-                <MeasurementPrintSlip
-                  data={formData}
-                  customer={customer}
-                  measurementId={id}
-                />
+                <span className="text-xs text-muted-foreground">Garment:</span>
+                <p className="text-sm font-medium mt-0.5">
+                  {garmentTypeLabel(measurement.garmentType || "") || measurement.gender}
+                </p>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Editor — same component as customer view, just editable */}
+        {/* Editor — Unified Measurement Form */}
         <div className="lg:col-span-3">
           <Card>
             <CardContent className="pt-6">
-              <TailorMeasurementEditor
-                initialData={formData}
+              <UnifiedMeasurementForm
+                data={formData}
+                mode="edit"
+                garmentTypeFixed={measurement.garmentType}
+                customerName={customer.name}
+                customerEmail={customer.email}
+                customerPhone={customer.phone ?? undefined}
+                measurementId={measurement.id}
                 onSave={handleSave}
                 saving={saving}
               />

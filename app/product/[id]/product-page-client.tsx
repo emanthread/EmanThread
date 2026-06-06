@@ -159,7 +159,6 @@ function ProductDetails({ product }: { product: Product }) {
   const [zoomPosition, setZoomPosition] = useState({ x: 50, y: 50 });
   const [whatsappNumber, setWhatsappNumber] = useState<string>("");
   const [mounted, setMounted] = useState(false);
-  const [measurementProfiles, setMeasurementProfiles] = useState<{ id: string; profileName: string; garmentType: string }[]>([]);
   const [selectedMeasurement, setSelectedMeasurement] = useState("none");
   const [stitchingPriceMap, setStitchingPriceMap] = useState<Record<string, number>>({});
   const router = useRouter();
@@ -181,14 +180,7 @@ function ProductDetails({ product }: { product: Product }) {
     return () => { cancelled = true; };
   }, []);
 
-  // Fetch measurement profiles if authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetch("/api/measurements").then((r) => r.json()).then((data) => {
-        if (Array.isArray(data)) setMeasurementProfiles(data);
-      }).catch(() => {});
-    }
-  }, [isAuthenticated]);
+
 
   // Fetch stitching prices on mount
   useEffect(() => {
@@ -204,12 +196,10 @@ function ProductDetails({ product }: { product: Product }) {
 
   // Get stitching price for this product's fabric type
   const productStitchingPrice = stitchingPriceMap[product.fabricType.toLowerCase()] ?? DEFAULT_STITCHING_FEE;
-  const hasStitchingSelected = selectedMeasurement !== "none" && selectedMeasurement !== "create_new";
+  const hasStitchingSelected = selectedMeasurement === "wants_stitching";
 
   // Get the selected profile name
-  const selectedProfileName = hasStitchingSelected
-    ? measurementProfiles.find((p) => p.id === selectedMeasurement)?.profileName || "Stitching"
-    : "";
+  const selectedProfileName = hasStitchingSelected ? "Stitching Required" : "";
 
   const handleAddToCart = () => {
     if (hasStitchingSelected) {
@@ -416,25 +406,14 @@ function ProductDetails({ product }: { product: Product }) {
               <div className="space-y-2">
                 <Select
                   value={selectedMeasurement}
-                  onValueChange={(v) => {
-                    if (v === "create_new") {
-                      router.push("/account/measurements");
-                    } else {
-                      setSelectedMeasurement(v);
-                    }
-                  }}
+                  onValueChange={setSelectedMeasurement}
                 >
                   <SelectTrigger className="h-10 text-sm">
-                    <SelectValue placeholder="Attach a saved measurement profile" />
+                    <SelectValue placeholder="Select Stitching Option" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">No stitching — fabric only</SelectItem>
-                    {measurementProfiles.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.profileName} ({p.garmentType.replace(/_/g, " ")})
-                      </SelectItem>
-                    ))}
-                    <SelectItem value="create_new">+ Create new stitching profile</SelectItem>
+                    <SelectItem value="wants_stitching">Yes, Stitching Required</SelectItem>
                   </SelectContent>
                 </Select>
                 {hasStitchingSelected && productStitchingPrice > 0 && (

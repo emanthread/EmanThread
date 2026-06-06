@@ -64,10 +64,6 @@ export const DELETE = withLoggedAdminHandler(async (
       where: { userId: id },
     });
 
-    // Delete measurement profiles
-    await prisma.measurementProfile.deleteMany({
-      where: { userId: id },
-    });
 
     // Delete password reset tokens
     await prisma.passwordResetToken.deleteMany({

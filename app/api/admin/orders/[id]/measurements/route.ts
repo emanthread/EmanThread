@@ -20,11 +20,6 @@ export async function GET(
 
   const measurements = await prisma.orderItemMeasurement.findMany({
     where: { orderId },
-    include: {
-      measurementProfile: {
-        select: { profileName: true, garmentType: true },
-      },
-    },
     orderBy: { createdAt: "desc" },
   })
 

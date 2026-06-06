@@ -36,9 +36,7 @@ export const GET = withLoggedAdminHandler(async (
           },
         },
         manualPayment: true,
-        itemMeasurements: {
-          include: { measurementProfile: true },
-        },
+        itemMeasurements: true,
         notificationLogs: {
           orderBy: { createdAt: "desc" },
         },

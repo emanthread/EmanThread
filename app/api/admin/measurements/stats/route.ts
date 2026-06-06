@@ -14,19 +14,19 @@ export async function GET() {
   }
 
   const [
-    totalProfiles,
+    totalMeasurements,
     totalTailorRequests,
     pendingRequests,
     completeRequests,
   ] = await Promise.all([
     prisma.measurementProfile.count({ where: { deletedAt: null } }),
-    prisma.measurement.count({ where: { deletedAt: null } }),
-    prisma.measurement.count({ where: { status: "pending", deletedAt: null } }),
-    prisma.measurement.count({ where: { status: "complete", deletedAt: null } }),
+    prisma.measurementProfile.count({ where: { deletedAt: null } }),
+    prisma.measurementProfile.count({ where: { status: "pending", deletedAt: null } }),
+    prisma.measurementProfile.count({ where: { status: "complete", deletedAt: null } }),
   ]);
 
   return NextResponse.json({
-    totalProfiles,
+    totalProfiles: totalMeasurements,
     totalTailorRequests,
     pendingRequests,
     completeRequests,

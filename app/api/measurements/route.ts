@@ -1,51 +1,109 @@
-import { NextResponse } from 'next/server'
-import { auth } from '@/auth'
-import {
-  getUserMeasurementProfiles,
-  createMeasurementProfile,
-} from '@/lib/db-queries'
-import { createMeasurementProfileSchema } from '@/lib/validators/measurements'
-import { createAuditLog } from '@/lib/db-queries'
+import { z } from "zod";
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/auth";
+import { prisma } from "@/lib/db";
+import { unifiedMeasurementSchema } from "@/lib/validators/measurements-unified";
 
-export const dynamic = 'force-dynamic'
-
+/**
+ * GET /api/measurements
+ * List ALL measurement profiles for the authenticated user.
+ * Ownership enforced: only returns profiles where userId === session.user.id
+ */
 export async function GET() {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
   try {
-    const profiles = await getUserMeasurementProfiles(session.user.id)
-    return NextResponse.json(profiles)
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const profiles = await prisma.measurementProfile.findMany({
+      where: { userId: session.user.id, deletedAt: null },
+      orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }],
+      select: {
+        id: true,
+        profileName: true,
+        isDefault: true,
+        gender: true,
+        garmentType: true,
+        status: true,
+        notes: true,
+        deliveryDate: true,
+        requestedAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return NextResponse.json({ profiles });
   } catch (error) {
-    console.error('GET /api/measurements error:', error)
-    return NextResponse.json({ error: 'Failed to fetch profiles' }, { status: 500 })
+    console.error("Error fetching measurement profiles:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
-export async function POST(request: Request) {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+/**
+ * POST /api/measurements
+ * Create a new measurement profile for the authenticated user.
+ * Ownership enforced: always sets userId to session.user.id
+ */
+export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const parsed = createMeasurementProfileSchema.safeParse(body)
-    if (!parsed.success) {
-      return NextResponse.json({ error: 'Invalid input', details: parsed.error.flatten() }, { status: 400 })
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const profile = await createMeasurementProfile(session.user.id, parsed.data)
-    createAuditLog({
-      userId: session.user.id,
-      userEmail: session.user.email ?? undefined,
-      action: 'MEASUREMENT_CREATED',
-      entity: 'MeasurementProfile',
-      entityId: profile.id,
-      newValue: { profileName: profile.profileName, garmentType: profile.garmentType },
-    })
-    return NextResponse.json(profile, { status: 201 })
+
+    const body = await request.json();
+    const parsed = unifiedMeasurementSchema.parse(body);
+
+    // Check for duplicate profile name
+    const existing = await prisma.measurementProfile.findFirst({
+      where: {
+        userId: session.user.id,
+        profileName: parsed.profileName,
+        deletedAt: null,
+      },
+    });
+    if (existing) {
+      return NextResponse.json(
+        { error: `A profile named "${parsed.profileName}" already exists` },
+        { status: 409 }
+      );
+    }
+
+    // If this is the first profile, make it default
+    const profileCount = await prisma.measurementProfile.count({
+      where: { userId: session.user.id, deletedAt: null },
+    });
+    const isDefault = profileCount === 0 ? true : parsed.isDefault;
+
+    // If setting as default, unset others for same garmentType
+    if (isDefault) {
+      await prisma.measurementProfile.updateMany({
+        where: {
+          userId: session.user.id,
+          garmentType: parsed.garmentType,
+          deletedAt: null,
+        },
+        data: { isDefault: false },
+      });
+    }
+
+    const profile = await prisma.measurementProfile.create({
+      data: {
+        ...parsed,
+        userId: session.user.id,
+        isDefault,
+        status: "pending",
+      },
+    });
+
+    return NextResponse.json({ profile }, { status: 201 });
   } catch (error) {
-    console.error('POST /api/measurements error:', error)
-    return NextResponse.json({ error: 'Failed to create profile' }, { status: 500 })
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.errors }, { status: 400 });
+    }
+    console.error("Error creating measurement profile:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

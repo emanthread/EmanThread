@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { tailorMeasurementRequestSchema } from "@/lib/validators/tailor-measurements";
+import { unifiedMeasurementRequestSchema } from "@/lib/validators/measurements-unified";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     );
   }
   const body = await req.json();
-  const parsed = tailorMeasurementRequestSchema.safeParse(body);
+  const parsed = unifiedMeasurementRequestSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
     data: {
       userId: session.user.id,
       gender: parsed.data.gender,
+      garmentType: parsed.data.garmentType,
       notes: finalNotes,
       status: "pending",
     },
