@@ -2567,12 +2567,14 @@ export function adminTailorRequestFilter() {
 }
 
 /**
- * Centralized filter: admin measurement profiles (NOT tailor requests)
- * Returns all non-tailor-request profiles (saved profiles + order-linked).
+ * Centralized filter: admin measurement profiles (order-linked only)
+ * Only returns profiles linked to completed orders (source = "order").
+ * Saved user profiles (source = "profile") are intentionally excluded — they
+ * are private to the user and must NEVER appear in admin views.
  * Single source of truth — ALL admin APIs that query measurement profiles MUST use this.
  */
 export function adminProfileFilter() {
-  return { deletedAt: null, source: { not: "tailor_request" as const } };
+  return { deletedAt: null, source: "order" as const };
 }
 
 /**

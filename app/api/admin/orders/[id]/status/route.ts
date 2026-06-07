@@ -70,34 +70,12 @@ export const PUT = withLoggedAdminHandler(async (
     }
 
     const updated = await updateOrderStatus(id, result.data.status);
-
-    // ── Part E: Order delivery → link customer's active measurement profile ──
-    // When an order is marked DELIVERED, find the customer's most recent
-    // measurement profile (source: "profile") and convert it to source: "order".
-    // Note: No FK exists between Order and MeasurementProfile. The link is via userId.
-    if (result.data.status === "DELIVERED") {
-      const order = await prisma.order.findUnique({
-        where: { id },
-        select: { userId: true },
-      });
-      if (order?.userId) {
-        const latestProfile = await prisma.measurementProfile.findFirst({
-          where: {
-            userId: order.userId,
-            source: "profile",
-            deletedAt: null,
-          },
-          orderBy: { updatedAt: "desc" },
-        });
-        if (latestProfile) {
-          await prisma.measurementProfile.update({
-            where: { id: latestProfile.id },
-            data: { source: "order", status: "complete" },
-          });
-        }
-      }
-    }
-
+    // ── Part E: Order delivery → measurement handling ──
+    // SAFETY: The measurement snapshot was already captured at order creation time
+    // via attachMeasurementToOrder() → OrderItemMeasurement table (lines 183-231 in POST /api/orders).
+    // We do NOT mutate the user's measurement profile (source: "profile" → "order")
+    // because that would destroy the user's original saved measurements.
+    // The OrderItemMeasurement snapshot is the authoritative record for completed orders.
     // Audit log
     void createAuditLog({
       userId: session.user.id,
