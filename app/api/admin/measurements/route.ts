@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/db'
 import { withLoggedAdminHandler } from '@/lib/logger'
+import { adminProfileFilter } from '@/lib/db-queries'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +17,8 @@ export const GET = withLoggedAdminHandler(async (req: Request) => {
   const garmentType = searchParams.get('garmentType') || undefined
   const search = searchParams.get('search') || undefined
 
-  const where: Record<string, unknown> = { deletedAt: null }
+  // Use centralized filter — excludes tailor requests (source !== "tailor_request")
+  const where: Record<string, unknown> = { ...adminProfileFilter() }
   if (garmentType && garmentType !== 'all') {
     where.garmentType = { startsWith: garmentType === 'gents' ? 'male_' : 'female_' }
   }

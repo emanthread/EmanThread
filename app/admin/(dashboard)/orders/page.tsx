@@ -475,8 +475,16 @@ export default function AdminOrdersPage() {
                             onClick={() => handleViewMeasurements(order.id)}
                           >
                             <Ruler className="h-4 w-4 mr-2" />
-                            Measurements
+                            Order Snapshots
                           </DropdownMenuItem>
+                          {order.customerEmail && (
+                            <DropdownMenuItem asChild>
+                              <Link href={`/admin/measurements?search=${encodeURIComponent(order.customerEmail)}`}>
+                                <Ruler className="h-4 w-4 mr-2" />
+                                Customer Measurements
+                              </Link>
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuSeparator />
                           <DropdownMenuLabel>Update Status</DropdownMenuLabel>
                           <DropdownMenuItem

@@ -445,15 +445,17 @@ model MeasurementProfile {
   deliveryDate            DateTime?
   notes                   String    @default("")
   garmentType             String    @default("male_shalwar_kameez")
+  source                  MeasurementSource @default(profile)
   deletedAt               DateTime? // M9
-  status                  String    @default("pending")
-  requestedAt             DateTime  @default(now())
+  status                  String    @default("complete")
+  requestedAt             DateTime?
   updatedAt               DateTime  @updatedAt
   user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, profileName])
+  @@index([userId, profileName, deletedAt])
   @@index([userId])
   @@index([status])
+  @@index([source])
   @@index([deletedAt]) // M9
 }
 
@@ -699,6 +701,12 @@ enum StitchingStatus {
   IN_PROGRESS
   COMPLETED
   DELIVERED
+}
+
+enum MeasurementSource {
+  profile
+  tailor_request
+  order
 }
 
 enum ManualPaymentStatus {

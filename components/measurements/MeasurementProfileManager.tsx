@@ -33,6 +33,7 @@ interface ProfileSummary {
   isDefault: boolean;
   gender: string;
   garmentType: string;
+  source?: string;      // "profile" | "tailor_request" | "order"
   status: string;
   notes: string;
   deliveryDate: string | null;
@@ -204,6 +205,17 @@ export function MeasurementProfileManager({
                       Default
                     </Badge>
                   )}
+                  {profile.source === "tailor_request" && (
+                    <Badge
+                      className={
+                        profile.status === "complete"
+                          ? "text-[10px] px-1.5 py-0 h-4 bg-emerald-100 text-emerald-700 border-emerald-200"
+                          : "text-[10px] px-1.5 py-0 h-4 bg-amber-100 text-amber-700 border-amber-200"
+                      }
+                    >
+                      {profile.status === "complete" ? "✓ Tailor Request Complete" : "⏳ Tailor Request Pending"}
+                    </Badge>
+                  )}
                   <Badge
                     variant="outline"
                     className="text-[10px] px-1.5 py-0 h-4 capitalize"
@@ -212,11 +224,7 @@ export function MeasurementProfileManager({
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                  {profile.gender} ·{" "}
-                  {profile.status === "complete"
-                    ? "Completed"
-                    : "Pending"}{" "}
-                  · Updated{" "}
+                  {profile.gender} · Updated{" "}
                   {new Date(profile.updatedAt).toLocaleDateString()}
                 </p>
               </div>

@@ -71,6 +71,33 @@ export const PUT = withLoggedAdminHandler(async (
 
     const updated = await updateOrderStatus(id, result.data.status);
 
+    // ── Part E: Order delivery → link customer's active measurement profile ──
+    // When an order is marked DELIVERED, find the customer's most recent
+    // measurement profile (source: "profile") and convert it to source: "order".
+    // Note: No FK exists between Order and MeasurementProfile. The link is via userId.
+    if (result.data.status === "DELIVERED") {
+      const order = await prisma.order.findUnique({
+        where: { id },
+        select: { userId: true },
+      });
+      if (order?.userId) {
+        const latestProfile = await prisma.measurementProfile.findFirst({
+          where: {
+            userId: order.userId,
+            source: "profile",
+            deletedAt: null,
+          },
+          orderBy: { updatedAt: "desc" },
+        });
+        if (latestProfile) {
+          await prisma.measurementProfile.update({
+            where: { id: latestProfile.id },
+            data: { source: "order", status: "complete" },
+          });
+        }
+      }
+    }
+
     // Audit log
     void createAuditLog({
       userId: session.user.id,

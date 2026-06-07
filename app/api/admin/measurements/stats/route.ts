@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { adminTailorRequestFilter, adminProfileFilter, adminCompletedFilter } from "@/lib/db-queries";
 
 export const dynamic = "force-dynamic";
 
@@ -14,21 +15,24 @@ export async function GET() {
   }
 
   const [
-    totalMeasurements,
+    totalProfiles,
     totalTailorRequests,
     pendingRequests,
     completeRequests,
+    completedCount,
   ] = await Promise.all([
-    prisma.measurementProfile.count({ where: { deletedAt: null } }),
-    prisma.measurementProfile.count({ where: { deletedAt: null } }),
-    prisma.measurementProfile.count({ where: { status: "pending", deletedAt: null } }),
-    prisma.measurementProfile.count({ where: { status: "complete", deletedAt: null } }),
+    prisma.measurementProfile.count({ where: adminProfileFilter() }),
+    prisma.measurementProfile.count({ where: adminTailorRequestFilter() }),
+    prisma.measurementProfile.count({ where: { ...adminTailorRequestFilter(), status: "pending" } }),
+    prisma.measurementProfile.count({ where: { ...adminTailorRequestFilter(), status: "complete" } }),
+    prisma.measurementProfile.count({ where: adminCompletedFilter() }),
   ]);
 
   return NextResponse.json({
-    totalProfiles: totalMeasurements,
+    totalProfiles,
     totalTailorRequests,
     pendingRequests,
     completeRequests,
+    completedCount,
   });
 }

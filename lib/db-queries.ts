@@ -2558,6 +2558,33 @@ export async function getNewsletterSubscribers(options: {
 
 // ── Measurement Profile helpers ────────────────────────────────────
 
+/**
+ * Centralized filter: admin tailor requests (source = "tailor_request", not soft-deleted)
+ * Single source of truth — ALL admin APIs that query tailor requests MUST use this.
+ */
+export function adminTailorRequestFilter() {
+  return { deletedAt: null, source: "tailor_request" as const };
+}
+
+/**
+ * Centralized filter: admin measurement profiles (NOT tailor requests)
+ * Returns all non-tailor-request profiles (saved profiles + order-linked).
+ * Single source of truth — ALL admin APIs that query measurement profiles MUST use this.
+ */
+export function adminProfileFilter() {
+  return { deletedAt: null, source: { not: "tailor_request" as const } };
+}
+
+/**
+ * Centralized filter: completed measurements (order-linked + fulfilled tailor requests)
+ *
+ * Completed tab shows fulfilled tailor requests and order-linked measurements only.
+ * Saved user profiles (source: "profile") are intentionally excluded — they live
+ * in the Profiles tab regardless of status.
+ */
+export function adminCompletedFilter() {
+  return { deletedAt: null, status: "complete" as const, source: { in: ["order" as const, "tailor_request" as const] } };
+}
 
 // ── Order Measurement helpers ──────────────────────────────────────
 

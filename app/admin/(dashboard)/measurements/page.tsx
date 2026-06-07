@@ -8,6 +8,7 @@ import {
   Eye,
   Ruler,
   Printer,
+  CheckCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,14 @@ interface LegacyProfile {
   isDefault: boolean;
   createdAt: string;
   user: { name: string; email: string };
+}
+
+interface CompletedRecord {
+  id: string;
+  garmentType: string;
+  source: string;
+  updatedAt: string;
+  user: { id: string; name: string; email: string };
 }
 
 // ─── Tailor Requests Tab ─────────────────────────────────────────────────────
@@ -536,6 +545,120 @@ function LegacyProfilesTab() {
   );
 }
 
+// ─── Completed Tab ──────────────────────────────────────────────────────────────
+
+function CompletedTab() {
+  const [records, setRecords] = useState<CompletedRecord[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const limit = 20;
+
+  const fetchRecords = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: String(page),
+        ...(search && { search }),
+      });
+      const res = await fetch(`/api/admin/measurements/completed?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setRecords(data.records || []);
+        setTotal(data.total || 0);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [page, search]);
+
+  useEffect(() => { fetchRecords(); }, [fetchRecords]);
+
+  const totalPages = Math.ceil(total / limit);
+
+  return (
+    <>
+      <Card>
+        <CardContent className="p-4 flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by customer name or email..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              className="pl-9"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{total} completed record{total !== 1 ? "s" : ""}</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left p-4 text-sm font-medium">Customer</th>
+                  <th className="text-left p-4 text-sm font-medium">Source</th>
+                  <th className="text-left p-4 text-sm font-medium">Garment Type</th>
+                  <th className="text-left p-4 text-sm font-medium">Completed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {records.map((r) => (
+                  <tr key={r.id} className="border-t hover:bg-muted/30">
+                    <td className="p-4">
+                      <p className="font-medium text-sm">{r.user.name}</p>
+                      <p className="text-xs text-muted-foreground">{r.user.email}</p>
+                    </td>
+                    <td className="p-4">
+                      <Badge
+                        className={
+                          r.source === "order"
+                            ? "bg-blue-100 text-blue-700 border-blue-200 text-xs"
+                            : "bg-purple-100 text-purple-700 border-purple-200 text-xs"
+                        }
+                      >
+                        {r.source === "order" ? "From Order" : "Tailor Request"}
+                      </Badge>
+                    </td>
+                    <td className="p-4">
+                      <Badge variant="outline" className="capitalize text-xs">
+                        {garmentTypeLabel(r.garmentType || "")}
+                      </Badge>
+                    </td>
+                    <td className="p-4 text-sm text-muted-foreground">
+                      {new Date(r.updatedAt).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {records.length === 0 && !loading && (
+              <div className="text-center py-12 text-muted-foreground">
+                No completed measurement records found
+              </div>
+            )}
+          </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between p-4 border-t">
+              <p className="text-sm text-muted-foreground">Page {page} of {totalPages}</p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>Previous</Button>
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>Next</Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AdminMeasurementsPage() {
@@ -545,6 +668,7 @@ export default function AdminMeasurementsPage() {
     totalTailorRequests: 0,
     pendingRequests: 0,
     completeRequests: 0,
+    completedCount: 0,
   });
 
   const fetchStats = useCallback(async () => {
@@ -575,7 +699,7 @@ export default function AdminMeasurementsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="pt-4 pb-3">
             <p className="text-xs text-muted-foreground">Total Tailor Requests</p>
@@ -600,19 +724,31 @@ export default function AdminMeasurementsPage() {
             <p className="text-2xl font-bold mt-1">{stats.totalProfiles}</p>
           </CardContent>
         </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <p className="text-xs text-blue-600 font-medium flex items-center gap-1">
+              <CheckCircle className="h-3 w-3" /> All Completed
+            </p>
+            <p className="text-2xl font-bold mt-1 text-blue-600">{stats.completedCount}</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Tabs */}
       <Tabs defaultValue="tailor" key={refreshKey}>
         <TabsList>
           <TabsTrigger value="tailor">Tailor Requests</TabsTrigger>
-           <TabsTrigger value="profiles">Measurement Profiles</TabsTrigger>
+          <TabsTrigger value="profiles">Measurement Profiles</TabsTrigger>
+          <TabsTrigger value="completed">Completed</TabsTrigger>
         </TabsList>
         <TabsContent value="tailor" className="space-y-4 mt-4">
           <TailorRequestsTab />
         </TabsContent>
         <TabsContent value="profiles" className="space-y-4 mt-4">
           <LegacyProfilesTab />
+        </TabsContent>
+        <TabsContent value="completed" className="space-y-4 mt-4">
+          <CompletedTab />
         </TabsContent>
       </Tabs>
     </div>

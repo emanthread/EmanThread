@@ -12,27 +12,39 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const measurement = await prisma.measurementProfile.findFirst({
-    where: { userId: session.user.id, deletedAt: null },
+    where: {
+      userId: session.user.id,
+      source: "tailor_request",
+      deletedAt: null,
+    },
   });
   return NextResponse.json({ measurement });
 }
 
-// POST → creates a measurement request (status: "pending"), if none exists yet
+// POST → creates a measurement request (source: "tailor_request", status: "pending")
+// Only one active tailor request per user at a time
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  // Check if one already exists
+
+  // Check if a tailor request already exists (active, not soft-deleted)
   const existing = await prisma.measurementProfile.findFirst({
-    where: { userId: session.user.id, deletedAt: null },
+    where: {
+      userId: session.user.id,
+      source: "tailor_request",
+      deletedAt: null,
+    },
   });
+
   if (existing) {
     return NextResponse.json(
       { error: "Measurement request already exists. Contact admin to update." },
       { status: 409 }
     );
   }
+
   const body = await req.json();
   const parsed = unifiedMeasurementRequestSchema.safeParse(body);
   if (!parsed.success) {
@@ -52,8 +64,11 @@ export async function POST(req: NextRequest) {
       gender: parsed.data.gender,
       garmentType: parsed.data.garmentType,
       notes: finalNotes,
+      source: "tailor_request",
       status: "pending",
+      requestedAt: new Date(),
     },
   });
+
   return NextResponse.json({ measurement }, { status: 201 });
 }
