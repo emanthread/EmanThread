@@ -47,7 +47,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { TailorPrintCard, type TailorCardData } from "@/components/admin/tailor-print-card";
+
 import { useAdminStore, type OrderStatus } from "@/lib/admin-store";
 import { formatPrice } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -80,12 +80,10 @@ export default function AdminOrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const [isNotificationDialogOpen, setIsNotificationDialogOpen] = useState(false);
-  const [isMeasurementsDialogOpen, setIsMeasurementsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [orderMeasurements, setOrderMeasurements] = useState<TailorCardData[]>([]);
   const [newStatus, setNewStatus] = useState<OrderStatus>("pending");
 
   const filteredOrders = orders.filter((order) => {
@@ -135,31 +133,6 @@ export default function AdminOrdersPage() {
     setIsDeleting(false);
     setIsDeleteDialogOpen(false);
     setOrderToDelete(null);
-  };
-
-  const handleViewMeasurements = async (orderId: string) => {
-    setSelectedOrder(orderId);
-    setOrderMeasurements([]);
-    setIsMeasurementsDialogOpen(true);
-    try {
-      const res = await fetch(`/api/admin/orders/${orderId}/measurements`);
-      if (res.ok) {
-        const data = await res.json();
-        const order = orders.find((o) => o.id === orderId);
-        const cards: TailorCardData[] = data.map((item: any) => ({
-          serialNo: order?.orderNumber || orderId,
-          customerName: order?.customerName || "Customer",
-          productName: item.productName,
-          garmentType: (item.measurementSnapshot as any)?.garmentType || "gents",
-          measurements: (item.measurementSnapshot as any)?.measurements || {},
-          stylingPrefs: (item.measurementSnapshot as any)?.stylingPrefs || null,
-          notes: (item.measurementSnapshot as any)?.notes || null,
-        }));
-        setOrderMeasurements(cards);
-      }
-    } catch (err) {
-      console.error("Failed to load order measurements", err);
-    }
   };
 
   const channelIcon = (channel: string) => {
@@ -471,12 +444,6 @@ export default function AdminOrdersPage() {
                             <Bell className="h-4 w-4 mr-2" />
                             Notifications
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleViewMeasurements(order.id)}
-                          >
-                            <Ruler className="h-4 w-4 mr-2" />
-                            Order Snapshots
-                          </DropdownMenuItem>
                           {order.customerEmail && (
                             <DropdownMenuItem asChild>
                               <Link href={`/admin/measurements?search=${encodeURIComponent(order.customerEmail)}`}>
@@ -676,33 +643,6 @@ export default function AdminOrdersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Measurements Dialog */}
-      <Dialog open={isMeasurementsDialogOpen} onOpenChange={setIsMeasurementsDialogOpen}>
-        <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Order Measurements</DialogTitle>
-            <DialogDescription>
-              Measurement profiles attached to order #{orders.find((o) => o.id === selectedOrder)?.orderNumber}
-            </DialogDescription>
-          </DialogHeader>
-          {orderMeasurements.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              No measurements attached to this order.
-            </p>
-          ) : (
-            <div className="space-y-6">
-              {orderMeasurements.map((card, i) => (
-                <TailorPrintCard key={i} data={card} />
-              ))}
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsMeasurementsDialogOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

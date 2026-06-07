@@ -33,6 +33,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { UnifiedMeasurementForm } from "@/components/measurements/UnifiedMeasurementForm";
 import { TailorPrintCard, type TailorCardData } from "@/components/admin/tailor-print-card";
 import type {
@@ -326,12 +327,12 @@ function TailorRequestsTab() {
 
 // ─── Measurement Profiles Tab ────────────────────────────────────────────────────
 
-function LegacyProfilesTab() {
+function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
   const [profiles, setProfiles] = useState<LegacyProfile[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [viewProfile, setViewProfile] = useState<LegacyProfile | null>(null);
   const [printProfile, setPrintProfile] = useState<LegacyProfile | null>(null);
   const limit = 20;
@@ -662,6 +663,9 @@ function CompletedTab() {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AdminMeasurementsPage() {
+  const searchParams = useSearchParams();
+  const urlSearch = searchParams.get("search") || "";
+  const hasSearchQuery = !!urlSearch;
   const [refreshKey, setRefreshKey] = useState(0);
   const [stats, setStats] = useState({
     totalProfiles: 0,
@@ -670,6 +674,7 @@ export default function AdminMeasurementsPage() {
     completeRequests: 0,
     completedCount: 0,
   });
+  const [activeTab, setActiveTab] = useState(hasSearchQuery ? "profiles" : "tailor");
 
   const fetchStats = useCallback(async () => {
     const res = await fetch("/api/admin/measurements/stats");
@@ -735,7 +740,7 @@ export default function AdminMeasurementsPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="tailor" key={refreshKey}>
+      <Tabs value={activeTab} onValueChange={setActiveTab} key={refreshKey}>
         <TabsList>
           <TabsTrigger value="tailor">Tailor Requests</TabsTrigger>
           <TabsTrigger value="profiles">Measurement Profiles</TabsTrigger>
@@ -745,7 +750,7 @@ export default function AdminMeasurementsPage() {
           <TailorRequestsTab />
         </TabsContent>
         <TabsContent value="profiles" className="space-y-4 mt-4">
-          <LegacyProfilesTab />
+          <LegacyProfilesTab initialSearch={urlSearch} />
         </TabsContent>
         <TabsContent value="completed" className="space-y-4 mt-4">
           <CompletedTab />

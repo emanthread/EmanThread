@@ -225,6 +225,66 @@ export async function POST(req: Request) {
             console.error(`Failed to attach measurement for product ${mItem.productId}:`, err);
           }
         }
+
+        // Also create a MeasurementProfile with source: "order" so it appears
+        // in admin/measurements → "Measurement Profiles" tab (which filters by source: "order")
+        try {
+          await prisma.measurementProfile.create({
+            data: {
+              userId,
+              gender: unified.gender,
+              garmentType: unified.garmentType,
+              profileName: `Order #${order.orderNumber}`,
+              notes: unified.notes ?? '',
+              source: "order",
+              status: "complete",
+              // Copy all measurement fields from the unified profile
+              length1: unified.length1, length2: unified.length2,
+              shoulder1: unified.shoulder1, shoulder2: unified.shoulder2,
+              chest1: unified.chest1, chest2: unified.chest2,
+              waist1: unified.waist1, waist2: unified.waist2,
+              gherra1: unified.gherra1, gherra2: unified.gherra2,
+              neck1: unified.neck1, neck2: unified.neck2,
+              sleeves1: unified.sleeves1, sleeves2: unified.sleeves2,
+              golai1: unified.golai1, golai2: unified.golai2,
+              armcuff1: unified.armcuff1, armcuff2: unified.armcuff2,
+              armplate1: unified.armplate1, armplate2: unified.armplate2,
+              golbazoo1: unified.golbazoo1, golbazoo2: unified.golbazoo2,
+              armpatti1: unified.armpatti1, armpatti2: unified.armpatti2,
+              collarnok1: unified.collarnok1, collarnok2: unified.collarnok2,
+              bane1: unified.bane1, bane2: unified.bane2,
+              ladHip1: unified.ladHip1, ladHip2: unified.ladHip2,
+              shalwar1: unified.shalwar1, shalwar2: unified.shalwar2,
+              shalwarPancha1: unified.shalwarPancha1, shalwarPancha2: unified.shalwarPancha2,
+              shalwarGherra1: unified.shalwarGherra1, shalwarGherra2: unified.shalwarGherra2,
+              shalwarAssan1: unified.shalwarAssan1, shalwarAssan2: unified.shalwarAssan2,
+              trouserdata1: unified.trouserdata1, trouserdata2: unified.trouserdata2,
+              trouserdata3: unified.trouserdata3, trouserdata4: unified.trouserdata4,
+              trouserdata5: unified.trouserdata5,
+              doubleCb: unified.doubleCb, singleCb: unified.singleCb,
+              golCb: unified.golCb, chorasCb: unified.chorasCb,
+              baneCb: unified.baneCb, collarCb: unified.collarCb,
+              roundneck: unified.roundneck,
+              frontPocket: unified.frontPocket,
+              sidePocket: unified.sidePocket,
+              shalwarPocket: unified.shalwarPocket,
+              ladGolai1: unified.ladGolai1, ladGolai2: unified.ladGolai2,
+              ladMori1: unified.ladMori1, ladMori2: unified.ladMori2,
+              ladBellbazoo1: unified.ladBellbazoo1, ladBellbazoo2: unified.ladBellbazoo2,
+              ladChaak1: unified.ladChaak1, ladChaak2: unified.ladChaak2,
+              ladSimpleShalwar1: unified.ladSimpleShalwar1, ladSimpleShalwar2: unified.ladSimpleShalwar2,
+              ladSimpleShalwarPancha1: unified.ladSimpleShalwarPancha1, ladSimpleShalwarPancha2: unified.ladSimpleShalwarPancha2,
+              ladSimpleShalwarGherra1: unified.ladSimpleShalwarGherra1, ladSimpleShalwarGherra2: unified.ladSimpleShalwarGherra2,
+              ladLasticSimpleShalwar: unified.ladLasticSimpleShalwar,
+              ladShalwarBelt1: unified.ladShalwarBelt1, ladShalwarBelt2: unified.ladShalwarBelt2,
+              ladShalwarBeltPancha1: unified.ladShalwarBeltPancha1, ladShalwarBeltPancha2: unified.ladShalwarBeltPancha2,
+              ladShalwarBeltGherra1: unified.ladShalwarBeltGherra1, ladShalwarBeltGherra2: unified.ladShalwarBeltGherra2,
+              ladLasticShalwarBelt: unified.ladLasticShalwarBelt,
+            },
+          });
+        } catch (err) {
+          console.error(`Failed to create order-linked measurement profile for user ${userId}:`, err);
+        }
       } else {
         console.warn(`User ${userId} requested stitching but has no measurement record.`);
       }
