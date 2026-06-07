@@ -60,7 +60,7 @@ export const DELETE = withLoggedAdminHandler(async (
     });
 
     // Delete measurement profile (optional relation)
-    await prisma.measurement.deleteMany({
+    await prisma.measurementProfile.deleteMany({
       where: { userId: id },
     });
 

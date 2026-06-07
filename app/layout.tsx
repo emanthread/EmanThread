@@ -63,6 +63,10 @@ export const metadata: Metadata = {
     "boski",
   ],
   metadataBase: new URL(siteUrl),
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
   openGraph: {
     type: "website",
     locale: "en_PK",

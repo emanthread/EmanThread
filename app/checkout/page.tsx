@@ -70,6 +70,7 @@ export default function CheckoutPage() {
   const [stitchingPriceMap, setStitchingPriceMap] = useState<Record<string, number>>({});
   const [transactionId, setTransactionId] = useState('');
   const [saveAddress, setSaveAddress] = useState(false);
+  const [measurementProfiles, setMeasurementProfiles] = useState<Array<{ id: string; profileName: string; garmentType: string }>>([]);
 
   const [formData, setFormData] = useState({
     firstName: "", lastName: "", email: "", phone: "",
@@ -97,7 +98,7 @@ export default function CheckoutPage() {
     setSelectedIds(new Set(items.map((i) => i.product.id)));
   }, [items]);
 
-  // Fetch stitching prices
+  // Fetch stitching prices & measurement profiles
   useEffect(() => {
     fetch("/api/stitching-prices")
       .then((r) => r.json())
@@ -105,6 +106,20 @@ export default function CheckoutPage() {
         if (data && typeof data === "object") setStitchingPriceMap(data);
       })
       .catch(() => {});
+    if (isAuthenticated) {
+      fetch("/api/measurements")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data?.profiles) {
+            setMeasurementProfiles(data.profiles.map((p: { id: string; profileName: string; garmentType: string }) => ({
+              id: p.id,
+              profileName: p.profileName,
+              garmentType: p.garmentType,
+            })));
+          }
+        })
+        .catch(() => {});
+    }
   }, [isAuthenticated]);
 
   // When stitching is selected, COD is not valid — switch to nayapay or meezan_bank
@@ -462,24 +477,36 @@ export default function CheckoutPage() {
                             <p className="text-xs text-muted-foreground">{item.product.fabricType}</p>
                             {isAuthenticated ? (
                               <select
-                                value={item.stitchingProfileId && item.stitchingProfileId !== "none" ? "wants_stitching" : "none"}
+                                value={item.stitchingProfileId && item.stitchingProfileId !== "none" ? item.stitchingProfileId : "none"}
                                 onChange={(e) => {
                                   const val = e.target.value;
-                                  if (val === "none") {
+                                  if (val === "none" || val === "create_new") {
+                                    if (val === "create_new") {
+                                      router.push("/account/measurements");
+                                      return;
+                                    }
                                     updateStitching(item.product.id, { price: null, profileId: null, profileName: null });
                                   } else {
+                                    const profile = measurementProfiles.find((p) => p.id === val);
                                     const price = stitchingPriceMap[item.product.fabricType.toLowerCase()] ?? DEFAULT_STITCHING_FEE;
                                     updateStitching(item.product.id, {
                                       price,
-                                      profileId: "wants_stitching",
-                                      profileName: "Stitching Required"
+                                      profileId: val,
+                                      profileName: profile?.profileName ?? "Stitching Required"
                                     });
                                   }
                                 }}
                                 className="w-full text-xs border border-border rounded-md px-2 py-1 bg-background mt-1"
                               >
                                 <option value="none">No Stitching</option>
-                                <option value="wants_stitching">Yes, Stitching Required</option>
+                                {measurementProfiles.length === 0 ? (
+                                  <option value="" disabled>No profiles yet</option>
+                                ) : (
+                                  measurementProfiles.map((p) => (
+                                    <option key={p.id} value={p.id}>{p.profileName}</option>
+                                  ))
+                                )}
+                                <option value="create_new">+ Create New Profile</option>
                               </select>
                             ) : null}
                           </div>

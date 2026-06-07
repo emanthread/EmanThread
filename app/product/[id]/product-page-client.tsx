@@ -161,6 +161,7 @@ function ProductDetails({ product }: { product: Product }) {
   const [mounted, setMounted] = useState(false);
   const [selectedMeasurement, setSelectedMeasurement] = useState("none");
   const [stitchingPriceMap, setStitchingPriceMap] = useState<Record<string, number>>({});
+  const [measurementProfiles, setMeasurementProfiles] = useState<Array<{ id: string; profileName: string; garmentType: string }>>([]);
   const router = useRouter();
   const { addItem } = useCartStore();
   const { toggleItem, isInWishlist } = useWishlistStore();
@@ -182,7 +183,7 @@ function ProductDetails({ product }: { product: Product }) {
 
 
 
-  // Fetch stitching prices on mount
+  // Fetch stitching prices & measurement profiles on mount
   useEffect(() => {
     fetch("/api/stitching-prices")
       .then((r) => r.json())
@@ -192,14 +193,30 @@ function ProductDetails({ product }: { product: Product }) {
         }
       })
       .catch(() => {});
-  }, []);
+    if (isAuthenticated) {
+      fetch("/api/measurements")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data?.profiles) {
+            setMeasurementProfiles(data.profiles.map((p: { id: string; profileName: string; garmentType: string }) => ({
+              id: p.id,
+              profileName: p.profileName,
+              garmentType: p.garmentType,
+            })));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isAuthenticated]);
 
   // Get stitching price for this product's fabric type
   const productStitchingPrice = stitchingPriceMap[product.fabricType.toLowerCase()] ?? DEFAULT_STITCHING_FEE;
-  const hasStitchingSelected = selectedMeasurement === "wants_stitching";
+  const hasStitchingSelected = selectedMeasurement !== "none" && selectedMeasurement !== "";
 
   // Get the selected profile name
-  const selectedProfileName = hasStitchingSelected ? "Stitching Required" : "";
+  const selectedProfileName = hasStitchingSelected
+    ? (measurementProfiles.find((p) => p.id === selectedMeasurement)?.profileName ?? "Stitching Required")
+    : "";
 
   const handleAddToCart = () => {
     if (hasStitchingSelected) {
@@ -413,7 +430,22 @@ function ProductDetails({ product }: { product: Product }) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">No stitching — fabric only</SelectItem>
-                    <SelectItem value="wants_stitching">Yes, Stitching Required</SelectItem>
+                    {measurementProfiles.length === 0 ? (
+                      <SelectItem value="create_new" disabled>
+                        No measurement profiles yet
+                      </SelectItem>
+                    ) : (
+                      measurementProfiles.map((profile) => (
+                        <SelectItem key={profile.id} value={profile.id}>
+                          {profile.profileName}
+                        </SelectItem>
+                      ))
+                    )}
+                    {measurementProfiles.length > 0 && (
+                      <SelectItem value="create_new" disabled>
+                        + Create New Measurement Profile
+                      </SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
                 {hasStitchingSelected && productStitchingPrice > 0 && (
@@ -424,9 +456,19 @@ function ProductDetails({ product }: { product: Product }) {
                     </p>
                   </div>
                 )}
-                <p className="text-xs text-muted-foreground">
-                  Select a saved fit so we stitch your fabric to your exact measurements.
-                </p>
+                {measurementProfiles.length === 0 && hasStitchingSelected && (
+                  <p className="text-xs text-amber-600">
+                    You don't have any measurement profiles yet.{' '}
+                    <Link href="/account/measurements" className="underline font-medium">
+                      Create one here
+                    </Link>
+                  </p>
+                )}
+                {!hasStitchingSelected && (
+                  <p className="text-xs text-muted-foreground">
+                    Select a saved fit so we stitch your fabric to your exact measurements.
+                  </p>
+                )}
               </div>
             ) : (
               <div className="space-y-2">
