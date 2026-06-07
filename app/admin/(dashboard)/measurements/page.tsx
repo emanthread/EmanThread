@@ -9,6 +9,7 @@ import {
   Ruler,
   Printer,
   CheckCircle,
+  XCircle,
   Pencil,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -277,7 +278,7 @@ function TailorRequestsTab() {
                               }}
                               title="Reject Request"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <XCircle className="h-3.5 w-3.5" />
                             </Button>
                           </>
                         )}

@@ -128,7 +128,7 @@
 
 .a4-meta {
   display: grid;
-  grid-template-columns: 1fr 1.2fr 1fr;
+  grid-template-columns: 1fr 1fr;
   border: 2px solid var(--ink);
   border-top: 0;
   height: 12mm;
