@@ -57,16 +57,18 @@ export function A4PageLayout({
         }
         .a4-page {
           width: 210mm;
-          height: 297mm;
+          min-height: 297mm;
           margin: 8px auto;
           background: #fff;
           padding: 6mm;
           border: 1px solid #cbd5e1;
           box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
           position: relative;
-          overflow: hidden;
+          overflow: auto;
           font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Arial, sans-serif;
           color: var(--brand);
+          display: flex;
+          flex-direction: column;
         }
         @page {
           size: A4;
@@ -82,9 +84,18 @@ export function A4PageLayout({
             box-shadow: none;
             width: 210mm;
             height: 297mm;
+            overflow: hidden;
+            display: block;
           }
           .a4-print-btn {
             display: none !important;
+          }
+          .a4-footer {
+            position: absolute !important;
+            left: 12mm !important;
+            right: 12mm !important;
+            bottom: 5mm !important;
+            margin-top: 0 !important;
           }
         }
         @media screen and (max-width: 800px) {
@@ -349,10 +360,8 @@ export function A4PageLayout({
           min-height: 8mm;
         }
         .a4-footer {
-          position: absolute;
-          left: 12mm;
-          right: 12mm;
-          bottom: 5mm;
+          position: relative;
+          margin-top: auto;
           border-top: 1px solid #cbd5e1;
           padding-top: 3mm;
           display: flex;
@@ -390,7 +399,6 @@ export function A4PageLayout({
         <div className="a4-scale-wrapper">
           <div className="a4-scale-inner">
             <div className="a4-page">
-          <div className="a4-watermark">EMAN THREAD</div>
 
           {/* Header */}
           <header className="a4-header">
