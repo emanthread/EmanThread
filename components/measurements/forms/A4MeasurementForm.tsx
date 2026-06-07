@@ -330,7 +330,7 @@ const CONFIGS: Record<string, FormLayout> = {
             type: "text",
             toggles: [
               { label: "Zip", key: "zipCb" },
-              { label: "Plate", key: "roundneck" },
+              { label: "Plate", key: "armplate1" },
             ],
           },
         ],
@@ -517,6 +517,8 @@ export function A4MeasurementForm({
         sideChildren={
           garmentType === "male_shalwar_kameez" ? (
             <BottomTypeTabs data={data} onChange={onChange} readOnly={readOnly} />
+          ) : garmentType === "female_simple_shalwar" ? (
+            <LadiesBottomTypeTabs data={data} onChange={onChange} readOnly={readOnly} />
           ) : hasRightSections
             ? config.rightSections!.map((s) => renderSection(s, true))
             : undefined
@@ -744,6 +746,134 @@ function BottomTypeTabs({
                 onChange={(v) => setToggle("zipCb", v)}
                 readOnly={readOnly}
               />
+            </div>
+          </div>
+        </div>
+      )}
+    </A4Card>
+  );
+}
+
+// ─── Ladies Shalwar Kameez Bottom Type Switcher (Trouser / Simple / Belt) ──
+
+function LadiesBottomTypeTabs({
+  data,
+  onChange,
+  readOnly,
+}: {
+  data: Data;
+  onChange: (d: Data) => void;
+  readOnly: boolean;
+}) {
+  const [bottomType, setBottomType] = useState<"trouser" | "simple" | "belt">("trouser");
+  const setField = (k: DataKey, v: string) => onChange({ ...data, [k]: v });
+  const setToggle = (k: DataKey, v: boolean) => onChange({ ...data, [k]: v ? "1" : "0" });
+
+  const btnStyle = (tab: string): React.CSSProperties => ({
+    flex: 1,
+    border: "2px solid var(--ink)",
+    background: bottomType === tab ? "var(--ink)" : "#f8fafc",
+    color: bottomType === tab ? "#fff" : "var(--ink)",
+    fontWeight: 800,
+    padding: "3mm",
+    cursor: "pointer",
+    borderRadius: "4px",
+    fontSize: "14px",
+  });
+
+  return (
+    <A4Card title="Bottom Type">
+      <div style={{ display: "flex", gap: "3mm", padding: "3mm" }}>
+        <button type="button" onClick={() => setBottomType("trouser")} style={btnStyle("trouser")}>Trouser</button>
+        <button type="button" onClick={() => setBottomType("simple")} style={btnStyle("simple")}>Simple Shalwar</button>
+        <button type="button" onClick={() => setBottomType("belt")} style={btnStyle("belt")}>Belt Shalwar</button>
+      </div>
+
+      {/* ── Trouser Panel ── */}
+      {bottomType === "trouser" && (
+        <div className="a4-rows" style={{ marginTop: "3mm" }}>
+          <div className="a4-row">
+            <div className="a4-label" style={{ borderRight: "none", borderBottom: "1px solid #e2e8f0" }}>1. Length</div>
+            <div className="a4-entry" style={{ minHeight: "8mm" }}>
+              <A4Input value={String(data.trouserLength1 ?? "")} onChange={(v) => setField("trouserLength1", v)} readOnly={readOnly} />
+            </div>
+          </div>
+          <div className="a4-row">
+            <div className="a4-label" style={{ borderRight: "none", borderBottom: "1px solid #e2e8f0" }}>2. Pancha (Bottom)</div>
+            <div className="a4-entry" style={{ minHeight: "8mm" }}>
+              <A4Input value={String(data.trouserPancha1 ?? "")} onChange={(v) => setField("trouserPancha1", v)} readOnly={readOnly} />
+            </div>
+          </div>
+          <div className="a4-row">
+            <div className="a4-label" style={{ borderRight: "none", borderBottom: "1px solid #e2e8f0" }}>3. Tigh</div>
+            <div className="a4-entry" style={{ minHeight: "8mm" }}>
+              <A4Input value={String(data.trouserTigh1 ?? "")} onChange={(v) => setField("trouserTigh1", v)} readOnly={readOnly} />
+            </div>
+          </div>
+          <div className="a4-row">
+            <div className="a4-label" style={{ borderRight: "none", borderBottom: "1px solid #e2e8f0" }}>4. Elastic</div>
+            <div className="a4-entry" style={{ minHeight: "8mm" }}>
+              <A4Input value={String(data.ladTrouserElastic1 ?? "")} onChange={(v) => setField("ladTrouserElastic1", v)} readOnly={readOnly} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Simple Shalwar Panel ── */}
+      {bottomType === "simple" && (
+        <div className="a4-rows" style={{ marginTop: "3mm" }}>
+          <div className="a4-row">
+            <div className="a4-label" style={{ borderRight: "none", borderBottom: "1px solid #e2e8f0" }}>1. Length</div>
+            <div className="a4-entry" style={{ minHeight: "8mm" }}>
+              <A4Input value={String(data.ladSimpleShalwar1 ?? "")} onChange={(v) => setField("ladSimpleShalwar1", v)} readOnly={readOnly} />
+            </div>
+          </div>
+          <div className="a4-row">
+            <div className="a4-label" style={{ borderRight: "none", borderBottom: "1px solid #e2e8f0" }}>2. Pancha</div>
+            <div className="a4-entry" style={{ minHeight: "8mm" }}>
+              <A4Input value={String(data.ladSimpleShalwarPancha1 ?? "")} onChange={(v) => setField("ladSimpleShalwarPancha1", v)} readOnly={readOnly} />
+            </div>
+          </div>
+          <div className="a4-row">
+            <div className="a4-label" style={{ borderRight: "none", borderBottom: "1px solid #e2e8f0" }}>3. Gherra</div>
+            <div className="a4-entry" style={{ minHeight: "8mm" }}>
+              <A4Input value={String(data.ladSimpleShalwarGherra1 ?? "")} onChange={(v) => setField("ladSimpleShalwarGherra1", v)} readOnly={readOnly} />
+            </div>
+          </div>
+          <div className="a4-row">
+            <div className="a4-label" style={{ borderRight: "none", borderBottom: "1px solid #e2e8f0" }}>4. Elastic</div>
+            <div className="a4-entry" style={{ minHeight: "8mm" }}>
+              <A4Checkbox checked={String(data.ladLasticSimpleShalwar ?? "0") === "1"} onChange={(v) => setToggle("ladLasticSimpleShalwar", v)} readOnly={readOnly} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Belt Shalwar Panel ── */}
+      {bottomType === "belt" && (
+        <div className="a4-rows" style={{ marginTop: "3mm" }}>
+          <div className="a4-row">
+            <div className="a4-label" style={{ borderRight: "none", borderBottom: "1px solid #e2e8f0" }}>1. Length</div>
+            <div className="a4-entry" style={{ minHeight: "8mm" }}>
+              <A4Input value={String(data.ladShalwarBelt1 ?? "")} onChange={(v) => setField("ladShalwarBelt1", v)} readOnly={readOnly} />
+            </div>
+          </div>
+          <div className="a4-row">
+            <div className="a4-label" style={{ borderRight: "none", borderBottom: "1px solid #e2e8f0" }}>2. Pancha</div>
+            <div className="a4-entry" style={{ minHeight: "8mm" }}>
+              <A4Input value={String(data.ladShalwarBeltPancha1 ?? "")} onChange={(v) => setField("ladShalwarBeltPancha1", v)} readOnly={readOnly} />
+            </div>
+          </div>
+          <div className="a4-row">
+            <div className="a4-label" style={{ borderRight: "none", borderBottom: "1px solid #e2e8f0" }}>3. Gherra</div>
+            <div className="a4-entry" style={{ minHeight: "8mm" }}>
+              <A4Input value={String(data.ladShalwarBeltGherra1 ?? "")} onChange={(v) => setField("ladShalwarBeltGherra1", v)} readOnly={readOnly} />
+            </div>
+          </div>
+          <div className="a4-row">
+            <div className="a4-label" style={{ borderRight: "none", borderBottom: "1px solid #e2e8f0" }}>4. Elastic</div>
+            <div className="a4-entry" style={{ minHeight: "8mm" }}>
+              <A4Checkbox checked={String(data.ladLasticShalwarBelt ?? "0") === "1"} onChange={(v) => setToggle("ladLasticShalwarBelt", v)} readOnly={readOnly} />
             </div>
           </div>
         </div>
