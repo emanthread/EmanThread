@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UnifiedMeasurementForm } from "@/components/measurements/UnifiedMeasurementForm";
+import { TailorPrintCard, type TailorCardData } from "@/components/admin/tailor-print-card";
 import type { UnifiedMeasurementFormData } from "@/lib/validators/measurements-unified";
 import { UNIFIED_MEASUREMENT_EMPTY, garmentTypeLabel } from "@/lib/validators/measurements-unified";
 
@@ -111,6 +112,37 @@ export default function AdminTailorMeasurementDetailPage() {
     phone: measurement.user.phone,
   };
 
+  // Build flat measurements record from the measurement data
+  const metaKeys = new Set([
+    "id", "userId", "user", "status", "gender", "garmentType",
+    "notes", "requestedAt", "updatedAt", "deliveryDate",
+  ]);
+  const flatMeasurements: Record<string, string> = {};
+  for (const [key, val] of Object.entries(measurement)) {
+    if (!metaKeys.has(key) && typeof val === "string") {
+      flatMeasurements[key] = val;
+    }
+  }
+
+  const garmentLabel = garmentTypeLabel(measurement.garmentType || "") || measurement.gender;
+  const serialNo = `MT-${measurement.id.slice(0, 6).toUpperCase()}`;
+  const printDate = measurement.requestedAt
+    ? new Date(measurement.requestedAt).toLocaleDateString()
+    : new Date().toLocaleDateString();
+
+  const printCardData: TailorCardData = {
+    serialNo,
+    customerName: customer.name,
+    deliveryDate: measurement.deliveryDate
+      ? new Date(measurement.deliveryDate).toLocaleDateString()
+      : printDate,
+    productName: measurement.notes || garmentLabel,
+    garmentType: measurement.garmentType,
+    measurements: flatMeasurements,
+    stylingPrefs: null,
+    notes: measurement.notes,
+  };
+
   return (
     <div className="space-y-6 max-w-6xl">
       {/* Breadcrumb / Back */}
@@ -123,8 +155,16 @@ export default function AdminTailorMeasurementDetailPage() {
         <div>
           <h1 className="text-xl font-semibold">Edit Tailor Measurement</h1>
           <p className="text-sm text-muted-foreground">
-            ID: {id.slice(0, 8).toUpperCase()} ·{" "}
-            {garmentTypeLabel(measurement.garmentType || "")}
+            {garmentLabel} ·{" "}
+            <Badge
+              className={
+                measurement.status === "complete"
+                  ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                  : "bg-amber-100 text-amber-700 border-amber-200"
+              }
+            >
+              {measurement.status}
+            </Badge>
           </p>
         </div>
         {saved && (
@@ -174,15 +214,19 @@ export default function AdminTailorMeasurementDetailPage() {
               <div className="pt-1 border-t">
                 <span className="text-xs text-muted-foreground">Garment:</span>
                 <p className="text-sm font-medium mt-0.5">
-                  {garmentTypeLabel(measurement.garmentType || "") || measurement.gender}
+                  {garmentLabel}
                 </p>
+              </div>
+              <div className="pt-1 border-t">
+                <span className="text-xs text-muted-foreground">Serial:</span>
+                <p className="text-sm font-medium mt-0.5 font-mono">{serialNo}</p>
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Editor — Unified Measurement Form */}
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-3 space-y-6">
           <Card>
             <CardContent className="pt-6">
               <UnifiedMeasurementForm
@@ -197,6 +241,19 @@ export default function AdminTailorMeasurementDetailPage() {
                 saving={saving}
                 isAdmin={true}
               />
+            </CardContent>
+          </Card>
+
+          {/* Print Card */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Print Measurement Sheet</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground mb-3">
+                Print a clean A4 measurement sheet for the tailor. Serial No and Date are auto-generated.
+              </p>
+              <TailorPrintCard data={printCardData} />
             </CardContent>
           </Card>
         </div>

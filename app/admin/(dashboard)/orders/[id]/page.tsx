@@ -350,7 +350,9 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
             <CardContent className="space-y-4">
               <div>
                 <p className="font-medium">{order.customerName}</p>
-                <p className="text-sm text-muted-foreground">Customer ID: {order.customerId}</p>
+                {order.customerId && order.customerId !== "guest" && (
+                  <p className="text-xs text-muted-foreground font-mono">#{order.customerId.slice(0, 8)}</p>
+                )}
               </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-0.5">Contact Info</p>

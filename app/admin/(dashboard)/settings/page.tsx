@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Save, Store, Truck, CreditCard, Bell, Globe, Loader2, MapPin, Plus, Pencil, Trash2, X, Check, FileText, Ruler } from "lucide-react";
+import { Save, Store, Truck, CreditCard, Bell, Globe, Loader2, X, Check, FileText, Ruler } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,25 +18,6 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { useAdminStore } from "@/lib/admin-store";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import {
   Table,
   TableBody,
@@ -52,8 +33,6 @@ export default function AdminSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingContent, setSavingContent] = useState(false);
-  const [zoneToDelete, setZoneToDelete] = useState<string | null>(null);
-
   const [storeSettings, setStoreSettings] = useState({
     name: "Eman Thread",
     tagline: "The Style Never Dies",
@@ -106,30 +85,6 @@ export default function AdminSettingsPage() {
     about_content: "",
     story_content: "",
   });
-
-  // Shipping Zones state
-  const {
-    shippingZones,
-    loadShippingZones,
-    addShippingZone,
-    updateShippingZone,
-    deleteShippingZone,
-  } = useAdminStore();
-
-  const [zoneDialogOpen, setZoneDialogOpen] = useState(false);
-  const [editingZone, setEditingZone] = useState<string | null>(null);
-  const [zoneForm, setZoneForm] = useState({
-    name: "",
-    cities: "",
-    provinces: "",
-    shippingRate: 0,
-    estimatedDays: "",
-    isActive: true,
-  });
-
-  useEffect(() => {
-    loadShippingZones();
-  }, [loadShippingZones]);
 
   useEffect(() => {
     async function loadSettings() {
@@ -234,68 +189,6 @@ export default function AdminSettingsPage() {
     loadStitchingPrices();
   }, [toast]);
 
-  const openAddZone = () => {
-    setEditingZone(null);
-    setZoneForm({
-      name: "",
-      cities: "",
-      provinces: "",
-      shippingRate: 0,
-      estimatedDays: "",
-      isActive: true,
-    });
-    setZoneDialogOpen(true);
-  };
-
-  const openEditZone = (zone: (typeof shippingZones)[0]) => {
-    setEditingZone(zone.id);
-    setZoneForm({
-      name: zone.name,
-      cities: zone.cities.join(", "),
-      provinces: zone.provinces.join(", "),
-      shippingRate: zone.shippingRate,
-      estimatedDays: zone.estimatedDays,
-      isActive: zone.isActive,
-    });
-    setZoneDialogOpen(true);
-  };
-
-  const handleSaveZone = async () => {
-    try {
-      const payload = {
-        name: zoneForm.name,
-        cities: zoneForm.cities.split(",").map((c) => c.trim()).filter(Boolean),
-        provinces: zoneForm.provinces.split(",").map((p) => p.trim()).filter(Boolean),
-        shippingRate: zoneForm.shippingRate,
-        estimatedDays: zoneForm.estimatedDays,
-        isActive: zoneForm.isActive,
-      };
-
-      if (editingZone) {
-        await updateShippingZone(editingZone, payload);
-        toast({ title: "Zone updated", description: `${payload.name} has been updated.` });
-      } else {
-        await addShippingZone(payload);
-        toast({ title: "Zone created", description: `${payload.name} has been created.` });
-      }
-      setZoneDialogOpen(false);
-    } catch {
-      toast({ title: "Error", description: "Failed to save zone", variant: "destructive" });
-    }
-  };
-
-  const handleDeleteZone = async () => {
-    if (!zoneToDelete) return;
-    try {
-      await deleteShippingZone(zoneToDelete);
-      toast({ title: "Zone deleted", description: "The shipping zone has been removed." });
-    } catch {
-      toast({ title: "Error", description: "Failed to delete zone", variant: "destructive" });
-    } finally {
-      setZoneToDelete(null);
-    }
-  };
-
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
@@ -377,10 +270,6 @@ export default function AdminSettingsPage() {
           <TabsTrigger value="shipping" className="gap-2 shrink-0">
             <Truck className="h-4 w-4" aria-hidden="true" />
             <span className="sr-only sm:not-sr-only sm:inline">Shipping</span>
-          </TabsTrigger>
-          <TabsTrigger value="zones" className="gap-2 shrink-0">
-            <MapPin className="h-4 w-4" aria-hidden="true" />
-            <span className="sr-only sm:not-sr-only sm:inline">Zones</span>
           </TabsTrigger>
           <TabsTrigger value="payments" className="gap-2 shrink-0">
             <CreditCard className="h-4 w-4" aria-hidden="true" />
@@ -933,199 +822,7 @@ export default function AdminSettingsPage() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* Shipping Zones */}
-        <TabsContent value="zones">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Shipping Zones</CardTitle>
-                <CardDescription>
-                  Manage delivery zones, rates, and estimated delivery times
-                </CardDescription>
-              </div>
-              <Button onClick={openAddZone} size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Zone
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <Table aria-label="Shipping zones">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Zone Name</TableHead>
-                    <TableHead>Cities</TableHead>
-                    <TableHead>Provinces</TableHead>
-                    <TableHead>Rate (PKR)</TableHead>
-                    <TableHead>ETA</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {shippingZones.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                        No shipping zones configured yet.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {shippingZones.map((zone) => (
-                    <TableRow key={zone.id}>
-                      <TableCell className="font-medium">{zone.name}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">
-                        {zone.cities.length > 0 ? zone.cities.join(", ") : "—"}
-                      </TableCell>
-                      <TableCell className="max-w-[200px] truncate">
-                        {zone.provinces.length > 0 ? zone.provinces.join(", ") : "—"}
-                      </TableCell>
-                      <TableCell>
-                        {zone.shippingRate === 0 ? "Free" : `PKR ${zone.shippingRate}`}
-                      </TableCell>
-                      <TableCell>{zone.estimatedDays}</TableCell>
-                      <TableCell>
-                        <Badge variant={zone.isActive ? "default" : "secondary"}>
-                          {zone.isActive ? "Active" : "Inactive"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openEditZone(zone)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setZoneToDelete(zone.id)}
-                            className="text-red-600"
-                            aria-label={`Delete ${zone.name} zone`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Zone Dialog */}
-          <Dialog open={zoneDialogOpen} onOpenChange={setZoneDialogOpen}>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingZone ? "Edit Shipping Zone" : "Add Shipping Zone"}
-                </DialogTitle>
-                <DialogDescription>
-                  Configure cities, provinces, shipping rate, and delivery estimate.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="zoneName">Zone Name *</Label>
-                  <Input
-                    id="zoneName"
-                    value={zoneForm.name}
-                    onChange={(e) => setZoneForm({ ...zoneForm, name: e.target.value })}
-                    placeholder="e.g. Karachi, Lahore"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="zoneCities">Cities (comma-separated)</Label>
-                  <Input
-                    id="zoneCities"
-                    value={zoneForm.cities}
-                    onChange={(e) => setZoneForm({ ...zoneForm, cities: e.target.value })}
-                    placeholder="karachi, lahore, islamabad"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Leave empty to match any city in the listed provinces
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="zoneProvinces">Provinces (comma-separated)</Label>
-                  <Input
-                    id="zoneProvinces"
-                    value={zoneForm.provinces}
-                    onChange={(e) => setZoneForm({ ...zoneForm, provinces: e.target.value })}
-                    placeholder="punjab, sindh, kpk"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Leave empty for default fallback zone
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="zoneRate">Shipping Rate (PKR) *</Label>
-                    <Input
-                      id="zoneRate"
-                      type="number"
-                      value={zoneForm.shippingRate}
-                      onChange={(e) => setZoneForm({ ...zoneForm, shippingRate: parseInt(e.target.value) || 0 })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="zoneEta">Estimated Days *</Label>
-                    <Input
-                      id="zoneEta"
-                      value={zoneForm.estimatedDays}
-                      onChange={(e) => setZoneForm({ ...zoneForm, estimatedDays: e.target.value })}
-                      placeholder="2-3 business days"
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center justify-between pt-2">
-                  <div>
-                    <p className="font-medium text-sm">Active</p>
-                    <p className="text-xs text-muted-foreground">
-                      Inactive zones are not used for rate calculation
-                    </p>
-                  </div>
-                  <Switch
-                    checked={zoneForm.isActive}
-                    onCheckedChange={(checked) => setZoneForm({ ...zoneForm, isActive: checked })}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setZoneDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleSaveZone}>
-                  {editingZone ? "Update Zone" : "Create Zone"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          <AlertDialog open={!!zoneToDelete} onOpenChange={(open) => !open && setZoneToDelete(null)}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete the shipping zone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDeleteZone} className="bg-red-600 hover:bg-red-700">
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </TabsContent>
-
-        {/* Content Pages Settings */}
+        </TabsContent>{/* Content Pages Settings */}
         <TabsContent value="content">
           <Card>
             <CardHeader>

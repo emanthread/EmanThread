@@ -69,7 +69,7 @@ export function TailorPrintCard({ data }: { data: TailorCardData }) {
           className="px-4 py-3 text-white text-center print:bg-[#0072B5]"
           style={{ backgroundColor: "#0072B5" }}
         >
-          <p className="text-lg font-bold tracking-wide">🧵 EMAN THREADS</p>
+          <p className="text-lg font-bold tracking-wide">🧵 Eman Thread</p>
           <p className="text-xs opacity-80">Custom Tailoring Order</p>
         </div>
 

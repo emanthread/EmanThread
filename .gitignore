@@ -2,3 +2,16 @@
 node_modules/
 .env
 .env.example
+
+# Build output
+.next/
+tsconfig.tsbuildinfo
+build-output.txt
+dist/
+
+# Test results
+test-results/
+test-results.json
+
+# Cache
+prisma/prisma/

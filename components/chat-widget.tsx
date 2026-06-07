@@ -1,9 +1,9 @@
-'use client'
+﻿'use client'
 
 import { useState, useRef, useEffect, useCallback, FormEvent } from 'react'
 import { MessageCircle, X, Send, User } from 'lucide-react'
 
-// ── Types ────────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type Language = 'en' | 'ur'
 
 interface Message {
@@ -34,13 +34,13 @@ interface ChatResponse {
   paymentVerification: string
 }
 
-// ── Language config ───────────────────────────────────────────────
+// â”€â”€ Language config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const LANG_CONFIG = {
   en: {
     label: 'English',
-    flag: '🇬🇧',
+    flag: 'ðŸ‡¬ðŸ‡§',
     greeting:
-      "Hello! I'm your Eman Threads assistant. How can I help you today? I can help with products, orders, shipping, payments, or anything else!",
+      "Hello! I'm your Eman Thread assistant. How can I help you today? I can help with products, orders, shipping, payments, or anything else!",
     placeholder: 'Type your message...',
     quickReplies: [
       'Show me your fabrics',
@@ -57,9 +57,9 @@ const LANG_CONFIG = {
   },
   ur: {
     label: 'Roman Urdu',
-    flag: '🇵🇰',
+    flag: 'ðŸ‡µðŸ‡°',
     greeting:
-      'Assalam o Alaikum! Main Eman Threads ki assistant hoon. Aaj main aap ki kya madad kar sakti hoon? Products, orders, shipping, payment — sab ke baare mein pooch sakte hain!',
+      'Assalam o Alaikum! Main Eman Thread ki assistant hoon. Aaj main aap ki kya madad kar sakti hoon? Products, orders, shipping, payment â€” sab ke baare mein pooch sakte hain!',
     placeholder: 'Apna sawal likhein...',
     quickReplies: [
       'Fabrics dikhao',
@@ -76,7 +76,7 @@ const LANG_CONFIG = {
   },
 }
 
-// ── Product Card Component ────────────────────────────────────────
+// â”€â”€ Product Card Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ProductCardView({ card }: { card: ProductCard }) {
   return (
     <a
@@ -129,7 +129,7 @@ function ProductCardView({ card }: { card: ProductCard }) {
   )
 }
 
-// ── Chat Widget ───────────────────────────────────────────────────
+// â”€â”€ Chat Widget â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false)
   const [language, setLanguage] = useState<Language | null>(null)
@@ -266,7 +266,7 @@ export function ChatWidget() {
     <>
       {/* Chat bubble button removed - handled by UnifiedWidget */}
 
-      {/* ── Chat window ─────────────────────────────────────────── */}
+      {/* â”€â”€ Chat window â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {isOpen && (
         <div
           className="fixed bottom-24 right-5 z-50 w-80 sm:w-96 bg-background border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden"
@@ -308,7 +308,7 @@ export function ChatWidget() {
             </div>
           </div>
 
-          {/* ── Language picker ──────────────────────────────────── */}
+          {/* â”€â”€ Language picker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {!language ? (
             <div className="flex-1 flex flex-col items-center justify-center p-6 gap-5">
               <div className="text-center">
@@ -338,7 +338,7 @@ export function ChatWidget() {
             </div>
           ) : (
             <>
-              {/* ── Messages ─────────────────────────────────────── */}
+              {/* â”€â”€ Messages â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
                 {messages.map((msg, i) => (
                   <div
@@ -370,7 +370,7 @@ export function ChatWidget() {
                   </div>
                 ))}
 
-                {/* ── Product Cards Carousel ─────────────────── */}
+                {/* â”€â”€ Product Cards Carousel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 {lastProducts.length > 0 && (
                   <div className="pt-2">
                     <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
@@ -381,7 +381,7 @@ export function ChatWidget() {
                   </div>
                 )}
 
-                {/* ── Recommendations ───────────────────────── */}
+                {/* â”€â”€ Recommendations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 {lastRecommendations.length > 0 && (
                   <div className="pt-2">
                     <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
@@ -395,7 +395,7 @@ export function ChatWidget() {
                   </div>
                 )}
 
-                {/* ── Payment Verification ──────────────────── */}
+                {/* â”€â”€ Payment Verification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 {lastPaymentVerification && (
                   <div className="pt-2">
                     <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-1">
@@ -425,7 +425,7 @@ export function ChatWidget() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Quick replies — first message only */}
+              {/* Quick replies â€” first message only */}
               {messages.length === 1 && !isLoading && (
                 <div className="px-4 pb-2 flex flex-wrap gap-1.5 flex-shrink-0">
                   {cfg.quickReplies.map((reply) => (

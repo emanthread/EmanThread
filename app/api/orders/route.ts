@@ -183,8 +183,8 @@ export async function POST(req: Request) {
     if (measurementItems && measurementItems.length > 0 && userId) {
       const { attachMeasurementToOrder } = await import('@/lib/db-queries');
       
-      const unified = await prisma.measurement.findUnique({
-        where: { userId },
+      const unified = await prisma.measurementProfile.findFirst({
+        where: { userId, deletedAt: null },
       });
 
       if (unified && !unified.deletedAt) {

@@ -31,9 +31,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!order.userId) {
       return NextResponse.json({ error: 'Guest orders do not have a measurement record' }, { status: 404 })
     }
-    const unified = await prisma.measurement.findUnique({
-      where: { userId: order.userId },
-    });
+    const unified = await prisma.measurementProfile.findFirst({
+        where: { userId: order.userId, deletedAt: null },
+      });
 
     if (!unified || unified.deletedAt) {
       return NextResponse.json({ error: 'No measurement found for user' }, { status: 404 });

@@ -48,6 +48,7 @@ const actionColors: Record<string, string> = {
   USER_REGISTER: "bg-blue-100 text-blue-700",
   USER_LOGOUT: "bg-gray-100 text-gray-700",
   ORDER_STATUS_CHANGED: "bg-yellow-100 text-yellow-700",
+  ORDER_DELETED: "bg-red-100 text-red-700",
   PRODUCT_CREATED: "bg-emerald-100 text-emerald-700",
   PRODUCT_UPDATED: "bg-orange-100 text-orange-700",
   PRODUCT_DELETED: "bg-red-100 text-red-700",
@@ -63,6 +64,15 @@ const actionColors: Record<string, string> = {
   DISCOUNT_DELETED: "bg-red-100 text-red-700",
   SETTINGS_CHANGED: "bg-cyan-100 text-cyan-700",
   ADMIN_ACCESS: "bg-pink-100 text-pink-700",
+  MEASUREMENT_CREATED: "bg-teal-100 text-teal-700",
+  MEASUREMENT_UPDATED: "bg-teal-100 text-teal-700",
+  MEASUREMENT_DELETED: "bg-red-100 text-red-700",
+  STITCHING_ORDER_CREATED: "bg-indigo-100 text-indigo-700",
+  STITCHING_ORDER_UPDATED: "bg-indigo-100 text-indigo-700",
+  STITCHING_ORDER_DELETED: "bg-red-100 text-red-700",
+  PAYMENT_VERIFIED: "bg-green-100 text-green-700",
+  PAYMENT_REJECTED: "bg-red-100 text-red-700",
+  PAYMENT_DELETED: "bg-red-100 text-red-700",
   AUDIT_LOG_DELETED: "bg-gray-100 text-gray-700",
   AUDIT_LOGS_CLEARED: "bg-red-100 text-red-700",
 };
@@ -73,6 +83,7 @@ const actionOptions = [
   { value: "USER_LOGIN_FAILED", label: "Login Failed" },
   { value: "USER_REGISTER", label: "Register" },
   { value: "ORDER_STATUS_CHANGED", label: "Order Status" },
+  { value: "ORDER_DELETED", label: "Order Deleted" },
   { value: "PRODUCT_CREATED", label: "Product Created" },
   { value: "PRODUCT_UPDATED", label: "Product Updated" },
   { value: "PRODUCT_DELETED", label: "Product Deleted" },
@@ -87,6 +98,15 @@ const actionOptions = [
   { value: "DISCOUNT_UPDATED", label: "Discount Updated" },
   { value: "DISCOUNT_DELETED", label: "Discount Deleted" },
   { value: "SETTINGS_CHANGED", label: "Settings Changed" },
+  { value: "MEASUREMENT_CREATED", label: "Measurement Created" },
+  { value: "MEASUREMENT_UPDATED", label: "Measurement Updated" },
+  { value: "MEASUREMENT_DELETED", label: "Measurement Deleted" },
+  { value: "STITCHING_ORDER_CREATED", label: "Stitching Order Created" },
+  { value: "STITCHING_ORDER_UPDATED", label: "Stitching Order Updated" },
+  { value: "STITCHING_ORDER_DELETED", label: "Stitching Order Deleted" },
+  { value: "PAYMENT_VERIFIED", label: "Payment Verified" },
+  { value: "PAYMENT_REJECTED", label: "Payment Rejected" },
+  { value: "PAYMENT_DELETED", label: "Payment Deleted" },
   { value: "AUDIT_LOG_DELETED", label: "Audit Log Deleted" },
   { value: "AUDIT_LOGS_CLEARED", label: "Audit Logs Cleared" },
 ];
@@ -182,18 +202,26 @@ export default function AuditLogsPage() {
 
   const totalPages = Math.ceil(total / limit);
 
-  const formatAuditValue = (value: unknown): string => {
-    if (!value) return "";
-    if (typeof value === "object" && value !== null) {
-      const obj = value as Record<string, unknown>;
-      const parts: string[] = [];
-      for (const [key, val] of Object.entries(obj)) {
-        const label = key.replace(/_/g, " ").toLowerCase();
-        parts.push(`${label}: ${String(val)}`);
-      }
-      return parts.join(", ");
-    }
-    return String(value);
+  const isInternalId = (key: string): boolean => {
+    const lower = key.toLowerCase();
+    return (
+      lower.endsWith("id") ||
+      lower.includes("_id") ||
+      lower === "customerid" ||
+      lower === "orderid" ||
+      lower === "userid" ||
+      lower === "productid" ||
+      lower === "entityid"
+    );
+  };
+
+  const formatLabel = (key: string): string => {
+    return key
+      .replace(/_/g, " ")
+      .replace(/([A-Z])/g, " $1")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   };
 
   return (
@@ -285,18 +313,11 @@ export default function AuditLogsPage() {
                           {format(new Date(log.createdAt), "MMM d, HH:mm")}
                         </span>
                       </td>
-                      <td className="py-3 px-2">
-                        <div>
-                          <p className="text-sm font-medium">
-                            {log.userEmail || "System"}
-                          </p>
-                          {log.userId && (
-                            <p className="text-xs text-muted-foreground font-mono">
-                              {log.userId.slice(0, 8)}...
-                            </p>
-                          )}
-                        </div>
-                      </td>
+                       <td className="py-3 px-2">
+                         <span className="text-sm font-medium">
+                           {log.userEmail || "System"}
+                         </span>
+                       </td>
                       <td className="py-3 px-2">
                         <Badge
                           variant="secondary"
@@ -305,30 +326,61 @@ export default function AuditLogsPage() {
                           {log.action.replace(/_/g, " ").toLowerCase()}
                         </Badge>
                       </td>
-                      <td className="py-3 px-2">
-                        <span className="text-sm">
-                          {log.entity}
-                          {log.entityId && (
-                            <span className="text-xs text-muted-foreground ml-1">
-                              ({log.entityId.slice(0, 8)}...)
-                            </span>
-                          )}
-                        </span>
-                      </td>
-                      <td className="py-3 px-2">
-                        <div className="max-w-xs">
-                          {formatAuditValue(log.oldValue) && (
-                            <div className="text-xs text-muted-foreground">
-                              <span className="font-medium">Old:</span> {formatAuditValue(log.oldValue)}
-                            </div>
-                          )}
-                          {formatAuditValue(log.newValue) && (
-                            <div className="text-xs text-muted-foreground mt-0.5">
-                              <span className="font-medium">New:</span> {formatAuditValue(log.newValue)}
-                            </div>
-                          )}
-                        </div>
-                      </td>
+                       <td className="py-3 px-2">
+                         <span className="text-sm">{log.entity}</span>
+                       </td>
+                       <td className="py-3 px-2">
+                         <div className="max-w-xs text-xs space-y-1">
+                           {log.oldValue && typeof log.oldValue === "object" && log.oldValue !== null && (
+                             <div>
+                               <span className="font-medium text-muted-foreground">Old:</span>
+                               <ul className="list-none space-y-0.5 mt-0.5">
+                                 {Object.entries(log.oldValue as Record<string, unknown>).map(([key, val]) =>
+                                   val != null && val !== "" ? (
+                                     <li key={key} className="text-muted-foreground">
+                                       <span className="capitalize">{formatLabel(key)}:</span>{" "}
+                                       <span className={cn(isInternalId(key) ? "font-mono text-[10px]" : "")}>
+                                         {isInternalId(key) && typeof val === "string" && val.length > 12
+                                           ? `${String(val).slice(0, 8)}…`
+                                           : String(val)}
+                                       </span>
+                                     </li>
+                                   ) : null
+                                 )}
+                               </ul>
+                             </div>
+                           )}
+                           {log.newValue && typeof log.newValue === "object" && log.newValue !== null && (
+                             <div>
+                               <span className="font-medium text-foreground/80">New:</span>
+                               <ul className="list-none space-y-0.5 mt-0.5">
+                                 {Object.entries(log.newValue as Record<string, unknown>).map(([key, val]) =>
+                                   val != null && val !== "" ? (
+                                     <li key={key} className="text-foreground/80">
+                                       <span className="capitalize">{formatLabel(key)}:</span>{" "}
+                                       <span className={cn(isInternalId(key) ? "font-mono text-[10px]" : "")}>
+                                         {isInternalId(key) && typeof val === "string" && val.length > 12
+                                           ? `${String(val).slice(0, 8)}…`
+                                           : String(val)}
+                                       </span>
+                                     </li>
+                                   ) : null
+                                 )}
+                               </ul>
+                             </div>
+                           )}
+                           {log.oldValue && typeof log.oldValue !== "object" && String(log.oldValue) && (
+                             <div className="text-muted-foreground">
+                               <span className="font-medium">Old:</span> {String(log.oldValue)}
+                             </div>
+                           )}
+                           {log.newValue && typeof log.newValue !== "object" && String(log.newValue) && (
+                             <div className="text-foreground/80">
+                               <span className="font-medium">New:</span> {String(log.newValue)}
+                             </div>
+                           )}
+                         </div>
+                       </td>
                       <td className="py-3 px-2 text-right">
                         <Button
                           variant="ghost"

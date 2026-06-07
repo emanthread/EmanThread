@@ -8,7 +8,6 @@ import {
   Eye,
   Ruler,
   Printer,
-  AlertTriangle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,6 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import Link from "next/link";
 import { UnifiedMeasurementForm } from "@/components/measurements/UnifiedMeasurementForm";
+import { TailorPrintCard, type TailorCardData } from "@/components/admin/tailor-print-card";
 import type {
   UnifiedMeasurementFormData,
   GarmentType,
@@ -315,7 +315,7 @@ function TailorRequestsTab() {
   );
 }
 
-// ─── Legacy Profiles Tab ────────────────────────────────────────────────────
+// ─── Measurement Profiles Tab ────────────────────────────────────────────────────
 
 function LegacyProfilesTab() {
   const [profiles, setProfiles] = useState<LegacyProfile[]>([]);
@@ -324,6 +324,7 @@ function LegacyProfilesTab() {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [viewProfile, setViewProfile] = useState<LegacyProfile | null>(null);
+  const [printProfile, setPrintProfile] = useState<LegacyProfile | null>(null);
   const limit = 20;
 
   const fetchProfiles = useCallback(async () => {
@@ -368,9 +369,9 @@ function LegacyProfilesTab() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <CardTitle className="text-base">{total} legacy profile{total !== 1 ? "s" : ""}</CardTitle>
+            <CardTitle className="text-base">{total} measurement profile{total !== 1 ? "s" : ""}</CardTitle>
             <Badge variant="outline" className="text-xs bg-amber-50 text-amber-600 border-amber-200">
-              Read-only
+              View-only
             </Badge>
           </div>
         </CardHeader>
@@ -382,8 +383,8 @@ function LegacyProfilesTab() {
                   <th className="text-left p-4 text-sm font-medium">Customer</th>
                   <th className="text-left p-4 text-sm font-medium">Profile Name</th>
                   <th className="text-left p-4 text-sm font-medium">Type</th>
-                  <th className="text-left p-4 text-sm font-medium">Created</th>
-                  <th className="text-left p-4 w-24"></th>
+                   <th className="text-left p-4 text-sm font-medium">Created</th>
+                   <th className="text-left p-4 w-32"></th>
                 </tr>
               </thead>
               <tbody>
@@ -400,23 +401,34 @@ function LegacyProfilesTab() {
                     <td className="p-4 text-sm text-muted-foreground">
                       {new Date(profile.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="p-4">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => setViewProfile(profile)}
-                        title="View Profile"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                      </Button>
-                    </td>
+                     <td className="p-4">
+                       <div className="flex gap-1">
+                         <Button
+                           variant="ghost"
+                           size="icon"
+                           className="h-8 w-8"
+                           onClick={() => setViewProfile(profile)}
+                           title="View Profile"
+                         >
+                           <Eye className="h-3.5 w-3.5" />
+                         </Button>
+                         <Button
+                           variant="ghost"
+                           size="icon"
+                           className="h-8 w-8"
+                           onClick={() => setPrintProfile(profile)}
+                           title="Print Profile"
+                         >
+                           <Printer className="h-3.5 w-3.5" />
+                         </Button>
+                       </div>
+                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
             {profiles.length === 0 && !loading && (
-              <div className="text-center py-12 text-muted-foreground">No legacy profiles found</div>
+               <div className="text-center py-12 text-muted-foreground">No measurement profiles found</div>
             )}
           </div>
           {totalPages > 1 && (
@@ -436,9 +448,9 @@ function LegacyProfilesTab() {
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              Legacy Profile — {viewProfile?.profileName}
+              Measurement Profile — {viewProfile?.profileName}
               <Badge variant="outline" className="text-xs bg-amber-50 text-amber-600 border-amber-200">
-                Read-only
+                View-only
               </Badge>
             </DialogTitle>
             <DialogDescription>
@@ -496,6 +508,30 @@ function LegacyProfilesTab() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Print Profile Dialog */}
+      {printProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 print:static print:bg-transparent" onClick={() => setPrintProfile(null)}>
+          <div className="bg-background rounded-lg shadow-xl max-w-[230mm] max-h-[90vh] overflow-y-auto p-6 print:p-0 print:shadow-none print:max-w-none print:max-h-none" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4 print:hidden">
+              <h3 className="text-lg font-semibold">Print Measurement Sheet</h3>
+              <Button variant="ghost" size="sm" onClick={() => setPrintProfile(null)}>Close</Button>
+            </div>
+            <TailorPrintCard
+              data={{
+                serialNo: `MP-${printProfile.id.slice(0, 6).toUpperCase()}`,
+                customerName: printProfile.user.name,
+                deliveryDate: new Date(printProfile.createdAt).toLocaleDateString(),
+                productName: printProfile.profileName,
+                garmentType: printProfile.garmentType,
+                measurements: printProfile.measurements || {},
+                stylingPrefs: printProfile.stylingPrefs,
+                notes: printProfile.notes,
+              }}
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -530,7 +566,7 @@ export default function AdminMeasurementsPage() {
             <Ruler className="h-6 w-6" /> Stitching & Measurements
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Manage tailor measurement requests and view legacy profiles
+            Manage tailor measurement requests and view measurement profiles
           </p>
         </div>
         <Button variant="outline" size="icon" onClick={() => setRefreshKey((k) => k + 1)}>
@@ -560,7 +596,7 @@ export default function AdminMeasurementsPage() {
         </Card>
         <Card>
           <CardContent className="pt-4 pb-3">
-            <p className="text-xs text-muted-foreground">Legacy Profiles</p>
+            <p className="text-xs text-muted-foreground">Measurement Profiles</p>
             <p className="text-2xl font-bold mt-1">{stats.totalProfiles}</p>
           </CardContent>
         </Card>
@@ -570,7 +606,7 @@ export default function AdminMeasurementsPage() {
       <Tabs defaultValue="tailor" key={refreshKey}>
         <TabsList>
           <TabsTrigger value="tailor">Tailor Requests</TabsTrigger>
-          <TabsTrigger value="profiles">Legacy Profiles</TabsTrigger>
+           <TabsTrigger value="profiles">Measurement Profiles</TabsTrigger>
         </TabsList>
         <TabsContent value="tailor" className="space-y-4 mt-4">
           <TailorRequestsTab />

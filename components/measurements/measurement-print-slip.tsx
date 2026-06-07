@@ -124,7 +124,7 @@ export function MeasurementPrintSlip({ data, customer, measurementId }: Measurem
       <table style="width:100%;margin-bottom:6px;border-bottom:1.5px solid #1a1a1a;padding-bottom:5px;">
         <tbody><tr>
           <td>
-            <div style="font-family:Georgia,serif;font-size:14px;font-weight:700;line-height:1.2;">Emaan Thread</div>
+            <div style="font-family:Georgia,serif;font-size:14px;font-weight:700;line-height:1.2;">Eman Thread</div>
             <div style="font-size:9px;color:#6b7280;">Tailor Measurement Slip</div>
           </td>
           <td style="text-align:right;vertical-align:top;">
@@ -151,7 +151,7 @@ export function MeasurementPrintSlip({ data, customer, measurementId }: Measurem
       ${data.notes ? `<div style="margin-top:4px;padding:4px 6px;background:#f9fafb;border-radius:3px;font-size:9px;"><strong>Notes:</strong> ${esc(data.notes)}</div>` : ""}
 
       <hr style="border-color:#d1d5db;margin:6px 0;" />
-      <div style="text-align:center;font-size:8px;color:#9ca3af;">Emaan Thread · ${new Date().toLocaleDateString()}</div>
+      <div style="text-align:center;font-size:8px;color:#9ca3af;">Eman Thread · ${new Date().toLocaleDateString()}</div>
     `;
   };
 

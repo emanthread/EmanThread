@@ -11,8 +11,8 @@ export async function GET() {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const measurement = await prisma.measurement.findUnique({
-    where: { userId: session.user.id },
+  const measurement = await prisma.measurementProfile.findFirst({
+    where: { userId: session.user.id, deletedAt: null },
   });
   return NextResponse.json({ measurement });
 }
@@ -24,8 +24,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   // Check if one already exists
-  const existing = await prisma.measurement.findUnique({
-    where: { userId: session.user.id },
+  const existing = await prisma.measurementProfile.findFirst({
+    where: { userId: session.user.id, deletedAt: null },
   });
   if (existing) {
     return NextResponse.json(
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     finalNotes = finalNotes ? `${profileTag}\n${finalNotes}` : profileTag;
   }
 
-  const measurement = await prisma.measurement.create({
+  const measurement = await prisma.measurementProfile.create({
     data: {
       userId: session.user.id,
       gender: parsed.data.gender,

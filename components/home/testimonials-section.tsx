@@ -11,7 +11,7 @@ const testimonials = [
     name: "Ahmed Hassan",
     location: "Karachi",
     quote:
-      "The quality of fabric is exceptional. I&apos;ve been buying from Emaan Thread for years and they never disappoint. The wash & wear collection is perfect for our climate.",
+      "The quality of fabric is exceptional. I've been buying from Eman Thread for years and they never disappoint. The wash & wear collection is perfect for our climate.",
     rating: 5,
   },
   {
@@ -27,7 +27,7 @@ const testimonials = [
     name: "Usman Ali",
     location: "Islamabad",
     quote:
-      "Emaan Thread has become my go-to for all fabric needs. The cotton collection is breathable and comfortable, perfect for everyday wear. Excellent value for money.",
+      "Eman Thread has become my go-to for all fabric needs. The cotton collection is breathable and comfortable, perfect for everyday wear. Excellent value for money.",
     rating: 5,
   },
 ];
@@ -64,7 +64,7 @@ export function TestimonialsSection() {
 
           <div className="text-center pt-8">
             <p className="text-xl sm:text-2xl font-light leading-relaxed italic text-foreground/90 max-w-3xl mx-auto">
-              &quot;{testimonials[currentIndex].quote}&quot;
+              "{testimonials[currentIndex].quote}"
             </p>
 
             <div className="mt-8">
