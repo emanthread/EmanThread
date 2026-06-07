@@ -66,15 +66,6 @@ export function A4PageLayout({
           {isAdmin && (
           <div className="a4-meta">
             <div>
-              Serial#:{" "}
-              <input
-                className="a4-meta-input"
-                value={serialNumber || ""}
-                onChange={(e) => onSerialChange?.(e.target.value)}
-                disabled={readOnly}
-              />
-            </div>
-            <div>
               Name:{" "}
               <input
                 className="a4-meta-input"

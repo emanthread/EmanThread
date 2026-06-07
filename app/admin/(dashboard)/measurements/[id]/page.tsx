@@ -160,6 +160,10 @@ export default function AdminTailorMeasurementDetailPage() {
               className={
                 measurement.status === "complete"
                   ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                  : measurement.status === "accepted"
+                  ? "bg-sky-100 text-sky-700 border-sky-200"
+                  : measurement.status === "rejected"
+                  ? "bg-red-100 text-red-700 border-red-200"
                   : "bg-amber-100 text-amber-700 border-amber-200"
               }
             >
@@ -205,6 +209,10 @@ export default function AdminTailorMeasurementDetailPage() {
                   className={
                     measurement.status === "complete"
                       ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                      : measurement.status === "accepted"
+                      ? "bg-sky-100 text-sky-700 border-sky-200"
+                      : measurement.status === "rejected"
+                      ? "bg-red-100 text-red-700 border-red-200"
                       : "bg-amber-100 text-amber-700 border-amber-200"
                   }
                 >
@@ -217,10 +225,7 @@ export default function AdminTailorMeasurementDetailPage() {
                   {garmentLabel}
                 </p>
               </div>
-              <div className="pt-1 border-t">
-                <span className="text-xs text-muted-foreground">Serial:</span>
-                <p className="text-sm font-medium mt-0.5 font-mono">{serialNo}</p>
-              </div>
+              
             </CardContent>
           </Card>
         </div>

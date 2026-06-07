@@ -131,7 +131,6 @@ export function MeasurementPrintSlip({ data, customer, measurementId }: Measurem
             <div style="font-size:10px;font-weight:700;">${esc(customer.name)}</div>
             <div style="font-size:9px;color:#6b7280;">${esc(customer.email)}</div>
             ${customer.phone ? `<div style="font-size:9px;color:#6b7280;">${esc(customer.phone)}</div>` : ""}
-            ${measurementId ? `<div style="font-size:8px;color:#9ca3af;">ID: ${measurementId.slice(0, 8).toUpperCase()}</div>` : ""}
             <div style="font-size:9px;">Gender: ${data.gender}</div>
             ${data.deliveryDate ? `<div style="font-size:9px;">Delivery: ${new Date(data.deliveryDate).toLocaleDateString()}</div>` : ""}
           </td>

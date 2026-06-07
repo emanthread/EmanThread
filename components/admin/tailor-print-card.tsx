@@ -2,7 +2,9 @@
 
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
-import { UnifiedLayoutEngine } from "@/components/measurements/UnifiedLayoutEngine";
+import { A4MeasurementForm } from "@/components/measurements/forms/A4MeasurementForm";
+import type { UnifiedMeasurementFormData } from "@/lib/validators/measurements-unified";
+import { UNIFIED_MEASUREMENT_EMPTY } from "@/lib/validators/measurements-unified";
 
 export interface TailorCardData {
   serialNo: string;
@@ -15,15 +17,29 @@ export interface TailorCardData {
   notes?: string | null;
 }
 
-export function TailorPrintCard({ data }: { data: TailorCardData }) {
-  // Determine gender safely. Default to male if unspecified, or explicitly check for "male" or "gents".
-  // Assuming garmentType is something like "male_MEN_SHALWAR_KAMEEZ" or "female_LADIES_FROCK".
-  const gt = (data.garmentType || "").toLowerCase();
-  const isGents = gt.startsWith("male") || gt === "gents" || gt.includes("men_");
-  const gender = isGents ? "male" : "female";
-
+/**
+ * Build a UnifiedMeasurementFormData from the flat Prisma field measurements.
+ * The measurements object contains Prisma column names (length1, chest1, neck1, etc.)
+ * which directly map to UnifiedMeasurementFormData keys.
+ */
+function buildFormData(data: TailorCardData): UnifiedMeasurementFormData {
   const m = data.measurements || {};
   const s = data.stylingPrefs || {};
+
+  return {
+    ...UNIFIED_MEASUREMENT_EMPTY,
+    ...m,
+    ...s,
+    garmentType: data.garmentType as UnifiedMeasurementFormData["garmentType"],
+    customerName: data.customerName,
+    deliveryDate: data.deliveryDate || "",
+    notes: data.notes || "",
+    serialNumber: data.serialNo,
+  };
+}
+
+export function TailorPrintCard({ data }: { data: TailorCardData }) {
+  const formData = buildFormData(data);
 
   const handlePrint = () => {
     window.print();
@@ -33,21 +49,28 @@ export function TailorPrintCard({ data }: { data: TailorCardData }) {
     <div>
       <style>{`
         @media print {
-          @page { size: A4; margin: 10mm; }
+          @page { size: A4; margin: 0; }
           body * {
             visibility: hidden;
           }
-          #tailor-print-card, #tailor-print-card * {
+          .a4-page-root, .a4-page-root * {
             visibility: visible;
           }
-          #tailor-print-card {
+          .a4-page-root {
             position: absolute;
             left: 0;
             top: 0;
             width: 100%;
-            max-width: 210mm;
           }
-          /* Ensure backgrounds print correctly */
+          .a4-scale-wrapper {
+            height: auto;
+            width: auto;
+            margin: 0;
+          }
+          .a4-scale-inner {
+            position: static;
+            transform: none;
+          }
           * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
@@ -59,58 +82,13 @@ export function TailorPrintCard({ data }: { data: TailorCardData }) {
         <Printer className="h-4 w-4 mr-2" /> Print Tailor Card
       </Button>
 
-      <div
-        id="tailor-print-card"
-        className="border rounded-lg overflow-hidden max-w-[210mm] text-sm font-sans bg-white print:border-none print:shadow-none"
-        style={{ fontFamily: "Arial, sans-serif", breakInside: "avoid" }}
-      >
-        {/* Header */}
-        <div
-          className="px-4 py-3 text-white text-center print:bg-[#0072B5]"
-          style={{ backgroundColor: "#0072B5" }}
-        >
-          <p className="text-lg font-bold tracking-wide">🧵 Eman Thread</p>
-          <p className="text-xs opacity-80">Custom Tailoring Order</p>
-        </div>
-
-        {/* Order Info */}
-        <div className="bg-gray-50 print:bg-gray-50 px-4 py-2 border-b grid grid-cols-2 gap-2 text-xs text-black">
-          <div>
-            <span className="text-gray-500">Serial:</span>{" "}
-            <span className="font-semibold">#{data.serialNo}</span>
-          </div>
-          <div>
-            <span className="text-gray-500">Customer:</span>{" "}
-            <span className="font-semibold">{data.customerName}</span>
-          </div>
-          {data.deliveryDate && (
-            <div className="col-span-2">
-              <span className="text-gray-500">Date:</span>{" "}
-              <span className="font-semibold">{data.deliveryDate}</span>
-            </div>
-          )}
-          <div className="col-span-2">
-            <span className="text-gray-500">Item:</span>{" "}
-            <span className="font-semibold">{data.productName} ({gender.toUpperCase()})</span>
-          </div>
-        </div>
-
-        {/* Unified Layout Engine (Read-Only Mode) */}
-        <div className="px-1 py-3 text-black">
-          <UnifiedLayoutEngine
-            gender={gender}
-            measurements={m}
-            stylingPrefs={s}
-            notes={data.notes || ""}
-            readOnly={true}
-          />
-        </div>
-
-        {/* Tailor Signature */}
-        <div className="px-4 py-3 border-t border-dashed mt-4 text-black">
-          <p className="text-xs text-gray-500">Tailor Signature: ____________________________</p>
-        </div>
-      </div>
+      <A4MeasurementForm
+        data={formData}
+        onChange={() => {}}
+        readOnly={true}
+        garmentType={data.garmentType}
+        isAdmin={true}
+      />
     </div>
   );
 }

@@ -144,12 +144,14 @@ function TailorRequestsTab() {
             />
           </div>
           <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-36">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="accepted">Accepted</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
               <SelectItem value="complete">Complete</SelectItem>
             </SelectContent>
           </Select>
@@ -211,6 +213,10 @@ function TailorRequestsTab() {
                         className={
                           m.status === "complete"
                             ? "bg-emerald-100 text-emerald-700 border-emerald-200 text-xs"
+                            : m.status === "accepted"
+                            ? "bg-sky-100 text-sky-700 border-sky-200 text-xs"
+                            : m.status === "rejected"
+                            ? "bg-red-100 text-red-700 border-red-200 text-xs"
                             : "bg-amber-100 text-amber-700 border-amber-200 text-xs"
                         }
                       >
@@ -239,6 +245,42 @@ function TailorRequestsTab() {
                             <Ruler className="h-3.5 w-3.5" />
                           </Link>
                         </Button>
+                        {m.status === "pending" && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-sky-600 hover:text-sky-600"
+                              onClick={async () => {
+                                await fetch(`/api/admin/tailor-measurements/${m.id}`, {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ status: "accepted" }),
+                                });
+                                fetchMeasurements();
+                              }}
+                              title="Accept Request"
+                            >
+                              <CheckCircle className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-600 hover:text-red-600"
+                              onClick={async () => {
+                                await fetch(`/api/admin/tailor-measurements/${m.id}`, {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ status: "rejected" }),
+                                });
+                                fetchMeasurements();
+                              }}
+                              title="Reject Request"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
