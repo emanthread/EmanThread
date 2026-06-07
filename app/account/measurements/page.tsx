@@ -104,8 +104,8 @@ function UnifiedTailorSection() {
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>New Tailor Measurement Request</DialogTitle>
-              <DialogDescription>
-                Select your garment type and submit. Our tailor will take your measurements.
+            <DialogDescription>
+              Select a saved measurement profile or create one first. Our tailor will take your measurements.
               </DialogDescription>
             </DialogHeader>
             <NewTailorRequestForm
@@ -189,21 +189,88 @@ function UnifiedTailorSection() {
 
 // ─── New Tailor Request Form ──────────────────────────────────────────────────
 
+interface ProfileOption {
+  id: string;
+  profileName: string;
+  gender: string;
+  garmentType: string;
+}
+
 function NewTailorRequestForm({ onSaved }: { onSaved: () => void }) {
+  const [profiles, setProfiles] = useState<ProfileOption[]>([]);
+  const [profilesLoading, setProfilesLoading] = useState(true);
   const [gender, setGender] = useState<"Male" | "Female">("Male");
+  const [selectedProfileId, setSelectedProfileId] = useState("");
   const [garmentType, setGarmentType] = useState("male_shalwar_kameez");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // Fetch user's saved measurement profiles (excluding tailor_request records)
+  useEffect(() => {
+    (async () => {
+      setProfilesLoading(true);
+      try {
+        const res = await fetch("/api/measurements");
+        if (res.ok) {
+          const data = await res.json();
+          setProfiles(
+            (data.profiles || []).filter(
+              (p: ProfileOption & { source?: string }) => p.source !== "tailor_request"
+            )
+          );
+        }
+      } catch {
+        // Silently fail
+      } finally {
+        setProfilesLoading(false);
+      }
+    })();
+  }, []);
+
+  // When a profile is selected, auto-derive gender & garmentType from it
+  const handleProfileChange = (profileId: string) => {
+    setSelectedProfileId(profileId);
+    const profile = profiles.find((p) => p.id === profileId);
+    if (profile) {
+      setGender(profile.gender as "Male" | "Female");
+      setGarmentType(profile.garmentType);
+    }
+  };
+
+  // When gender changes, clear profile selection if the selected profile doesn't match
+  const handleGenderChange = (v: string) => {
+    const newGender = v as "Male" | "Female";
+    setGender(newGender);
+    // Clear profile selection if current doesn't match new gender
+    if (selectedProfileId) {
+      const current = profiles.find((p) => p.id === selectedProfileId);
+      if (current && current.gender !== newGender) {
+        setSelectedProfileId("");
+        setGarmentType(newGender === "Male" ? "male_shalwar_kameez" : "female_simple_shalwar");
+      }
+    }
+  };
+
   const handleSubmit = async () => {
+    if (!selectedProfileId) {
+      setError("Please select a measurement profile");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
+      const selectedProfile = profiles.find((p) => p.id === selectedProfileId);
       const res = await fetch("/api/tailor-measurements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gender, garmentType, notes }),
+        body: JSON.stringify({
+          gender,
+          garmentType,
+          notes,
+          selectedProfileId,
+          selectedProfileName: selectedProfile?.profileName ?? "",
+        }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -216,18 +283,16 @@ function NewTailorRequestForm({ onSaved }: { onSaved: () => void }) {
     }
   };
 
+  // Profiles filtered by current gender selection
+  const filteredProfiles = profiles.filter((p) => p.gender === gender);
+
   return (
     <div className="space-y-4 py-2">
       <div>
         <Label>Gender</Label>
         <Select
           value={gender}
-          onValueChange={(v) => {
-            setGender(v as "Male" | "Female");
-            // Auto-select garment type
-            if (v === "Male" && !garmentType.startsWith("male_")) setGarmentType("male_shalwar_kameez");
-            if (v === "Female" && !garmentType.startsWith("female_")) setGarmentType("female_simple_shalwar");
-          }}
+          onValueChange={handleGenderChange}
         >
           <SelectTrigger className="mt-1">
             <SelectValue />
@@ -240,22 +305,28 @@ function NewTailorRequestForm({ onSaved }: { onSaved: () => void }) {
       </div>
 
       <div>
-        <Label>Garment Type</Label>
-        <Select value={garmentType} onValueChange={setGarmentType}>
-          <SelectTrigger className="mt-1">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {GARMENT_TYPES.filter((gt) => {
-              if (gender === "Male") return gt.startsWith("male_");
-              return gt.startsWith("female_");
-            }).map((gt) => (
-              <SelectItem key={gt} value={gt}>
-                {garmentTypeLabel(gt)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Label>Measurement Profile</Label>
+        {profilesLoading ? (
+          <div className="text-sm text-muted-foreground mt-1">Loading profiles...</div>
+        ) : filteredProfiles.length === 0 ? (
+          <div className="text-sm text-muted-foreground mt-1 p-3 border border-dashed rounded-lg text-center">
+            <p className="font-medium mb-1">No profiles found for {gender === "Male" ? "Male" : "Female"}</p>
+            <p className="text-xs">Create a measurement profile first using the section above, then come back to submit a tailor request.</p>
+          </div>
+        ) : (
+          <Select value={selectedProfileId} onValueChange={handleProfileChange}>
+            <SelectTrigger className="mt-1">
+              <SelectValue placeholder="Select a profile..." />
+            </SelectTrigger>
+            <SelectContent>
+              {filteredProfiles.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.profileName} — {garmentTypeLabel(p.garmentType)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       <div>
@@ -271,7 +342,7 @@ function NewTailorRequestForm({ onSaved }: { onSaved: () => void }) {
 
       {error && <p className="text-sm text-red-500">{error}</p>}
 
-      <Button onClick={handleSubmit} disabled={saving} className="gap-2">
+      <Button onClick={handleSubmit} disabled={saving || !selectedProfileId} className="gap-2">
         <Send className="h-4 w-4" />
         {saving ? "Submitting..." : "Submit Request"}
       </Button>
