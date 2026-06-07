@@ -783,7 +783,7 @@ function LadiesBottomTypeTabs({
 
   return (
     <A4Card title="Bottom Type">
-      <div style={{ display: "flex", gap: "3mm", padding: "3mm" }}>
+      <div style={{ display: "flex", gap: "3mm", padding: "3mm", overflowX: "auto", whiteSpace: "nowrap" }}>
         <button type="button" onClick={() => setBottomType("trouser")} style={btnStyle("trouser")}>Trouser</button>
         <button type="button" onClick={() => setBottomType("simple")} style={btnStyle("simple")}>Simple Shalwar</button>
         <button type="button" onClick={() => setBottomType("belt")} style={btnStyle("belt")}>Belt Shalwar</button>
