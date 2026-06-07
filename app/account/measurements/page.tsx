@@ -216,7 +216,7 @@ function NewTailorRequestForm({ onSaved }: { onSaved: () => void }) {
           const data = await res.json();
           setProfiles(
             (data.profiles || []).filter(
-              (p: ProfileOption & { source?: string }) => p.source !== "tailor_request"
+              (p: ProfileOption & { source?: string }) => p.source !== "tailor_request" && p.source !== "order"
             )
           );
         }

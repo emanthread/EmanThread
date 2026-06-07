@@ -9,6 +9,7 @@ import {
   Ruler,
   Printer,
   CheckCircle,
+  Pencil,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,7 @@ interface LegacyProfile {
   stylingPrefs: Record<string, unknown> | null;
   notes: string | null;
   isDefault: boolean;
+  status?: string;
   createdAt: string;
   user: { name: string; email: string };
 }
@@ -333,8 +335,13 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState(initialSearch);
+  const [statusFilter, setStatusFilter] = useState("all");
   const [viewProfile, setViewProfile] = useState<LegacyProfile | null>(null);
   const [printProfile, setPrintProfile] = useState<LegacyProfile | null>(null);
+  const [editProfile, setEditProfile] = useState<LegacyProfile | null>(null);
+  const [deleteProfile, setDeleteProfile] = useState<LegacyProfile | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const limit = 20;
 
   const fetchProfiles = useCallback(async () => {
@@ -344,6 +351,7 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
         page: String(page),
         limit: String(limit),
         ...(search && { search }),
+        ...(statusFilter !== "all" && { status: statusFilter }),
       });
       const res = await fetch(`/api/admin/measurements?${params}`);
       if (res.ok) {
@@ -354,9 +362,39 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
     } finally {
       setLoading(false);
     }
-  }, [page, search]);
+  }, [page, search, statusFilter]);
 
   useEffect(() => { fetchProfiles(); }, [fetchProfiles]);
+
+  const handleEditSave = async (data: UnifiedMeasurementFormData) => {
+    if (!editProfile) return;
+    setSavingEdit(true);
+    try {
+      const res = await fetch(`/api/admin/measurements/${editProfile.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (res.ok) {
+        setEditProfile(null);
+        fetchProfiles();
+      }
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteProfile) return;
+    setDeleting(true);
+    try {
+      await fetch(`/api/admin/measurements/${deleteProfile.id}`, { method: "DELETE" });
+      setDeleteProfile(null);
+      fetchProfiles();
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const totalPages = Math.ceil(total / limit);
 
@@ -373,6 +411,16 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
               className="pl-9"
             />
           </div>
+          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="complete">Complete</SelectItem>
+            </SelectContent>
+          </Select>
         </CardContent>
       </Card>
 
@@ -393,6 +441,7 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
                   <th className="text-left p-4 text-sm font-medium">Customer</th>
                   <th className="text-left p-4 text-sm font-medium">Profile Name</th>
                   <th className="text-left p-4 text-sm font-medium">Type</th>
+                  <th className="text-left p-4 text-sm font-medium">Status</th>
                    <th className="text-left p-4 text-sm font-medium">Created</th>
                    <th className="text-left p-4 w-32"></th>
                 </tr>
@@ -407,6 +456,17 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
                     <td className="p-4 font-medium text-sm">{profile.profileName}</td>
                     <td className="p-4">
                       <Badge variant="outline" className="capitalize text-xs">{profile.garmentType}</Badge>
+                    </td>
+                    <td className="p-4">
+                      <Badge
+                        className={
+                          profile.status === "complete"
+                            ? "bg-emerald-100 text-emerald-700 border-emerald-200 text-xs"
+                            : "bg-amber-100 text-amber-700 border-amber-200 text-xs"
+                        }
+                      >
+                        {profile.status || "complete"}
+                      </Badge>
                     </td>
                     <td className="p-4 text-sm text-muted-foreground">
                       {new Date(profile.createdAt).toLocaleDateString()}
@@ -430,6 +490,24 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
                            title="Print Profile"
                          >
                            <Printer className="h-3.5 w-3.5" />
+                         </Button>
+                         <Button
+                           variant="ghost"
+                           size="icon"
+                           className="h-8 w-8"
+                           onClick={() => setEditProfile(profile)}
+                           title="Edit Profile"
+                         >
+                           <Pencil className="h-3.5 w-3.5" />
+                         </Button>
+                         <Button
+                           variant="ghost"
+                           size="icon"
+                           className="h-8 w-8 text-red-600 hover:text-red-600"
+                           onClick={() => setDeleteProfile(profile)}
+                           title="Delete Profile"
+                         >
+                           <Trash2 className="h-3.5 w-3.5" />
                          </Button>
                        </div>
                      </td>
@@ -519,6 +597,47 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Profile Dialog */}
+      <Dialog open={!!editProfile} onOpenChange={(o) => !o && setEditProfile(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Profile — {editProfile?.profileName}</DialogTitle>
+            <DialogDescription>
+              Update this measurement profile. Changes are applied immediately.
+            </DialogDescription>
+          </DialogHeader>
+          {editProfile && (
+            <UnifiedMeasurementForm
+              data={editProfile as unknown as Partial<UnifiedMeasurementFormData>}
+              mode="edit"
+              isAdmin={true}
+              garmentTypeFixed={editProfile.garmentType}
+              customerName={editProfile.user.name}
+              customerEmail={editProfile.user.email}
+              onSave={handleEditSave}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Profile Confirmation */}
+      <Dialog open={!!deleteProfile} onOpenChange={(o) => !o && setDeleteProfile(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Measurement Profile?</DialogTitle>
+            <DialogDescription>
+              Permanently delete "{deleteProfile?.profileName}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteProfile(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Print Profile Dialog */}
       {printProfile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 print:static print:bg-transparent" onClick={() => setPrintProfile(null)}>
@@ -554,6 +673,10 @@ function CompletedTab() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [deleteRecord, setDeleteRecord] = useState<CompletedRecord | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const limit = 20;
 
   const fetchRecords = useCallback(async () => {
@@ -562,6 +685,8 @@ function CompletedTab() {
       const params = new URLSearchParams({
         page: String(page),
         ...(search && { search }),
+        ...(sourceFilter !== "all" && { source: sourceFilter }),
+        ...(statusFilter !== "all" && { status: statusFilter }),
       });
       const res = await fetch(`/api/admin/measurements/completed?${params}`);
       if (res.ok) {
@@ -572,9 +697,21 @@ function CompletedTab() {
     } finally {
       setLoading(false);
     }
-  }, [page, search]);
+  }, [page, search, sourceFilter, statusFilter]);
 
   useEffect(() => { fetchRecords(); }, [fetchRecords]);
+
+  const handleDelete = async () => {
+    if (!deleteRecord) return;
+    setDeleting(true);
+    try {
+      await fetch(`/api/admin/measurements/${deleteRecord.id}`, { method: "DELETE" });
+      setDeleteRecord(null);
+      fetchRecords();
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const totalPages = Math.ceil(total / limit);
 
@@ -591,6 +728,26 @@ function CompletedTab() {
               className="pl-9"
             />
           </div>
+          <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setPage(1); }}>
+            <SelectTrigger className="w-36">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Sources</SelectItem>
+              <SelectItem value="order">From Order</SelectItem>
+              <SelectItem value="tailor_request">Tailor Request</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="complete">Complete</SelectItem>
+            </SelectContent>
+          </Select>
         </CardContent>
       </Card>
 
@@ -607,6 +764,7 @@ function CompletedTab() {
                   <th className="text-left p-4 text-sm font-medium">Source</th>
                   <th className="text-left p-4 text-sm font-medium">Garment Type</th>
                   <th className="text-left p-4 text-sm font-medium">Completed</th>
+                  <th className="text-left p-4 w-16"></th>
                 </tr>
               </thead>
               <tbody>
@@ -635,6 +793,17 @@ function CompletedTab() {
                     <td className="p-4 text-sm text-muted-foreground">
                       {new Date(r.updatedAt).toLocaleDateString()}
                     </td>
+                    <td className="p-4">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-red-600 hover:text-red-600"
+                        onClick={() => setDeleteRecord(r)}
+                        title="Delete Record"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -656,6 +825,24 @@ function CompletedTab() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Record Confirmation */}
+      <Dialog open={!!deleteRecord} onOpenChange={(o) => !o && setDeleteRecord(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Completed Record?</DialogTitle>
+            <DialogDescription>
+              Permanently delete this completed measurement record? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteRecord(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

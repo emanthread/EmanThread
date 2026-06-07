@@ -16,11 +16,15 @@ export const GET = withLoggedAdminHandler(async (req: Request) => {
   const limit = parseInt(searchParams.get('limit') || '20', 10)
   const garmentType = searchParams.get('garmentType') || undefined
   const search = searchParams.get('search') || undefined
+  const status = searchParams.get('status') || undefined
 
   // Use centralized filter — excludes tailor requests (source !== "tailor_request")
   const where: Record<string, unknown> = { ...adminProfileFilter() }
   if (garmentType && garmentType !== 'all') {
     where.garmentType = { startsWith: garmentType === 'gents' ? 'male_' : 'female_' }
+  }
+  if (status && status !== 'all') {
+    where.status = status
   }
   if (search) {
     where.OR = [
