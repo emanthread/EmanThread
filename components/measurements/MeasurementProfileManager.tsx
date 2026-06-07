@@ -71,7 +71,9 @@ export function MeasurementProfileManager({
       const res = await fetch("/api/measurements");
       if (!res.ok) throw new Error("Failed to fetch profiles");
       const data = await res.json();
-      let list = data.profiles || [];
+      let list = (data.profiles || [])
+        // Exclude tailor request records — they are managed separately by UnifiedTailorSection
+        .filter((p: ProfileSummary) => p.source !== "tailor_request");
       if (garmentTypeFilter) {
         list = list.filter((p: ProfileSummary) => p.garmentType === garmentTypeFilter);
       }

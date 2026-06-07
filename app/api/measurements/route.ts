@@ -122,6 +122,7 @@ export async function POST(request: NextRequest) {
             ...prismaFields,
             isDefault,
             deletedAt: null,
+            source: "profile",
             updatedAt: new Date(),
           },
         });
