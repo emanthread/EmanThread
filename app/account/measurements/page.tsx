@@ -277,6 +277,8 @@ function NewTailorRequestForm({ onSaved }: { onSaved: () => void }) {
       } else {
         setError(data.error ?? "Request failed");
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Request failed");
     } finally {
       setSaving(false);
     }

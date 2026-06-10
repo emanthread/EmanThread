@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
 
   // Build notes with structured profile info if a profile was selected
   let finalNotes = parsed.data.notes ?? "";
+  let sourceProfileId: string | null = null;
 
   // If the user selected an existing profile, copy its measurement fields
   let profileFields: Record<string, string> = {};
@@ -65,6 +66,7 @@ export async function POST(req: NextRequest) {
       },
     });
     if (sourceProfile) {
+      sourceProfileId = sourceProfile.id;
       // List of all measurement field names from the schema (excluding meta fields)
       const fieldNames = [
         "length1", "length2", "shoulder1", "shoulder2",
@@ -95,7 +97,6 @@ export async function POST(req: NextRequest) {
         "ladShalwarBeltGherra1", "ladShalwarBeltGherra2",
         "ladLasticShalwarBelt",
         "ladTrouserdata15", "ladTrouserdata16",
-        "profileName",
       ];
       for (const fn of fieldNames) {
         const val = (sourceProfile as any)[fn];
@@ -120,6 +121,7 @@ export async function POST(req: NextRequest) {
       source: "tailor_request",
       status: "pending",
       requestedAt: new Date(),
+      profileName: sourceProfileId ? `Tailor_${sourceProfileId.slice(0, 8)}` : `Tailor_Request`,
       ...profileFields,
     },
   });
