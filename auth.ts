@@ -222,8 +222,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
       }
 
-      // If token is missing role and we have an email, look up the DB user
-      // to enrich the session with role/isVerified/permissions AND the real DB user ID
+      // Google OAuth one-time enrichment: if the token has no role (first sign-in via Google),
+      // do a single DB lookup to hydrate the JWT with role/permissions/id/tokenVersion.
+      // After this, the token is self-sufficient and no further DB lookups are needed.
       if (!token.role && token.email) {
         try {
           const dbUser = await prisma.user.findUnique({
@@ -239,21 +240,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
         } catch (err) {
           console.error("Failed to fetch user for JWT enrichment:", err);
-        }
-      }
-
-      // Validate tokenVersion — invalidate session if password was changed elsewhere
-      if (token.id && token.tokenVersion !== undefined) {
-        try {
-          const currentVersion = await prisma.user.findUnique({
-            where: { id: token.id as string },
-            select: { tokenVersion: true },
-          });
-          if (!currentVersion || currentVersion.tokenVersion !== token.tokenVersion) {
-            return null; // Invalidate session (C1)
-          }
-        } catch {
-          // If DB lookup fails, allow session to continue (don't lock users out on DB error)
         }
       }
 

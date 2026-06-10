@@ -28,6 +28,34 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 
+// Known garment types per gender — matches fabricType values in StitchingPrice DB
+// and GARMENT_LABELS in the user-facing measurements page
+const DEFAULT_MALE_GARMENTS = [
+  "shalwar kameez",
+  "simple 3 piece",
+  "prince coat",
+  "shirt",
+] as const;
+
+const DEFAULT_FEMALE_GARMENTS = [
+  "simple shalwar",
+  "frock",
+  "lehnga kurti",
+  "saari",
+] as const;
+
+// Human-readable labels matching the measurements page GARMENT_LABELS
+const GARMENT_LABELS_STITCHING: Record<string, string> = {
+  "shalwar kameez": "Shalwar Kameez",
+  "simple 3 piece": "Simple 3 Piece",
+  "prince coat": "Prince Coat",
+  "shirt": "Shirt",
+  "simple shalwar": "Simple Shalwar",
+  "frock": "Frock",
+  "lehnga kurti": "Lehnga Kurti",
+  "saari": "Saari",
+};
+
 export default function AdminSettingsPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -173,17 +201,47 @@ export default function AdminSettingsPage() {
     }
     loadContentPages();
 
-    // Load stitching prices
+    // Build default prices for all known garment types
+    function buildDefaultPrices() {
+      const defaults: { fabricType: string; gender: string; price: number }[] = [];
+      for (const fabric of DEFAULT_MALE_GARMENTS) {
+        defaults.push({ fabricType: fabric, gender: "Male", price: 0 });
+      }
+      for (const fabric of DEFAULT_FEMALE_GARMENTS) {
+        defaults.push({ fabricType: fabric, gender: "Female", price: 0 });
+      }
+      return defaults;
+    }
+
+    // Load stitching prices — merge DB prices with defaults so all garment types
+    // always appear in the table, even if not yet saved in the database.
     async function loadStitchingPrices() {
       try {
         const res = await fetch("/api/admin/stitching-prices");
-        if (!res.ok) return;
+        if (!res.ok) { setStitchingPrices(buildDefaultPrices()); return; }
         const data = await res.json();
+        const dbPrices: { fabricType: string; gender: string; price: number }[] = [];
         if (Array.isArray(data)) {
-          setStitchingPrices(data.map((p: { fabricType: string; gender?: string; price: number }) => ({ fabricType: p.fabricType, gender: p.gender ?? "Male", price: p.price })));
+          for (const p of data) {
+            dbPrices.push({
+              fabricType: p.fabricType,
+              gender: p.gender ?? "Male",
+              price: typeof p.price === "number" ? p.price : 0,
+            });
+          }
         }
+
+        // Merge with defaults so ALL garment types appear even if not yet in DB
+        const defaults = buildDefaultPrices();
+        const merged = defaults.map((d) => {
+          const existing = dbPrices.find(
+            (p) => p.fabricType === d.fabricType && p.gender === d.gender
+          );
+          return existing ?? d;
+        });
+        setStitchingPrices(merged);
       } catch {
-        // silent
+        setStitchingPrices(buildDefaultPrices());
       }
     }
     loadStitchingPrices();
@@ -328,7 +386,7 @@ export default function AdminSettingsPage() {
                           )}
                           {genderPrices.map((sp) => (
                             <TableRow key={`${gender}-${sp.fabricType}`}>
-                              <TableCell className="font-medium">{sp.fabricType}</TableCell>
+                              <TableCell className="font-medium">{GARMENT_LABELS_STITCHING[sp.fabricType] ?? sp.fabricType}</TableCell>
                               <TableCell>
                                 <Input
                                   type="text"
@@ -366,10 +424,11 @@ export default function AdminSettingsPage() {
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ prices: stitchingPrices }),
                       });
-                      if (!res.ok) throw new Error("Failed to save");
+                      const body = await res.json().catch(() => ({}));
+                      if (!res.ok) throw new Error(body.error || "Failed to save");
                       toast({ title: "Stitching prices saved", description: "Prices have been updated." });
-                    } catch {
-                      toast({ title: "Error", description: "Failed to save stitching prices", variant: "destructive" });
+                    } catch (err) {
+                      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to save stitching prices", variant: "destructive" });
                     } finally {
                       setStitchingSaving(false);
                     }

@@ -8,6 +8,8 @@ import { triggerNotification } from "@/lib/notifications";
 import { resolveAdminRecipients } from "@/lib/notifications/admin-alerts";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
 import { sanitizeDbError } from '@/lib/utils/errors';
+import { checkRateLimitAsync, RateLimits } from "@/lib/rate-limiter";
+import { validateCsrf } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +53,25 @@ const createOrderSchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    // CSRF check
+    await validateCsrf(req);
+
+    // Rate limit by IP
+    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "anonymous";
+    const rl = await checkRateLimitAsync(`order-create:${ip}`, RateLimits.order());
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rl.retryAfter ?? 1),
+            "X-RateLimit-Remaining": String(rl.remaining),
+          },
+        }
+      );
+    }
+
     const body = await req.json();
     const result = createOrderSchema.safeParse(body);
 
@@ -390,7 +411,13 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json(order, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.message === "CSRF validation failed") {
+      return NextResponse.json(
+        { error: "Forbidden: invalid CSRF token" },
+        { status: 403 }
+      );
+    }
     console.error("Create order error:", error);
     const { message, status } = sanitizeDbError(error);
     return NextResponse.json({ error: message }, { status });

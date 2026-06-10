@@ -309,8 +309,8 @@ model ReturnRequest {
   approvedAt   DateTime?
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
-  order        Order               @relation(fields: [orderId], references: [id])
-  user         User?               @relation(fields: [userId], references: [id])
+  order        Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user         User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
   items        ReturnRequestItem[]
 
   @@index([orderId])

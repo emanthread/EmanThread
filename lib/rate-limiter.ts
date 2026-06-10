@@ -143,8 +143,18 @@ export const RateLimits = {
     maxRequests: parseInt(process.env.API_RATE_LIMIT_CHAT || "20", 10),
     keyPrefix: "chat",
   }),
+  cart: (): RateLimitConfig => ({
+    windowMs: 60_000,
+    maxRequests: parseInt(process.env.API_RATE_LIMIT_CART || "30", 10),
+    keyPrefix: "cart",
+  }),
+  order: (): RateLimitConfig => ({
+    windowMs: 60_000,
+    maxRequests: parseInt(process.env.API_RATE_LIMIT_ORDER || "10", 10),
+    keyPrefix: "order",
+  }),
 };
 
-export function getRateLimitFor(type: "public" | "auth" | "admin" | "payment" | "chat"): RateLimitConfig {
+export function getRateLimitFor(type: "public" | "auth" | "admin" | "payment" | "chat" | "cart" | "order"): RateLimitConfig {
   return RateLimits[type]();
 }

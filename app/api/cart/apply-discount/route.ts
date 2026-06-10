@@ -4,6 +4,8 @@ import { getDiscountByCode } from "@/lib/db-queries";
 import { applyDiscount } from "@/lib/discount-engine";
 import type { EngineCartItem } from "@/lib/discount-engine";
 import { sanitizeDbError } from '@/lib/utils/errors';
+import { checkRateLimitAsync, RateLimits } from "@/lib/rate-limiter";
+import { validateCsrf } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +28,25 @@ const applyDiscountSchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    // CSRF check
+    await validateCsrf(req);
+
+    // Rate limit by IP
+    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "anonymous";
+    const rl = await checkRateLimitAsync(`cart-discount:${ip}`, RateLimits.cart());
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rl.retryAfter ?? 1),
+            "X-RateLimit-Remaining": String(rl.remaining),
+          },
+        }
+      );
+    }
+
     const body = await req.json();
     const result = applyDiscountSchema.safeParse(body);
 
@@ -75,7 +96,13 @@ export async function POST(req: Request) {
         value: appliedDiscount.value,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.message === "CSRF validation failed") {
+      return NextResponse.json(
+        { error: "Forbidden: invalid CSRF token" },
+        { status: 403 }
+      );
+    }
     console.error("Apply discount error:", error);
     const { message, status } = sanitizeDbError(error);
     return NextResponse.json({ error: message }, { status });

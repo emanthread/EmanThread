@@ -11,14 +11,14 @@ const updateSchema = z.object({
     z.object({
       fabricType: z.string().min(1),
       gender: z.enum(["Male", "Female"]),
-      price: z.number().positive("Price must be positive"),
+      price: z.number().min(0, "Price cannot be negative"),
     })
   ),
 });
 
 async function checkAdmin() {
   const session = await auth();
-  if (!session?.user || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role ?? "")) {
+  if (!session?.user || !["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(session.user.role ?? "")) {
     return false;
   }
   return true;
