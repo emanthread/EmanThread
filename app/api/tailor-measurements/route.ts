@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { unifiedMeasurementRequestSchema } from "@/lib/validators/measurements-unified";
 import { validateCsrf } from "@/lib/csrf";
 
@@ -141,6 +142,17 @@ export async function POST(req: NextRequest) {
         { status: 403 }
       );
     }
+
+    // Prisma known errors
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2022") {
+        console.error("P2022: Column missing in tailor-measurements POST:", error.meta);
+        return NextResponse.json({ error: "Database schema mismatch. Contact support." }, { status: 500 });
+      }
+      console.error(`Prisma error ${error.code}:`, error.meta);
+      return NextResponse.json({ error: `Database error (${error.code}).` }, { status: 500 });
+    }
+
     console.error("Create tailor measurement error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

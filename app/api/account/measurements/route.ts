@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { requireAuth, guardErrorResponse } from "@/lib/api-guards";
 import { validateCsrf } from "@/lib/csrf";
 
@@ -82,6 +83,17 @@ export async function POST(request: NextRequest) {
         { status: 403 },
       );
     }
+
+    // Prisma known errors
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2022") {
+        console.error("P2022: Column missing in account/measurements POST:", error.meta);
+        return NextResponse.json({ error: "Database schema mismatch. Contact support." }, { status: 500 });
+      }
+      console.error(`Prisma error ${error.code}:`, error.meta);
+      return NextResponse.json({ error: `Database error (${error.code}). Please try again.` }, { status: 500 });
+    }
+
     console.error("POST measurement profile error:", error);
     return NextResponse.json(
       { error: "Failed to create measurement profile. Please try again." },
@@ -119,6 +131,17 @@ export async function DELETE(request: NextRequest) {
         { status: 403 },
       );
     }
+
+    // Prisma known errors
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2022") {
+        console.error("P2022: Column missing in account/measurements DELETE:", error.meta);
+        return NextResponse.json({ error: "Database schema mismatch. Contact support." }, { status: 500 });
+      }
+      console.error(`Prisma error ${error.code}:`, error.meta);
+      return NextResponse.json({ error: `Database error (${error.code}).` }, { status: 500 });
+    }
+
     console.error("DELETE measurement profile error:", error);
     return NextResponse.json(
       { error: "Failed to delete measurement profile." },

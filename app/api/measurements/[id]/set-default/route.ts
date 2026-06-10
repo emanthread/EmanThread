@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { validateCsrf } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +49,14 @@ export async function POST(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2022") {
+        console.error("P2022: Column missing in set-default:", error.meta);
+        return NextResponse.json({ error: "Database schema mismatch. Contact support." }, { status: 500 });
+      }
+      console.error(`Prisma error ${error.code}:`, error.meta);
+      return NextResponse.json({ error: `Database error (${error.code}).` }, { status: 500 });
+    }
     console.error("Error setting default measurement profile:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

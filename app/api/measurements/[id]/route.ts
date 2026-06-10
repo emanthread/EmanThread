@@ -2,6 +2,7 @@ import { z } from "zod";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { unifiedMeasurementSchema, mapToPrismaFields } from "@/lib/validators/measurements-unified";
 import { validateCsrf } from "@/lib/csrf";
 
@@ -109,6 +110,25 @@ export async function PUT(
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }
+
+    // ── Prisma known errors ──
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2002") {
+        return NextResponse.json({ error: "A profile with this name already exists" }, { status: 409 });
+      }
+      if (error.code === "P2022") {
+        console.error("P2022: Column missing in measurements PUT:", error.meta);
+        return NextResponse.json({ error: "Database schema mismatch. Contact support." }, { status: 500 });
+      }
+      console.error(`Prisma error ${error.code}:`, error.meta);
+      return NextResponse.json({ error: `Database error (${error.code}).` }, { status: 500 });
+    }
+
+    if (error instanceof Prisma.PrismaClientValidationError) {
+      console.error("Prisma validation error:", error.message);
+      return NextResponse.json({ error: "Data validation error." }, { status: 400 });
+    }
+
     console.error("Error updating measurement profile:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
@@ -161,6 +181,16 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    // ── Prisma known errors ──
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2022") {
+        console.error("P2022: Column missing in measurements DELETE:", error.meta);
+        return NextResponse.json({ error: "Database schema mismatch. Contact support." }, { status: 500 });
+      }
+      console.error(`Prisma error ${error.code}:`, error.meta);
+      return NextResponse.json({ error: `Database error (${error.code}).` }, { status: 500 });
+    }
+
     console.error("Error deleting measurement profile:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
