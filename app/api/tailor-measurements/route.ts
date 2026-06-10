@@ -125,8 +125,6 @@ export async function POST(req: NextRequest) {
       garmentType: parsed.data.garmentType,
       notes: finalNotes,
       source: "tailor_request",
-      status: "pending",
-      requestedAt: new Date(),
       profileName: sourceProfileId ? `Tailor_${sourceProfileId.slice(0, 8)}` : `Tailor_Request`,
       ...profileFields,
     },

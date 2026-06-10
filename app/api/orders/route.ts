@@ -285,7 +285,6 @@ export async function POST(req: Request) {
               profileName: `Order #${order.orderNumber}`,
               notes: unified.notes ?? '',
               source: "order",
-              status: "complete",
               // Copy all measurement fields from the unified profile
               length1: unified.length1, length2: unified.length2,
               shoulder1: unified.shoulder1, shoulder2: unified.shoulder2,

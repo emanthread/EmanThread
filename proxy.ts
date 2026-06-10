@@ -84,8 +84,25 @@ const PUBLIC_API_ROUTES = [
 // Uses NextAuth v5 auth() wrapper for edge-compatible session access.
 // Auth checks run server-side before any client JS loads.
 export default auth((req) => {
-  const { nextUrl, auth: session } = req;
+  const { nextUrl, auth: session, cookies } = req;
   const pathname = nextUrl.pathname;
+
+  // ── Set CSRF token cookie if not present (only on page navigations, not API calls) ──
+  if (!pathname.startsWith("/api/") && !pathname.startsWith("/_next/")) {
+    const csrfCookie = cookies.get("csrf-token");
+    if (!csrfCookie) {
+      const token = crypto.randomUUID();
+      const response = NextResponse.next();
+      response.cookies.set("csrf-token", token, {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        path: "/",
+        maxAge: 60 * 60 * 24,
+      });
+      return response;
+    }
+  }
 
   // ── 0. Allow public routes ──────────────────────────────────
   if (PUBLIC_ROUTES.some((r) => pathname === r || pathname.startsWith(`${r}/`))) {

@@ -7,7 +7,6 @@ import { AuthSync } from "@/components/auth-sync";
 import { ClientWidgets } from "@/app/client-widgets";
 import { getStoreConfig } from "@/lib/db-queries";
 import "./globals.css";
-import { setCsrfCookie } from "@/lib/csrf";
 
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
@@ -133,9 +132,6 @@ export default async function RootLayout({
   // Fetch tracking IDs from store config (saved via Admin → Settings → SEO)
   const config = await getStoreConfig();
   const { googleAnalyticsId, facebookPixelId } = config;
-
-  // Set CSRF token cookie for API mutation protection
-  await setCsrfCookie();
 
   return (
     <html lang="en" suppressHydrationWarning>

@@ -477,14 +477,11 @@ model MeasurementProfile {
   garmentType             String    @default("male_shalwar_kameez")
   source                  MeasurementSource @default(profile)
   deletedAt               DateTime? // M9
-  status                  MeasurementProfileStatus @default(complete)
-  requestedAt             DateTime?
   updatedAt               DateTime  @updatedAt
   user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, deletedAt, profileName])
   @@index([userId])
-  @@index([status])
   @@index([source])
   @@index([deletedAt]) // M9
   @@index([userId, deletedAt])

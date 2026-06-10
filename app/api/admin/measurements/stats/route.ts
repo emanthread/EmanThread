@@ -24,8 +24,8 @@ export async function GET() {
     ] = await Promise.all([
       prisma.measurementProfile.count({ where: adminProfileFilter() }),
       prisma.measurementProfile.count({ where: adminTailorRequestFilter() }),
-      prisma.measurementProfile.count({ where: { ...adminTailorRequestFilter(), status: "pending" } }),
-      prisma.measurementProfile.count({ where: { ...adminTailorRequestFilter(), status: "complete" } }),
+      prisma.measurementProfile.count({ where: adminTailorRequestFilter() }),
+      prisma.measurementProfile.count({ where: adminTailorRequestFilter() }),
       prisma.measurementProfile.count({ where: adminCompletedFilter() }),
     ]);
 

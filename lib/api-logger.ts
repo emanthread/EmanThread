@@ -56,7 +56,7 @@ function logRequest(entry: ApiLogEntry): void {
   } else if (entry.statusCode >= 400) {
     console.warn(logLine);
   } else {
-    console.log(logLine);
+    console.info(logLine);
   }
 }
 

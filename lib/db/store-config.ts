@@ -146,5 +146,5 @@ export async function setStoreConfig(data: StoreConfigInput) {
       })
     )
   );
-  revalidateTag("store-config");
+  revalidateTag("store-config", "default");
 }

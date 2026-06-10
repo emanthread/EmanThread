@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 
     // Use centralized filter — ensures source: "tailor_request" is always applied
     const where: Record<string, unknown> = { ...adminTailorRequestFilter() };
-    if (status) where.status = status;
+
     if (gender) where.gender = gender;
     if (garmentType) where.garmentType = garmentType;
     if (search) {
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
         include: {
           user: { select: { id: true, email: true, name: true, phone: true } },
         },
-        orderBy: { requestedAt: "desc" },
+        orderBy: { updatedAt: "desc" },
         skip: (page - 1) * limit,
         take: limit,
       }),

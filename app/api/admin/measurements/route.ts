@@ -23,9 +23,7 @@ export const GET = withLoggedAdminHandler(async (req: Request) => {
   if (garmentType && garmentType !== 'all') {
     where.garmentType = { startsWith: garmentType === 'gents' ? 'male_' : 'female_' }
   }
-  if (status && status !== 'all') {
-    where.status = status
-  }
+
   if (search) {
     where.OR = [
       { user: { name: { contains: search, mode: 'insensitive' } } },
@@ -40,7 +38,7 @@ export const GET = withLoggedAdminHandler(async (req: Request) => {
       skip: (page - 1) * limit,
       take: limit,
       include: { user: { select: { name: true, email: true } } },
-      orderBy: { requestedAt: 'desc' },
+      orderBy: { updatedAt: 'desc' },
     }),
     prisma.measurementProfile.count({ where }),
   ])

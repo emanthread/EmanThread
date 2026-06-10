@@ -41,7 +41,7 @@ export function logRequest(
   } else if (status >= 400) {
     console.warn(logLine);
   } else {
-    console.log(logLine);
+    console.info(logLine);
   }
 }
 
