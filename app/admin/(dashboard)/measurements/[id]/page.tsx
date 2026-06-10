@@ -104,7 +104,6 @@ export default function AdminTailorMeasurementDetailPage() {
   const formData: UnifiedMeasurementFormData = {
     ...mappedFormData,
     gender: (measurement.gender as "Male" | "Female") ?? "Male",
-    status: (measurement.status as "pending" | "complete") ?? "pending",
     deliveryDate: measurement.deliveryDate
       ? new Date(measurement.deliveryDate).toISOString().split("T")[0]
       : "",
