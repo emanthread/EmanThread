@@ -1,19 +1,28 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { validateUser } from "@/lib/api-guards";
+import { prisma } from "@/lib/db";
+import { requireAuth, guardErrorResponse } from "@/lib/api-guards";
+
+async function getSessionUser() {
+  try {
+    const session = await requireAuth();
+    return session.user;
+  } catch (err) {
+    return guardErrorResponse(err);
+  }
+}
 
 /**
  * GET /api/account/measurements
  * List measurement profiles for the authenticated user
  */
-export async function GET(request: NextRequest) {
-  const user = await validateUser(request);
+export async function GET(_request: NextRequest) {
+  const user = await getSessionUser();
   if (user instanceof NextResponse) return user;
 
   try {
-    const profiles = await db.measurementProfile.findMany({
+    const profiles = await prisma.measurementProfile.findMany({
       where: { userId: user.id },
-      orderBy: { createdAt: "desc" },
+      orderBy: { updatedAt: "desc" },
     });
     return NextResponse.json({ profiles });
   } catch (error) {
@@ -30,7 +39,7 @@ export async function GET(request: NextRequest) {
  * Create a new measurement profile
  */
 export async function POST(request: NextRequest) {
-  const user = await validateUser(request);
+  const user = await getSessionUser();
   if (user instanceof NextResponse) return user;
 
   try {
@@ -44,15 +53,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const profile = await db.measurementProfile.create({
+    const profile = await prisma.measurementProfile.create({
       data: {
         userId: user.id,
         profileName: name,
-        category,
         gender: category.startsWith("Men") || category.startsWith("Shirt") || category.startsWith("Prince") || category.startsWith("Simple")
           ? "Male"
           : "Female",
-        source: "manual", // User manual entry
       },
     });
 
@@ -71,7 +78,7 @@ export async function POST(request: NextRequest) {
  * Delete a measurement profile
  */
 export async function DELETE(request: NextRequest) {
-  const user = await validateUser(request);
+  const user = await getSessionUser();
   if (user instanceof NextResponse) return user;
 
   try {
@@ -81,7 +88,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Profile id is required." }, { status: 400 });
     }
 
-    await db.measurementProfile.deleteMany({
+    await prisma.measurementProfile.deleteMany({
       where: { id, userId: user.id },
     });
 
