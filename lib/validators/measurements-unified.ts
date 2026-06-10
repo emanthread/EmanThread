@@ -33,7 +33,10 @@ export const unifiedMeasurementSchema = z.object({
   // Meta
   gender: z.enum(["Male", "Female"]).default("Male"),
   garmentType: z.enum(GARMENT_TYPES).default("male_shalwar_kameez"),
-  deliveryDate: z.string().optional(),
+  deliveryDate: z.string().optional().refine(
+    (v) => !v || v === "" || !isNaN(Date.parse(v)),
+    { message: "Invalid date format" }
+  ),
   notes: z.string().max(500).default(""),
   status: z.enum(["pending", "complete"]).default("complete"),
   source: z.enum(["profile", "tailor_request", "order"]).default("profile"),
@@ -164,7 +167,9 @@ export function mapToPrismaFields(parsed: UnifiedMeasurementFormData) {
     garmentType: parsed.garmentType,
     profileName: parsed.profileName,
     notes: parsed.notes,
-    deliveryDate: parsed.deliveryDate ? new Date(parsed.deliveryDate) : undefined,
+    deliveryDate: parsed.deliveryDate && parsed.deliveryDate !== "" && !isNaN(Date.parse(parsed.deliveryDate))
+      ? new Date(parsed.deliveryDate)
+      : undefined,
     // Common
     length1: parsed.length1, length2: parsed.length2,
     shoulder1: parsed.shoulder1, shoulder2: parsed.shoulder2,
@@ -187,10 +192,13 @@ export function mapToPrismaFields(parsed: UnifiedMeasurementFormData) {
     golCb: parsed.golCb, chorasCb: parsed.chorasCb,
     baneCb: parsed.baneCb, collarCb: parsed.collarCb,
     roundneck: parsed.roundneck,
+    straightCb: parsed.straightCb,
+    downCb: parsed.downCb,
     // Pockets
     frontPocket: parsed.frontPocket,
     sidePocket: parsed.sidePocket,
     shalwarPocket: parsed.shalwarPocket,
+    zipCb: parsed.zipCb,
     // Shalwar (legacy shalwar1 maps to shalwarLength1)
     shalwar1: parsed.shalwarLength1 || "",
     shalwar2: parsed.shalwarLength2 || "",

@@ -133,7 +133,14 @@ export default function CheckoutPage() {
     fetch("/api/stitching-prices")
       .then((r) => r.json())
       .then((data) => {
-        if (data && typeof data === "object") setStitchingPriceMap(data);
+        // The API returns { male: { "shalwar kameez": 2500, ... }, female: { ... } }
+        // Flatten into a single Record<string, number> for direct lookup by fabric type
+        if (data && typeof data === "object") {
+          const flat: Record<string, number> = {};
+          if (data.male && typeof data.male === "object") Object.assign(flat, data.male);
+          if (data.female && typeof data.female === "object") Object.assign(flat, data.female);
+          setStitchingPriceMap(flat);
+        }
       })
       .catch(() => {});
     if (isAuthenticated) {

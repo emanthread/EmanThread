@@ -18,6 +18,7 @@ const createOrderSchema = z.object({
         productId: z.string().min(1, "Product ID is required"),
         quantity: z.number().int().min(1, "Quantity must be at least 1"),
         price: z.number().positive("Price must be positive"),
+        measurementProfileId: z.string().optional(),
       })
     )
     .min(1, "Cart cannot be empty"),
@@ -44,6 +45,7 @@ const createOrderSchema = z.object({
   measurementItems: z.array(z.object({
     productId: z.string(),
     productName: z.string(),
+    measurementProfileId: z.string().optional(),
   })).optional(),
 });
 
@@ -188,11 +190,29 @@ export async function POST(req: Request) {
 
     // Attach unified measurement profile to order items (server-side, all payment methods)
     if (measurementItems && measurementItems.length > 0 && userId) {
-      const { attachMeasurementToOrder } = await import('@/lib/db-queries');
-      
-      const unified = await prisma.measurementProfile.findFirst({
-        where: { userId, deletedAt: null },
-      });
+      // Wrap the entire measurement attachment in a safe try/catch to ensure
+      // that any failure here does NOT roll back the already-created order.
+      try {
+        const { attachMeasurementToOrder } = await import('@/lib/db-queries');
+
+        // Use the specific measurementProfileId from the first stitching item if provided
+        const specifiedProfileId = measurementItems.find(mi => mi.measurementProfileId)?.measurementProfileId
+          ?? items.find(i => (i as any).measurementProfileId)?.measurementProfileId;
+
+        let unified;
+        if (specifiedProfileId) {
+          unified = await prisma.measurementProfile.findFirst({
+            where: { id: specifiedProfileId, userId, deletedAt: null, source: "profile" },
+          });
+        }
+
+        // Fallback: if no specific profile specified, use the user's default (or most recent) profile
+        if (!unified) {
+          unified = await prisma.measurementProfile.findFirst({
+            where: { userId, deletedAt: null, source: "profile" },
+            orderBy: { updatedAt: 'desc' },
+          });
+        }
 
       if (unified && !unified.deletedAt) {
         // Build a flattened measurements map from the Measurement columns
@@ -261,6 +281,7 @@ export async function POST(req: Request) {
               collarnok1: unified.collarnok1, collarnok2: unified.collarnok2,
               bane1: unified.bane1, bane2: unified.bane2,
               ladHip1: unified.ladHip1, ladHip2: unified.ladHip2,
+              hip1: unified.hip1, hip2: unified.hip2,
               shalwar1: unified.shalwar1, shalwar2: unified.shalwar2,
               shalwarPancha1: unified.shalwarPancha1, shalwarPancha2: unified.shalwarPancha2,
               shalwarGherra1: unified.shalwarGherra1, shalwarGherra2: unified.shalwarGherra2,
@@ -268,13 +289,19 @@ export async function POST(req: Request) {
               trouserdata1: unified.trouserdata1, trouserdata2: unified.trouserdata2,
               trouserdata3: unified.trouserdata3, trouserdata4: unified.trouserdata4,
               trouserdata5: unified.trouserdata5,
+              trouserdata6: unified.trouserdata6, trouserdata7: unified.trouserdata7,
+              trouserdata8: unified.trouserdata8, trouserdata9: unified.trouserdata9,
+              trouserdata10: unified.trouserdata10,
               doubleCb: unified.doubleCb, singleCb: unified.singleCb,
               golCb: unified.golCb, chorasCb: unified.chorasCb,
               baneCb: unified.baneCb, collarCb: unified.collarCb,
               roundneck: unified.roundneck,
+              straightCb: unified.straightCb,
+              downCb: unified.downCb,
               frontPocket: unified.frontPocket,
               sidePocket: unified.sidePocket,
               shalwarPocket: unified.shalwarPocket,
+              zipCb: unified.zipCb,
               ladGolai1: unified.ladGolai1, ladGolai2: unified.ladGolai2,
               ladMori1: unified.ladMori1, ladMori2: unified.ladMori2,
               ladBellbazoo1: unified.ladBellbazoo1, ladBellbazoo2: unified.ladBellbazoo2,
@@ -287,6 +314,8 @@ export async function POST(req: Request) {
               ladShalwarBeltPancha1: unified.ladShalwarBeltPancha1, ladShalwarBeltPancha2: unified.ladShalwarBeltPancha2,
               ladShalwarBeltGherra1: unified.ladShalwarBeltGherra1, ladShalwarBeltGherra2: unified.ladShalwarBeltGherra2,
               ladLasticShalwarBelt: unified.ladLasticShalwarBelt,
+              ladTrouserdata15: unified.ladTrouserdata15,
+              ladTrouserdata16: unified.ladTrouserdata16,
             },
           });
         } catch (err) {
@@ -295,7 +324,16 @@ export async function POST(req: Request) {
       } else {
         console.warn(`User ${userId} requested stitching but has no measurement record.`);
       }
+    } catch (attachmentError) {
+      // Measurement attachment failed but the order was already created successfully.
+      // Log the error for debugging but do NOT rethrow — the order is valid.
+      console.error("Measurement attachment failed (order still created):", {
+        orderId: order.id,
+        userId,
+        error: attachmentError instanceof Error ? attachmentError.message : String(attachmentError),
+      });
     }
+  }
 
     // Fire-and-forget order confirmation — orchestrator handles fallback routing
     triggerNotification({

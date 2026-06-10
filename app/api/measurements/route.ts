@@ -67,6 +67,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const parsed = unifiedMeasurementSchema.parse(body);
 
+    console.log("[measurements] Creating profile:", { userId: session.user.id, profileName: parsed.profileName, garmentType: parsed.garmentType });
+
     const profile = await prisma.$transaction(async (tx) => {
       // ── Check 1: Active duplicate (soft-deleted records excluded) ──────
       const existingActive = await tx.measurementProfile.findFirst({
@@ -182,7 +184,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.error("Error creating measurement profile:", error);
+    // Detailed error logging to diagnose production issues
+    console.error("Error creating measurement profile:", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      code: error instanceof Prisma.PrismaClientKnownRequestError ? error.code : "unknown",
+      meta: error instanceof Prisma.PrismaClientKnownRequestError ? error.meta : undefined,
+      type: error?.constructor?.name ?? "unknown",
+    });
     return NextResponse.json(
       { error: "Failed to create measurement profile. Please try again." },
       { status: 500 }

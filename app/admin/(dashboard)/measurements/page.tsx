@@ -609,7 +609,7 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
                 productName: viewProfile.profileName,
                 garmentType: viewProfile.garmentType,
                 gender: viewProfile.gender,
-                measurements: viewProfile.measurements || {},
+                measurements: mapFromPrismaFields(viewProfile as unknown as Record<string, unknown>) as unknown as Record<string, string>,
                 stylingPrefs: viewProfile.stylingPrefs,
                 notes: viewProfile.notes,
               }}
@@ -675,7 +675,7 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
                 productName: printProfile.profileName,
                 garmentType: printProfile.garmentType,
                 gender: printProfile.gender,
-                measurements: printProfile.measurements || {},
+                measurements: mapFromPrismaFields(printProfile as unknown as Record<string, unknown>) as unknown as Record<string, string>,
                 stylingPrefs: printProfile.stylingPrefs,
                 notes: printProfile.notes,
               }}

@@ -18,7 +18,7 @@ import { UnifiedMeasurementForm } from "@/components/measurements/UnifiedMeasure
 import { TailorPrintCard, type TailorCardData } from "@/components/admin/tailor-print-card";
 import { getStatusBadgeClass } from "@/lib/utils/status";
 import type { UnifiedMeasurementFormData } from "@/lib/validators/measurements-unified";
-import { UNIFIED_MEASUREMENT_EMPTY, garmentTypeLabel } from "@/lib/validators/measurements-unified";
+import { UNIFIED_MEASUREMENT_EMPTY, garmentTypeLabel, mapFromPrismaFields } from "@/lib/validators/measurements-unified";
 
 interface MeasurementDetail {
   id: string;
@@ -97,9 +97,12 @@ export default function AdminTailorMeasurementDetailPage() {
 
   if (!measurement) return null;
 
-  const formData: Partial<UnifiedMeasurementFormData> = {
-    ...UNIFIED_MEASUREMENT_EMPTY,
-    ...(measurement as unknown as Partial<UnifiedMeasurementFormData>),
+  // Use mapFromPrismaFields to correctly translate legacy Prisma column names
+  // (shalwar1, trouserdata1-10, ladTrouserdata15-16) into the Zod schema keys
+  // (shalwarLength1, trouserLength1, etc.) that the A4 form expects.
+  const mappedFormData = mapFromPrismaFields(measurement as Record<string, unknown>);
+  const formData: UnifiedMeasurementFormData = {
+    ...mappedFormData,
     gender: (measurement.gender as "Male" | "Female") ?? "Male",
     status: (measurement.status as "pending" | "complete") ?? "pending",
     deliveryDate: measurement.deliveryDate
@@ -113,14 +116,17 @@ export default function AdminTailorMeasurementDetailPage() {
     phone: measurement.user.phone,
   };
 
-  // Build flat measurements record from the measurement data
-  const metaKeys = new Set([
-    "id", "userId", "user", "status", "gender", "garmentType",
-    "notes", "requestedAt", "updatedAt", "deliveryDate",
+  // Use mapFromPrismaFields to correctly translate Prisma column names
+  // (shalwar1→shalwarLength1, trouserdata1→trouserLength1, etc.) so the A4
+  // print template reads the values under the correct schema keys.
+  const mappedPrint = mapFromPrismaFields(measurement as Record<string, unknown>);
+  const printMetaKeys = new Set([
+    "gender", "garmentType", "deliveryDate", "notes", "status",
+    "source", "profileName", "isDefault", "customerName", "serialNumber",
   ]);
   const flatMeasurements: Record<string, string> = {};
-  for (const [key, val] of Object.entries(measurement)) {
-    if (!metaKeys.has(key) && typeof val === "string") {
+  for (const [key, val] of Object.entries(mappedPrint)) {
+    if (!printMetaKeys.has(key) && typeof val === "string" && val !== "") {
       flatMeasurements[key] = val;
     }
   }
