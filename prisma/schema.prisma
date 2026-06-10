@@ -230,9 +230,12 @@ model Discount {
 
 model StitchingPrice {
   id         String   @id @default(cuid())
-  fabricType String   @unique
+  fabricType String
+  gender     String   @default("Male")
   price      Decimal
   updatedAt  DateTime @updatedAt
+
+  @@unique([fabricType, gender])
 }
 
 model StoreConfig {

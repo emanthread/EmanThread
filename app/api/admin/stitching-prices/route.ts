@@ -10,6 +10,7 @@ const updateSchema = z.object({
   prices: z.array(
     z.object({
       fabricType: z.string().min(1),
+      gender: z.enum(["Male", "Female"]),
       price: z.number().positive("Price must be positive"),
     })
   ),
@@ -37,6 +38,7 @@ export async function GET() {
       prices.map((p) => ({
         id: p.id,
         fabricType: p.fabricType,
+        gender: p.gender,
         price: Number(p.price),
         updatedAt: p.updatedAt.toISOString(),
       }))
@@ -71,13 +73,14 @@ export async function PUT(req: Request) {
 
     for (const item of prices) {
       const updated = await prisma.stitchingPrice.upsert({
-        where: { fabricType: item.fabricType },
+        where: { fabricType_gender: { fabricType: item.fabricType, gender: item.gender } },
         update: { price: item.price },
-        create: { fabricType: item.fabricType, price: item.price },
+        create: { fabricType: item.fabricType, gender: item.gender, price: item.price },
       });
       updatedPrices.push({
         id: updated.id,
         fabricType: updated.fabricType,
+        gender: updated.gender,
         price: Number(updated.price),
       });
     }

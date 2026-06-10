@@ -48,7 +48,7 @@ export default function AdminSettingsPage() {
       tiktokUrl: "",
   });
 
-  const [stitchingPrices, setStitchingPrices] = useState<{ fabricType: string; price: number }[]>([]);
+  const [stitchingPrices, setStitchingPrices] = useState<{ fabricType: string; gender: string; price: number }[]>([]);
   const [stitchingSaving, setStitchingSaving] = useState(false);
 
   const [shippingSettings, setShippingSettings] = useState({
@@ -180,7 +180,7 @@ export default function AdminSettingsPage() {
         if (!res.ok) return;
         const data = await res.json();
         if (Array.isArray(data)) {
-          setStitchingPrices(data.map((p: { fabricType: string; price: number }) => ({ fabricType: p.fabricType, price: p.price })));
+          setStitchingPrices(data.map((p: { fabricType: string; gender?: string; price: number }) => ({ fabricType: p.fabricType, gender: p.gender ?? "Male", price: p.price })));
         }
       } catch {
         // silent
@@ -297,56 +297,65 @@ export default function AdminSettingsPage() {
         <TabsContent value="stitching">
           <Card>
             <CardHeader>
-              <CardTitle>Stitching Prices</CardTitle>
+              <CardTitle>Stitching Prices by Garment</CardTitle>
               <CardDescription>
-                Set the stitching service price per fabric type. Default: PKR 2,500.
+                Set the stitching service price per garment type for Male and Female. Enter any value like "2500", "3000 PKR", etc.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="overflow-x-auto">
-                <Table aria-label="Stitching prices">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Fabric Type</TableHead>
-                      <TableHead>Current Price (PKR)</TableHead>
-                      <TableHead>New Price (PKR)</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {stitchingPrices.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
-                          Loading stitching prices...
-                        </TableCell>
-                      </TableRow>
-                    )}
-                    {stitchingPrices.map((sp) => (
-                      <TableRow key={sp.fabricType}>
-                        <TableCell className="font-medium">{sp.fabricType}</TableCell>
-                        <TableCell>PKR {sp.price.toLocaleString()}</TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            value={sp.price}
-                            onChange={(e) => {
-                              const newPrice = parseInt(e.target.value) || 0;
-                              setStitchingPrices((prev) =>
-                                prev.map((p) =>
-                                  p.fabricType === sp.fabricType
-                                    ? { ...p, price: newPrice }
-                                    : p
-                                )
-                              );
-                            }}
-                            className="max-w-[150px]"
-                            min={0}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+            <CardContent className="space-y-8">
+              {(["Male", "Female"] as const).map((gender) => {
+                const genderPrices = stitchingPrices.filter((sp) => sp.gender === gender);
+                return (
+                  <div key={gender}>
+                    <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                      {gender === "Male" ? "👨" : "👩"} {gender} Garments
+                    </h3>
+                    <div className="overflow-x-auto">
+                      <Table aria-label={`${gender} stitching prices`}>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Garment Type</TableHead>
+                            <TableHead>Price</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {genderPrices.length === 0 && (
+                            <TableRow>
+                              <TableCell colSpan={2} className="text-center text-muted-foreground py-4">
+                                No prices configured yet.
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          {genderPrices.map((sp) => (
+                            <TableRow key={`${gender}-${sp.fabricType}`}>
+                              <TableCell className="font-medium">{sp.fabricType}</TableCell>
+                              <TableCell>
+                                <Input
+                                  type="text"
+                                  value={sp.price.toString()}
+                                  onChange={(e) => {
+                                    const raw = e.target.value.replace(/[^0-9]/g, "");
+                                    const newPrice = parseInt(raw) || 0;
+                                    setStitchingPrices((prev) =>
+                                      prev.map((p) =>
+                                        p.fabricType === sp.fabricType && p.gender === gender
+                                          ? { ...p, price: newPrice }
+                                          : p
+                                      )
+                                    );
+                                  }}
+                                  className="max-w-[180px]"
+                                  placeholder="e.g. 2500"
+                                />
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                );
+              })}
               <div className="flex justify-end">
                 <Button
                   onClick={async () => {

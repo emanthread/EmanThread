@@ -9,13 +9,18 @@ export async function GET() {
       orderBy: { fabricType: "asc" },
     });
 
-    // Return as a simple map: { "Cotton": 2500, "Wash & Wear": 2500, ... }
-    const priceMap: Record<string, number> = {};
+    // Group by gender: { male: { "shalwar kameez": 2500, ... }, female: { ... } }
+    const grouped: Record<string, Record<string, number>> = {
+      male: {},
+      female: {},
+    };
+
     for (const p of prices) {
-      priceMap[p.fabricType.toLowerCase()] = Number(p.price);
+      const genderKey = p.gender === "Female" ? "female" : "male";
+      grouped[genderKey][p.fabricType.toLowerCase()] = Number(p.price);
     }
 
-    return NextResponse.json(priceMap);
+    return NextResponse.json(grouped);
   } catch (error) {
     console.error("Get stitching prices error:", error);
     return NextResponse.json(

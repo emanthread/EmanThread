@@ -283,18 +283,18 @@ async function seedShippingZones() {
 // ---------------------------------------------------------------------------
 async function seedStitchingPrices() {
   const stitchingPrices = [
-    { fabricType: "Cotton", price: 2500 },
-    { fabricType: "Wash & Wear", price: 2500 },
-    { fabricType: "Boski", price: 2500 },
-    { fabricType: "Wool Blend", price: 2500 },
-    { fabricType: "Khaddar", price: 2500 },
+    { fabricType: "Cotton", gender: "Male", price: 2500 },
+    { fabricType: "Wash & Wear", gender: "Male", price: 2500 },
+    { fabricType: "Boski", gender: "Male", price: 2500 },
+    { fabricType: "Wool Blend", gender: "Male", price: 2500 },
+    { fabricType: "Khaddar", gender: "Male", price: 2500 },
   ];
 
   for (const sp of stitchingPrices) {
     await prisma.stitchingPrice.upsert({
-      where: { fabricType: sp.fabricType },
+      where: { fabricType_gender: { fabricType: sp.fabricType, gender: sp.gender } },
       update: { price: sp.price },
-      create: { fabricType: sp.fabricType, price: sp.price },
+      create: { fabricType: sp.fabricType, gender: sp.gender, price: sp.price },
     });
   }
 

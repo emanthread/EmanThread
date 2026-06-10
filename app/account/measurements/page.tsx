@@ -45,8 +45,21 @@ import {
 } from "lucide-react";
 
 interface StitchingPrices {
-  [fabric: string]: number;
+  male: Record<string, number>;
+  female: Record<string, number>;
 }
+
+// Map garment fabric type keys to human-readable labels
+const GARMENT_LABELS: Record<string, string> = {
+  "shalwar kameez": "Shalwar Kameez",
+  "simple 3 piece": "Simple 3 Piece",
+  "prince coat": "Prince Coat",
+  "shirt": "Shirt",
+  "simple shalwar": "Simple Shalwar",
+  "frock": "Frock",
+  "lehnga kurti": "Lehnga Kurti",
+  "saari": "Saari",
+};
 
 // ─── Unified Measurement Request Section ──────────────────────────────────────
 
@@ -356,7 +369,7 @@ function NewTailorRequestForm({ onSaved }: { onSaved: () => void }) {
 export default function MeasurementsPage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuthStore();
-  const [stitchingPrices, setStitchingPrices] = useState<StitchingPrices>({});
+  const [stitchingPrices, setStitchingPrices] = useState<StitchingPrices>({ male: {}, female: {} });
 
   const fetchStitchingPrices = useCallback(async () => {
     try {
@@ -392,23 +405,30 @@ export default function MeasurementsPage() {
             </div>
           </div>
 
-          {/* ── Stitching Prices ── */}
-          <div className="mb-8 bg-background rounded-lg border p-6 shadow-sm">
-            <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
-              <span className="text-primary">✂️</span> Stitching Prices by Category
-            </h2>
-            {Object.keys(stitchingPrices).length === 0 ? (
-              <div className="text-sm text-muted-foreground">Loading prices...</div>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {Object.entries(stitchingPrices).map(([fabric, price]) => (
-                  <div key={fabric} className="p-3 bg-muted/30 border rounded-md flex flex-col justify-center items-center text-center">
-                    <span className="text-sm font-medium capitalize mb-1">{fabric}</span>
-                    <span className="text-primary font-bold">{formatPrice(price)}</span>
+          {/* ── Stitching Prices by Garment ── */}
+          <div className="mb-8 space-y-6">
+            {(["male", "female"] as const).map((gender) => (
+              <div key={gender} className="bg-background rounded-lg border p-6 shadow-sm">
+                <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                  <span className="text-primary">{gender === "male" ? "👨" : "👩"}</span>{" "}
+                  {gender === "male" ? "Male" : "Female"} Garments
+                </h2>
+                {!stitchingPrices[gender] || Object.keys(stitchingPrices[gender]).length === 0 ? (
+                  <div className="text-sm text-muted-foreground">No prices configured yet.</div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {Object.entries(stitchingPrices[gender]).map(([fabric, price]) => (
+                      <div key={fabric} className="p-3 bg-muted/30 border rounded-md flex flex-col justify-center items-center text-center">
+                        <span className="text-sm font-medium mb-1">
+                          {GARMENT_LABELS[fabric] ?? fabric.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                        </span>
+                        <span className="text-primary font-bold">{formatPrice(price)}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
-            )}
+            ))}
           </div>
 
           {/* ── Measurement Profiles ── */}
