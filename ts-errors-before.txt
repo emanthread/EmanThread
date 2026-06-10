@@ -1,0 +1,19 @@
+app/admin/(dashboard)/audit-logs/page.tsx(334,28): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+app/admin/(dashboard)/audit-logs/page.tsx(353,28): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+app/admin/(dashboard)/audit-logs/page.tsx(372,28): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+app/admin/(dashboard)/audit-logs/page.tsx(377,28): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+components/admin/tailor-print-card.tsx(89,9): error TS2322: Type 'string' is not assignable to type '"male_shalwar_kameez" | "male_simple_3_piece" | "male_prince_coat" | "male_shirt" | "female_simple_shalwar" | "female_frock" | "female_saari" | "female_lehnga_kurti"'.
+tests/measurements.test.ts(1,1): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/measurements.test.ts(2,3): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/measurements.test.ts(3,3): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/measurements.test.ts(4,3): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/measurements.test.ts(7,1): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/measurements.test.ts(8,3): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/measurements.test.ts(9,3): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/measurements.test.ts(10,3): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/measurements.test.ts(11,3): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/measurements.test.ts(14,1): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/measurements.test.ts(15,3): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/measurements.test.ts(16,3): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/measurements.test.ts(17,3): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+tests/measurements.test.ts(18,3): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
