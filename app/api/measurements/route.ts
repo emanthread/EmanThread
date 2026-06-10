@@ -192,14 +192,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Detailed error logging to diagnose production issues
-    console.error("Error creating measurement profile:", {
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      code: error instanceof Prisma.PrismaClientKnownRequestError ? error.code : "unknown",
-      meta: error instanceof Prisma.PrismaClientKnownRequestError ? error.meta : undefined,
-      type: error?.constructor?.name ?? "unknown",
-    });
+    // ⚠️ FULL error logging — every field, always
+    console.error("FATAL: POST /api/measurements failed. Full details below.");
+    console.error("  message :", error instanceof Error ? error.message : String(error));
+    console.error("  name    :", error?.constructor?.name ?? "unknown");
+    if (error instanceof Error && error.stack) {
+      // Stack first line is the message, skip it since we already logged it
+      const stackLines = error.stack.split("\n").slice(1).join("\n");
+      console.error("  stack   :", stackLines);
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      console.error("  prisma  :", { code: error.code, meta: error.meta });
+    }
     return NextResponse.json(
       { error: "Failed to create measurement profile. Please try again." },
       { status: 500 }
