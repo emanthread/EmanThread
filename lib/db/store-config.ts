@@ -146,6 +146,5 @@ export async function setStoreConfig(data: StoreConfigInput) {
       })
     )
   );
-  // @ts-expect-error - Next.js 16 requires 2 arguments for revalidateTag in some configs
-  revalidateTag("store-config", undefined);
+  revalidateTag("store-config");
 }

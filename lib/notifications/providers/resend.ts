@@ -8,7 +8,7 @@ import type { NotificationPayload, SendResult } from "../types";
 
 export class ResendProvider extends NotificationProvider {
   readonly channel = "email";
-  private client: Resend;
+  private client: Resend | null;
 
   constructor() {
     super();
@@ -17,7 +17,6 @@ export class ResendProvider extends NotificationProvider {
       this.client = new Resend(resendConfig.apiKey);
     } else {
       console.warn("[ResendProvider] Missing RESEND_API_KEY — emails disabled");
-      // @ts-expect-error stub for missing credentials
       this.client = null;
     }
   }
