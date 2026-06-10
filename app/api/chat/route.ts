@@ -6,6 +6,7 @@ import { auth } from '@/auth'
 import { CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT_URDU } from '@/lib/chat-system-prompt'
 import { getDBContextForMessage, getStructuredChatData } from '@/lib/chat-db-search'
 import { checkRateLimit } from '@/lib/rate-limiter'
+import { validateCsrf } from '@/lib/csrf'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,6 +51,13 @@ export async function POST(request: Request) {
       { reply: "Chat is temporarily unavailable. Please contact us on WhatsApp." },
       { status: 200 }
     )
+  }
+
+  // ── CSRF protection ────────────────────────────────────────────
+  try {
+    await validateCsrf(request)
+  } catch {
+    return NextResponse.json({ error: 'Forbidden: invalid CSRF token' }, { status: 403 })
   }
 
   // ── Rate limiting ──────────────────────────────────────────────

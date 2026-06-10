@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { validateCsrf } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,7 @@ export async function PUT(
   }
 
   try {
+    await validateCsrf(req);
     const body = await req.json();
     const result = updateAddressSchema.safeParse(body);
 
@@ -70,12 +72,18 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    await validateCsrf(req);
+  } catch {
+    return NextResponse.json({ error: "Forbidden: invalid CSRF token" }, { status: 403 });
   }
 
   const { id } = await params;

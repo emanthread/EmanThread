@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sanitizeDbError } from '@/lib/utils/errors';
+import { validateCsrf } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +62,7 @@ export async function PUT(req: Request) {
   }
 
   try {
+    await validateCsrf(req);
     const body = await req.json();
     const result = updateProfileSchema.safeParse(body);
 

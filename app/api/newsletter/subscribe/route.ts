@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { subscribeToNewsletter } from "@/lib/db-queries";
 import { checkRateLimit } from "@/lib/rate-limiter";
+import { validateCsrf } from "@/lib/csrf";
 
 const subscribeSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -33,6 +34,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    await validateCsrf(request);
     const body = await request.json();
     const result = subscribeSchema.safeParse(body);
 

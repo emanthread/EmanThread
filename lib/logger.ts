@@ -5,6 +5,7 @@
 import { auth } from "@/auth";
 import { checkRateLimit, getRateLimitFor, type RateLimitConfig } from "./rate-limiter";
 import { getClientIp } from "./api-logger";
+import { validateCsrf } from "./csrf";
 
 export interface LogEntry {
   ts: string;
@@ -79,6 +80,16 @@ export function withLoggedAdminHandler(
       return Response.json(
         { error: "Too many requests. Please try again later." },
         { status: 429, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // CSRF protection for mutation methods
+    try {
+      await validateCsrf(req);
+    } catch {
+      return Response.json(
+        { error: "Forbidden: invalid CSRF token" },
+        { status: 403, headers: { "Content-Type": "application/json" } }
       );
     }
 

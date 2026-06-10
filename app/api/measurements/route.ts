@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { unifiedMeasurementSchema, mapToPrismaFields } from "@/lib/validators/measurements-unified";
 import { Prisma } from "@prisma/client";
+import { validateCsrf } from "@/lib/csrf";
 
 /**
  * GET /api/measurements
@@ -57,6 +58,7 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
   try {
+    await validateCsrf(request);
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -179,6 +181,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "A profile with this name already exists" },
         { status: 409 }
+      );
+    }
+
+    // CSRF validation failure — return 403, not 500
+    if (error instanceof Error && error.message === "CSRF validation failed") {
+      return NextResponse.json(
+        { error: "Forbidden: invalid CSRF token" },
+        { status: 403 }
       );
     }
 

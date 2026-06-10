@@ -4,6 +4,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { triggerNotification } from "@/lib/notifications";
 import { sanitizeDbError } from '@/lib/utils/errors';
+import { validateCsrf } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ const sendSchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    await validateCsrf(req);
     const session = await auth();
     if (!session?.user || !isAdminRole(session.user.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

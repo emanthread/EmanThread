@@ -1,35 +1,24 @@
 // ── CSRF Protection: Double-Submit Cookie Pattern ────────────────────
 // Uses SameSite=Strict cookies + custom header validation.
 // Every mutation API route should call validateCsrf() on POST/PUT/DELETE.
+// CSRF cookie is set by the middleware (proxy.ts) on page navigations.
+//
+// Strategy:
+//  1. If x-csrf-token header is present → require exact match with cookie (double-submit).
+//  2. If no header (standard browser fetch) → verify same-origin via Origin/Referer.
+//     The SameSite=Strict cookie already proves same-site navigation;
+//     Origin/Referer prevents cross-origin form submissions.
+//  This allows native browser fetch() calls to pass CSRF without manually
+//  reading the cookie and injecting it as a header.
 
 import { cookies } from "next/headers";
-import { randomUUID } from "crypto";
 
 const CSRF_COOKIE_NAME = "csrf-token";
 const CSRF_HEADER_NAME = "x-csrf-token";
 
 /**
- * Set the CSRF token cookie on the response.
- * Call this on page load (e.g., in layout.tsx or middleware).
- */
-export async function setCsrfCookie(): Promise<void> {
-  const cookieStore = await cookies();
-  const existing = cookieStore.get(CSRF_COOKIE_NAME);
-  if (!existing) {
-    const token = randomUUID();
-    cookieStore.set(CSRF_COOKIE_NAME, token, {
-      httpOnly: false,  // Must be readable by JS to send as header
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/",
-      maxAge: 60 * 60 * 24, // 24 hours
-    });
-  }
-}
-
-/**
- * Validate that the CSRF token in the request header matches the cookie.
- * Throws with 403 if invalid.
+ * Validate that the request originates from the same site and is not a
+ * cross-origin forgery.  Throws with 403 if validation fails.
  * 
  * Usage in API routes:
  *   import { validateCsrf } from "@/lib/csrf";
@@ -43,9 +32,34 @@ export async function validateCsrf(request: Request): Promise<void> {
 
   const cookieStore = await cookies();
   const cookieToken = cookieStore.get(CSRF_COOKIE_NAME)?.value;
-  const headerToken = request.headers.get(CSRF_HEADER_NAME);
 
-  if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+  // ── Path 1: Explicit x-csrf-token header (double-submit) ────────────
+  const headerToken = request.headers.get(CSRF_HEADER_NAME);
+  if (headerToken) {
+    if (!cookieToken || cookieToken !== headerToken) {
+      throw new Error("CSRF validation failed");
+    }
+    return;
+  }
+
+  // ── Path 2: Standard browser fetch (no custom header) ──────────────
+  // Rely on SameSite=Strict cookie + Origin/Referer same-origin check.
+  const origin = request.headers.get("origin");
+  const referer = request.headers.get("referer");
+
+  const url = new URL(request.url);
+  const siteOrigin = `${url.protocol}//${url.host}`;
+
+  const isSameOrigin =
+    (origin != null && origin === siteOrigin) ||
+    (referer != null && referer.startsWith(siteOrigin));
+
+  if (!isSameOrigin) {
+    throw new Error("CSRF validation failed");
+  }
+
+  // Same-origin with cookie present → legitimate browser request
+  if (!cookieToken) {
     throw new Error("CSRF validation failed");
   }
 }

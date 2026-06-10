@@ -4,6 +4,7 @@ import { createAuditLog } from "@/lib/db-queries";
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { validateCsrf } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,11 @@ const changePasswordSchema = z.object({
 
 export async function PUT(req: Request) {
   const session = await auth();
+  try {
+    await validateCsrf(req);
+  } catch {
+    return NextResponse.json({ error: "Forbidden: invalid CSRF token" }, { status: 403 });
+  }
 
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -60,7 +60,9 @@ async function seedAdminUsers() {
     create: {
       email: "emanthread@gmail.com",
       name: "Eman Thread Admin",
-      passwordHash: await bcrypt.hash(process.env.ADMIN_INITIAL_PASSWORD || "Eman456@", 12),
+      passwordHash: process.env.ADMIN_INITIAL_PASSWORD
+        ? await bcrypt.hash(process.env.ADMIN_INITIAL_PASSWORD, 12)
+        : (() => { throw new Error("[seed] ADMIN_INITIAL_PASSWORD env var is required. Set it before running seed."); })(),
       role: "ADMIN",
       isVerified: true,
     },
@@ -77,7 +79,9 @@ async function seedAdminUsers() {
       data: {
         name: "Admin User",
         email: "admin@emanthread.com",
-        passwordHash: await bcrypt.hash("admin123", 12),
+        passwordHash: process.env.ADMIN_INITIAL_PASSWORD
+          ? await bcrypt.hash(process.env.ADMIN_INITIAL_PASSWORD, 12)
+          : (() => { throw new Error("[seed] ADMIN_INITIAL_PASSWORD env var is required."); })(),
         phone: "+92 300 1234567",
         role: "ADMIN",
         isVerified: true,

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { generateToken, sendVerificationEmail } from "@/lib/email";
+import { validateCsrf } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,7 @@ const resendSchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    await validateCsrf(req);
     const body = await req.json();
     const result = resendSchema.safeParse(body);
 

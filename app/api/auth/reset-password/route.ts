@@ -3,6 +3,7 @@ import { createAuditLog } from "@/lib/db-queries";
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { validateCsrf } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ const resetPasswordSchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    await validateCsrf(req);
     const body = await req.json();
     const result = resetPasswordSchema.safeParse(body);
 

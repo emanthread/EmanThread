@@ -5,11 +5,13 @@ import { createReturnRequestSchema } from "@/lib/validators/returns";
 import { triggerNotification } from "@/lib/notifications";
 import { prisma } from "@/lib/db";
 import { sanitizeDbError } from '@/lib/utils/errors';
+import { validateCsrf } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
+    await validateCsrf(req);
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

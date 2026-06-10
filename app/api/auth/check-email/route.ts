@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { validateCsrf } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: Request) {
   try {
+    await validateCsrf(req);
     const { email } = await req.json();
 
     if (!email || typeof email !== "string") {

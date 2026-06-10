@@ -3,6 +3,7 @@ import { auth } from '@/auth'
 import { attachMeasurementToOrder, getOrderById } from '@/lib/db-queries'
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
+import { validateCsrf } from '@/lib/csrf'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +17,7 @@ const attachSchema = z.object({
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   try {
+    await validateCsrf(request)
     const { id: orderId } = await params
     const body = await request.json()
     const parsed = attachSchema.safeParse(body)

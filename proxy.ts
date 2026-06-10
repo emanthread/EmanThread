@@ -8,10 +8,16 @@ import { isStaffRole } from "@/lib/permissions";
 const RATE_LIMITS: Record<string, { limit: number; windowMs: number }> = {
   "/api/auth/register": { limit: 5, windowMs: 60_000 },
   "/api/auth/callback/credentials": { limit: 10, windowMs: 60_000 },
+  "/api/auth/forgot-password": { limit: 3, windowMs: 60_000 },
+  "/api/auth/reset-password": { limit: 5, windowMs: 60_000 },
+  "/api/auth/resend-verification": { limit: 3, windowMs: 60_000 },
   "/api/orders": { limit: 20, windowMs: 60_000 },
   "/api/payments/initiate": { limit: 5, windowMs: 60_000 },
   "/api/products": { limit: 100, windowMs: 60_000 },
-  "/api/chat": { limit: 20, windowMs: 60_000 }, // 20 messages/min per IP
+  "/api/chat": { limit: 20, windowMs: 60_000 },
+  "/api/returns": { limit: 10, windowMs: 60_000 },
+  "/api/user/change-password": { limit: 5, windowMs: 60_000 },
+  "/api/products/reviews": { limit: 10, windowMs: 60_000 },
 };
 
 interface RateLimitBucket {

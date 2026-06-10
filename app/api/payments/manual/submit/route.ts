@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db'
 import { createManualPaymentSubmission } from '@/lib/db-queries'
 import { sendAdminPaymentAlert } from '@/lib/notifications/admin-alerts'
 import { FEATURE_FLAGS } from '@/lib/feature-flags'
+import { validateCsrf } from '@/lib/csrf'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,6 +19,7 @@ const schema = z.object({
 
 export async function POST(request: Request) {
   try {
+    await validateCsrf(request)
     const session = await auth()
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

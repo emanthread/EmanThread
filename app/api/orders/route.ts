@@ -168,7 +168,10 @@ export async function POST(req: Request) {
         }, 0)
       : 0;
       
-    const finalStitchingFee = stitchingFee ?? calculatedStitchingFee;
+    // Always use server-calculated stitching fee — never trust the client.
+    // The `stitchingFee` field in the request body is accepted for backward
+    // compatibility but is ignored; the fee is recomputed from stitchingItems.
+    const finalStitchingFee = calculatedStitchingFee;
 
     const grandTotal = Math.max(0, subtotal + shippingCost - discountAmount + finalStitchingFee);
 
@@ -240,6 +243,7 @@ export async function POST(req: Request) {
         const metaFields = new Set([
           'id', 'userId', 'gender', 'garmentType', 'notes', 'status',
           'requestedAt', 'updatedAt', 'deletedAt', 'deliveryDate',
+          'source', 'createdAt', 'profileName', 'isDefault',
         ]);
         const measurementFields: Record<string, string> = {};
         for (const [key, val] of Object.entries(unified)) {

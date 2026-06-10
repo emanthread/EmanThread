@@ -10,6 +10,13 @@ import { z } from "zod";
  *
  * Each measurement field stores a simple string value (e.g., "42", "42 1/2")
  * matching the blank-line input style of the A4 measurement forms.
+ *
+ * NOTE: The `status` field was intentionally removed from this schema.
+ * The Prisma MeasurementProfile model has no `status` column — measurement
+ * status is inferred from the `source` field:
+ *   - source: "profile"       → complete (user-managed)
+ *   - source: "tailor_request" → pending until admin fills measurements
+ *   - source: "order"          → complete (snapshot at order time)
  */
 export const GARMENT_TYPES = [
   "male_shalwar_kameez",
@@ -38,7 +45,6 @@ export const unifiedMeasurementSchema = z.object({
     { message: "Invalid date format" }
   ),
   notes: z.string().max(500).default(""),
-  status: z.enum(["pending", "complete"]).default("complete"),
   source: z.enum(["profile", "tailor_request", "order"]).default("profile"),
   profileName: z.string().min(1, "Profile name is required").max(100).default("Default"),
   isDefault: z.boolean().default(false),
@@ -295,7 +301,6 @@ export const UNIFIED_MEASUREMENT_EMPTY: UnifiedMeasurementFormData = {
   garmentType: "male_shalwar_kameez",
   deliveryDate: "",
   notes: "",
-  status: "complete",
   source: "profile",
   profileName: "Default",
   isDefault: false,

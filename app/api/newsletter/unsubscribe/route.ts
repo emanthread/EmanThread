@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { unsubscribeFromNewsletter } from "@/lib/db-queries";
+import { validateCsrf } from "@/lib/csrf";
 
 const unsubscribeSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -8,6 +9,7 @@ const unsubscribeSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    await validateCsrf(request);
     const body = await request.json();
     const result = unsubscribeSchema.safeParse(body);
 
