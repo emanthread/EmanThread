@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // P2002 = Prisma unique constraint violation (safety net)
+    // ── Prisma unique constraint violation (safety net) ──
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json(
         { error: "A profile with this name already exists" },
@@ -184,7 +184,72 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // CSRF validation failure — return 403, not 500
+    // ── Prisma foreign key violation (e.g. invalid userId) ──
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+      console.error("P2003: Foreign key violation for measurements profile:",
+        { meta: error.meta });
+      return NextResponse.json(
+        { error: "Failed to create profile: referenced record not found." },
+        { status: 500 }
+      );
+    }
+
+    // ── Prisma "record not found" (e.g. update on non-existent row) ──
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      console.error("P2025: Record not found in measurements transaction:",
+        { meta: error.meta });
+      return NextResponse.json(
+        { error: "Failed to create profile: related record not found." },
+        { status: 500 }
+      );
+    }
+
+    // ── Prisma transaction conflict / serialisation error ──
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") {
+      console.error("P2034: Transaction conflict in measurements — retry recommended");
+      return NextResponse.json(
+        { error: "A conflict occurred. Please try again." },
+        { status: 409 }
+      );
+    }
+
+    // ── Any other Prisma known error with a code ──
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      console.error("Unhandled Prisma error code", error.code, ":", error.meta);
+      return NextResponse.json(
+        { error: `Database error (${error.code}). Please try again.` },
+        { status: 500 }
+      );
+    }
+
+    // ── Prisma validation error (field mismatch, etc.) ──
+    if (error instanceof Prisma.PrismaClientValidationError) {
+      console.error("Prisma validation error in measurements POST:", error.message);
+      return NextResponse.json(
+        { error: `Data validation error. Please check your inputs.` },
+        { status: 400 }
+      );
+    }
+
+    // ── Prisma initialisation / connection error ──
+    if (error instanceof Prisma.PrismaClientInitializationError) {
+      console.error("Prisma init error in measurements POST:", error.message);
+      return NextResponse.json(
+        { error: "Database connection error. Please try again later." },
+        { status: 503 }
+      );
+    }
+
+    // ── Prisma Rust panic ──
+    if (error instanceof Prisma.PrismaClientRustPanicError) {
+      console.error("Prisma Rust panic in measurements POST:", error.message);
+      return NextResponse.json(
+        { error: "Internal database engine error. Please try again." },
+        { status: 500 }
+      );
+    }
+
+    // ── CSRF validation failure — return 403, not 500 ──
     if (error instanceof Error && error.message === "CSRF validation failed") {
       return NextResponse.json(
         { error: "Forbidden: invalid CSRF token" },
@@ -204,8 +269,15 @@ export async function POST(request: NextRequest) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       console.error("  prisma  :", { code: error.code, meta: error.meta });
     }
+
+    // Dev-friendly debug info
+    const isDev = process.env.NODE_ENV === "development";
+    const devDetail = isDev && error instanceof Error
+      ? ` [${error.name}: ${error.message}]`
+      : "";
+
     return NextResponse.json(
-      { error: "Failed to create measurement profile. Please try again." },
+      { error: `Failed to create measurement profile. Please try again.${devDetail}` },
       { status: 500 }
     );
   }
