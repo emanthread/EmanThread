@@ -39,11 +39,29 @@ const websiteJsonLd = {
   "@type": "WebSite",
   "name": "Eman Thread",
   "url": siteUrl,
+  "image": `${siteUrl}/logo-circle.png`,
   "potentialAction": {
     "@type": "SearchAction",
     "target": `${siteUrl}/shop?q={search_term_string}`,
     "query-input": "required name=search_term_string"
   }
+};
+
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Eman Thread",
+  "url": siteUrl,
+  "logo": `${siteUrl}/logo-circle.png`,
+  "image": `${siteUrl}/logo-circle.png`,
+  "description":
+    "Discover the finest collection of premium men's unstitched fabrics. The Style Never Dies.",
+  "sameAs": [
+    "https://www.facebook.com/emanthread",
+    "https://www.instagram.com/emanthread",
+    "https://www.youtube.com/@emanthread",
+    "https://www.tiktok.com/@emanthread",
+  ],
 };
 
 export const metadata: Metadata = {
@@ -64,8 +82,9 @@ export const metadata: Metadata = {
   ],
   metadataBase: new URL(siteUrl),
   icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
+    icon: "/favicon.ico",
+    shortcut: "/favicon-32.png",
+    apple: "/favicon-192.png",
   },
   manifest: "/manifest.json",
   openGraph: {
@@ -78,7 +97,7 @@ export const metadata: Metadata = {
       "Discover the finest collection of premium men's unstitched fabrics. The Style Never Dies.",
     images: [
       {
-        url: "/logo-circle.jpg",
+        url: "/logo-circle.png",
         width: 512,
         height: 512,
         alt: "Eman Thread Logo",
@@ -90,7 +109,7 @@ export const metadata: Metadata = {
     title: "Eman Thread | Premium Unstitched Fabrics",
     description:
       "Discover the finest collection of premium men's unstitched fabrics. The Style Never Dies.",
-    images: ["/logo-circle.jpg"],
+    images: ["/logo-circle.png"],
   },
 };
 
@@ -146,6 +165,14 @@ export default async function RootLayout({
           id="website-jsonld"
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+          strategy="beforeInteractive"
+        />
+
+        {/* Organization JSON-LD — tells Google which logo to show in Knowledge Graph / SERPs */}
+        <Script
+          id="organization-jsonld"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
           strategy="beforeInteractive"
         />
 

@@ -235,6 +235,8 @@ export default function CheckoutPage() {
           productId: item.product.id,
           quantity: item.quantity,
           price: item.product.price,
+          stitchingProfileId: item.stitchingProfileId && item.stitchingProfileId !== "none" ? item.stitchingProfileId : undefined,
+          measurementProfileId: item.stitchingProfileId && item.stitchingProfileId !== "none" ? item.stitchingProfileId : undefined,
         })),
         shippingAddress: {
           firstName: formData.firstName, lastName: formData.lastName,
@@ -505,40 +507,41 @@ export default function CheckoutPage() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium line-clamp-1">{item.product.name}</p>
                             <p className="text-xs text-muted-foreground">{item.product.fabricType}</p>
-                            {isAuthenticated ? (
-                              <select
-                                value={item.stitchingProfileId && item.stitchingProfileId !== "none" ? item.stitchingProfileId : "none"}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  if (val === "none" || val === "create_new") {
-                                    if (val === "create_new") {
-                                      router.push("/account/measurements");
-                                      return;
-                                    }
-                                    updateStitching(item.product.id, { price: null, profileId: null, profileName: null });
-                                  } else {
-                                    const profile = measurementProfiles.find((p) => p.id === val);
-                                    const price = stitchingPriceMap[item.product.fabricType.toLowerCase()] ?? DEFAULT_STITCHING_FEE;
-                                    updateStitching(item.product.id, {
-                                      price,
-                                      profileId: val,
-                                      profileName: profile?.profileName ?? "Stitching Required"
-                                    });
+                            <select
+                              value={item.stitchingProfileId && item.stitchingProfileId !== "none" ? item.stitchingProfileId : "none"}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === "none" || val === "create_new") {
+                                  if (val === "create_new") {
+                                    router.push("/account/measurements");
+                                    return;
                                   }
-                                }}
-                                className="w-full text-xs border border-border rounded-md px-2 py-1 bg-background mt-1"
-                              >
-                                <option value="none">No Stitching</option>
-                                {measurementProfiles.length === 0 ? (
-                                  <option value="" disabled>No profiles yet</option>
-                                ) : (
-                                  measurementProfiles.map((p) => (
-                                    <option key={p.id} value={p.id}>{p.profileName}</option>
-                                  ))
-                                )}
-                                <option value="create_new">+ Create New Profile</option>
-                              </select>
-                            ) : null}
+                                  updateStitching(item.product.id, { price: null, profileId: null, profileName: null });
+                                } else {
+                                  const profile = measurementProfiles.find((p) => p.id === val);
+                                  const price = stitchingPriceMap[item.product.fabricType.toLowerCase()] ?? DEFAULT_STITCHING_FEE;
+                                  updateStitching(item.product.id, {
+                                    price,
+                                    profileId: val,
+                                    profileName: profile?.profileName ?? "Stitching Required"
+                                  });
+                                }
+                              }}
+                              className="w-full text-xs border border-border rounded-md px-2 py-1 bg-background mt-1"
+                            >
+                              <option value="none">No Stitching</option>
+                              {!isAuthenticated && (
+                                <option value="" disabled>Login to see saved profiles</option>
+                              )}
+                              {isAuthenticated && measurementProfiles.length === 0 ? (
+                                <option value="" disabled>No profiles yet</option>
+                              ) : (
+                                measurementProfiles.map((p) => (
+                                  <option key={p.id} value={p.id}>{p.profileName}</option>
+                                ))
+                              )}
+                              <option value="create_new">+ Create New Profile</option>
+                            </select>
                           </div>
                           <p className="text-sm font-medium shrink-0">{formatPrice(item.product.price * item.quantity)}</p>
                         </div>
