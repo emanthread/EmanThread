@@ -29,12 +29,11 @@ export async function POST(
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
-    // Use a transaction: reset all defaults for this garmentType, then set the new one
+    // Use a transaction: reset all defaults globally, then set the new one
     await prisma.$transaction([
       prisma.measurementProfile.updateMany({
         where: {
           userId: session.user.id,
-          garmentType: profile.garmentType,
           deletedAt: null,
         },
         data: { isDefault: false },

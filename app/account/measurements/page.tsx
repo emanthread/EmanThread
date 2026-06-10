@@ -228,12 +228,11 @@ function NewTailorRequestForm({ onSaved }: { onSaved: () => void }) {
     })();
   }, []);
 
-  // When a profile is selected, auto-derive gender & garmentType from it
+  // When a profile is selected, auto-derive garmentType from it
   const handleProfileChange = (profileId: string) => {
     setSelectedProfileId(profileId);
     const profile = profiles.find((p) => p.id === profileId);
     if (profile) {
-      setGender(profile.gender as "Male" | "Female");
       setGarmentType(profile.garmentType);
     }
   };

@@ -109,7 +109,6 @@ export async function POST(request: NextRequest) {
           await tx.measurementProfile.updateMany({
             where: {
               userId: session.user.id,
-              garmentType: parsed.garmentType,
               deletedAt: null,
             },
             data: { isDefault: false },
@@ -140,7 +139,6 @@ export async function POST(request: NextRequest) {
         await tx.measurementProfile.updateMany({
           where: {
             userId: session.user.id,
-            garmentType: parsed.garmentType,
             deletedAt: null,
           },
           data: { isDefault: false },

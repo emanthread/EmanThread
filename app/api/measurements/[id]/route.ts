@@ -82,13 +82,11 @@ export async function PUT(
       }
     }
 
-    // If setting as default, unset others for same garmentType
+    // If setting as default, unset all other defaults globally
     if (parsed.isDefault) {
-      const garmentType = parsed.garmentType || profile.garmentType;
       await prisma.measurementProfile.updateMany({
         where: {
           userId: session.user.id,
-          garmentType,
           id: { not: id },
           deletedAt: null,
         },
