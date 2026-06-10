@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
+import { getProductImage } from "@/lib/utils";
 import { useCartStore } from "@/lib/cart-store";
 import { formatPrice } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,16 @@ import {
   Building2,
   Landmark,
 } from "lucide-react";
+
+interface PaymentDetails {
+  nayapayAccount: string;
+  nayapayName: string;
+  nayapayPhone: string;
+  meezanIban: string;
+  meezanAccountName: string;
+  meezanBranch: string;
+  meezanAccountNumber: string;
+}
 import { useAuthStore } from "@/lib/auth-store";
 import { FEATURE_FLAGS, DEFAULT_STITCHING_FEE } from "@/lib/feature-flags";
 
@@ -66,6 +77,16 @@ export default function CheckoutPage() {
   const [couponCode, setCouponCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState<number | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
+
+  // Payment account details — fetched server-side, never in the client bundle
+  const [paymentDetails, setPaymentDetails] = useState<PaymentDetails | null>(null);
+
+  useEffect(() => {
+    fetch("/api/store/payment-details")
+      .then((r) => r.json())
+      .then((data) => { if (!data.error) setPaymentDetails(data); })
+      .catch(() => {}); // Silently fail — UI shows fallback if null
+  }, []);
   const [couponLoading, setCouponLoading] = useState(false);
   const [stitchingPriceMap, setStitchingPriceMap] = useState<Record<string, number>>({});
   const [transactionId, setTransactionId] = useState('');
@@ -81,7 +102,16 @@ export default function CheckoutPage() {
   const [estimatedDays, setEstimatedDays] = useState("3-5 business days");
   const [zoneName, setZoneName] = useState("");
 
-  const freeShippingThreshold = 5000;
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState(5000);
+
+  useEffect(() => {
+    fetch("/api/store/public")
+      .then((r) => r.ok ? r.json() : Promise.resolve(null))
+      .then((data) => {
+        if (data?.freeShippingThreshold) setFreeShippingThreshold(data.freeShippingThreshold);
+      })
+      .catch(() => {}); // fallback to 5000 default
+  }, []);
   const grandTotal = selectedTotal + shippingCost + stitchingTotal - (appliedDiscount || 0);
   // When stitching is selected:
   //   Pay now (bank transfer): selectedTotal - discount (fabric only)
@@ -420,14 +450,14 @@ export default function CheckoutPage() {
                         <input type="radio" name="pay" value="nayapay" checked={paymentMethod === "nayapay"} onChange={(e) => setPaymentMethod(e.target.value)} className="mt-1" />
                         <div className="flex-1">
                           <div className="flex items-center gap-2"><Building2 className="h-5 w-5 text-muted-foreground" /><span className="font-medium text-sm">Nayapay</span><span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Instant Transfer</span></div>
-                          {paymentMethod === "nayapay" && <div className="mt-3 p-3 bg-muted rounded-lg text-sm space-y-1"><p className="font-medium">Transfer to:</p><p>📱 NayaPay ID: <span className="font-mono font-semibold">{FEATURE_FLAGS.NAYAPAY_ACCOUNT_NUMBER}</span></p><p>👤 Name: <span className="font-semibold">{FEATURE_FLAGS.NAYAPAY_ACCOUNT_NAME}</span></p><p>📞 Mobile: <span className="font-semibold">{FEATURE_FLAGS.NAYAPAY_PHONE}</span></p><p className="text-xs text-muted-foreground mt-2">Send <strong>PKR {upfrontAmount.toFixed(0)}</strong> and enter the transaction ID below.{hasStitchingSelected && <span className="block text-amber-600">PKR {dueOnDelivery.toFixed(0)} (shipping + stitching) is due on delivery.</span>}</p></div>}
+                          {paymentMethod === "nayapay" && <div className="mt-3 p-3 bg-muted rounded-lg text-sm space-y-1"><p className="font-medium">Transfer to:</p><p>📱 NayaPay ID: <span className="font-mono font-semibold">{paymentDetails?.nayapayAccount ?? "..."}</span></p><p>👤 Name: <span className="font-semibold">{paymentDetails?.nayapayName ?? "..."}</span></p><p>📞 Mobile: <span className="font-semibold">{paymentDetails?.nayapayPhone ?? "..."}</span></p><p className="text-xs text-muted-foreground mt-2">Send <strong>PKR {upfrontAmount.toFixed(0)}</strong> and enter the transaction ID below.{hasStitchingSelected && <span className="block text-amber-600">PKR {dueOnDelivery.toFixed(0)} (shipping + stitching) is due on delivery.</span>}</p></div>}
                         </div>
                       </label>
                       <label className={cn("flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors", paymentMethod === "meezan_bank" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50")}>
                         <input type="radio" name="pay" value="meezan_bank" checked={paymentMethod === "meezan_bank"} onChange={(e) => setPaymentMethod(e.target.value)} className="mt-1" />
                         <div className="flex-1">
                           <div className="flex items-center gap-2"><Landmark className="h-5 w-5 text-muted-foreground" /><span className="font-medium text-sm">Meezan Bank</span><span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Bank Transfer</span></div>
-                          {paymentMethod === "meezan_bank" && <div className="mt-3 p-3 bg-muted rounded-lg text-sm space-y-1"><p className="font-medium">Transfer to:</p><p>🏦 Account #: <span className="font-mono font-semibold">{FEATURE_FLAGS.MEEZAN_ACCOUNT_NUMBER}</span></p><p>🏦 IBAN: <span className="font-mono font-semibold">{FEATURE_FLAGS.MEEZAN_IBAN}</span></p><p>👤 Name: <span className="font-semibold">{FEATURE_FLAGS.MEEZAN_ACCOUNT_NAME}</span></p><p className="text-xs text-muted-foreground mt-2">Send <strong>PKR {upfrontAmount.toFixed(0)}</strong> and enter the transaction ID below.{hasStitchingSelected && <span className="block text-amber-600">PKR {dueOnDelivery.toFixed(0)} (shipping + stitching) is due on delivery.</span>}</p></div>}
+                          {paymentMethod === "meezan_bank" && <div className="mt-3 p-3 bg-muted rounded-lg text-sm space-y-1"><p className="font-medium">Transfer to:</p><p>🏦 Account #: <span className="font-mono font-semibold">{paymentDetails?.meezanAccountNumber ?? "..."}</span></p><p>🏦 IBAN: <span className="font-mono font-semibold">{paymentDetails?.meezanIban ?? "..."}</span></p><p>👤 Name: <span className="font-semibold">{paymentDetails?.meezanAccountName ?? "..."}</span></p><p className="text-xs text-muted-foreground mt-2">Send <strong>PKR {upfrontAmount.toFixed(0)}</strong> and enter the transaction ID below.{hasStitchingSelected && <span className="block text-amber-600">PKR {dueOnDelivery.toFixed(0)} (shipping + stitching) is due on delivery.</span>}</p></div>}
                         </div>
                       </label>
                     </div>
@@ -469,7 +499,7 @@ export default function CheckoutPage() {
                         <div key={item.product.id} className={cn("flex items-start gap-3 pb-3 border-b border-border last:border-0 transition-opacity", !isSelected && "opacity-50")}>
                           <Checkbox checked={isSelected} onCheckedChange={() => toggleItem(item.product.id)} className="mt-4" />
                           <div className="relative w-14 h-16 bg-secondary rounded overflow-hidden shrink-0">
-                            <Image src={item.product.images[0]} alt={item.product.name} fill className="object-cover" />
+                            <Image src={getProductImage(item.product.images)} alt={item.product.name} fill className="object-cover" sizes="80px" />
                             <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">{item.quantity}</span>
                           </div>
                           <div className="flex-1 min-w-0">

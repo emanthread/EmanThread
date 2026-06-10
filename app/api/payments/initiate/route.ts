@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { auth } from "@/auth";
 import { getProvider } from "@/lib/payments";
 import {
   createPaymentTransaction,
   updateOrderPaymentStatus,
 } from "@/lib/db-queries";
 import { prisma } from "@/lib/db";
+import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +19,11 @@ const initiateSchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
     const result = initiateSchema.safeParse(body);
 
@@ -36,6 +43,11 @@ export async function POST(req: Request) {
 
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    // Ownership check — users can only pay for their own orders
+    if (order.userId !== session.user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Only allow initiation for non-COD methods
@@ -101,8 +113,7 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error("Payment initiate error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 }

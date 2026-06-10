@@ -5,6 +5,7 @@ import { isAdminRole } from '@/lib/permissions' // A3.3
 import { rejectManualPayment } from '@/lib/db-queries'
 import { triggerNotification } from '@/lib/notifications'
 import { prisma } from '@/lib/db'
+import { sanitizeDbError } from '@/lib/utils/errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,7 +62,7 @@ export async function POST(
 
     return NextResponse.json({ success: true, rejectedAt: new Date().toISOString() })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    const { message, status } = sanitizeDbError(error)
+    return NextResponse.json({ error: message }, { status })
   }
 }

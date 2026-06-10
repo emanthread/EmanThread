@@ -30,14 +30,31 @@ export class SafepayProvider extends BasePaymentProvider {
         environment: isSandbox ? "sandbox" : "production",
       };
 
-      const trackerRes = await fetch(`${safepayConfig.apiBase}/order/v1/init`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        body: JSON.stringify(trackerPayload),
-      });
+      // 10-second timeout to prevent hanging on degraded gateway
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10_000);
+
+      let trackerRes: Response;
+      try {
+        trackerRes = await fetch(`${safepayConfig.apiBase}/order/v1/init`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify(trackerPayload),
+          signal: controller.signal,
+        });
+      } catch (fetchErr) {
+        clearTimeout(timeoutId);
+        const isAbort = fetchErr instanceof DOMException && fetchErr.name === "AbortError";
+        return {
+          success: false,
+          error: isAbort ? "Payment gateway timed out. Please try again." : "Safepay connection failed",
+        };
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       if (!trackerRes.ok) {
         const errText = await trackerRes.text();

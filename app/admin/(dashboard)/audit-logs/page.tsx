@@ -331,7 +331,7 @@ export default function AuditLogsPage() {
                        </td>
                        <td className="py-3 px-2">
                          <div className="max-w-xs text-xs space-y-1">
-                           {log.oldValue && typeof log.oldValue === "object" && log.oldValue !== null && (
+                           {!!log.oldValue && typeof log.oldValue === "object" && log.oldValue !== null && (
                              <div>
                                <span className="font-medium text-muted-foreground">Old:</span>
                                <ul className="list-none space-y-0.5 mt-0.5">
@@ -350,7 +350,7 @@ export default function AuditLogsPage() {
                                </ul>
                              </div>
                            )}
-                           {log.newValue && typeof log.newValue === "object" && log.newValue !== null && (
+                           {!!log.newValue && typeof log.newValue === "object" && log.newValue !== null && (
                              <div>
                                <span className="font-medium text-foreground/80">New:</span>
                                <ul className="list-none space-y-0.5 mt-0.5">
@@ -369,12 +369,12 @@ export default function AuditLogsPage() {
                                </ul>
                              </div>
                            )}
-                           {log.oldValue && typeof log.oldValue !== "object" && String(log.oldValue) && (
+                           {!!log.oldValue && typeof log.oldValue !== "object" && String(log.oldValue) && (
                              <div className="text-muted-foreground">
                                <span className="font-medium">Old:</span> {String(log.oldValue)}
                              </div>
                            )}
-                           {log.newValue && typeof log.newValue !== "object" && String(log.newValue) && (
+                           {!!log.newValue && typeof log.newValue !== "object" && String(log.newValue) && (
                              <div className="text-foreground/80">
                                <span className="font-medium">New:</span> {String(log.newValue)}
                              </div>

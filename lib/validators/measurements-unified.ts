@@ -181,6 +181,7 @@ export function mapToPrismaFields(parsed: UnifiedMeasurementFormData) {
     collarnok1: parsed.collarnok1, collarnok2: parsed.collarnok2,
     bane1: parsed.bane1, bane2: parsed.bane2,
     ladHip1: parsed.ladHip1, ladHip2: parsed.ladHip2,
+    hip1: parsed.hip1, hip2: parsed.hip2,
     // Toggles
     doubleCb: parsed.doubleCb, singleCb: parsed.singleCb,
     golCb: parsed.golCb, chorasCb: parsed.chorasCb,
@@ -205,6 +206,11 @@ export function mapToPrismaFields(parsed: UnifiedMeasurementFormData) {
     trouserdata3: parsed.trouserTigh1 || "",
     trouserdata4: parsed.trouserWaist1 || "",
     trouserdata5: parsed.trouserElastic1 || "",
+    trouserdata6: parsed.trouserLength2 || "",
+    trouserdata7: parsed.trouserPancha2 || "",
+    trouserdata8: parsed.trouserTigh2 || "",
+    trouserdata9: parsed.trouserWaist2 || "",
+    trouserdata10: parsed.trouserElastic2 || "",
     // Ladies extras
     ladGolai1: parsed.ladGolai1, ladGolai2: parsed.ladGolai2,
     ladMori1: parsed.ladMori1, ladMori2: parsed.ladMori2,
@@ -224,7 +230,52 @@ export function mapToPrismaFields(parsed: UnifiedMeasurementFormData) {
     ladShalwarBeltGherra1: parsed.ladShalwarBeltGherra1,
     ladShalwarBeltGherra2: parsed.ladShalwarBeltGherra2,
     ladLasticShalwarBelt: parsed.ladLasticShalwarBelt,
+    // Ladies trouser → legacy lady trouser elastic fields
+    ladTrouserdata15: parsed.ladTrouserElastic1 || "",
+    ladTrouserdata16: parsed.ladTrouserElastic2 || "",
   };
+}
+
+/**
+ * Reverse mapper: Prisma MeasurementProfile row → UnifiedMeasurementFormData.
+ * Strips meta/relational fields and reverses legacy column name mappings
+ * so the result can be used directly in UnifiedMeasurementForm or A4MeasurementForm.
+ */
+export function mapFromPrismaFields(row: Record<string, unknown>): UnifiedMeasurementFormData {
+  const metaKeys = new Set([
+    "id", "userId", "user", "createdAt", "updatedAt", "deletedAt",
+    "requestedAt", "source", "status", "profileName", "isDefault",
+    "gender", "garmentType", "deliveryDate", "notes",
+  ]);
+
+  const result: Record<string, unknown> = { ...UNIFIED_MEASUREMENT_EMPTY };
+
+  for (const [key, val] of Object.entries(row)) {
+    if (metaKeys.has(key)) continue;
+    if (val == null || val === "") continue;
+
+    // Reverse legacy trouserdata mappings
+    if (key === "trouserdata1") { result["trouserLength1"] = val; }
+    else if (key === "trouserdata2") { result["trouserPancha1"] = val; }
+    else if (key === "trouserdata3") { result["trouserTigh1"] = val; }
+    else if (key === "trouserdata4") { result["trouserWaist1"] = val; }
+    else if (key === "trouserdata5") { result["trouserElastic1"] = val; }
+    else if (key === "trouserdata6") { result["trouserLength2"] = val; }
+    else if (key === "trouserdata7") { result["trouserPancha2"] = val; }
+    else if (key === "trouserdata8") { result["trouserTigh2"] = val; }
+    else if (key === "trouserdata9") { result["trouserWaist2"] = val; }
+    else if (key === "trouserdata10") { result["trouserElastic2"] = val; }
+    // Reverse shalwar legacy names
+    else if (key === "shalwar1") { result["shalwarLength1"] = val; }
+    else if (key === "shalwar2") { result["shalwarLength2"] = val; }
+    // Reverse ladies trouser legacy names
+    else if (key === "ladTrouserdata15") { result["ladTrouserElastic1"] = val; }
+    else if (key === "ladTrouserdata16") { result["ladTrouserElastic2"] = val; }
+    // Direct pass-through for names that match
+    else if (key in result) { result[key] = val; }
+  }
+
+  return result as UnifiedMeasurementFormData;
 }
 
 // ─── Empty default ───────────────────────────────────────────────────────────

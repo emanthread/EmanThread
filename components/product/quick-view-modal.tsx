@@ -23,12 +23,17 @@ export function QuickViewModal({
 }: QuickViewModalProps) {
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [justAdded, setJustAdded] = useState(false);
   const { addItem } = useCartStore();
 
   const handleAddToCart = () => {
     addItem(product, quantity);
+    setJustAdded(true);
     setQuantity(1);
-    onClose();
+    setTimeout(() => {
+      setJustAdded(false);
+      onClose();
+    }, 1500);
   };
 
   const badgeVariants: Record<string, string> = {
@@ -147,7 +152,7 @@ export function QuickViewModal({
               <p className="text-sm font-medium mb-2">Quantity</p>
               <div className="flex items-center border border-border rounded w-fit">
                 <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
                   className="p-3 hover:bg-secondary transition-colors"
                   disabled={quantity <= 1}
                 >
@@ -155,7 +160,7 @@ export function QuickViewModal({
                 </button>
                 <span className="px-6 text-base font-medium">{quantity}</span>
                 <button
-                  onClick={() => setQuantity(quantity + 1)}
+                  onClick={() => setQuantity(prev => prev + 1)}
                   className="p-3 hover:bg-secondary transition-colors"
                 >
                   <Plus className="h-4 w-4" />
@@ -169,6 +174,12 @@ export function QuickViewModal({
             <Button size="lg" className="w-full" onClick={handleAddToCart}>
               Add to Cart - {formatPrice(product.price * quantity)}
             </Button>
+            {/* Screen-reader announcement when item is added to cart */}
+            {justAdded && (
+              <span aria-live="assertive" className="sr-only">
+                Added {product.name} to cart
+              </span>
+            )}
             <Button
               variant="outline"
               size="lg"

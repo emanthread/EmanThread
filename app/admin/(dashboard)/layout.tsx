@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuthStore } from "@/lib/auth-store";
+import { useAlertDismissals } from "@/hooks/use-alert-dismissals";
 import { useAdminStore } from "@/lib/admin-store";
 import { useAdminPushNotifications } from "@/hooks/use-admin-push-notifications";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -122,14 +123,13 @@ export default function AdminLayout({
     total: 0,
   });
 
+  const { getDismissedAt, dismissAlert } = useAlertDismissals();
+
   const updateDisplayAlerts = useCallback((counts: any) => {
-    if (typeof window === "undefined") return;
-    const getStorage = (key: string) => localStorage.getItem(key);
-    
-    const lastNewOrders = getStorage("clear_newOrders");
-    const lastPendingReturns = getStorage("clear_pendingReturns");
-    const lastLowStock = getStorage("clear_lowStock");
-    const lastBacklog = getStorage("clear_backlogOrders");
+    const lastNewOrders = getDismissedAt("clear_newOrders");
+    const lastPendingReturns = getDismissedAt("clear_pendingReturns");
+    const lastLowStock = getDismissedAt("clear_lowStock");
+    const lastBacklog = getDismissedAt("clear_backlogOrders");
 
     const dNewOrders = (lastNewOrders && counts.newOrdersLatest && counts.newOrdersLatest <= lastNewOrders) ? 0 : counts.newOrders;
     const dPendingReturns = (lastPendingReturns && counts.pendingReturnsLatest && counts.pendingReturnsLatest <= lastPendingReturns) ? 0 : counts.pendingReturns;
@@ -143,7 +143,7 @@ export default function AdminLayout({
       backlogOrders: dBacklog,
       total: dNewOrders + dPendingReturns + dLowStock + dBacklog
     });
-  }, []);
+  }, [getDismissedAt]);
 
   const fetchAlerts = useCallback(async () => {
     // Don't poll when tab is hidden — saves mobile battery/data
@@ -161,7 +161,7 @@ export default function AdminLayout({
 
   const clearAlert = (storageKey: string, latestAt: string | null) => {
     if (latestAt) {
-      localStorage.setItem(storageKey, latestAt);
+      dismissAlert(storageKey, latestAt);
       updateDisplayAlerts(alertCounts);
     }
   };

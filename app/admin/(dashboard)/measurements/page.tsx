@@ -38,6 +38,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { UnifiedMeasurementForm } from "@/components/measurements/UnifiedMeasurementForm";
 import { TailorPrintCard, type TailorCardData } from "@/components/admin/tailor-print-card";
+import { getStatusBadgeClass } from "@/lib/utils/status";
 import type {
   UnifiedMeasurementFormData,
   GarmentType,
@@ -45,6 +46,7 @@ import type {
 import {
   GARMENT_TYPES,
   garmentTypeLabel,
+  mapFromPrismaFields,
 } from "@/lib/validators/measurements-unified";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -65,6 +67,7 @@ interface LegacyProfile {
   id: string;
   profileName: string;
   garmentType: string;
+  gender: string;
   measurements: Record<string, string>;
   stylingPrefs: Record<string, unknown> | null;
   notes: string | null;
@@ -97,6 +100,7 @@ function TailorRequestsTab() {
   const [quickEdit, setQuickEdit] = useState<TailorMeasurement | null>(null);
   const [savingQuick, setSavingQuick] = useState(false);
   const [viewDetail, setViewDetail] = useState<TailorMeasurement | null>(null);
+  const [printDetail, setPrintDetail] = useState<TailorMeasurement | null>(null);
   const limit = 20;
 
   const fetchMeasurements = useCallback(async () => {
@@ -210,17 +214,7 @@ function TailorRequestsTab() {
                       </Badge>
                     </td>
                     <td className="p-4">
-                      <Badge
-                        className={
-                          m.status === "complete"
-                            ? "bg-emerald-100 text-emerald-700 border-emerald-200 text-xs"
-                            : m.status === "accepted"
-                            ? "bg-sky-100 text-sky-700 border-sky-200 text-xs"
-                            : m.status === "rejected"
-                            ? "bg-red-100 text-red-700 border-red-200 text-xs"
-                            : "bg-amber-100 text-amber-700 border-amber-200 text-xs"
-                        }
-                      >
+                      <Badge className={getStatusBadgeClass(m.status) + " text-xs"}>
                         {m.status}
                       </Badge>
                     </td>
@@ -237,9 +231,18 @@ function TailorRequestsTab() {
                           size="icon"
                           className="h-8 w-8"
                           onClick={() => setViewDetail(m)}
-                          title="View / Edit"
+                          title="View"
                         >
                           <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setPrintDetail(m)}
+                          title="Print Measurement Sheet"
+                        >
+                          <Printer className="h-3.5 w-3.5" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" asChild title="Full Edit">
                           <Link href={`/admin/measurements/${m.id}`}>
@@ -314,7 +317,7 @@ function TailorRequestsTab() {
         </CardContent>
       </Card>
 
-      {/* View / Quick Edit Dialog */}
+      {/* View Dialog (read-only) */}
       <Dialog open={!!viewDetail} onOpenChange={(o) => !o && setViewDetail(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -322,34 +325,49 @@ function TailorRequestsTab() {
               {viewDetail?.user.name} — {garmentTypeLabel(viewDetail?.garmentType || "")}
             </DialogTitle>
             <DialogDescription>
-              View and manage measurements. Use the full editor for detailed changes.
+              Viewing measurements in read-only mode. Use the Ruler icon for full editing.
             </DialogDescription>
           </DialogHeader>
           {viewDetail && (
             <UnifiedMeasurementForm
-              data={viewDetail as unknown as Partial<UnifiedMeasurementFormData>}
-              mode="edit"
+              data={mapFromPrismaFields(viewDetail as unknown as Record<string, unknown>)}
+              mode="readonly"
               isAdmin={true}
               garmentTypeFixed={viewDetail.garmentType}
               customerName={viewDetail.user.name}
               customerEmail={viewDetail.user.email}
               customerPhone={viewDetail.user.phone ?? undefined}
-              measurementId={viewDetail.id}
-              onSave={async (data) => {
-                const res = await fetch(`/api/admin/tailor-measurements/${viewDetail.id}`, {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(data),
-                });
-                if (res.ok) {
-                  setViewDetail(null);
-                  fetchMeasurements();
-                }
-              }}
             />
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Print Dialog — Tailor Request */}
+      {printDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 print:static print:bg-transparent" onClick={() => setPrintDetail(null)}>
+          <div className="bg-background rounded-lg shadow-xl max-w-[230mm] max-h-[90vh] overflow-y-auto p-6 print:p-0 print:shadow-none print:max-w-none print:max-h-none" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4 print:hidden">
+              <h3 className="text-lg font-semibold">Print Measurement Sheet</h3>
+              <Button variant="ghost" size="sm" onClick={() => setPrintDetail(null)}>Close</Button>
+            </div>
+            <TailorPrintCard
+              data={{
+                serialNo: `MT-${printDetail.id.slice(0, 6).toUpperCase()}`,
+                customerName: printDetail.user.name,
+                deliveryDate: printDetail.deliveryDate
+                  ? new Date(printDetail.deliveryDate).toLocaleDateString()
+                  : new Date(printDetail.requestedAt).toLocaleDateString(),
+                productName: printDetail.notes || garmentTypeLabel(printDetail.garmentType || ""),
+                garmentType: printDetail.garmentType,
+                gender: printDetail.gender,
+                measurements: mapFromPrismaFields(printDetail as unknown as Record<string, unknown>) as unknown as Record<string, string>,
+                stylingPrefs: null,
+                notes: printDetail.notes,
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation */}
       <Dialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
@@ -501,13 +519,7 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
                       <Badge variant="outline" className="capitalize text-xs">{profile.garmentType}</Badge>
                     </td>
                     <td className="p-4">
-                      <Badge
-                        className={
-                          profile.status === "complete"
-                            ? "bg-emerald-100 text-emerald-700 border-emerald-200 text-xs"
-                            : "bg-amber-100 text-amber-700 border-amber-200 text-xs"
-                        }
-                      >
+                      <Badge className={getStatusBadgeClass(profile.status ?? "complete") + " text-xs"}>
                         {profile.status || "complete"}
                       </Badge>
                     </td>
@@ -589,53 +601,19 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
             </DialogDescription>
           </DialogHeader>
           {viewProfile && (
-            <div className="space-y-4 py-2">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="capitalize text-xs">
-                  {viewProfile.garmentType.replace(/_/g, " ")}
-                </Badge>
-                {viewProfile.isDefault && (
-                  <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200">Default</Badge>
-                )}
-              </div>
-
-              {viewProfile.notes && (
-                <p className="text-sm bg-muted/30 rounded-lg p-3 italic">{viewProfile.notes}</p>
-              )}
-
-              <h4 className="text-sm font-semibold border-b pb-1 text-muted-foreground uppercase tracking-wide">
-                Measurements
-              </h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1">
-                {Object.entries(viewProfile.measurements || {}).map(([key, value]) => (
-                  value ? (
-                    <div key={key} className="flex items-center justify-between border-b border-border/30 py-1">
-                      <span className="text-xs text-muted-foreground capitalize">
-                        {key.replace(/_/g, " ")}
-                      </span>
-                      <span className="text-sm font-semibold">{String(value)}</span>
-                    </div>
-                  ) : null
-                ))}
-              </div>
-
-              {viewProfile.stylingPrefs && Object.keys(viewProfile.stylingPrefs).length > 0 && (
-                <div>
-                  <h4 className="text-sm font-semibold border-b pb-1 text-muted-foreground uppercase tracking-wide">
-                    Styling Preferences
-                  </h4>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {Object.entries(viewProfile.stylingPrefs).map(([key, val]) => (
-                      val ? (
-                        <Badge key={key} variant="outline" className="text-xs capitalize">
-                          {key.replace(/_/g, " ")}: {String(val)}
-                        </Badge>
-                      ) : null
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            <TailorPrintCard
+              data={{
+                serialNo: `MP-${viewProfile.id.slice(0, 6).toUpperCase()}`,
+                customerName: viewProfile.user.name,
+                deliveryDate: new Date(viewProfile.createdAt).toLocaleDateString(),
+                productName: viewProfile.profileName,
+                garmentType: viewProfile.garmentType,
+                gender: viewProfile.gender,
+                measurements: viewProfile.measurements || {},
+                stylingPrefs: viewProfile.stylingPrefs,
+                notes: viewProfile.notes,
+              }}
+            />
           )}
         </DialogContent>
       </Dialog>
@@ -651,7 +629,7 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
           </DialogHeader>
           {editProfile && (
             <UnifiedMeasurementForm
-              data={editProfile as unknown as Partial<UnifiedMeasurementFormData>}
+              data={mapFromPrismaFields(editProfile as unknown as Record<string, unknown>)}
               mode="edit"
               isAdmin={true}
               garmentTypeFixed={editProfile.garmentType}
@@ -696,6 +674,7 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
                 deliveryDate: new Date(printProfile.createdAt).toLocaleDateString(),
                 productName: printProfile.profileName,
                 garmentType: printProfile.garmentType,
+                gender: printProfile.gender,
                 measurements: printProfile.measurements || {},
                 stylingPrefs: printProfile.stylingPrefs,
                 notes: printProfile.notes,

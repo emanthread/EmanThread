@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getReturnRequestsByUser } from "@/lib/db-queries";
+import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +16,7 @@ export async function GET() {
     return NextResponse.json(requests);
   } catch (error) {
     console.error("Get user return requests error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 }

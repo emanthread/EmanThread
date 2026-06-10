@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import { useAdminStore } from "@/lib/admin-store";
 import { formatPrice } from "@/lib/data";
-import { cn } from "@/lib/utils";
+import { cn, getProductImage } from "@/lib/utils";
 
 const orderStatusColors = {
   pending: "bg-yellow-100 text-yellow-700",
@@ -506,7 +506,7 @@ export default function AdminDashboard() {
                 <div key={product.id} className="flex items-center gap-4">
                   <div className="relative h-12 w-12 rounded overflow-hidden bg-muted">
                     <Image
-                      src={product.images[0]}
+                      src={getProductImage(product.images)}
                       alt={product.name}
                       fill
                       className="object-cover"

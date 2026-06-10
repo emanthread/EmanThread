@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { products, formatPrice, type Product } from "@/lib/data";
-import { cn } from "@/lib/utils";
+import { cn, getProductImage } from "@/lib/utils";
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -167,7 +167,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                     >
                       <div className="relative h-16 w-16 rounded-md overflow-hidden bg-muted shrink-0">
                         <Image
-                          src={product.images[0]}
+                          src={getProductImage(product.images)}
                           alt={product.name}
                           fill
                           className="object-cover"
@@ -208,8 +208,9 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                 </div>
               ) : results.length > 0 ? (
                 <>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    {results.length} results for &quot;{query}&quot;
+                  {/* Screen-reader: announce results count */}
+                  <p aria-live="polite" className="text-sm text-muted-foreground mb-3">
+                    {results.length} {results.length === 1 ? 'result' : 'results'} for &quot;{query}&quot;
                   </p>
                   <div className="space-y-2">
                     {results.slice(0, 5).map((product) => (
@@ -220,7 +221,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                       >
                         <div className="relative h-16 w-16 rounded-md overflow-hidden bg-muted shrink-0">
                           <Image
-                            src={product.images[0]}
+                            src={getProductImage(product.images)}
                             alt={product.name}
                             fill
                             className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -273,7 +274,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                   )}
                 </>
               ) : (
-                <div className="text-center py-8">
+                <div aria-live="polite" className="text-center py-8">
                   <p className="text-muted-foreground">
                     No results found for &quot;{query}&quot;
                   </p>

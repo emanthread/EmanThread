@@ -4,6 +4,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { getDiscounts, createDiscount, createAuditLog } from "@/lib/db-queries";
 import { withLoggedAdminHandler } from "@/lib/logger";
+import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
@@ -33,9 +34,8 @@ export const GET = withLoggedAdminHandler(async () => {
     return NextResponse.json(discounts);
   } catch (error) {
     console.error("Get discounts error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });
 
@@ -71,8 +71,7 @@ export const POST = withLoggedAdminHandler(async (req: Request) => {
     return NextResponse.json(discount, { status: 201 });
   } catch (error) {
     console.error("Create discount error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });

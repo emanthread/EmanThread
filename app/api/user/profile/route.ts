@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
@@ -112,8 +113,7 @@ export async function PUT(req: Request) {
     });
   } catch (error) {
     console.error("Update profile error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 }

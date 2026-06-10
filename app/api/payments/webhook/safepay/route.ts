@@ -38,25 +38,25 @@ function verifySignature(rawBody: string, signature: string, secret: string): bo
 function handleEvent(event: string, data: Record<string, unknown>) {
   switch (event) {
     case "payment:created":
-      console.log("[Safepay Webhook] Payment created:", data?.tracker);
+      console.info("[Safepay Webhook] Payment created:", data?.tracker);
       break;
     case "payment:success":
-      console.log("[Safepay Webhook] ✅ Payment succeeded:", data?.tracker, "ref:", data?.reference_number);
+      console.info("[Safepay Webhook] ✅ Payment succeeded:", data?.tracker, "ref:", data?.reference_number);
       break;
     case "payment:failed":
-      console.log("[Safepay Webhook] ❌ Payment failed:", data?.tracker);
+      console.info("[Safepay Webhook] ❌ Payment failed:", data?.tracker);
       break;
     case "payment:reversed":
-      console.log("[Safepay Webhook] ↩️  Payment reversed:", data?.tracker);
+      console.info("[Safepay Webhook] ↩️  Payment reversed:", data?.tracker);
       break;
     case "refund:created":
-      console.log("[Safepay Webhook] Refund created:", data?.tracker);
+      console.info("[Safepay Webhook] Refund created:", data?.tracker);
       break;
     case "refund:success":
-      console.log("[Safepay Webhook] ✅ Refund succeeded:", data?.tracker);
+      console.info("[Safepay Webhook] ✅ Refund succeeded:", data?.tracker);
       break;
     default:
-      console.log(`[Safepay Webhook] Unhandled event "${event}":`, JSON.stringify(data));
+      console.info(`[Safepay Webhook] Unhandled event "${event}":`, JSON.stringify(data));
   }
 }
 
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
   const eventType = (payload.type as string) || "unknown";
   const eventData = (payload.data as Record<string, unknown>) || payload;
 
-  console.log(`[Safepay Webhook] Received event: ${eventType}`);
+  console.info(`[Safepay Webhook] Received event: ${eventType}`);
 
   // ── 4. Handle event ─────────────────────────────────────────────
   handleEvent(eventType, eventData);

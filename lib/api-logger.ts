@@ -17,11 +17,35 @@ export interface ApiLogEntry {
   error?: string;
 }
 
+const IPV4_RE = /^(\d{1,3}\.){3}\d{1,3}$/;
+const IPV6_RE = /^[0-9a-fA-F:]+$/;
+
+function isValidIp(raw: string): boolean {
+  return IPV4_RE.test(raw) || IPV6_RE.test(raw);
+}
+
+/**
+ * Extract the real client IP address.
+ *
+ * On Vercel: the LAST value in x-forwarded-for is the one Vercel's infrastructure
+ * prepended — it is the real client IP and cannot be spoofed by the client.
+ * Reading the FIRST value is trivially spoofable by prepending any IP.
+ * x-real-ip is a single-value header set by the proxy; use it when available.
+ */
 function getClientIp(req: Request): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
+  // Prefer x-real-ip when available (single value, set by proxy)
   const realIp = req.headers.get("x-real-ip");
-  if (realIp) return realIp;
+  if (realIp) {
+    if (isValidIp(realIp.trim())) return realIp.trim();
+    return "invalid";
+  }
+  // Fall back to x-forwarded-for — last IP is the origin (Vercel trust model)
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) {
+    const last = forwarded.split(",").at(-1)?.trim();
+    if (last && isValidIp(last)) return last;
+    return "invalid";
+  }
   return "unknown";
 }
 

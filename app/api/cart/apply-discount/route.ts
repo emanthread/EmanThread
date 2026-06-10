@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getDiscountByCode } from "@/lib/db-queries";
 import { applyDiscount } from "@/lib/discount-engine";
 import type { EngineCartItem } from "@/lib/discount-engine";
+import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
@@ -76,8 +77,7 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error("Apply discount error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 }

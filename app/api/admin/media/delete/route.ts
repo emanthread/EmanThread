@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { cloudinary } from "@/lib/cloudinary";
 import { createAuditLog } from "@/lib/db-queries";
 import { withLoggedAdminHandler } from "@/lib/logger";
+import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,7 @@ export const DELETE = withLoggedAdminHandler(async (req: Request) => {
     return NextResponse.json({ success: true, result });
   } catch (error) {
     console.error("Media delete error:", error);
-    const message = error instanceof Error ? error.message : "Failed to delete media";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });

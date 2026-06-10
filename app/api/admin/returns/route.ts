@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getAdminReturnRequests } from "@/lib/db-queries";
 import { withLoggedAdminHandler } from "@/lib/logger";
+import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
@@ -23,8 +24,7 @@ export const GET = withLoggedAdminHandler(async (req: Request) => {
     return NextResponse.json(result);
   } catch (error) {
     console.error("Admin returns error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });

@@ -2,6 +2,9 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { CartDrawer } from "@/components/cart/cart-drawer";
 
+export const dynamic = "force-static";
+export const revalidate = 86400;
+
 export default function TermsPage() {
   return (
     <>

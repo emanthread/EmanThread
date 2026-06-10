@@ -76,27 +76,78 @@ async function sendSMS(payload: NotificationPayload): Promise<SendResult> {
 }
 
 /**
- * Send a single notification via the given provider with basic retry.
+ * Exponential backoff: 2^attempt * 1000ms + up to 500ms jitter, capped at 32s.
+ */
+function backoffDelay(attempt: number): number {
+  const base = Math.pow(2, attempt) * 1000;
+  const jitter = Math.floor(Math.random() * 500);
+  return Math.min(base + jitter, 32_000);
+}
+
+/**
+ * Persist a failed notification to the database after all retries are exhausted.
+ * Fire-and-forget — never throws.
+ */
+async function persistFailure(
+  payload: NotificationPayload,
+  channel: NotificationChannel,
+  errorMessage: string,
+  attemptCount: number,
+): Promise<void> {
+  try {
+    await prisma.failedNotification.create({
+      data: {
+        orderId: payload.orderId ?? null,
+        channel,
+        template: payload.template,
+        recipient: payload.to,
+        subject:
+          channel === "email"
+            ? (EmailTemplates[payload.template]?.subject ?? null)
+            : null,
+        content:
+          channel === "email"
+            ? EmailTemplates[payload.template]?.body(payload.data)
+            : channel === "sms"
+              ? SMSTemplates[payload.template]?.(payload.data)
+              : WhatsAppTemplates[payload.template]?.(payload.data),
+        errorMessage,
+        attemptCount,
+      },
+    });
+  } catch (logErr) {
+    console.error("[notifications] Failed to persist failure record:", logErr);
+  }
+}
+
+/**
+ * Send a single notification via the given provider with exponential backoff retry.
  * Used for email and WhatsApp where retry is handled at this level.
+ * After all retries exhausted, persists a FailedNotification record.
  */
 async function sendWithRetry(
   provider: { send(p: NotificationPayload): Promise<SendResult> },
   payload: NotificationPayload,
-  maxRetries = 2
+  channel: NotificationChannel,
+  maxRetries = 3,
 ): Promise<SendResult> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const result = await provider.send(payload);
-      return result;
+      if (result.success) return result;
+      // Provider returned a non-throw failure — retry if we have attempts left
+      if (attempt === maxRetries) {
+        await persistFailure(payload, channel, result.error ?? "Provider returned failure", attempt);
+        return result;
+      }
+      await new Promise((r) => setTimeout(r, backoffDelay(attempt)));
     } catch (err) {
       if (attempt === maxRetries) {
-        return {
-          success: false,
-          error: err instanceof Error ? err.message : "Provider threw",
-        };
+        const errorMessage = err instanceof Error ? err.message : "Provider threw unexpectedly";
+        await persistFailure(payload, channel, errorMessage, attempt);
+        return { success: false, error: errorMessage };
       }
-      // Simple backoff: 1s, 2s
-      await new Promise((r) => setTimeout(r, 1000 * attempt));
+      await new Promise((r) => setTimeout(r, backoffDelay(attempt)));
     }
   }
   return { success: false, error: "Max retries exceeded" };
@@ -143,14 +194,14 @@ export function triggerNotification(payload: NotificationPayload): void {
           let result: SendResult;
 
           if (channel === "email") {
-            result = await sendWithRetry(emailProvider, payload);
+            result = await sendWithRetry(emailProvider, payload, "email");
           } else {
             // Both whatsapp and sms require a valid phone number.
             const phoneFallback = payload.phone || (!payload.to.includes("@") ? payload.to : undefined);
             if (!phoneFallback || phoneFallback.includes("@")) {
               result = { success: false, error: `Invalid phone number for ${channel} channel` };
             } else if (channel === "whatsapp") {
-              result = await sendWithRetry(whatsappProvider, { ...payload, to: phoneFallback });
+              result = await sendWithRetry(whatsappProvider, { ...payload, to: phoneFallback }, "whatsapp");
             } else {
               result = await sendSMS({ ...payload, to: phoneFallback });
             }
@@ -169,7 +220,7 @@ export function triggerNotification(payload: NotificationPayload): void {
             "[notifications] SMS failed for order, falling back to email:",
             results.find((r) => r.channel === "sms")?.result.error
           );
-          const emailResult = await sendWithRetry(emailProvider, payload);
+          const emailResult = await sendWithRetry(emailProvider, payload, "email");
           await logAttempt(payload, "email", emailResult);
         }
 
@@ -180,7 +231,7 @@ export function triggerNotification(payload: NotificationPayload): void {
 
       // Diagnostic: log if SMS can't work so admin knows why
       if (!hasPhone) {
-        console.log(
+        console.warn(
           "[notifications] No phone number available — SMS/WhatsApp will be skipped for order",
           payload.orderId,
           "(to:",
@@ -199,7 +250,7 @@ export function triggerNotification(payload: NotificationPayload): void {
 
       // 1. Email — always attempt
       if (isEmailAddress) {
-        const emailResult = await sendWithRetry(emailProvider, payload);
+        const emailResult = await sendWithRetry(emailProvider, payload, "email");
         await logAttempt(payload, "email", emailResult);
         if (!emailResult.success) {
           console.error("[notifications] Email delivery failed:", emailResult.error);
@@ -215,7 +266,7 @@ export function triggerNotification(payload: NotificationPayload): void {
 
         // 2a. WhatsApp first
         if (whatsappConfigured && notificationDefaults.enabledChannels.includes("whatsapp" as any)) {
-          const waResult = await sendWithRetry(whatsappProvider, { ...payload, to: resolvedPhone! });
+          const waResult = await sendWithRetry(whatsappProvider, { ...payload, to: resolvedPhone! }, "whatsapp");
           await logAttempt({ ...payload, to: resolvedPhone! }, "whatsapp", waResult);
           if (waResult.success) {
             mobileDelivered = true;

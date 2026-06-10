@@ -62,7 +62,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAdminStore, type AdminProduct } from "@/lib/admin-store";
 import { formatPrice } from "@/lib/data";
-import { cn } from "@/lib/utils";
+import { cn, getProductImage } from "@/lib/utils";
 
 const badgeColors = {
   New: "bg-emerald-100 text-emerald-700",
@@ -544,7 +544,7 @@ export default function AdminProductsPage() {
                         <div className="flex items-center gap-3">
                           <div className="relative h-12 w-12 rounded overflow-hidden bg-muted">
                             <Image
-                              src={product.images[0] || "/placeholder.jpg"}
+                              src={getProductImage(product.images)}
                               alt={product.name}
                               fill
                               className="object-cover"

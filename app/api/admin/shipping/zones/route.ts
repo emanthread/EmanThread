@@ -7,6 +7,7 @@ import {
   createShippingZone,
 } from "@/lib/db-queries";
 import { withLoggedAdminHandler } from "@/lib/logger";
+import { sanitizeDbError } from "@/lib/utils/errors";
 
 export const dynamic = "force-dynamic";
 
@@ -37,9 +38,8 @@ export const GET = withLoggedAdminHandler(async () => {
     return NextResponse.json({ zones });
   } catch (error) {
     console.error("Get shipping zones error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });
 
@@ -63,8 +63,7 @@ export const POST = withLoggedAdminHandler(async (req: Request) => {
     return NextResponse.json(zone, { status: 201 });
   } catch (error) {
     console.error("Create shipping zone error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });

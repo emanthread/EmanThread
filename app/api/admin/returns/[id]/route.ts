@@ -4,6 +4,7 @@ import { isAdminRole } from "@/lib/permissions";
 import { updateReturnRequest, deleteReturnRequest, createAuditLog } from "@/lib/db-queries";
 import { updateReturnRequestSchema } from "@/lib/validators/returns";
 import { withLoggedAdminHandler } from "@/lib/logger";
+import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
@@ -42,9 +43,8 @@ export const PUT = withLoggedAdminHandler(async (
     return NextResponse.json(updated);
   } catch (error) {
     console.error("Update return request error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });
 
@@ -72,8 +72,7 @@ export const DELETE = withLoggedAdminHandler(async (
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Delete return request error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });

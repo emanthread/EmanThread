@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UnifiedMeasurementForm } from "@/components/measurements/UnifiedMeasurementForm";
 import { TailorPrintCard, type TailorCardData } from "@/components/admin/tailor-print-card";
+import { getStatusBadgeClass } from "@/lib/utils/status";
 import type { UnifiedMeasurementFormData } from "@/lib/validators/measurements-unified";
 import { UNIFIED_MEASUREMENT_EMPTY, garmentTypeLabel } from "@/lib/validators/measurements-unified";
 
@@ -138,6 +139,7 @@ export default function AdminTailorMeasurementDetailPage() {
       : printDate,
     productName: measurement.notes || garmentLabel,
     garmentType: measurement.garmentType,
+    gender: measurement.gender,
     measurements: flatMeasurements,
     stylingPrefs: null,
     notes: measurement.notes,
@@ -158,13 +160,7 @@ export default function AdminTailorMeasurementDetailPage() {
             {garmentLabel} ·{" "}
             <Badge
               className={
-                measurement.status === "complete"
-                  ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-                  : measurement.status === "accepted"
-                  ? "bg-sky-100 text-sky-700 border-sky-200"
-                  : measurement.status === "rejected"
-                  ? "bg-red-100 text-red-700 border-red-200"
-                  : "bg-amber-100 text-amber-700 border-amber-200"
+                getStatusBadgeClass(measurement.status)
               }
             >
               {measurement.status}

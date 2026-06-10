@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useCartStore } from "@/lib/cart-store";
 import { useWishlistStore } from "@/lib/wishlist-store";
 import { formatPrice, type Product } from "@/lib/data";
-import { cn } from "@/lib/utils";
+import { cn, getProductImage } from "@/lib/utils";
 import { QuickViewModal } from "./quick-view-modal";
 
 interface ProductCardProps {
@@ -19,12 +19,19 @@ interface ProductCardProps {
 export function ProductCard({ product }: ProductCardProps) {
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [justAdded, setJustAdded] = useState(false);
   const { addItem } = useCartStore();
   const { toggleItem, isInWishlist } = useWishlistStore();
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handleAddToCart = () => {
+    addItem(product);
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 2000);
+  };
 
   const inWishlist = mounted && isInWishlist(product.id);
 
@@ -44,7 +51,7 @@ export function ProductCard({ product }: ProductCardProps) {
         <div className="relative aspect-[2/3] bg-secondary overflow-hidden rounded-2xl">
           <Link href={`/product/${product.id}`} className="relative block h-full w-full">
             <Image
-              src={product.images[0]}
+              src={getProductImage(product.images)}
               alt={product.name}
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
@@ -86,11 +93,17 @@ export function ProductCard({ product }: ProductCardProps) {
             <Button
               size="sm"
               className="flex-1 bg-background/95 hover:bg-background text-foreground backdrop-blur-sm"
-              onClick={() => addItem(product)}
+              onClick={handleAddToCart}
             >
               <ShoppingBag className="h-4 w-4 mr-2" />
               Add to Cart
             </Button>
+            {/* Screen-reader announcement when item is added to cart */}
+            {justAdded && (
+              <span aria-live="assertive" className="sr-only">
+                Added {product.name} to cart
+              </span>
+            )}
             <Button
               size="sm"
               variant="outline"

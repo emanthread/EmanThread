@@ -17,6 +17,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { ProductReviews } from "@/components/product/product-reviews";
+import { getProductImage } from "@/lib/utils";
 import { useCartStore } from "@/lib/cart-store";
 import { useWishlistStore } from "@/lib/wishlist-store";
 import { useAuthStore } from "@/lib/auth-store";
@@ -289,7 +290,7 @@ function ProductDetails({ product }: { product: Product }) {
               src={product.videoUrl}
               controls
               className="h-full w-full object-cover"
-              poster={product.images[0]}
+              poster={getProductImage(product.images)}
             />
           ) : (
             <Image
@@ -357,7 +358,7 @@ function ProductDetails({ product }: { product: Product }) {
             >
               <div className="relative h-full w-full">
                 <Image
-                  src={product.images[0]}
+                  src={getProductImage(product.images)}
                   alt={`${product.name} - Video`}
                   fill
                   sizes="80px"

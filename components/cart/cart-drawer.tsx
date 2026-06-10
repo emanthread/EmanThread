@@ -8,6 +8,7 @@ import { X, Plus, Minus, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/lib/cart-store";
 import { formatPrice } from "@/lib/data";
+import { getProductImage } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { DEFAULT_STITCHING_FEE } from "@/lib/feature-flags";
 
@@ -77,7 +78,7 @@ export function CartDrawer() {
                 >
                   <div className="relative w-24 h-32 bg-secondary rounded overflow-hidden shrink-0">
                     <Image
-                      src={item.product.images[0]}
+                      src={getProductImage(item.product.images)}
                       alt={item.product.name}
                       fill
                       className="object-cover"

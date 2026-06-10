@@ -6,6 +6,7 @@ import {
   deleteShippingZone,
 } from "@/lib/db-queries";
 import { withLoggedAdminHandler } from "@/lib/logger";
+import { sanitizeDbError } from "@/lib/utils/errors";
 
 export const dynamic = "force-dynamic";
 
@@ -49,9 +50,8 @@ export const PUT = withLoggedAdminHandler(async (req: Request, { params }: { par
     return NextResponse.json(zone);
   } catch (error) {
     console.error("Update shipping zone error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });
 
@@ -66,8 +66,7 @@ export const DELETE = withLoggedAdminHandler(async (req: Request, { params }: { 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Delete shipping zone error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });

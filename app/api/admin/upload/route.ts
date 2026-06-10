@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { createAuditLog } from "@/lib/db-queries";
 import { withLoggedAdminHandler } from "@/lib/logger";
+import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
@@ -68,7 +69,7 @@ export const POST = withLoggedAdminHandler(async (req: Request) => {
     });
   } catch (error) {
     console.error("Upload error:", error);
-    const message = error instanceof Error ? error.message : "Upload failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });

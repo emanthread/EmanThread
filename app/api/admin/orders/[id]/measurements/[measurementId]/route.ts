@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { adminUpdateOrderMeasurement } from "@/lib/db-queries"
 import { z } from "zod"
+import { sanitizeDbError } from '@/lib/utils/errors'
 
 export const dynamic = "force-dynamic"
 
@@ -43,7 +44,7 @@ export async function PUT(
     return NextResponse.json({ measurement: updated })
   } catch (error) {
     console.error("PUT measurement error:", error)
-    const message = error instanceof Error ? error.message : "Internal server error"
-    return NextResponse.json({ error: message }, { status: 500 })
+    const { message, status } = sanitizeDbError(error)
+    return NextResponse.json({ error: message }, { status })
   }
 }

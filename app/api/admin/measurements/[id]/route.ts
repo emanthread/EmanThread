@@ -3,6 +3,7 @@ import { auth } from '@/auth'
 import { prisma } from '@/lib/db'
 import { createAuditLog } from '@/lib/db-queries'
 import { withLoggedAdminHandler } from '@/lib/logger'
+import { unifiedMeasurementSchema, mapToPrismaFields } from '@/lib/validators/measurements-unified'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,14 +31,21 @@ export const PUT = withLoggedAdminHandler(async (req: Request, { params }: { par
   }
   const { id } = await params
   const body = await req.json()
-  const updated = await prisma.measurementProfile.update({ where: { id }, data: body })
+  const parsed = unifiedMeasurementSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+  }
+  const updated = await prisma.measurementProfile.update({
+    where: { id },
+    data: mapToPrismaFields(parsed.data),
+  })
   createAuditLog({
     userId: session.user.id,
     userEmail: session.user.email ?? undefined,
     action: 'MEASUREMENT_UPDATED',
     entity: 'MeasurementProfile',
     entityId: id,
-    newValue: body as object,
+    newValue: parsed.data as object,
   })
   return NextResponse.json(updated)
 })

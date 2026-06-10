@@ -4,6 +4,7 @@ import { createReturnRequest } from "@/lib/db-queries";
 import { createReturnRequestSchema } from "@/lib/validators/returns";
 import { triggerNotification } from "@/lib/notifications";
 import { prisma } from "@/lib/db";
+import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
@@ -65,8 +66,7 @@ export async function POST(req: Request) {
     return NextResponse.json(returnRequest, { status: 201 });
   } catch (error) {
     console.error("Create return request error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { sanitizeDbError } from "@/lib/utils/errors";
 
 export const dynamic = "force-dynamic";
 
@@ -44,9 +45,8 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("Flash sales cron error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 }
 

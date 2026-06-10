@@ -6,6 +6,7 @@ import { updateReturnRequestStatusSchema } from "@/lib/validators/returns";
 import { triggerNotification } from "@/lib/notifications";
 import { prisma } from "@/lib/db";
 import { withLoggedAdminHandler } from "@/lib/logger";
+import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
@@ -96,8 +97,7 @@ export const PUT = withLoggedAdminHandler(async (
     return NextResponse.json(updated);
   } catch (error) {
     console.error("Update return request status error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });

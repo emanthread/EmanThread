@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Heart, ShoppingCart, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { getProductImage } from "@/lib/utils";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { CartDrawer } from "@/components/cart/cart-drawer";
@@ -105,7 +106,7 @@ export default function AccountWishlistPage() {
                         <div className="relative h-24 w-20 shrink-0 rounded-md overflow-hidden bg-muted">
                           <Link href={`/product/${product.id}`}>
                             <Image
-                              src={product.images[0]}
+                              src={getProductImage(product.images)}
                               alt={product.name}
                               fill
                               className="object-cover"

@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { withLoggedAdminHandler } from "@/lib/logger";
 import { hasPermission, type RoleValue } from "@/lib/permissions";
+import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
@@ -95,8 +96,7 @@ export const DELETE = withLoggedAdminHandler(async (
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Delete customer error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });

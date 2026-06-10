@@ -1,5 +1,6 @@
 import { NextResponse, after } from 'next/server'
 import { z } from 'zod'
+import { auth } from '@/auth'
 import { prisma } from '@/lib/db'
 import { createManualPaymentSubmission } from '@/lib/db-queries'
 import { sendAdminPaymentAlert } from '@/lib/notifications/admin-alerts'
@@ -17,33 +18,40 @@ const schema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const body = await request.json()
     const data = schema.parse(body)
+
+    // Ownership check — users can only submit proof for their own orders
+    const order = await prisma.order.findUnique({
+      where: { id: data.orderId },
+      select: { userId: true, orderNumber: true, grandTotal: true },
+    })
+    if (!order || order.userId !== session.user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
     const submission = await createManualPaymentSubmission(data)
 
     // Fire-and-forget admin email alert — never blocks the response
     if (FEATURE_FLAGS.ADMIN_EMAIL_ALERTS) {
-      // Fetch order details for the alert email
-      const order = await prisma.order.findUnique({
-        where: { id: submission.orderId },
-        select: { orderNumber: true, grandTotal: true },
-      })
-
-      if (order) {
-        after(() => {
-          sendAdminPaymentAlert({
-            orderId: submission.orderId,
-            orderNumber: order.orderNumber,
-            amount: Number(order.grandTotal),
-            paymentMethod: data.paymentMethod,
-            transactionId: data.transactionId,
-            senderName: data.senderName,
-            screenshotUrl: data.screenshotUrl || null,
-          }).catch((err) => {
-            console.error('[payments/manual] Admin alert email failed:', err)
-          })
+      after(() => {
+        sendAdminPaymentAlert({
+          orderId: submission.orderId,
+          orderNumber: order.orderNumber,
+          amount: Number(order.grandTotal),
+          paymentMethod: data.paymentMethod,
+          transactionId: data.transactionId,
+          senderName: data.senderName,
+          screenshotUrl: data.screenshotUrl || null,
+        }).catch((err) => {
+          console.error('[payments/manual] Admin alert email failed:', err)
         })
-      }
+      })
     }
 
     return NextResponse.json({ success: true, submissionId: submission.id })

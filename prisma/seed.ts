@@ -60,7 +60,7 @@ async function seedAdminUsers() {
     create: {
       email: "emanthread@gmail.com",
       name: "Eman Thread Admin",
-      passwordHash: await bcrypt.hash("Eman456@", 12),
+      passwordHash: await bcrypt.hash(process.env.ADMIN_INITIAL_PASSWORD || "Eman456@", 12),
       role: "ADMIN",
       isVerified: true,
     },

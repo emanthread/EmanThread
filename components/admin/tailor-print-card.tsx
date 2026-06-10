@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
 import { A4MeasurementForm } from "@/components/measurements/forms/A4MeasurementForm";
-import type { UnifiedMeasurementFormData } from "@/lib/validators/measurements-unified";
+import type { UnifiedMeasurementFormData, GarmentType } from "@/lib/validators/measurements-unified";
 import { UNIFIED_MEASUREMENT_EMPTY } from "@/lib/validators/measurements-unified";
 
 export interface TailorCardData {
@@ -12,9 +12,16 @@ export interface TailorCardData {
   deliveryDate?: string;
   productName: string;
   garmentType: string;
+  gender?: string;
   measurements: Record<string, string>;
   stylingPrefs?: Record<string, unknown> | null;
   notes?: string | null;
+}
+
+function deriveGender(garmentType: string | undefined): 'Male' | 'Female' {
+  if (!garmentType) return 'Male';
+  const ladiesKeywords = ['ladies', 'lady', 'women', 'woman', 'suit', 'frock', 'dress', 'kurti', 'sharara', 'gown'];
+  return ladiesKeywords.some(kw => garmentType.toLowerCase().includes(kw)) ? 'Female' : 'Male';
 }
 
 /**
@@ -30,6 +37,7 @@ function buildFormData(data: TailorCardData): UnifiedMeasurementFormData {
     ...UNIFIED_MEASUREMENT_EMPTY,
     ...m,
     ...s,
+    gender: (data.gender ?? deriveGender(data.garmentType)) as UnifiedMeasurementFormData["gender"],
     garmentType: data.garmentType as UnifiedMeasurementFormData["garmentType"],
     customerName: data.customerName,
     deliveryDate: data.deliveryDate || "",
@@ -86,7 +94,7 @@ export function TailorPrintCard({ data }: { data: TailorCardData }) {
         data={formData}
         onChange={() => {}}
         readOnly={true}
-        garmentType={data.garmentType}
+        garmentType={data.garmentType as GarmentType}
         isAdmin={true}
       />
     </div>

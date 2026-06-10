@@ -342,6 +342,10 @@ export function Header() {
                 )}
                 <span className="sr-only">Cart</span>
               </Button>
+              {/* Screen-reader cart count announcement */}
+              <span aria-live="polite" aria-atomic="true" className="sr-only">
+                {mounted && totalItems > 0 ? `Cart: ${totalItems} items` : 'Cart is empty'}
+              </span>
             </div>
           </div>
         </div>

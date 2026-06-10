@@ -22,6 +22,16 @@ import {
   X,
 } from "lucide-react";
 
+interface PaymentDetails {
+  nayapayAccount: string;
+  nayapayName: string;
+  nayapayPhone: string;
+  meezanIban: string;
+  meezanAccountName: string;
+  meezanBranch: string;
+  meezanAccountNumber: string;
+}
+
 const ALLOWED_TYPES = [
   'image/jpeg', 'image/jpg', 'image/png',
   'application/pdf',
@@ -50,6 +60,16 @@ function PaymentConfirmationContent() {
   const [paymentScreenshot, setPaymentScreenshot] = useState<string | null>(null);
   const [screenshotUploading, setScreenshotUploading] = useState(false);
   const [screenshotError, setScreenshotError] = useState<string | null>(null);
+
+  // Payment account details — fetched server-side, never in the client bundle
+  const [paymentDetails, setPaymentDetails] = useState<PaymentDetails | null>(null);
+
+  useEffect(() => {
+    fetch("/api/store/payment-details")
+      .then((r) => r.json())
+      .then((data) => { if (!data.error) setPaymentDetails(data); })
+      .catch(() => {}); // Silently fail — UI shows fallback if null
+  }, []);
 
   useEffect(() => {
     if (!orderId) {
@@ -344,7 +364,9 @@ function PaymentConfirmationContent() {
                       try {
                         const parsed = typeof item.product?.images === "string" ? JSON.parse(item.product.images) : item.product?.images;
                         if (Array.isArray(parsed) && parsed.length > 0) imageUrl = parsed[0];
-                      } catch (e) {}
+                      } catch (e) {
+                        console.error('[PaymentConfirmation] Error parsing product image:', e);
+                      }
                       return (
                       <div key={i} className="flex gap-3 pb-3 border-b border-border last:border-0">
                         <div className="relative w-12 h-14 bg-secondary rounded overflow-hidden shrink-0">
@@ -425,16 +447,16 @@ function PaymentConfirmationContent() {
                   {paymentMethod === "nayapay" ? (
                     <div className="p-3 bg-green-50 dark:bg-green-950/20 rounded-lg space-y-1">
                       <p className="font-medium text-foreground">Transfer to:</p>
-                      <p>📱 NayaPay ID: <span className="font-mono font-semibold">{FEATURE_FLAGS.NAYAPAY_ACCOUNT_NUMBER}</span></p>
-                      <p>👤 Name: <span className="font-semibold">{FEATURE_FLAGS.NAYAPAY_ACCOUNT_NAME}</span></p>
-                      <p>📞 Mobile: <span className="font-semibold">{FEATURE_FLAGS.NAYAPAY_PHONE}</span></p>
+                      <p>📱 NayaPay ID: <span className="font-mono font-semibold">{paymentDetails?.nayapayAccount ?? "..."}</span></p>
+                      <p>👤 Name: <span className="font-semibold">{paymentDetails?.nayapayName ?? "..."}</span></p>
+                      <p>📞 Mobile: <span className="font-semibold">{paymentDetails?.nayapayPhone ?? "..."}</span></p>
                     </div>
                   ) : (
                     <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg space-y-1">
                       <p className="font-medium text-foreground">Transfer to:</p>
-                      <p>🏦 Account #: <span className="font-mono font-semibold">{FEATURE_FLAGS.MEEZAN_ACCOUNT_NUMBER}</span></p>
-                      <p>🏦 IBAN: <span className="font-mono font-semibold">{FEATURE_FLAGS.MEEZAN_IBAN}</span></p>
-                      <p>👤 Name: <span className="font-semibold">{FEATURE_FLAGS.MEEZAN_ACCOUNT_NAME}</span></p>
+                      <p>🏦 Account #: <span className="font-mono font-semibold">{paymentDetails?.meezanAccountNumber ?? "..."}</span></p>
+                      <p>🏦 IBAN: <span className="font-mono font-semibold">{paymentDetails?.meezanIban ?? "..."}</span></p>
+                      <p>👤 Name: <span className="font-semibold">{paymentDetails?.meezanAccountName ?? "..."}</span></p>
                     </div>
                   )}
                   {Number(order.stitchingFee) > 0 ? (

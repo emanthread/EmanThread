@@ -2,7 +2,7 @@
   "framework": "nextjs",
   "buildCommand": "prisma generate && next build",
   "installCommand": "npm install",
-  "regions": ["sin1"],
+  "regions": ["bom1"],
   "crons": [
     {
       "path": "/api/cron/flash-sales",
@@ -32,6 +32,18 @@
         {
           "key": "Referrer-Policy",
           "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains; preload"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://checkout.safepay.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://res.cloudinary.com https://*.cloudinary.com; connect-src 'self' https://api.resend.com https://app.sendpk.com wss: ws:; frame-src https://checkout.safepay.com https://accounts.google.com; object-src 'none'; base-uri 'self';"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=(), payment=(self), usb=()"
         }
       ]
     },

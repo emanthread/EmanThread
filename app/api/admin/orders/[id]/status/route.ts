@@ -6,6 +6,7 @@ import { updateOrderStatus, createAuditLog } from "@/lib/db-queries";
 import { triggerNotification } from "@/lib/notifications";
 import { prisma } from "@/lib/db";
 import { withLoggedAdminHandler } from "@/lib/logger";
+import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
@@ -105,7 +106,7 @@ export const PUT = withLoggedAdminHandler(async (
           });
 
           if (alreadyNotified) {
-            console.log(
+            console.info(
               `[notifications] Skipping duplicate notification for order ${order.orderNumber}, template ${template}`
             );
           } else {
@@ -134,8 +135,7 @@ export const PUT = withLoggedAdminHandler(async (
     return NextResponse.json(updated);
   } catch (error) {
     console.error("Update order status error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });

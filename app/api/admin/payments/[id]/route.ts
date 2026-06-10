@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { isAdminRole } from '@/lib/permissions'
 import { deleteManualPayment } from '@/lib/db-queries'
+import { sanitizeDbError } from '@/lib/utils/errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,7 +21,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true, deletedAt: new Date().toISOString() })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    const { message, status } = sanitizeDbError(error)
+    return NextResponse.json({ error: message }, { status })
   }
 }

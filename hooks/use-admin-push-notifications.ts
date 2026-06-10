@@ -59,15 +59,18 @@ export function useAdminPushNotifications() {
         ? Notification.requestPermission()
         : Promise.resolve(Notification.permission);
 
-    permissionPromise
-      .then((permission) => {
+    let intervalId: NodeJS.Timeout | null = null;
+
+    const startPolling = async () => {
+      try {
+        const permission = await permissionPromise;
         if (permission !== "granted") {
           console.debug("[push-notif] Notification permission denied");
           return;
         }
 
         // 5. Start polling for new submissions
-        const pollInterval = setInterval(async () => {
+        intervalId = setInterval(async () => {
           try {
             const since = new Date(lastCheckedRef.current).toISOString();
             const res = await fetch(
@@ -117,14 +120,18 @@ export function useAdminPushNotifications() {
             console.debug("[push-notif] Poll error:", err);
           }
         }, 60000); // Poll every 60 seconds
-
-        // Cleanup on unmount
-        return () => {
-          clearInterval(pollInterval);
-        };
-      })
-      .catch(() => {
+      } catch {
         console.debug("[push-notif] Permission request failed");
-      });
+      }
+    };
+
+    startPolling();
+
+    // Cleanup on unmount — clears the interval even when created asynchronously
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
   }, [isAuthenticated, user]);
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAllCategories } from "@/lib/db-queries";
 import { withGuard } from "@/lib/api-guards";
 import { RateLimits } from "@/lib/rate-limiter";
+import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export const GET = withGuard(async () => {
       },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 }, { rateLimit: RateLimits.public() });

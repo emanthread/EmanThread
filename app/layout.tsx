@@ -13,7 +13,7 @@ const cormorant = Cormorant_Garamond({
   weight: ["300", "400", "500", "600", "700"],
   variable: "--font-cormorant",
   display: "swap",    // Don't block render — show fallback font immediately
-  preload: false,     // Decorative heading font — not critical for first paint
+  preload: true,      // Preload so it swaps in ASAP; display:swap handles FOUT
 });
 
 const inter = Inter({
@@ -67,6 +67,7 @@ export const metadata: Metadata = {
     icon: "/logo.png",
     apple: "/logo.png",
   },
+  manifest: "/manifest.json",
   openGraph: {
     type: "website",
     locale: "en_PK",
@@ -99,7 +100,7 @@ export const viewport: Viewport = {
   maximumScale: 5,     // Allow pinch-zoom (accessibility requirement)
   userScalable: true,  // Never disable user scaling
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f5f3ef" },
+    { media: "(prefers-color-scheme: light)", color: "#C9A96E" },
     { media: "(prefers-color-scheme: dark)",  color: "#131313" },
   ],
 };
@@ -119,13 +120,22 @@ export default async function RootLayout({
         className={`${cormorant.variable} ${inter.variable} ${notoSerif.variable} font-sans antialiased`}
         suppressHydrationWarning
       >
+        {/* Skip-to-content link — first focusable element for keyboard accessibility (WCAG 2.1 AA) */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-white focus:text-black focus:px-4 focus:py-2 focus:rounded focus:outline-none"
+        >
+          Skip to main content
+        </a>
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
           enableSystem
           disableTransitionOnChange={false}
         >
-          {children}
+          <div id="main-content" tabIndex={-1}>
+            {children}
+          </div>
           <AuthSync />
           <ClientWidgets />
           {process.env.NODE_ENV === "production" && <Analytics />}

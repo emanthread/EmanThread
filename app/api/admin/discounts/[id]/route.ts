@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { updateDiscount, deleteDiscount, createAuditLog } from "@/lib/db-queries";
 import { withLoggedAdminHandler } from "@/lib/logger";
+import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
@@ -69,9 +70,8 @@ export const PUT = withLoggedAdminHandler(async (
     return NextResponse.json(updated);
   } catch (error) {
     console.error("Update discount error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });
 
@@ -104,8 +104,7 @@ export const DELETE = withLoggedAdminHandler(async (
     return NextResponse.json(deleted);
   } catch (error) {
     console.error("Delete discount error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });

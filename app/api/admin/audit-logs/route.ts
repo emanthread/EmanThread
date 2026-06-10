@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getAuditLogs, deleteAuditLog, clearAllAuditLogs, createAuditLog } from "@/lib/db-queries";
 import { withLoggedAdminHandler } from "@/lib/logger";
+import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
@@ -24,9 +25,8 @@ export const GET = withLoggedAdminHandler(async (req: Request) => {
     return NextResponse.json(result);
   } catch (error) {
     console.error("Audit logs error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });
 
@@ -62,8 +62,7 @@ export const DELETE = withLoggedAdminHandler(async (req: Request) => {
     return NextResponse.json({ success: true, message: "All audit logs cleared" });
   } catch (error) {
     console.error("Delete audit logs error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });

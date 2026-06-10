@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { withLoggedAdminHandler } from "@/lib/logger";
+import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
@@ -97,9 +98,8 @@ export const GET = withLoggedAdminHandler(async () => {
     return NextResponse.json({ slides, promoBanner });
   } catch (error) {
     console.error("Get hero slides error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });
 
@@ -184,8 +184,7 @@ export const PUT = withLoggedAdminHandler(async (req: Request) => {
     return NextResponse.json({ slides, promoBanner });
   } catch (error) {
     console.error("Update hero slides error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });

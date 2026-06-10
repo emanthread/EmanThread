@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { triggerNotification } from "@/lib/notifications";
 import { resolveAdminRecipients } from "@/lib/notifications/admin-alerts";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
+import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
@@ -61,10 +62,16 @@ export async function POST(req: Request) {
     const { items, shippingAddress, paymentMethod, notes, couponCode, whatsappConsent, stitchingFee, stitchingItems, measurementItems } = result.data;
 
     // Validate each product exists, price matches, and stock is sufficient
+    // Batch-fetch all products in one query instead of N queries (N+1 fix)
+    const productIds = items.map((item) => item.productId);
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, price: true, stockQuantity: true, name: true, inStock: true },
+    });
+    const productMap = new Map(products.map((p) => [p.id, p]));
+
     for (const item of items) {
-      const product = await prisma.product.findUnique({
-        where: { id: item.productId },
-      });
+      const product = productMap.get(item.productId);
 
       if (!product) {
         return NextResponse.json(
@@ -347,8 +354,7 @@ export async function POST(req: Request) {
     return NextResponse.json(order, { status: 201 });
   } catch (error) {
     console.error("Create order error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 }

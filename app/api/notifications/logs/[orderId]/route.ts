@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { isAdminRole } from "@/lib/permissions"; // C9
 import { getNotificationLogsByOrderId } from "@/lib/db-queries";
+import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
@@ -21,8 +22,7 @@ export async function GET(
     return NextResponse.json({ logs });
   } catch (error) {
     console.error("Get notification logs error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { isAdminRole } from "@/lib/permissions"; // C6
+import { sanitizeDbError } from "@/lib/utils/errors";
 
 export const dynamic = "force-dynamic";
 
@@ -54,8 +55,7 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   } catch (error) {
     console.error("Fetch order error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 }

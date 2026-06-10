@@ -35,6 +35,7 @@ interface AuthState {
   login: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>;
   register: (name: string, email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
+  rehydrateUser: () => Promise<void>;
   updateProfile: (data: Partial<User>) => void;
   addAddress: (address: Omit<Address, "id">) => void;
   updateAddress: (id: string, address: Partial<Address>) => void;
@@ -178,6 +179,37 @@ export const useAuthStore = create<AuthState>()(
         set({ user: null, isAuthenticated: false });
       },
 
+      rehydrateUser: async () => {
+        const state = useAuthStore.getState();
+        if (!state.isAuthenticated) return;
+
+        try {
+          const res = await fetch("/api/user/profile");
+          if (!res.ok) {
+            set({ user: null, isAuthenticated: false });
+            return;
+          }
+          const profile = await res.json();
+          set({
+            user: {
+              id: profile.id,
+              name: profile.name,
+              email: profile.email,
+              phone: profile.phone,
+              whatsappConsent: profile.whatsappConsent,
+              whatsappPhone: profile.whatsappPhone,
+              role: profile.role,
+              isVerified: profile.isVerified ?? true,
+              addresses: profile.addresses,
+              createdAt: profile.createdAt,
+            },
+          });
+        } catch {
+          // Session expired or network error — clear state
+          set({ user: null, isAuthenticated: false });
+        }
+      },
+
       updateProfile: (data) => {
         set((state) => ({
           user: state.user ? { ...state.user, ...data } : null,
@@ -253,8 +285,9 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "eman-threads-auth",
+      // Only persist authentication flag to localStorage — user PII (email, phone,
+      // addresses, role) is re-fetched from the server on app mount via rehydrateUser()
       partialize: (state) => ({
-        user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),
     }

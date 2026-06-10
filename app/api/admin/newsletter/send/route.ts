@@ -6,6 +6,7 @@ import { getNewsletterSubscribers } from "@/lib/db-queries";
 import { withLoggedAdminHandler } from "@/lib/logger";
 import { z } from "zod";
 import { Resend } from "resend";
+import { sanitizeDbError } from "@/lib/utils/errors";
 
 const sendSchema = z.object({
   subject: z.string().min(1, "Subject is required").max(200),
@@ -105,13 +106,15 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
 
         if (error) {
           failedCount += batch.length;
-          errors.push(error.message);
+          console.error("[newsletter] Resend batch error:", error);
+          errors.push("Email delivery failed");
         } else if (data) {
           sentCount += batch.length;
         }
       } catch (batchErr) {
         failedCount += batch.length;
-        errors.push(batchErr instanceof Error ? batchErr.message : "Batch send failed");
+        console.error("[newsletter] Batch exception:", batchErr);
+        errors.push("Email delivery failed");
       }
     }
 

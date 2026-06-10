@@ -376,7 +376,7 @@ export default function OrdersPage() {
                         }}
                       />
                       <div className="relative h-10 w-10 rounded overflow-hidden bg-muted shrink-0">
-                        <Image src={item.image} alt={item.name} fill className="object-cover" />
+                        <Image src={item.image} alt={item.name} fill className="object-cover" sizes="40px" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm truncate">{item.name}</p>

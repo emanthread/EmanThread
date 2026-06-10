@@ -9,30 +9,35 @@ const isAdmin = (role?: string | null) =>
   ["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(role ?? "");
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user || !isAdmin(session.user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  try {
+    const session = await auth();
+    if (!session?.user || !isAdmin(session.user.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const [
+      totalProfiles,
+      totalTailorRequests,
+      pendingRequests,
+      completeRequests,
+      completedCount,
+    ] = await Promise.all([
+      prisma.measurementProfile.count({ where: adminProfileFilter() }),
+      prisma.measurementProfile.count({ where: adminTailorRequestFilter() }),
+      prisma.measurementProfile.count({ where: { ...adminTailorRequestFilter(), status: "pending" } }),
+      prisma.measurementProfile.count({ where: { ...adminTailorRequestFilter(), status: "complete" } }),
+      prisma.measurementProfile.count({ where: adminCompletedFilter() }),
+    ]);
+
+    return NextResponse.json({
+      totalProfiles,
+      totalTailorRequests,
+      pendingRequests,
+      completeRequests,
+      completedCount,
+    });
+  } catch (error) {
+    console.error("Admin measurement stats error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-
-  const [
-    totalProfiles,
-    totalTailorRequests,
-    pendingRequests,
-    completeRequests,
-    completedCount,
-  ] = await Promise.all([
-    prisma.measurementProfile.count({ where: adminProfileFilter() }),
-    prisma.measurementProfile.count({ where: adminTailorRequestFilter() }),
-    prisma.measurementProfile.count({ where: { ...adminTailorRequestFilter(), status: "pending" } }),
-    prisma.measurementProfile.count({ where: { ...adminTailorRequestFilter(), status: "complete" } }),
-    prisma.measurementProfile.count({ where: adminCompletedFilter() }),
-  ]);
-
-  return NextResponse.json({
-    totalProfiles,
-    totalTailorRequests,
-    pendingRequests,
-    completeRequests,
-    completedCount,
-  });
 }

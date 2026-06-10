@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { auth } from "@/auth";
+import { sanitizeDbError } from "@/lib/utils/errors";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,9 @@ export async function POST(req: Request) {
     const ext = file.name.split('.').pop()?.toLowerCase();
     const allowedExts = ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx'];
 
-    if (!allowedTypes.includes(file.type) && !allowedExts.includes(ext || '')) {
+    // Reject if MIME type OR extension fails — both must pass.
+    // Example: a .jpg file with application/x-php MIME type must be rejected.
+    if (!allowedTypes.includes(file.type) || (!ext || !allowedExts.includes(ext))) {
       return NextResponse.json(
         { error: `Invalid file type. Allowed: JPEG, PNG, PDF, DOC, DOCX` },
         { status: 400 }
@@ -61,7 +64,7 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error("Payment screenshot upload error:", error);
-    const message = error instanceof Error ? error.message : "Upload failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 }

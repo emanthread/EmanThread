@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { withLoggedAdminHandler } from "@/lib/logger";
 import { hasPermission, type RoleValue } from "@/lib/permissions";
+import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,23 @@ export const GET = withLoggedAdminHandler(async (
 
     const order = await prisma.order.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        subtotal: true,
+        shippingCost: true,
+        discountAmount: true,
+        couponCode: true,
+        grandTotal: true,
+        paymentMethod: true,
+        paymentStatus: true,
+        notes: true,
+        shippingAddress: true,
+        stitchingFee: true,
+        createdAt: true,
+        updatedAt: true,
+        userId: true,
         items: {
           include: {
             product: {
@@ -39,12 +56,14 @@ export const GET = withLoggedAdminHandler(async (
         itemMeasurements: true,
         notificationLogs: {
           orderBy: { createdAt: "desc" },
+          select: { id: true, status: true, template: true, createdAt: true },
         },
         returnRequests: {
           include: { items: true },
         },
         transactions: {
           orderBy: { createdAt: "desc" },
+          select: { id: true, amount: true, status: true, provider: true, createdAt: true },
         },
         user: {
           select: { id: true, name: true, email: true, phone: true },
@@ -59,9 +78,8 @@ export const GET = withLoggedAdminHandler(async (
     return NextResponse.json(order);
   } catch (error) {
     console.error("Get order details error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });
 
@@ -94,20 +112,16 @@ export const DELETE = withLoggedAdminHandler(async (
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    // Delete associated return requests first (they don't have onDelete: Cascade on the Order relation)
-    await prisma.returnRequestItem.deleteMany({
-      where: { returnRequest: { orderId: id } },
-    });
-    await prisma.returnRequest.deleteMany({
-      where: { orderId: id },
-    });
+    // Atomically delete all related records to prevent orphans
+    await prisma.$transaction([
+      prisma.returnRequestItem.deleteMany({ where: { returnRequest: { orderId: id } } }),
+      prisma.returnRequest.deleteMany({ where: { orderId: id } }),
+      // Cascade handles: OrderItem, PaymentTransaction, NotificationLog,
+      // OrderItemMeasurement, ManualPaymentSubmission
+      prisma.order.delete({ where: { id } }),
+    ]);
 
-    // Delete the order (cascade handles OrderItem, PaymentTransaction, NotificationLog, OrderItemMeasurement, ManualPaymentSubmission)
-    await prisma.order.delete({
-      where: { id },
-    });
-
-    // Audit log
+    // Audit log (outside transaction — not critical for data integrity)
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
@@ -121,8 +135,7 @@ export const DELETE = withLoggedAdminHandler(async (
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Delete order error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });

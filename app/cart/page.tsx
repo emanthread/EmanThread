@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { getProductImage } from "@/lib/utils";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { CartDrawer } from "@/components/cart/cart-drawer";
@@ -37,7 +38,16 @@ export default function CartPage() {
     .filter((p) => !items.some((item) => item.product.id === p.id))
     .slice(0, 4);
 
-  const freeShippingThreshold = 5000;
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState(5000);
+
+  useEffect(() => {
+    fetch("/api/store/public")
+      .then((r) => r.ok ? r.json() : Promise.resolve(null))
+      .then((data) => {
+        if (data?.freeShippingThreshold) setFreeShippingThreshold(data.freeShippingThreshold);
+      })
+      .catch(() => {}); // fallback to 5000 default
+  }, []);
   const remainingForFreeShipping = Math.max(
     0,
     freeShippingThreshold - totalPrice
@@ -127,7 +137,7 @@ export default function CartPage() {
                       <div className="col-span-12 sm:col-span-6 flex gap-4">
                         <div className="relative w-20 h-24 sm:w-24 sm:h-32 bg-secondary rounded overflow-hidden shrink-0">
                           <Image
-                            src={item.product.images[0]}
+                            src={getProductImage(item.product.images)}
                             alt={item.product.name}
                             fill
                             className="object-cover"

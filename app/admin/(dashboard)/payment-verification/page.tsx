@@ -36,6 +36,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { formatPrice } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { getStatusBadgeClass } from "@/lib/utils/status";
 
 interface PaymentSubmission {
   id: string;
@@ -444,7 +445,7 @@ export default function PaymentVerificationPage() {
                                 </Button>
                               </>
                             ) : (
-                              <Badge variant="secondary" className={sub.status === "VERIFIED" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}>
+                              <Badge variant="secondary" className={getStatusBadgeClass(sub.status)}>
                                 {sub.status}
                               </Badge>
                             )}
@@ -585,7 +586,7 @@ export default function PaymentVerificationPage() {
                     <div><p className="text-xs text-muted-foreground">Method</p><Badge variant="secondary">{screenshotTarget.paymentMethod}</Badge></div>
                     <div className="col-span-2"><p className="text-xs text-muted-foreground">Transaction ID</p><p className="font-medium font-mono">{screenshotTarget.transactionId}</p></div>
                     <div><p className="text-xs text-muted-foreground">Sender</p><p className="font-medium">{screenshotTarget.senderName}</p></div>
-                    <div><p className="text-xs text-muted-foreground">Status</p><Badge className={screenshotTarget.status === "VERIFIED" ? "bg-emerald-100 text-emerald-700" : screenshotTarget.status === "REJECTED" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}>{screenshotTarget.status}</Badge></div>
+                    <div><p className="text-xs text-muted-foreground">Status</p><Badge className={getStatusBadgeClass(screenshotTarget.status)}>{screenshotTarget.status}</Badge></div>
                     <div><p className="text-xs text-muted-foreground">Submitted</p><p className="font-medium text-xs">{new Date(screenshotTarget.createdAt).toLocaleDateString()}</p></div>
                     {screenshotTarget.flagged && (
                       <div className="col-span-2 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 rounded">

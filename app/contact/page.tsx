@@ -6,6 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
+export const dynamic = "force-static";
+export const revalidate = 86400;
+
 export default function ContactPage() {
   return (
     <>

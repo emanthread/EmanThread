@@ -28,14 +28,19 @@ const createProductSchema = z.object({
   categoryId: z.string().min(1, "Category is required"),
 });
 
-export const GET = withLoggedAdminHandler(async () => {
+export const GET = withLoggedAdminHandler(async (req: Request) => {
   const session = await auth();
   if (!session?.user || !isAdminRole(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const products = await getAdminProducts();
-  return NextResponse.json(products);
+  const { searchParams } = new URL(req.url);
+  const page = parseInt(searchParams.get('page') || '1');
+  const limit = parseInt(searchParams.get('limit') || '50');
+  const search = searchParams.get('search') || undefined;
+
+  const result = await getAdminProducts(page, limit, search);
+  return NextResponse.json(result.products);
 });
 
 export const POST = withLoggedAdminHandler(async (req: Request) => {

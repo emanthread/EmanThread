@@ -7,24 +7,30 @@ export const dynamic = "force-dynamic";
 
 // GET → returns the current user's tailor measurement (read-only for user)
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const measurement = await prisma.measurementProfile.findFirst({
+      where: {
+        userId: session.user.id,
+        source: "tailor_request",
+        deletedAt: null,
+      },
+    });
+    return NextResponse.json({ measurement });
+  } catch (error) {
+    console.error("Get tailor measurement error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-  const measurement = await prisma.measurementProfile.findFirst({
-    where: {
-      userId: session.user.id,
-      source: "tailor_request",
-      deletedAt: null,
-    },
-  });
-  return NextResponse.json({ measurement });
 }
 
 // POST → creates a measurement request (source: "tailor_request", status: "pending")
 // Only one active tailor request per user at a time
 export async function POST(req: NextRequest) {
-  const session = await auth();
+  try {
+    const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -78,8 +84,8 @@ export async function POST(req: NextRequest) {
         "collarnok1", "collarnok2", "bane1", "bane2",
         "ladHip1", "ladHip2", "hip1", "hip2",
         "doubleCb", "singleCb", "golCb", "chorasCb",
-        "baneCb", "collarCb", "roundneck", "straightCb", "downCb",
-        "frontPocket", "sidePocket", "shalwarPocket", "zipCb",
+        "baneCb", "collarCb", "roundneck",
+        "frontPocket", "sidePocket", "shalwarPocket",
         "shalwar1", "shalwar2", "shalwarGherra1", "shalwarGherra2",
         "shalwarAssan1", "shalwarAssan2", "shalwarPancha1", "shalwarPancha2",
         "trouserdata1", "trouserdata2", "trouserdata3", "trouserdata4",
@@ -127,4 +133,8 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json({ measurement }, { status: 201 });
+  } catch (error) {
+    console.error("Create tailor measurement error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }

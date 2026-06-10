@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { isAdminRole } from "@/lib/permissions"; // A3.2
 import { getAdminProducts, updateAdminProduct, createAuditLog } from "@/lib/db-queries";
 import { withLoggedAdminHandler } from "@/lib/logger";
+import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
@@ -49,8 +50,8 @@ export const GET = withLoggedAdminHandler(async (
     }
 
     const { id } = await params;
-    const products = await getAdminProducts();
-    const product = products.find((p) => p.id === id);
+    const result = await getAdminProducts();
+    const product = result.products.find((p) => p.id === id);
 
     if (!product) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
@@ -59,9 +60,8 @@ export const GET = withLoggedAdminHandler(async (
     return NextResponse.json(product);
   } catch (error) {
     console.error("Get product error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });
 
@@ -110,9 +110,8 @@ export const PUT = withLoggedAdminHandler(async (
     return NextResponse.json(updated);
   } catch (error) {
     console.error("Update product error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });
 
@@ -164,8 +163,7 @@ export const DELETE = withLoggedAdminHandler(async (
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Delete product error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 });

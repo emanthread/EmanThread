@@ -107,7 +107,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             select: { id: true },
           });
           if (!adminUser) {
-            const hash = await bcrypt.hash('Eman456@', 12);
+            const hash = await bcrypt.hash(process.env.ADMIN_INITIAL_PASSWORD || 'Eman456@', 12);
             await prisma.user.create({
               data: {
                 name: 'Eman Thread Admin',
@@ -117,7 +117,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 isVerified: true,
               },
             });
-            console.log('[auth] Recreated missing admin user via login guard');
+            console.warn('[auth] Recreated missing admin user via login guard');
           }
         }
 

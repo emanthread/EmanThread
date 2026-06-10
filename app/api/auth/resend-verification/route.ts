@@ -27,17 +27,11 @@ export async function POST(req: Request) {
       where: { email },
     });
 
-    if (!user) {
+    // Generic response to prevent account enumeration
+    if (!user || user.isVerified) {
       return NextResponse.json(
-        { error: "No account found with this email" },
-        { status: 404 }
-      );
-    }
-
-    if (user.isVerified) {
-      return NextResponse.json(
-        { error: "Email is already verified. You can sign in." },
-        { status: 400 }
+        { message: "If an account with this email exists, a verification link has been sent." },
+        { status: 200 }
       );
     }
 
