@@ -14,6 +14,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { UnifiedMeasurementForm } from "@/components/measurements/UnifiedMeasurementForm";
 import { TailorPrintCard, type TailorCardData } from "@/components/admin/tailor-print-card";
 import { getStatusBadgeClass } from "@/lib/utils/status";
@@ -210,7 +216,7 @@ export default function AdminTailorMeasurementDetailPage() {
                   className={
                     measurement.status === "complete"
                       ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-                      : measurement.status === "accepted"
+                      : measurement.status === "accepted" || measurement.status === "approved"
                       ? "bg-sky-100 text-sky-700 border-sky-200"
                       : measurement.status === "rejected"
                       ? "bg-red-100 text-red-700 border-red-200"
@@ -231,35 +237,36 @@ export default function AdminTailorMeasurementDetailPage() {
           </Card>
         </div>
 
-        {/* Editor — Unified Measurement Form */}
-        <div className="lg:col-span-3 space-y-6">
+        {/* Editor + Print Preview via Tabs */}
+        <div className="lg:col-span-3">
           <Card>
             <CardContent className="pt-6">
-              <UnifiedMeasurementForm
-                data={formData}
-                mode="edit"
-                garmentTypeFixed={measurement.garmentType}
-                customerName={customer.name}
-                customerEmail={customer.email}
-                customerPhone={customer.phone ?? undefined}
-                measurementId={measurement.id}
-                onSave={handleSave}
-                saving={saving}
-                isAdmin={true}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Print Card */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Print Measurement Sheet</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground mb-3">
-                Print a clean A4 measurement sheet for the tailor. Serial No and Date are auto-generated.
-              </p>
-              <TailorPrintCard data={printCardData} />
+              <Tabs defaultValue="edit">
+                <TabsList className="mb-4">
+                  <TabsTrigger value="edit">Edit</TabsTrigger>
+                  <TabsTrigger value="print">Print Preview</TabsTrigger>
+                </TabsList>
+                <TabsContent value="edit">
+                  <UnifiedMeasurementForm
+                    data={formData}
+                    mode="edit"
+                    garmentTypeFixed={measurement.garmentType}
+                    customerName={customer.name}
+                    customerEmail={customer.email}
+                    customerPhone={customer.phone ?? undefined}
+                    measurementId={measurement.id}
+                    onSave={handleSave}
+                    saving={saving}
+                    isAdmin={true}
+                  />
+                </TabsContent>
+                <TabsContent value="print">
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Print a clean A4 measurement sheet for the tailor. Serial No and Date are auto-generated.
+                  </p>
+                  <TailorPrintCard data={printCardData} />
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </div>

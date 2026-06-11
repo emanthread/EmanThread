@@ -10,6 +10,7 @@ const STATUS_BADGE_MAP: Record<string, string> = {
   // Tailor / measurement statuses
   pending:     "bg-amber-100 text-amber-700 border-amber-200",
   accepted:    "bg-sky-100 text-sky-700 border-sky-200",
+  approved:    "bg-sky-100 text-sky-700 border-sky-200",
   rejected:    "bg-red-100 text-red-700 border-red-200",
   complete:    "bg-emerald-100 text-emerald-700 border-emerald-200",
 

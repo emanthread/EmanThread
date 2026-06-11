@@ -263,6 +263,16 @@ export function mapToPrismaFields(parsed: UnifiedMeasurementFormData) {
  * Strips meta/relational fields and reverses legacy column name mappings
  * so the result can be used directly in UnifiedMeasurementForm or A4MeasurementForm.
  */
+/**
+ * Check if a value is a UUID (either hyphen-separated or space-separated).
+ * UUIDs in measurement fields are always data corruption and must be filtered out.
+ */
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}[- ]?[0-9a-f]{4}[- ]?[0-9a-f]{4}[- ]?[0-9a-f]{4}[- ]?[0-9a-f]{12}$/i.test(
+    value.trim()
+  );
+}
+
 export function mapFromPrismaFields(row: Record<string, unknown>): UnifiedMeasurementFormData {
   const metaKeys = new Set([
     "id", "userId", "user", "createdAt", "updatedAt", "deletedAt",
@@ -275,6 +285,8 @@ export function mapFromPrismaFields(row: Record<string, unknown>): UnifiedMeasur
   for (const [key, val] of Object.entries(row)) {
     if (metaKeys.has(key)) continue;
     if (val == null || val === "") continue;
+    // Skip values that look like UUIDs — they're corrupted measurement data
+    if (typeof val === "string" && isUuid(val)) continue;
 
     // Reverse legacy trouserdata mappings
     if (key === "trouserdata1") { result["trouserLength1"] = val; }

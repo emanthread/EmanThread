@@ -127,8 +127,17 @@ export async function PATCH(
     return NextResponse.json({ error: "Measurement request not found" }, { status: 404 });
   }
 
+  // Map frontend status values to Prisma enum values
+  // "accepted" → "approved" (Prisma enum uses "approved" not "accepted")
+  const STATUS_MAP: Record<string, string> = {
+    accepted: "approved",
+    rejected: "rejected",
+    complete: "approved",
+    pending: "pending",
+  };
+
   const updateData: Record<string, unknown> = {};
-  if (body.status !== undefined) updateData.status = body.status;
+  if (body.status !== undefined) updateData.status = STATUS_MAP[body.status] ?? body.status;
   if (body.notes !== undefined) updateData.notes = body.notes;
   if ("deliveryDate" in body)
     updateData.deliveryDate = body.deliveryDate ? new Date(body.deliveryDate) : null;

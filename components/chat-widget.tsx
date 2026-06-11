@@ -34,11 +34,11 @@ interface ChatResponse {
   paymentVerification: string
 }
 
-// â”€â”€ Language config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ——— Language config ———————————————————————————————————————————
 const LANG_CONFIG = {
   en: {
     label: 'English',
-    flag: 'ðŸ‡¬ðŸ‡§',
+    flag: '🇬🇧',
     greeting:
       "Hello! I'm your Eman Thread assistant. How can I help you today? I can help with products, orders, shipping, payments, or anything else!",
     placeholder: 'Type your message...',
@@ -57,9 +57,9 @@ const LANG_CONFIG = {
   },
   ur: {
     label: 'Roman Urdu',
-    flag: 'ðŸ‡µðŸ‡°',
+    flag: '🇵🇰',
     greeting:
-      'Assalam o Alaikum! Main Eman Thread ki assistant hoon. Aaj main aap ki kya madad kar sakti hoon? Products, orders, shipping, payment â€” sab ke baare mein pooch sakte hain!',
+      'Assalam o Alaikum! Main Eman Thread ki assistant hoon. Aaj main aap ki kya madad kar sakti hoon? Products, orders, shipping, payment — sab ke baare mein pooch sakte hain!',
     placeholder: 'Apna sawal likhein...',
     quickReplies: [
       'Fabrics dikhao',
