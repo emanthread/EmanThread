@@ -159,7 +159,7 @@ export default function AdminFabricTypesPage() {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to delete");
-      toast.success("Fabric type deactivated");
+      toast.success("Fabric type deleted");
       setDeletingId(null);
       await fetchFabricTypes();
     } catch (err: any) {
@@ -370,16 +370,14 @@ export default function AdminFabricTypesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Fabric Type</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to deactivate{" "}
-              <strong>{deletingName}</strong>? Existing products using this
-              fabric type will retain their data, but it won't be available for
-              new products.
+              Are you sure you want to delete{" "}
+              <strong>{deletingName}</strong>? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
-              Deactivate
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

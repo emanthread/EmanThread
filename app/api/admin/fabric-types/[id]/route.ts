@@ -75,10 +75,9 @@ export const DELETE = withLoggedAdminHandler(async (
     return NextResponse.json({ error: "Fabric type not found" }, { status: 404 });
   }
 
-  // Soft-delete: deactivate instead of delete to preserve historical product data
-  await prisma.fabricType.update({
+  // Actually delete since there's no FK relationship yet
+  await prisma.fabricType.delete({
     where: { id },
-    data: { isActive: false },
   });
 
   return NextResponse.json({ success: true });

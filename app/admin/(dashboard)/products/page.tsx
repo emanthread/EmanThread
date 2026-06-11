@@ -800,25 +800,7 @@ function ProductDialog({
     setProduct((prev) => ({ ...prev, [field]: value }));
   };
 
-  const [fabricTypeOptions, setFabricTypeOptions] = useState<{ value: string; label: string }[]>([]);
 
-  useEffect(() => {
-    if (open) {
-      fetch("/api/admin/fabric-types")
-        .then((r) => r.json())
-        .then((data) => {
-          if (Array.isArray(data)) {
-            setFabricTypeOptions(data.map((ft: any) => ({
-              value: ft.name,
-              label: ft.name,
-            })));
-          }
-        })
-        .catch(() => {
-          // Fallback to empty — user can still type
-        });
-    }
-  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -886,15 +868,19 @@ function ProductDialog({
               <Label>Fabric Type *</Label>
               <Select
                 value={product.fabricType}
-                onValueChange={(v) => update("fabricType", v)}
+                onValueChange={(v) => {
+                  update("fabricType", v);
+                  const selectedCat = categories.find(c => c.name === v);
+                  if (selectedCat) update("categoryId", selectedCat.id);
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {fabricTypeOptions.map((ft) => (
-                    <SelectItem key={ft.value} value={ft.value}>
-                      {ft.label}
+                  {categories.map((c) => (
+                    <SelectItem key={c.id} value={c.name}>
+                      {c.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -993,34 +979,45 @@ function ProductDialog({
                   </button>
                 </div>
               ))}
-              <label
-                htmlFor="product-image-upload"
-                className={cn(
-                  "h-20 w-20 rounded border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground hover:border-accent hover:text-accent transition-colors",
-                  uploadingImage ? "opacity-50 pointer-events-none" : "cursor-pointer"
-                )}
-              >
-                {uploadingImage ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <>
-                    <ImageIcon className="h-5 w-5 mb-1" />
-                    <span className="text-[10px]">Add Image</span>
-                  </>
-                )}
-              </label>
-              <input
-                id="product-image-upload"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="sr-only"
-                disabled={uploadingImage}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) onUploadImage(file);
-                  e.target.value = "";
-                }}
-              />
+              {product.images.length < 3 && (
+                <>
+                  <label
+                    htmlFor="product-image-upload"
+                    className={cn(
+                      "h-20 w-20 rounded border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground hover:border-accent hover:text-accent transition-colors",
+                      uploadingImage ? "opacity-50 pointer-events-none" : "cursor-pointer"
+                    )}
+                  >
+                    {uploadingImage ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <>
+                        <ImageIcon className="h-5 w-5 mb-1" />
+                        <span className="text-[10px]">Add Image</span>
+                      </>
+                    )}
+                  </label>
+                  <input
+                    id="product-image-upload"
+                    type="file"
+                    multiple
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    disabled={uploadingImage}
+                    onChange={async (e) => {
+                      const files = Array.from(e.target.files || []);
+                      if (files.length > 0) {
+                        const remainingSlots = 3 - product.images.length;
+                        const filesToUpload = files.slice(0, remainingSlots);
+                        for (const file of filesToUpload) {
+                          await onUploadImage(file);
+                        }
+                      }
+                      e.target.value = "";
+                    }}
+                  />
+                </>
+              )}
             </div>
           </div>
 
