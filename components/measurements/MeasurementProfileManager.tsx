@@ -24,6 +24,7 @@ import {
 import {
   GARMENT_TYPES,
   garmentTypeLabel,
+  mapFromPrismaFields,
 } from "@/lib/validators/measurements-unified";
 import { UnifiedMeasurementForm } from "./UnifiedMeasurementForm";
 import type { UnifiedMeasurementFormData } from "@/lib/validators/measurements-unified";
@@ -63,6 +64,10 @@ export function MeasurementProfileManager({
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(defaultCreateMode);
   const [editProfile, setEditProfile] = useState<ProfileSummary | null>(null);
+  // fullEditData holds the complete profile fetched from /api/measurements/[id]
+  // (includes all measurement columns — the list API only returns summary fields)
+  const [fullEditData, setFullEditData] = useState<Partial<UnifiedMeasurementFormData> | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ProfileSummary | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -260,7 +265,24 @@ export function MeasurementProfileManager({
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
-                  onClick={() => setEditProfile(profile)}
+                  disabled={editLoading}
+                  onClick={async () => {
+                    setEditLoading(true);
+                    try {
+                      const res = await fetch(`/api/measurements/${profile.id}`);
+                      if (!res.ok) throw new Error("Failed to load profile");
+                      const json = await res.json();
+                      // mapFromPrismaFields translates Prisma column names
+                      // (e.g. shalwar1→shalwarLength1) into form field keys
+                      setFullEditData(mapFromPrismaFields(json.profile));
+                      setEditProfile(profile);
+                    } catch (err) {
+                      console.error("[EditProfile] fetch error:", err);
+                      toast({ title: "Could not load profile. Please try again.", variant: "destructive" });
+                    } finally {
+                      setEditLoading(false);
+                    }
+                  }}
                   title="Edit profile"
                 >
                   <Pencil className="h-3.5 w-3.5" />
@@ -298,7 +320,12 @@ export function MeasurementProfileManager({
       {/* Edit Dialog */}
       <Dialog
         open={!!editProfile}
-        onOpenChange={(o) => !o && setEditProfile(null)}
+        onOpenChange={(o) => {
+          if (!o) {
+            setEditProfile(null);
+            setFullEditData(null);
+          }
+        }}
       >
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -307,9 +334,9 @@ export function MeasurementProfileManager({
               Update your saved measurements.
             </DialogDescription>
           </DialogHeader>
-          {editProfile && (
+          {editProfile && fullEditData && (
             <UnifiedMeasurementForm
-              data={editProfile as unknown as Partial<UnifiedMeasurementFormData>}
+              data={fullEditData}
               mode="edit"
               garmentTypeFixed={editProfile.garmentType}
               onSave={handleSaveEdit}
