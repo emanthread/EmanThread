@@ -220,7 +220,7 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
                   const snapshot = om.measurementSnapshot || {};
                   const profile = om.measurementProfile;
                   const rawM = (snapshot.measurements || {}) as Record<string, unknown>;
-                  const m = mapFromPrismaFields(rawM) as Record<string, string>;
+                  const m = mapFromPrismaFields(rawM) as Record<string, any>;
                   const profileName = profile?.profileName || snapshot.profileName || "Measurement";
                   const garmentType = profile?.garmentType || snapshot.garmentType || "";
                   

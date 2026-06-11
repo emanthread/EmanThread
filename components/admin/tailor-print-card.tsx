@@ -15,7 +15,7 @@ export interface TailorCardData {
   productName: string;
   garmentType: string;
   gender?: string;
-  measurements: Record<string, string>;
+  measurements: Record<string, any>;
   stylingPrefs?: Record<string, unknown> | null;
   notes?: string | null;
 }
