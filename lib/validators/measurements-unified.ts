@@ -276,8 +276,7 @@ function isUuid(value: string): boolean {
 export function mapFromPrismaFields(row: Record<string, unknown>): UnifiedMeasurementFormData {
   const metaKeys = new Set([
     "id", "userId", "user", "createdAt", "updatedAt", "deletedAt",
-    "requestedAt", "source", "status", "profileName", "isDefault",
-    "gender", "garmentType", "deliveryDate", "notes",
+    "requestedAt", "source", "status",
   ]);
 
   const result: Record<string, unknown> = { ...UNIFIED_MEASUREMENT_EMPTY };
