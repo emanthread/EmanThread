@@ -296,7 +296,6 @@ async function seedStitchingPrices() {
     { fabricType: "shirt", gender: "Male", price: 2500 },
     // Female garment types (matching femaleMeasurements.ts)
     { fabricType: "frock", gender: "Female", price: 2500 },
-    { fabricType: "shalwar kameez", gender: "Female", price: 2500 },
     { fabricType: "lehnga kurti", gender: "Female", price: 2500 },
     { fabricType: "saari", gender: "Female", price: 2500 },
   ];

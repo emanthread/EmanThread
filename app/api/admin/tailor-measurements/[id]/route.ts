@@ -128,6 +128,7 @@ export async function PATCH(
   }
 
   const updateData: Record<string, unknown> = {};
+  if (body.status !== undefined) updateData.status = body.status;
   if (body.notes !== undefined) updateData.notes = body.notes;
   if ("deliveryDate" in body)
     updateData.deliveryDate = body.deliveryDate ? new Date(body.deliveryDate) : null;

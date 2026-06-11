@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useRef, useEffect, useCallback, FormEvent } from 'react'
 import { MessageCircle, X, Send, User } from 'lucide-react'
@@ -321,14 +321,14 @@ export function ChatWidget() {
                   onClick={() => chooseLanguage('en')}
                   className="flex-1 flex flex-col items-center gap-2 py-4 rounded-2xl border-2 border-indigo-200 dark:border-indigo-800 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition-all cursor-pointer"
                 >
-                  <img src="https://flagcdn.com/gb.svg" alt="English" className="w-10 h-auto rounded-sm drop-shadow-sm mb-1" />
+                  <span className="text-3xl mb-1">{LANG_CONFIG.en.flag}</span>
                   <span className="text-sm font-semibold text-foreground">English</span>
                 </button>
                 <button
                   onClick={() => chooseLanguage('ur')}
                   className="flex-1 flex flex-col items-center gap-2 py-4 rounded-2xl border-2 border-indigo-200 dark:border-indigo-800 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition-all cursor-pointer"
                 >
-                  <img src="https://flagcdn.com/pk.svg" alt="Roman Urdu" className="w-10 h-auto rounded-sm drop-shadow-sm mb-1" />
+                  <span className="text-3xl mb-1">{LANG_CONFIG.ur.flag}</span>
                   <span className="text-sm font-semibold text-foreground">Roman Urdu</span>
                 </button>
               </div>

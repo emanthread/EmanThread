@@ -35,21 +35,13 @@ const DEFAULT_MALE_GARMENTS = [
   "simple 3 piece suit",
   "prince coat 3 piece suit",
   "shirt",
-  "trouser",
-  "gharara",
-  "lehnga",
 ] as const;
 
 const DEFAULT_FEMALE_GARMENTS = [
-  "shalwar_kameez",
   "simple shalwar kameez",
   "frock",
   "lehnga kurti",
   "saari",
-  "shirt",
-  "trouser",
-  "gharara",
-  "lehnga",
 ] as const;
 
 // Human-readable labels matching the measurements page GARMENT_LABELS
@@ -58,9 +50,6 @@ const GARMENT_LABELS_STITCHING: Record<string, string> = {
   "simple 3 piece suit": "Simple 3 Piece Suit",
   "prince coat 3 piece suit": "Prince Coat 3 Piece Suit",
   "shirt": "Shirt",
-  "trouser": "Trouser",
-  "gharara": "Gharara",
-  "lehnga": "Lehnga",
   "simple shalwar kameez": "Simple Shalwar Kameez",
   "frock": "Frock",
   "lehnga kurti": "Lehnga Kurti",
