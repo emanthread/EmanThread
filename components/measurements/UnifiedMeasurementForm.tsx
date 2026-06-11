@@ -270,13 +270,13 @@ export function UnifiedMeasurementForm({
 
       {/* ── Actions ── */}
       {onSave && (
-        <div className="flex flex-col items-end gap-2 pt-4">
+        <div className="flex flex-col items-center justify-center gap-2 pt-8 pb-4 mt-6 border-t border-transparent">
           {saveError && (
-            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 w-full text-center">
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 w-full max-w-md text-center">
               {saveError}
             </p>
           )}
-          <Button onClick={handleSubmit} disabled={saving || localSaving} size="lg" className="gap-2">
+          <Button onClick={handleSubmit} disabled={saving || localSaving} size="lg" className="w-full max-w-sm gap-2 shadow-sm">
             {saving || localSaving ? (
               "Saving..."
             ) : (

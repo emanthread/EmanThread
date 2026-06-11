@@ -38,7 +38,7 @@ interface ChatResponse {
 const LANG_CONFIG = {
   en: {
     label: 'English',
-    flag: '🇬🇧',
+    flagUrl: 'https://flagcdn.com/gb.svg',
     greeting:
       "Hello! I'm your Eman Thread assistant. How can I help you today? I can help with products, orders, shipping, payments, or anything else!",
     placeholder: 'Type your message...',
@@ -57,7 +57,7 @@ const LANG_CONFIG = {
   },
   ur: {
     label: 'Roman Urdu',
-    flag: '🇵🇰',
+    flagUrl: 'https://flagcdn.com/pk.svg',
     greeting:
       'Assalam o Alaikum! Main Eman Thread ki assistant hoon. Aaj main aap ki kya madad kar sakti hoon? Products, orders, shipping, payment — sab ke baare mein pooch sakte hain!',
     placeholder: 'Apna sawal likhein...',
@@ -321,14 +321,14 @@ export function ChatWidget() {
                   onClick={() => chooseLanguage('en')}
                   className="flex-1 flex flex-col items-center gap-2 py-4 rounded-2xl border-2 border-indigo-200 dark:border-indigo-800 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition-all cursor-pointer"
                 >
-                  <span className="text-3xl mb-1">{LANG_CONFIG.en.flag}</span>
+                  <img src={LANG_CONFIG.en.flagUrl} alt="English Flag" className="w-10 h-7 object-cover mb-1 rounded-sm shadow-sm" />
                   <span className="text-sm font-semibold text-foreground">English</span>
                 </button>
                 <button
                   onClick={() => chooseLanguage('ur')}
                   className="flex-1 flex flex-col items-center gap-2 py-4 rounded-2xl border-2 border-indigo-200 dark:border-indigo-800 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition-all cursor-pointer"
                 >
-                  <span className="text-3xl mb-1">{LANG_CONFIG.ur.flag}</span>
+                  <img src={LANG_CONFIG.ur.flagUrl} alt="Pakistan Flag" className="w-10 h-7 object-cover mb-1 rounded-sm shadow-sm" />
                   <span className="text-sm font-semibold text-foreground">Roman Urdu</span>
                 </button>
               </div>

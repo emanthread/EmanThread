@@ -231,7 +231,7 @@ export default function AdminLayout({
           const segments = pathname.split("/").filter(Boolean);
           const last = segments[segments.length - 1] || "";
           // If the last segment looks like a Prisma cuid or UUID (long alphanumeric), use parent context
-          if (last.length >= 20 && /^[a-z0-9]+$/.test(last) && segments.length >= 2) {
+          if (last.length >= 20 && /^[a-z0-9-]+$/i.test(last) && segments.length >= 2) {
             const parent = segments[segments.length - 2] || "";
             const singular = parent.endsWith("s") ? parent.slice(0, -1) : parent;
             return singular.charAt(0).toUpperCase() + singular.slice(1).replace(/-/g, " ") + " Details";

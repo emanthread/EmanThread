@@ -58,6 +58,11 @@ export function TailorPrintCard({ data }: { data: TailorCardData }) {
       <style>{`
         @media print {
           @page { size: A4; margin: 0; }
+          html, body {
+            height: auto !important;
+            min-height: 100% !important;
+            overflow: visible !important;
+          }
           body * {
             visibility: hidden;
           }
@@ -65,19 +70,30 @@ export function TailorPrintCard({ data }: { data: TailorCardData }) {
             visibility: visible;
           }
           .a4-page-root {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          /* Break out of modal stacking and transforms */
+          [role="dialog"], [data-radix-popper-content-wrapper], .fixed, .absolute {
+            position: static !important;
+            transform: none !important;
+            inset: 0 !important;
+            max-height: none !important;
+            height: auto !important;
+            overflow: visible !important;
           }
           .a4-scale-wrapper {
-            height: auto;
-            width: auto;
-            margin: 0;
+            height: auto !important;
+            width: auto !important;
+            margin: 0 !important;
           }
           .a4-scale-inner {
-            position: static;
-            transform: none;
+            position: static !important;
+            transform: none !important;
           }
           * {
             -webkit-print-color-adjust: exact !important;
