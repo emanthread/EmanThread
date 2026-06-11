@@ -86,4 +86,8 @@ try {
   // @serwist/next not installed — skip PWA config
 }
 
-export default withSentryConfig(serwistWrapped);
+export default withSentryConfig(serwistWrapped, {
+  // Suppress Sentry CLI warnings (auth token, source maps) when not configured
+  silent: !process.env.SENTRY_AUTH_TOKEN,
+  telemetry: false,
+});
