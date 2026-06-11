@@ -31,7 +31,7 @@ export function adminProfileFilter() {
  */
 export function adminCompletedFilter() {
   return {
-    status: MeasurementProfileStatus.complete,
+    status: MeasurementProfileStatus.approved,
     deletedAt: null,
   };
 }
