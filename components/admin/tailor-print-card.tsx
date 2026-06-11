@@ -59,45 +59,37 @@ export function TailorPrintCard({ data }: { data: TailorCardData }) {
         @media print {
           @page { size: A4; margin: 0; }
           html, body {
-            height: auto !important;
-            min-height: 100% !important;
+            height: 100% !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
             overflow: visible !important;
+            background: white !important;
           }
           body * {
             visibility: hidden;
+          }
+          /* Reset any relative positioning from ancestors so fixed works */
+          * {
+            transform: none !important;
+            transition: none !important;
+            animation: none !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           .a4-page-root, .a4-page-root * {
             visibility: visible;
           }
           .a4-page-root {
-            position: absolute !important;
+            position: fixed !important;
             left: 0 !important;
             top: 0 !important;
-            width: 100% !important;
+            width: 210mm !important;
+            height: 297mm !important;
             margin: 0 !important;
             padding: 0 !important;
-          }
-          /* Break out of modal stacking and transforms */
-          [role="dialog"], [data-radix-popper-content-wrapper], .fixed, .absolute {
-            position: static !important;
-            transform: none !important;
-            inset: 0 !important;
-            max-height: none !important;
-            height: auto !important;
-            overflow: visible !important;
-          }
-          .a4-scale-wrapper {
-            height: auto !important;
-            width: auto !important;
-            margin: 0 !important;
-          }
-          .a4-scale-inner {
-            position: static !important;
-            transform: none !important;
-          }
-          * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+            z-index: 999999 !important;
+            background: white !important;
           }
         }
       `}</style>
