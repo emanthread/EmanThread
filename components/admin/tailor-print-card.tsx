@@ -1,5 +1,7 @@
 "use client";
 
+import React from "react";
+
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
 import { A4MeasurementForm } from "@/components/measurements/forms/A4MeasurementForm";
@@ -48,17 +50,29 @@ function buildFormData(data: TailorCardData): UnifiedMeasurementFormData {
 
 export function TailorPrintCard({ data }: { data: TailorCardData }) {
   const formData = buildFormData(data);
+  const rawId = React.useId();
+  const uniqueId = rawId.replace(/:/g, "-");
+
+  React.useEffect(() => {
+    const afterPrint = () => {
+      document.body.classList.remove(`print-${uniqueId}`);
+    };
+    window.addEventListener("afterprint", afterPrint);
+    return () => window.removeEventListener("afterprint", afterPrint);
+  }, [uniqueId]);
 
   const handlePrint = () => {
-    window.print();
+    document.body.classList.add(`print-${uniqueId}`);
+    setTimeout(() => {
+      window.print();
+    }, 100);
   };
 
   return (
-    <div>
+    <div className={`a4-wrapper-${uniqueId}`}>
       <style>{`
         @media print {
-          @page { size: A4; margin: 0; }
-          html, body {
+          body.print-${uniqueId} {
             height: 100% !important;
             width: 100% !important;
             margin: 0 !important;
@@ -66,21 +80,19 @@ export function TailorPrintCard({ data }: { data: TailorCardData }) {
             overflow: visible !important;
             background: white !important;
           }
-          body * {
+          body.print-${uniqueId} * {
             visibility: hidden;
-          }
-          /* Reset any relative positioning from ancestors so fixed works */
-          * {
             transform: none !important;
             transition: none !important;
             animation: none !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          .a4-page-root, .a4-page-root * {
+          body.print-${uniqueId} .a4-wrapper-${uniqueId},
+          body.print-${uniqueId} .a4-wrapper-${uniqueId} * {
             visibility: visible;
           }
-          .a4-page-root {
+          body.print-${uniqueId} .a4-wrapper-${uniqueId} .a4-page-root {
             position: fixed !important;
             left: 0 !important;
             top: 0 !important;

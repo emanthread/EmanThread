@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { useAdminStore } from "@/lib/admin-store";
 import { formatPrice } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { TailorPrintCard, type TailorCardData } from "@/components/admin/tailor-print-card";
+import { mapFromPrismaFields } from "@/lib/validators/measurements-unified";
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   pending: { label: "Pending", color: "bg-yellow-100 text-yellow-700" },
@@ -217,11 +219,24 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
                 {orderMeasurements.map((om) => {
                   const snapshot = om.measurementSnapshot || {};
                   const profile = om.measurementProfile;
-                  const m = (snapshot.measurements || {}) as Record<string, string>;
+                  const rawM = (snapshot.measurements || {}) as Record<string, unknown>;
+                  const m = mapFromPrismaFields(rawM) as Record<string, string>;
                   const profileName = profile?.profileName || snapshot.profileName || "Measurement";
                   const garmentType = profile?.garmentType || snapshot.garmentType || "";
+                  
+                  const cardData: TailorCardData = {
+                    serialNo: `ORD-${order.orderNumber}`,
+                    customerName: order.customerName,
+                    deliveryDate: new Date(order.createdAt).toLocaleDateString(),
+                    productName: om.productName,
+                    garmentType: garmentType,
+                    measurements: m,
+                    stylingPrefs: snapshot.stylingPrefs || null,
+                    notes: snapshot.notes || null,
+                  };
+
                   return (
-                    <div key={om.id} className="border rounded-lg p-4 space-y-3">
+                    <div key={om.id} className="border rounded-lg p-4 space-y-4 bg-muted/10">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="font-medium text-sm">
@@ -230,21 +245,10 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
                           {garmentType && <p className="text-xs text-muted-foreground capitalize">{garmentType.replace(/_/g, " ")}</p>}
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1">
-                        {Object.entries(m).map(([key, val]) => {
-                          if (!val || String(val).trim() === "") return null;
-                          const label = key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " ");
-                          return (
-                            <div key={key} className="flex items-center justify-between border-b border-border/20 py-0.5">
-                              <span className="text-xs text-muted-foreground">{label}</span>
-                              <span className="text-sm font-semibold">{String(val)}"</span>
-                            </div>
-                          );
-                        })}
+                      
+                      <div className="overflow-x-auto pb-4">
+                        <TailorPrintCard data={cardData} />
                       </div>
-                      {snapshot.notes && (
-                        <p className="text-xs text-muted-foreground italic bg-muted/30 rounded p-2">{snapshot.notes}</p>
-                      )}
                     </div>
                   );
                 })}
