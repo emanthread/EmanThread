@@ -445,32 +445,22 @@ input[type="range"]::-webkit-slider-thumb {
 
 /* ═══════════════════════════════════════════════════════════
    PRINT — Tailor Card
+   NOTE: per-card isolation is handled in tailor-print-card.tsx
+   via a unique body class (print-xxx). Global rules here are
+   only fallbacks / @page declarations.
 ═══════════════════════════════════════════════════════════ */
 @page { size: A4; margin: 0; }
 
 @media print {
   body { background: #fff !important; }
-  body > *:not(#tailor-print-card) { display: none !important; }
-  #tailor-print-card {
-    display: block !important;
-    visibility: visible !important;
-    position: fixed;
-    left: 0;
-    top: 0;
-    width: 210mm;
-    height: 297mm;
-    margin: 0;
-    border: none !important;
-    box-shadow: none !important;
-  }
-  #tailor-print-card * { visibility: visible !important; }
   /* Hide the sticky nav and print button when printing */
   .print\:hidden { display: none !important; }
 }
 
 /* ═══════════════════════════════════════════════════════════
    A4 SCALE WRAPPER — Prevents clipping of A4 form on screen
-   while preserving full print dimensions
+   while preserving full print dimensions.
+   Print overrides are also in tailor-print-card.tsx (scoped).
    ═══════════════════════════════════════════════════════════ */
 .a4-scale-wrapper {
   position: relative;
@@ -490,6 +480,7 @@ input[type="range"]::-webkit-slider-thumb {
     height: auto;
     width: auto;
     margin: 0;
+    overflow: visible;
   }
   .a4-scale-inner {
     position: static;

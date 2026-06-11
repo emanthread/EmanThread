@@ -65,43 +65,60 @@ export function TailorPrintCard({ data }: { data: TailorCardData }) {
     document.body.classList.add(`print-${uniqueId}`);
     setTimeout(() => {
       window.print();
-    }, 100);
+    }, 300);
   };
 
   return (
     <div className={`a4-wrapper-${uniqueId}`}>
       <style>{`
         @media print {
-          body.print-${uniqueId} {
-            height: 100% !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
+          /* 1. Hide everything on the page */
+          body.print-${uniqueId} > * {
+            display: none !important;
+          }
+
+          /* 2. Show only our wrapper */
+          body.print-${uniqueId} > .a4-wrapper-${uniqueId} {
+            display: block !important;
+          }
+
+          /* 3. Strip the scale-wrapper clipping box so it doesn't clip the card */
+          body.print-${uniqueId} .a4-scale-wrapper {
+            position: static !important;
+            height: auto !important;
+            width: auto !important;
             overflow: visible !important;
-            background: white !important;
+            margin: 0 !important;
           }
-          body.print-${uniqueId} * {
-            visibility: hidden;
+
+          /* 4. Make scale-inner static so it's no longer absolutely positioned off-screen */
+          body.print-${uniqueId} .a4-scale-inner {
+            position: static !important;
             transform: none !important;
-            transition: none !important;
-            animation: none !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+            -webkit-transform: none !important;
           }
-          body.print-${uniqueId} .a4-wrapper-${uniqueId},
-          body.print-${uniqueId} .a4-wrapper-${uniqueId} * {
-            visibility: visible;
-          }
-          body.print-${uniqueId} .a4-wrapper-${uniqueId} .a4-page-root {
+
+          /* 5. Pin the actual A4 page to fill the paper */
+          body.print-${uniqueId} .a4-page {
             position: fixed !important;
             left: 0 !important;
             top: 0 !important;
             width: 210mm !important;
             height: 297mm !important;
             margin: 0 !important;
-            padding: 0 !important;
-            z-index: 999999 !important;
+            padding: 6mm !important;
+            border: none !important;
+            box-shadow: none !important;
+            overflow: hidden !important;
             background: white !important;
+            z-index: 999999 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          /* 6. Make all children of our wrapper visible */
+          body.print-${uniqueId} .a4-wrapper-${uniqueId} * {
+            visibility: visible !important;
           }
         }
       `}</style>
