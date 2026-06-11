@@ -554,10 +554,12 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
                            variant="ghost"
                            size="icon"
                            className="h-8 w-8"
-                           onClick={() => setEditProfile(profile)}
+                           asChild
                            title="Edit Profile"
                          >
-                           <Pencil className="h-3.5 w-3.5" />
+                           <Link href={`/admin/measurements/profile/${profile.id}`}>
+                             <Pencil className="h-3.5 w-3.5" />
+                           </Link>
                          </Button>
                          <Button
                            variant="ghost"
@@ -622,96 +624,7 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Profile Dialog */}
-      <Dialog open={!!editProfile} onOpenChange={(o) => !o && setEditProfile(null)}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto bg-muted/20">
-          <DialogHeader className="mb-4">
-            <DialogTitle className="text-xl">Edit Profile — {editProfile?.profileName}</DialogTitle>
-            <DialogDescription>
-              Update this measurement profile. Changes are applied immediately.
-            </DialogDescription>
-          </DialogHeader>
-          {editProfile && (
-            <div className="grid lg:grid-cols-4 gap-6">
-              {/* Customer Info sidebar */}
-              <div className="lg:col-span-1 space-y-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <User className="h-4 w-4" /> Customer
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3 text-sm">
-                    <p className="font-semibold">{editProfile.user.name}</p>
-                    <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
-                      <Mail className="h-3 w-3" />
-                      {editProfile.user.email}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
-                      <Calendar className="h-3 w-3" />
-                      Created: {new Date(editProfile.createdAt).toLocaleDateString()}
-                    </div>
-                    <div>
-                      <Badge className={getStatusBadgeClass(editProfile.status ?? "complete")}>
-                        {editProfile.status || "complete"}
-                      </Badge>
-                    </div>
-                    <div className="pt-1 border-t">
-                      <span className="text-xs text-muted-foreground">Garment:</span>
-                      <p className="text-sm font-medium mt-0.5 capitalize">
-                        {garmentTypeLabel(editProfile.garmentType || "") || editProfile.gender}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Editor + Print Preview via Tabs */}
-              <div className="lg:col-span-3">
-                <Card>
-                  <CardContent className="pt-6">
-                    <Tabs defaultValue="edit">
-                      <TabsList className="mb-4">
-                        <TabsTrigger value="edit">Edit</TabsTrigger>
-                        <TabsTrigger value="print">Print Preview</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="edit">
-                        <UnifiedMeasurementForm
-                          data={mapFromPrismaFields(editProfile as unknown as Record<string, unknown>)}
-                          mode="edit"
-                          isAdmin={true}
-                          garmentTypeFixed={editProfile.garmentType}
-                          customerName={editProfile.user.name}
-                          customerEmail={editProfile.user.email}
-                          onSave={handleEditSave}
-                        />
-                      </TabsContent>
-                      <TabsContent value="print">
-                        <p className="text-xs text-muted-foreground mb-3">
-                          Print a clean A4 measurement sheet for the tailor. Serial No and Date are auto-generated.
-                        </p>
-                        <TailorPrintCard
-                          data={{
-                            serialNo: `MP-${editProfile.id.slice(0, 6).toUpperCase()}`,
-                            customerName: editProfile.user.name,
-                            deliveryDate: new Date(editProfile.createdAt).toLocaleDateString(),
-                            productName: editProfile.profileName,
-                            garmentType: editProfile.garmentType,
-                            gender: editProfile.gender,
-                            measurements: mapFromPrismaFields(editProfile as unknown as Record<string, unknown>) as unknown as Record<string, string>,
-                            stylingPrefs: editProfile.stylingPrefs,
-                            notes: editProfile.notes,
-                          }}
-                        />
-                      </TabsContent>
-                    </Tabs>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Edit Profile Dialog has been moved to a dedicated page route */}
 
       {/* Delete Profile Confirmation */}
       <Dialog open={!!deleteProfile} onOpenChange={(o) => !o && setDeleteProfile(null)}>

@@ -321,14 +321,14 @@ export function ChatWidget() {
                   onClick={() => chooseLanguage('en')}
                   className="flex-1 flex flex-col items-center gap-2 py-4 rounded-2xl border-2 border-indigo-200 dark:border-indigo-800 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition-all cursor-pointer"
                 >
-                  <img src={LANG_CONFIG.en.flagUrl} alt="English Flag" className="w-10 h-7 object-cover mb-1 rounded-sm shadow-sm" />
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 30" className="w-10 h-7 object-cover mb-1 rounded-sm shadow-sm"><clipPath id="gbFlagA"><path d="M0 0v30h60V0z"/></clipPath><clipPath id="gbFlagB"><path d="M30 15h30v15zv15H0zH0V0zV0h30z"/></clipPath><g clipPath="url(#gbFlagA)"><path d="M0 0v30h60V0z" fill="#012169"/><path d="m0 0 60 30m0-30L0 30" stroke="#fff" strokeWidth="6"/><path d="m0 0 60 30m0-30L0 30" clipPath="url(#gbFlagB)" stroke="#C8102E" strokeWidth="4"/><path d="M30 0v30M0 15h60" stroke="#fff" strokeWidth="10"/><path d="M30 0v30M0 15h60" stroke="#C8102E" strokeWidth="6"/></g></svg>
                   <span className="text-sm font-semibold text-foreground">English</span>
                 </button>
                 <button
                   onClick={() => chooseLanguage('ur')}
                   className="flex-1 flex flex-col items-center gap-2 py-4 rounded-2xl border-2 border-indigo-200 dark:border-indigo-800 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition-all cursor-pointer"
                 >
-                  <img src={LANG_CONFIG.ur.flagUrl} alt="Pakistan Flag" className="w-10 h-7 object-cover mb-1 rounded-sm shadow-sm" />
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="-75 -40 120 80" className="w-10 h-7 object-cover mb-1 rounded-sm shadow-sm"><path fill="#fff" d="M-75-40H45v80H-75z"/><path fill="#01411C" d="M-45-40h90v80h-90z"/><circle r="24" fill="#fff"/><circle r="22" cx="-7" cy="-40" fill="#01411C" transform="rotate(-41.634 45 -40)"/><path fill="#fff" d="m8.751-17.959 10.11 11.373L3.997-9.844l13.94-6.1-7.692 13.129z"/></svg>
                   <span className="text-sm font-semibold text-foreground">Roman Urdu</span>
                 </button>
               </div>
