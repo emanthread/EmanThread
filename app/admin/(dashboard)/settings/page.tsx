@@ -31,26 +31,37 @@ import { Badge } from "@/components/ui/badge";
 // Known garment types per gender — matches fabricType values in StitchingPrice DB
 // and GARMENT_LABELS in the user-facing measurements page
 const DEFAULT_MALE_GARMENTS = [
-  "shalwar kameez",
-  "simple 3 piece",
-  "prince coat",
+  "shalwar_kameez",
+  "simple 3 piece suit",
+  "prince coat 3 piece suit",
   "shirt",
+  "trouser",
+  "gharara",
+  "lehnga",
 ] as const;
 
 const DEFAULT_FEMALE_GARMENTS = [
-  "simple shalwar",
+  "shalwar_kameez",
+  "simple shalwar kameez",
   "frock",
   "lehnga kurti",
   "saari",
+  "shirt",
+  "trouser",
+  "gharara",
+  "lehnga",
 ] as const;
 
 // Human-readable labels matching the measurements page GARMENT_LABELS
 const GARMENT_LABELS_STITCHING: Record<string, string> = {
-  "shalwar kameez": "Shalwar Kameez",
-  "simple 3 piece": "Simple 3 Piece",
-  "prince coat": "Prince Coat",
+  "shalwar_kameez": "Shalwar Kameez",
+  "simple 3 piece suit": "Simple 3 Piece Suit",
+  "prince coat 3 piece suit": "Prince Coat 3 Piece Suit",
   "shirt": "Shirt",
-  "simple shalwar": "Simple Shalwar",
+  "trouser": "Trouser",
+  "gharara": "Gharara",
+  "lehnga": "Lehnga",
+  "simple shalwar kameez": "Simple Shalwar Kameez",
   "frock": "Frock",
   "lehnga kurti": "Lehnga Kurti",
   "saari": "Saari",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { toast } from "@/hooks/use-toast";
 import { Plus, Trash2, Star, Pencil, Ruler } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,8 +79,9 @@ export function MeasurementProfileManager({
         list = list.filter((p: ProfileSummary) => p.garmentType === garmentTypeFilter);
       }
       setProfiles(list);
-    } catch {
-      // Silently fail — show empty state
+    } catch (error) {
+      console.error("[MEASUREMENT_MANAGER_ERROR]", error);
+      toast({ title: "Something went wrong. Please try again.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -113,8 +115,9 @@ export function MeasurementProfileManager({
       });
       if (!res.ok) throw new Error("Failed to set default");
       fetchProfiles();
-    } catch {
-      // API not available — show empty state silently
+    } catch (error) {
+      console.error("[MEASUREMENT_MANAGER_ERROR]", error);
+      toast({ title: "Something went wrong. Please try again.", variant: "destructive" });
     }
   };
 

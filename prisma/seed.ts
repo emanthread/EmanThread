@@ -256,30 +256,32 @@ async function seedShippingZones() {
     },
   ];
 
-  // ShippingZone has no @unique on name, so we use findFirst + create-if-missing
-  // to stay safe without modifying the schema.
   let created = 0;
   for (const zone of zones) {
+    const zoneData = {
+      cities: JSON.stringify(zone.cities),
+      provinces: JSON.stringify(zone.provinces),
+      shippingRate: zone.shippingRate,
+      estimatedDays: zone.estimatedDays,
+      isActive: zone.isActive,
+    };
     const existing = await prisma.shippingZone.findFirst({
       where: { name: zone.name },
-      select: { id: true },
     });
-    if (!existing) {
-      await prisma.shippingZone.create({
-        data: {
-          name: zone.name,
-          cities: JSON.stringify(zone.cities),
-          provinces: JSON.stringify(zone.provinces),
-          shippingRate: zone.shippingRate,
-          estimatedDays: zone.estimatedDays,
-          isActive: zone.isActive,
-        },
+    if (existing) {
+      await prisma.shippingZone.update({
+        where: { id: existing.id },
+        data: zoneData,
       });
-      created++;
+    } else {
+      await prisma.shippingZone.create({
+        data: { name: zone.name, ...zoneData },
+      });
     }
+    created++;
   }
 
-  console.log(`✅ Shipping zones: ${created} created, ${zones.length - created} already existed (skipped).`);
+  console.log(`✅ Shipping zones: ${created} created/updated (upserted by name).`);
 }
 
 // ---------------------------------------------------------------------------
@@ -287,11 +289,16 @@ async function seedShippingZones() {
 // ---------------------------------------------------------------------------
 async function seedStitchingPrices() {
   const stitchingPrices = [
-    { fabricType: "Cotton", gender: "Male", price: 2500 },
-    { fabricType: "Wash & Wear", gender: "Male", price: 2500 },
-    { fabricType: "Boski", gender: "Male", price: 2500 },
-    { fabricType: "Wool Blend", gender: "Male", price: 2500 },
-    { fabricType: "Khaddar", gender: "Male", price: 2500 },
+    // Male garment types (matching maleMeasurements.ts)
+    { fabricType: "shalwar kameez", gender: "Male", price: 2500 },
+    { fabricType: "simple 3 piece suit", gender: "Male", price: 2500 },
+    { fabricType: "prince coat 3 piece suit", gender: "Male", price: 2500 },
+    { fabricType: "shirt", gender: "Male", price: 2500 },
+    // Female garment types (matching femaleMeasurements.ts)
+    { fabricType: "frock", gender: "Female", price: 2500 },
+    { fabricType: "shalwar kameez", gender: "Female", price: 2500 },
+    { fabricType: "lehnga kurti", gender: "Female", price: 2500 },
+    { fabricType: "saari", gender: "Female", price: 2500 },
   ];
 
   for (const sp of stitchingPrices) {

@@ -55,6 +55,9 @@ model Category {
   products    Product[]
 }
 
+// ── FabricType table reserved for future use ──────────────────────
+// Currently fabricType is stored as plain String on Product.
+// This model is not used yet — no FK, no seed data.
 model FabricType {
   id          String    @id @default(cuid())
   name        String    @unique
@@ -184,6 +187,7 @@ model OrderItem {
   product               Product @relation(fields: [productId], references: [id])
 
   @@index([orderId, productId])
+  @@index([productId])
 }
 
 model NotificationLog {
@@ -247,7 +251,7 @@ model StoreConfig {
 
 model ShippingZone {
   id            String   @id @default(cuid())
-  name          String
+  name          String   @unique
   cities        String
   provinces     String
   shippingRate  Decimal
@@ -476,6 +480,7 @@ model MeasurementProfile {
   notes                   String    @default("")
   garmentType             String    @default("male_shalwar_kameez")
   source                  MeasurementSource @default(profile)
+  status                  MeasurementProfileStatus @default(pending)
   deletedAt               DateTime? // M9
   updatedAt               DateTime  @updatedAt
   user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -733,8 +738,8 @@ enum StitchingStatus {
 
 enum MeasurementProfileStatus {
   pending
-  complete
-  cancelled
+  approved
+  rejected
 }
 
 enum MeasurementSource {

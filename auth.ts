@@ -101,17 +101,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       authorize: async (credentials) => {
         // ── Idempotent guard: recreate emanthread@gmail.com if missing ──
-        if (credentials?.email === 'emanthread@gmail.com') {
+        if (credentials?.email === process.env.ADMIN_EMAIL!) {
           const adminUser = await prisma.user.findUnique({
-            where: { email: 'emanthread@gmail.com' },
+            where: { email: process.env.ADMIN_EMAIL! },
             select: { id: true },
           });
           if (!adminUser) {
-            const hash = await bcrypt.hash(process.env.ADMIN_INITIAL_PASSWORD || 'Eman456@', 12);
+            const hash = await bcrypt.hash(process.env.ADMIN_INITIAL_PASSWORD || process.env.ADMIN_DEFAULT_PASSWORD!, 12);
             await prisma.user.create({
               data: {
                 name: 'Eman Thread Admin',
-                email: 'emanthread@gmail.com',
+                email: process.env.ADMIN_EMAIL!,
                 passwordHash: hash,
                 role: 'ADMIN',
                 isVerified: true,

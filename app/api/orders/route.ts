@@ -187,6 +187,14 @@ export async function POST(req: Request) {
     const session = await auth();
     const userId = session?.user?.id;
 
+    // FIX C2: Hard guard — guests cannot place orders with stitching
+    if (!userId && stitchingItems && stitchingItems.length > 0) {
+      return NextResponse.json(
+        { error: "Please log in to place orders with stitching." },
+        { status: 400 }
+      );
+    }
+
     // Update user's whatsappConsent if authenticated and consent was provided
     if (userId && whatsappConsent !== undefined) {
       await prisma.user.update({
@@ -358,6 +366,53 @@ export async function POST(req: Request) {
       });
     }
   }
+
+    // Also process item-level measurementProfileId from each validated item
+    const validatedItems = items;
+    for (const item of validatedItems) {
+      if (item.measurementProfileId && userId) {
+        try {
+          const profile = await prisma.measurementProfile.findFirst({
+            where: { id: item.measurementProfileId, userId, deletedAt: null },
+          });
+          if (profile) {
+            // Build snapshot from profile
+            const metaFields = new Set([
+              'id', 'userId', 'gender', 'garmentType', 'notes', 'status',
+              'requestedAt', 'updatedAt', 'deletedAt', 'deliveryDate',
+              'source', 'createdAt', 'profileName', 'isDefault',
+            ]);
+            const measurementFields: Record<string, string> = {};
+            for (const [key, val] of Object.entries(profile)) {
+              if (!metaFields.has(key) && typeof val === 'string' && val !== '') {
+                measurementFields[key] = val;
+              }
+            }
+            const readableName = profile.garmentType
+              .split('_')
+              .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(' ');
+            const snapshot = {
+              profileName: readableName,
+              garmentType: profile.garmentType,
+              measurements: measurementFields,
+              stylingPrefs: null,
+              notes: profile.notes ?? '',
+            };
+            const productName = productMap.get(item.productId)?.name ?? item.productId;
+            const { attachMeasurementToOrder } = await import('@/lib/db-queries');
+            await attachMeasurementToOrder({
+              orderId: order.id,
+              productId: item.productId,
+              productName,
+              measurementSnapshot: snapshot,
+            });
+          }
+        } catch (err) {
+          console.error(`[ITEM_MEASUREMENT_ATTACH_ERROR] product ${item.productId}:`, err);
+        }
+      }
+    }
 
     // Fire-and-forget order confirmation — orchestrator handles fallback routing
     triggerNotification({

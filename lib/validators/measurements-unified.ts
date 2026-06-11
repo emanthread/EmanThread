@@ -151,6 +151,10 @@ export const unifiedMeasurementSchema = z.object({
   trouserWaist2: mstr,
   trouserElastic2: mstr,
   ladTrouserElastic2: mstr,
+  trouserdata11: z.string().optional(),
+  trouserdata12: z.string().optional(),
+  trouserdata13: z.string().optional(),
+  trouserdata14: z.string().optional(),
 });
 
 export type UnifiedMeasurementFormData = z.infer<typeof unifiedMeasurementSchema>;
@@ -225,6 +229,10 @@ export function mapToPrismaFields(parsed: UnifiedMeasurementFormData) {
     trouserdata8: parsed.trouserTigh2 || "",
     trouserdata9: parsed.trouserWaist2 || "",
     trouserdata10: parsed.trouserElastic2 || "",
+    trouserdata11: parsed.trouserdata11,
+    trouserdata12: parsed.trouserdata12,
+    trouserdata13: parsed.trouserdata13,
+    trouserdata14: parsed.trouserdata14,
     // Ladies extras
     ladGolai1: parsed.ladGolai1, ladGolai2: parsed.ladGolai2,
     ladMori1: parsed.ladMori1, ladMori2: parsed.ladMori2,
@@ -279,6 +287,10 @@ export function mapFromPrismaFields(row: Record<string, unknown>): UnifiedMeasur
     else if (key === "trouserdata8") { result["trouserTigh2"] = val; }
     else if (key === "trouserdata9") { result["trouserWaist2"] = val; }
     else if (key === "trouserdata10") { result["trouserElastic2"] = val; }
+    else if (key === "trouserdata11") { result["trouserdata11"] = val; }
+    else if (key === "trouserdata12") { result["trouserdata12"] = val; }
+    else if (key === "trouserdata13") { result["trouserdata13"] = val; }
+    else if (key === "trouserdata14") { result["trouserdata14"] = val; }
     // Reverse shalwar legacy names
     else if (key === "shalwar1") { result["shalwarLength1"] = val; }
     else if (key === "shalwar2") { result["shalwarLength2"] = val; }
@@ -345,6 +357,7 @@ export const UNIFIED_MEASUREMENT_EMPTY: UnifiedMeasurementFormData = {
   ladShalwarBeltGherra1: mk(), ladShalwarBeltGherra2: mk(),
   ladLasticShalwarBelt: mkToggle,
   ladTrouserElastic1: mk(), ladTrouserElastic2: mk(),
+  trouserdata11: mk(), trouserdata12: mk(), trouserdata13: mk(), trouserdata14: mk(),
 };
 
 /**

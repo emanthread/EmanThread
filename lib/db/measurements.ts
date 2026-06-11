@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { MeasurementProfileStatus } from "@prisma/client";
 
 // ── Centralized filters ──────────────────────────────────────────────
 
@@ -29,7 +30,10 @@ export function adminProfileFilter() {
  * in the Profiles tab regardless of status.
  */
 export function adminCompletedFilter() {
-  return { deletedAt: null, status: "complete" as const, source: { in: ["order" as const, "tailor_request" as const] } };
+  return {
+    status: MeasurementProfileStatus.complete,
+    deletedAt: null,
+  };
 }
 
 // ── Order Measurement helpers ──────────────────────────────────────

@@ -85,13 +85,15 @@ export default function CheckoutPage() {
     fetch("/api/store/payment-details")
       .then((r) => r.json())
       .then((data) => { if (!data.error) setPaymentDetails(data); })
-      .catch(() => {}); // Silently fail — UI shows fallback if null
+      .catch((error) => {
+        console.error("[CHECKOUT_FETCH_ERROR]", error);
+      }); // UI shows fallback if null
   }, []);
   const [couponLoading, setCouponLoading] = useState(false);
   const [stitchingPriceMap, setStitchingPriceMap] = useState<Record<string, number>>({});
   const [transactionId, setTransactionId] = useState('');
   const [saveAddress, setSaveAddress] = useState(false);
-  const [measurementProfiles, setMeasurementProfiles] = useState<Array<{ id: string; profileName: string; garmentType: string }>>([]);
+  const [measurementProfiles, setMeasurementProfiles] = useState<Array<{ id: string; profileName: string; garmentType: string; isDefault: boolean }>>([]);
 
   const [formData, setFormData] = useState({
     firstName: "", lastName: "", email: "", phone: "",
@@ -110,7 +112,9 @@ export default function CheckoutPage() {
       .then((data) => {
         if (data?.freeShippingThreshold) setFreeShippingThreshold(data.freeShippingThreshold);
       })
-      .catch(() => {}); // fallback to 5000 default
+      .catch((error) => {
+        console.error("[CHECKOUT_FETCH_ERROR]", error);
+      }); // fallback to 5000 default
   }, []);
   const grandTotal = selectedTotal + shippingCost + stitchingTotal - (appliedDiscount || 0);
   // When stitching is selected:
@@ -142,20 +146,42 @@ export default function CheckoutPage() {
           setStitchingPriceMap(flat);
         }
       })
-      .catch(() => {});
+      .catch((error) => {
+        console.error("[CHECKOUT_FETCH_ERROR]", error);
+      });
     if (isAuthenticated) {
       fetch("/api/measurements")
         .then((r) => r.json())
         .then((data) => {
           if (data?.profiles) {
-            setMeasurementProfiles(data.profiles.map((p: { id: string; profileName: string; garmentType: string }) => ({
+            const profiles = data.profiles.map((p: { id: string; profileName: string; garmentType: string; isDefault: boolean }) => ({
               id: p.id,
               profileName: p.profileName,
               garmentType: p.garmentType,
-            })));
+              isDefault: p.isDefault,
+            }));
+            setMeasurementProfiles(profiles);
+
+            // Auto-select default profile for all stitching items
+            const defaultProfile = profiles.find((p: { isDefault: boolean }) => p.isDefault);
+            if (defaultProfile) {
+              items.forEach((item) => {
+                const hasStitching = item.stitchingProfileId != null && item.stitchingProfileId !== "none";
+                if (!hasStitching) {
+                  const price = stitchingPriceMap[item.product.fabricType.toLowerCase()] ?? DEFAULT_STITCHING_FEE;
+                  updateStitching(item.product.id, {
+                    price,
+                    profileId: defaultProfile.id,
+                    profileName: defaultProfile.profileName,
+                  });
+                }
+              });
+            }
           }
         })
-        .catch(() => {});
+        .catch((error) => {
+          console.error("[CHECKOUT_FETCH_ERROR]", error);
+        });
     }
   }, [isAuthenticated]);
 
@@ -206,7 +232,7 @@ export default function CheckoutPage() {
       } catch (err) { console.error("Failed to fetch shipping zone:", err); }
     }, 500);
     return () => clearTimeout(timeout);
-  }, [formData.city, formData.province, selectedTotal]);
+  }, [formData.city, formData.province, selectedTotal, freeShippingThreshold]);
 
   const toggleItem = (id: string) => {
     setSelectedIds((prev) => {
@@ -314,13 +340,17 @@ export default function CheckoutPage() {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(addressPayload),
-          }).catch(() => {});
+          }).catch((error) => {
+            console.error("[CHECKOUT_FETCH_ERROR]", error);
+          });
         } else {
           fetch("/api/user/addresses", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(addressPayload),
-          }).catch(() => {});
+          }).catch((error) => {
+            console.error("[CHECKOUT_FETCH_ERROR]", error);
+          });
         }
       }
 
@@ -534,7 +564,9 @@ export default function CheckoutPage() {
                                   });
                                 }
                               }}
-                              className="w-full text-xs border border-border rounded-md px-2 py-1 bg-background mt-1"
+                              disabled={!isAuthenticated}
+                              title={!isAuthenticated ? "Login to add stitching" : undefined}
+                              className="w-full text-xs border border-border rounded-md px-2 py-1 bg-background mt-1 disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                               <option value="none">No Stitching</option>
                               {!isAuthenticated && (
