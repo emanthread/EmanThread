@@ -682,11 +682,11 @@ function BottomTypeTabs({
           <A4Row label="2. Pancha"><A4Input value={String(data.ladSimpleShalwarPancha1 ?? "")} onChange={(v) => setField("ladSimpleShalwarPancha1", v)} readOnly={readOnly} /></A4Row>
           <A4Row label="3. Gherra / Assan">
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2mm", width: "100%" }}>
-              <div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
                 <A4Input value={String(data.ladSimpleShalwarGherra1 ?? "")} onChange={(v) => setField("ladSimpleShalwarGherra1", v)} readOnly={readOnly} />
                 <div style={{ textAlign: "center", fontSize: "11px", fontWeight: 700, marginTop: "1mm" }}>Gherra</div>
               </div>
-              <div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
                 <A4Input value={String(data.ladSimpleShalwarAssan1 ?? "")} onChange={(v) => setField("ladSimpleShalwarAssan1", v)} readOnly={readOnly} />
                 <div style={{ textAlign: "center", fontSize: "11px", fontWeight: 700, marginTop: "1mm" }}>Assan</div>
               </div>
@@ -703,11 +703,11 @@ function BottomTypeTabs({
           <A4Row label="2. Pancha"><A4Input value={String(data.ladShalwarBeltPancha1 ?? "")} onChange={(v) => setField("ladShalwarBeltPancha1", v)} readOnly={readOnly} /></A4Row>
           <A4Row label="3. Gherra / Assan">
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2mm", width: "100%" }}>
-              <div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
                 <A4Input value={String(data.ladShalwarBeltGherra1 ?? "")} onChange={(v) => setField("ladShalwarBeltGherra1", v)} readOnly={readOnly} />
                 <div style={{ textAlign: "center", fontSize: "11px", fontWeight: 700, marginTop: "1mm" }}>Gherra</div>
               </div>
-              <div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
                 <A4Input value={String(data.ladShalwarBeltAssan1 ?? "")} onChange={(v) => setField("ladShalwarBeltAssan1", v)} readOnly={readOnly} />
                 <div style={{ textAlign: "center", fontSize: "11px", fontWeight: 700, marginTop: "1mm" }}>Assan</div>
               </div>

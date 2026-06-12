@@ -82,7 +82,6 @@ function TailorRequestNote() {
         <h2 className="font-semibold text-lg">Tailor Measurement Request</h2>
       </div>
       <p className="text-sm text-muted-foreground mb-4">
-        We are currently not accepting tailor measurement requests online.
         Please contact us on WhatsApp for any stitching or measurement inquiries.
       </p>
       <Button
