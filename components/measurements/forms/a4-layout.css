@@ -166,6 +166,11 @@
   margin-top: 3mm;
 }
 
+.a4-grid > section,
+.a4-grid > aside {
+  min-width: 0;
+}
+
 .a4-grid-full {
   display: block;
 }

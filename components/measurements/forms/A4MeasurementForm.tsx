@@ -621,10 +621,10 @@ function BottomTypeTabs({
     background: bottomType === tab ? "var(--ink)" : "#fff",
     color: bottomType === tab ? "#fff" : "var(--ink)",
     fontWeight: 800,
-    padding: "3mm",
+    padding: variant === 'ladies' ? "2.8mm 2mm" : "3mm",
     cursor: "pointer",
     borderRadius: "4px",
-    fontSize: "14px",
+    fontSize: variant === 'ladies' ? "12.5px" : "14px",
     textTransform: "uppercase"
   });
 
