@@ -135,7 +135,12 @@ const ladiesShalwarKameezForm: FemaleMeasurementForm = {
           fields: [
             { id: "lsk-simple-length",  label: "1. Length", type: "input" },
             { id: "lsk-simple-pancha",  label: "2. Pancha", type: "input" },
-            { id: "lsk-simple-gherra",  label: "3. Gherra", type: "input" },
+            {
+              id: "lsk-simple-gherra-assan",
+              label: "3. Gherra / Assan",
+              type: "sub-grid",
+              subItems: [{ label: "Gherra" }, { label: "Assan" }],
+            },
             { id: "lsk-simple-elastic", label: "4. Elastic", type: "input" },
           ],
         },
@@ -144,7 +149,12 @@ const ladiesShalwarKameezForm: FemaleMeasurementForm = {
           fields: [
             { id: "lsk-belt-length",  label: "1. Length", type: "input" },
             { id: "lsk-belt-pancha",  label: "2. Pancha", type: "input" },
-            { id: "lsk-belt-gherra",  label: "3. Gherra", type: "input" },
+            {
+              id: "lsk-belt-gherra-assan",
+              label: "3. Gherra / Assan",
+              type: "sub-grid",
+              subItems: [{ label: "Gherra" }, { label: "Assan" }],
+            },
             { id: "lsk-belt-elastic", label: "4. Elastic", type: "input" },
           ],
         },

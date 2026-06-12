@@ -370,6 +370,10 @@
   min-height: 8mm;
 }
 
+.a4-side .a4-inputline {
+  min-width: 0;
+}
+
 .a4-footer {
   position: relative;
   margin-top: auto;

@@ -29,16 +29,22 @@ import {
 import { Badge } from "@/components/ui/badge";
 
 // Known garment types per gender — matches fabricType values in StitchingPrice DB
-// and GARMENT_LABELS in the user-facing measurements page
+// and GARMENT_LABELS in the user-facing measurements page.
+// NOTE: Old entries (shalwar_kameez, simple shalwar kameez) are replaced by
+// more specific variants. Legacy keys kept in GARMENT_LABELS_STITCHING for
+// any existing DB rows to display with readable names.
 const DEFAULT_MALE_GARMENTS = [
-  "shalwar_kameez",
+  "shalwar_kameez_simple_shalwar",
+  "shalwar_kameez_trouser",
   "simple 3 piece suit",
   "prince coat 3 piece suit",
   "shirt",
 ] as const;
 
 const DEFAULT_FEMALE_GARMENTS = [
-  "simple shalwar kameez",
+  "female_shalwar_kameez_simple_shalwar",
+  "female_shalwar_kameez_trouser",
+  "female_shalwar_kameez_belt_shalwar",
   "frock",
   "lehnga kurti",
   "saari",
@@ -46,14 +52,22 @@ const DEFAULT_FEMALE_GARMENTS = [
 
 // Human-readable labels matching the measurements page GARMENT_LABELS
 const GARMENT_LABELS_STITCHING: Record<string, string> = {
-  "shalwar_kameez": "Shalwar Kameez",
+  // ── Male ──────────────────────────────────────────────────────────────
+  "shalwar_kameez_simple_shalwar": "Shalwar Kameez (with simple Shalwar)",
+  "shalwar_kameez_trouser": "Shalwar Kameez with Trouser",
   "simple 3 piece suit": "Simple 3 Piece Suit",
   "prince coat 3 piece suit": "Prince Coat 3 Piece Suit",
   "shirt": "Shirt",
-  "simple shalwar kameez": "Simple Shalwar Kameez",
+  // ── Female ────────────────────────────────────────────────────────────
+  "female_shalwar_kameez_simple_shalwar": "Shalwar Kameez (with simple Shalwar)",
+  "female_shalwar_kameez_trouser": "Shalwar Kameez with Trouser",
+  "female_shalwar_kameez_belt_shalwar": "Shalwar Kameez with Belt Shalwar",
   "frock": "Frock",
   "lehnga kurti": "Lehnga Kurti",
   "saari": "Saari",
+  // ── Legacy fallbacks (existing DB entries still display correctly) ─────
+  "shalwar_kameez": "Shalwar Kameez",
+  "simple shalwar kameez": "Simple Shalwar Kameez",
 };
 
 export default function AdminSettingsPage() {

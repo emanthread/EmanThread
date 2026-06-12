@@ -208,8 +208,7 @@ const CONFIGS: Record<string, FormLayout> = {
           },
           { label: "Chest", key: "chest1", type: "text" },
           { label: "Waist", key: "waist1", type: "text" },
-          { label: "Gherra", key: "gherra1", type: "text" },
-          { label: "Assan", key: "shalwarAssan1", type: "text" },
+          { label: "Hip", key: "ladHip1", type: "text" },
         ],
       },
     ],
@@ -584,8 +583,35 @@ function BottomTypeTabs({
   readOnly: boolean;
   variant: 'mens' | 'ladies';
 }) {
-  const initialTab = variant === 'mens' ? "shalwar" as const : "trouser" as const;
-  const [bottomType, setBottomType] = useState<"shalwar" | "trouser" | "simple" | "belt">(initialTab);
+  const [bottomType, setBottomType] = useState<"shalwar" | "trouser" | "simple" | "belt">(() => {
+    if (variant === 'ladies') {
+      if (data.ladShalwarBelt1 || data.ladShalwarBeltPancha1 || data.ladShalwarBeltGherra1) return "belt";
+      if (data.trouserLength1 || data.trouserPancha1 || data.trouserTigh1) return "trouser";
+      return "simple";
+    } else {
+      if (data.trouserLength1 || data.trouserPancha1 || data.trouserTigh1) return "trouser";
+      return "shalwar";
+    }
+  });
+
+  React.useEffect(() => {
+    if (variant === 'ladies') {
+      if (data.ladShalwarBelt1 || data.ladShalwarBeltPancha1 || data.ladShalwarBeltGherra1) {
+        setBottomType("belt");
+      } else if (data.trouserLength1 || data.trouserPancha1 || data.trouserTigh1) {
+        setBottomType("trouser");
+      } else {
+        setBottomType("simple");
+      }
+    } else {
+      if (data.trouserLength1 || data.trouserPancha1 || data.trouserTigh1) {
+        setBottomType("trouser");
+      } else {
+        setBottomType("shalwar");
+      }
+    }
+  }, [variant, data.serialNumber]);
+
   const setField = (k: DataKey, v: string) => onChange({ ...data, [k]: v });
   const setToggle = (k: DataKey, v: boolean) => onChange({ ...data, [k]: v ? "1" : "0" });
 

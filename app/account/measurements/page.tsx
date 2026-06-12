@@ -18,16 +18,29 @@ interface StitchingPrices {
   female: Record<string, number>;
 }
 
-// Map garment fabric type keys to human-readable labels
+// Map garment fabric type keys (from StitchingPrice.fabricType in DB) to human-readable labels.
+// Keys must match whatever the admin saves in /admin/settings → Stitching tab.
 const GARMENT_LABELS: Record<string, string> = {
-  "shalwar kameez": "Shalwar Kameez",
-  "simple 3 piece": "Simple 3 Piece",
-  "prince coat": "Prince Coat",
+  // ── Male (canonical keys) ─────────────────────────────────────────────────
+  "shalwar_kameez_simple_shalwar": "Shalwar Kameez (with simple Shalwar)",
+  "shalwar_kameez_trouser": "Shalwar Kameez with Trouser",
+  "simple 3 piece suit": "Simple 3 Piece Suit",
+  "prince coat 3 piece suit": "Prince Coat 3 Piece Suit",
   "shirt": "Shirt",
-  "simple shalwar": "Simple Shalwar",
+  // ── Female (canonical keys) ───────────────────────────────────────────────
+  "female_shalwar_kameez_simple_shalwar": "Shalwar Kameez (with simple Shalwar)",
+  "female_shalwar_kameez_trouser": "Shalwar Kameez with Trouser",
+  "female_shalwar_kameez_belt_shalwar": "Shalwar Kameez with Belt Shalwar",
   "frock": "Frock",
   "lehnga kurti": "Lehnga Kurti",
   "saari": "Saari",
+  // ── Legacy fallbacks (any pre-migration DB rows still display correctly) ───
+  "shalwar_kameez": "Shalwar Kameez",
+  "simple shalwar kameez": "Simple Shalwar Kameez",
+  "shalwar kameez": "Shalwar Kameez",
+  "simple 3 piece": "Simple 3 Piece",
+  "prince coat": "Prince Coat",
+  "simple shalwar": "Simple Shalwar Kameez",
 };
 
 // ─── Tailor Request Note Section ─────────────────────────────────────────────

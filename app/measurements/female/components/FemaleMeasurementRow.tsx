@@ -14,7 +14,17 @@ export function FemaleMeasurementRow({ field, isSide }: FemaleMeasurementRowProp
     return (
       <div style={{ borderBottom: "1.5px solid #93a4bf" }}>
         <div style={{ display: "grid", gridTemplateColumns: isSide ? "1fr" : "35mm 1fr" }}>
-          {!isSide && (
+          {isSide ? (
+            <div style={{
+              padding: "2mm 3mm",
+              fontWeight: 800,
+              color: "#172554",
+              fontSize: "14px",
+              borderBottom: "1px solid #e2e8f0",
+            }}>
+              {field.label}
+            </div>
+          ) : (
             <div style={{
               padding: "3.2mm 3mm",
               fontWeight: 700,
@@ -60,7 +70,17 @@ export function FemaleMeasurementRow({ field, isSide }: FemaleMeasurementRowProp
         minHeight: isSide ? "12mm" : "19mm",
       }}>
         <div style={{ display: "grid", gridTemplateColumns: isSide ? "1fr" : "35mm 1fr" }}>
-          {!isSide && (
+          {isSide ? (
+            <div style={{
+              padding: "2mm 3mm",
+              fontWeight: 800,
+              color: "#172554",
+              fontSize: "14px",
+              borderBottom: "1px solid #e2e8f0",
+            }}>
+              {field.label}
+            </div>
+          ) : (
             <div style={{
               padding: "3.2mm 3mm",
               fontWeight: 700,
@@ -107,7 +127,17 @@ export function FemaleMeasurementRow({ field, isSide }: FemaleMeasurementRowProp
       minHeight: isSide ? "12mm" : "19mm",
     }}>
       <div style={{ display: "grid", gridTemplateColumns: isSide ? "1fr" : "35mm 1fr" }}>
-        {!isSide && (
+        {isSide ? (
+          <div style={{
+            padding: "2mm 3mm",
+            fontWeight: 800,
+            color: "#172554",
+            fontSize: "14px",
+            borderBottom: "1px solid #e2e8f0",
+          }}>
+            {field.label}
+          </div>
+        ) : (
           <div style={{
             padding: "3.2mm 3mm",
             fontWeight: 700,
@@ -120,7 +150,7 @@ export function FemaleMeasurementRow({ field, isSide }: FemaleMeasurementRowProp
           </div>
         )}
         <div style={{ padding: "2mm 3mm", display: "flex", alignItems: "center", gap: "3mm" }}>
-          <div style={{ height: "10mm", borderBottom: "1.5px solid #64748b", flex: 1, minWidth: "32mm" }} />
+          <div style={{ height: "10mm", borderBottom: "1.5px solid #64748b", flex: 1, minWidth: isSide ? "0" : "32mm" }} />
         </div>
       </div>
     </div>

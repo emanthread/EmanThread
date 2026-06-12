@@ -94,6 +94,40 @@ export default function CheckoutPage() {
   const [transactionId, setTransactionId] = useState('');
   const [saveAddress, setSaveAddress] = useState(false);
   const [measurementProfiles, setMeasurementProfiles] = useState<Array<{ id: string; profileName: string; garmentType: string; isDefault: boolean }>>([]);
+  // Per-item shalwar variant selection for items where the profile is a shalwar kameez type.
+  // Key: productId, Value: stitching price DB key for the chosen variant.
+  const [itemShalwarVariants, setItemShalwarVariants] = useState<Record<string, string>>({});
+
+  // Maps a measurement profile garmentType → StitchingPrice.fabricType key in DB.
+  // Also used to determine which garment types need a variant selector.
+  const garmentTypeToPriceKey = (garmentType: string, variant?: string): string => {
+    const map: Record<string, string> = {
+      // Male profiles
+      male_shalwar_kameez:   variant ?? "shalwar_kameez_simple_shalwar",
+      male_simple_3_piece:   "simple 3 piece suit",
+      male_prince_coat:      "prince coat 3 piece suit",
+      male_shirt:            "shirt",
+      // Female profiles
+      female_simple_shalwar: variant ?? "female_shalwar_kameez_simple_shalwar",
+      female_frock:          "frock",
+      female_lehnga_kurti:   "lehnga kurti",
+      female_saari:          "saari",
+    };
+    return map[garmentType] ?? garmentType;
+  };
+
+  // Variant options shown beneath the profile selector for shalwar kameez profiles.
+  const shalwarVariantOptions = {
+    male_shalwar_kameez: [
+      { key: "shalwar_kameez_simple_shalwar", label: "With Simple Shalwar" },
+      { key: "shalwar_kameez_trouser",        label: "With Trouser" },
+    ],
+    female_simple_shalwar: [
+      { key: "female_shalwar_kameez_simple_shalwar", label: "With Simple Shalwar" },
+      { key: "female_shalwar_kameez_trouser",        label: "With Trouser" },
+      { key: "female_shalwar_kameez_belt_shalwar",   label: "With Belt Shalwar" },
+    ],
+  } as Record<string, { key: string; label: string }[]>;
 
   const [formData, setFormData] = useState({
     firstName: "", lastName: "", email: "", phone: "",
@@ -168,7 +202,10 @@ export default function CheckoutPage() {
               items.forEach((item) => {
                 const hasStitching = item.stitchingProfileId != null && item.stitchingProfileId !== "none";
                 if (!hasStitching) {
-                  const price = stitchingPriceMap[item.product.fabricType.toLowerCase()] ?? DEFAULT_STITCHING_FEE;
+                  // Use the profile's garmentType to look up the correct stitching price,
+                  // falling back to DEFAULT_STITCHING_FEE if no matching price is configured.
+                  const priceKey = garmentTypeToPriceKey(defaultProfile.garmentType);
+                  const price = stitchingPriceMap[priceKey] ?? DEFAULT_STITCHING_FEE;
                   updateStitching(item.product.id, {
                     price,
                     profileId: defaultProfile.id,
@@ -553,10 +590,17 @@ export default function CheckoutPage() {
                                     router.push("/account/measurements");
                                     return;
                                   }
+                                  // Clear variant selection too
+                                  setItemShalwarVariants((prev) => { const next = { ...prev }; delete next[item.product.id]; return next; });
                                   updateStitching(item.product.id, { price: null, profileId: null, profileName: null });
                                 } else {
                                   const profile = measurementProfiles.find((p) => p.id === val);
-                                  const price = stitchingPriceMap[item.product.fabricType.toLowerCase()] ?? DEFAULT_STITCHING_FEE;
+                                  // Determine correct stitching price via garmentType mapping.
+                                  // If the profile is a shalwar kameez type, check if user already
+                                  // selected a variant; otherwise default to simple shalwar.
+                                  const currentVariant = itemShalwarVariants[item.product.id];
+                                  const priceKey = garmentTypeToPriceKey(profile?.garmentType ?? "", currentVariant);
+                                  const price = stitchingPriceMap[priceKey] ?? DEFAULT_STITCHING_FEE;
                                   updateStitching(item.product.id, {
                                     price,
                                     profileId: val,
@@ -581,6 +625,35 @@ export default function CheckoutPage() {
                               )}
                               <option value="create_new">+ Create New Profile</option>
                             </select>
+                            {/* Shalwar variant selector — only shown when a shalwar kameez profile is active */}
+                            {(() => {
+                              if (!item.stitchingProfileId || item.stitchingProfileId === "none") return null;
+                              const profile = measurementProfiles.find((p) => p.id === item.stitchingProfileId);
+                              const variants = shalwarVariantOptions[profile?.garmentType ?? ""];
+                              if (!variants) return null;
+                              const selectedVariant = itemShalwarVariants[item.product.id] ?? variants[0].key;
+                              return (
+                                <select
+                                  value={selectedVariant}
+                                  onChange={(e) => {
+                                    const variantKey = e.target.value;
+                                    setItemShalwarVariants((prev) => ({ ...prev, [item.product.id]: variantKey }));
+                                    // Update stitching price immediately based on new variant
+                                    const newPrice = stitchingPriceMap[variantKey] ?? DEFAULT_STITCHING_FEE;
+                                    updateStitching(item.product.id, {
+                                      price: newPrice,
+                                      profileId: item.stitchingProfileId!,
+                                      profileName: item.stitchingProfileName ?? "Stitching Required",
+                                    });
+                                  }}
+                                  className="w-full text-xs border border-primary/40 rounded-md px-2 py-1 bg-primary/5 mt-1 text-primary font-medium"
+                                >
+                                  {variants.map((v) => (
+                                    <option key={v.key} value={v.key}>{v.label}</option>
+                                  ))}
+                                </select>
+                              );
+                            })()}
                           </div>
                           <p className="text-sm font-medium shrink-0">{formatPrice(item.product.price * item.quantity)}</p>
                         </div>

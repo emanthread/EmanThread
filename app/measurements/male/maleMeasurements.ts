@@ -150,8 +150,7 @@ const simple3PieceSuitForm: MeasurementForm = {
         },
         { id: "s3-chest",  label: "Chest",  type: "input" },
         { id: "s3-waist",  label: "Waist",  type: "input" },
-        { id: "s3-gherra", label: "Gherra", type: "input" },
-        { id: "s3-assan",  label: "Assan",  type: "input" },
+        { id: "s3-hip",    label: "Hip",    type: "input" },
       ],
     },
     {
