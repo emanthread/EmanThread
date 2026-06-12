@@ -140,7 +140,7 @@ export default function MyReviewsPage() {
                               >
                                 {review.product.name}
                               </Link>
-                              <p className="text-xs text-muted-foreground">SKU: {review.product.sku}</p>
+                              <p className="text-xs text-muted-foreground">Code: {review.product.sku}</p>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                               {review.isVerified && (

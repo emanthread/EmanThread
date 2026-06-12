@@ -514,7 +514,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{product.name}</p>
-                    <p className="text-xs text-muted-foreground">SKU: {product.sku}</p>
+                    <p className="text-xs text-muted-foreground">Code: {product.sku}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium text-red-600">

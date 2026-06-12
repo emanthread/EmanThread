@@ -18,6 +18,8 @@ export function CartDrawer() {
     useCartStore();
   const totalPrice = getTotalPrice();
   const stitchingTotal = getStitchingTotal();
+  const outOfStockItems = items.filter((item) => !item.product.inStock || (item.product.stockQuantity !== undefined && item.product.stockQuantity <= 0));
+  const hasOutOfStock = outOfStockItems.length > 0;
 
   useEffect(() => {
     setMounted(true);
@@ -88,6 +90,11 @@ export function CartDrawer() {
                     <h3 className="font-medium text-sm leading-tight line-clamp-2">
                       {item.product.name}
                     </h3>
+                    {(!item.product.inStock || (item.product.stockQuantity !== undefined && item.product.stockQuantity <= 0)) && (
+                      <span className="inline-block text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 mt-1">
+                        Out of Stock
+                      </span>
+                    )}
                     <p className="text-sm text-muted-foreground mt-1">
                       {item.product.fabricType}
                     </p>
@@ -154,11 +161,20 @@ export function CartDrawer() {
               <p className="text-xs text-muted-foreground">
                 Shipping and taxes calculated at checkout
               </p>
+              {hasOutOfStock && (
+                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2">
+                  ⚠️ {outOfStockItems.length === 1 ? '1 item is' : `${outOfStockItems.length} items are`} out of stock. Remove {outOfStockItems.length === 1 ? 'it' : 'them'} to proceed.
+                </p>
+              )}
               <div className="space-y-3">
-                <Button className="w-full" size="lg" asChild>
-                  <Link href="/checkout" onClick={closeCart}>
-                    Proceed to Checkout
-                  </Link>
+                <Button className="w-full" size="lg" disabled={hasOutOfStock} asChild={!hasOutOfStock}>
+                  {hasOutOfStock ? (
+                    <span>Proceed to Checkout</span>
+                  ) : (
+                    <Link href="/checkout" onClick={closeCart}>
+                      Proceed to Checkout
+                    </Link>
+                  )}
                 </Button>
                 <Button
                   variant="outline"

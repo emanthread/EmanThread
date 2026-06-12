@@ -354,7 +354,7 @@ export default function AdminProductsPage() {
   const handleExportProducts = () => {
     const csvContent =
       "data:text/csv;charset=utf-8," +
-      ["Product ID,Name,SKU,Category,Price,Stock Quantity"]
+      ["Product ID,Name,Code,Category,Price,Stock Quantity"]
         .concat(
           filteredProducts.map(
             (p) =>
@@ -515,7 +515,7 @@ export default function AdminProductsPage() {
                     />
                   </th>
                   <th className="text-left p-4 text-sm font-medium">Product</th>
-                  <th className="text-left p-4 text-sm font-medium hidden sm:table-cell">SKU</th>
+                  <th className="text-left p-4 text-sm font-medium hidden sm:table-cell">Code</th>
                   <th className="text-left p-4 text-sm font-medium hidden sm:table-cell">Category</th>
                   <th className="text-left p-4 text-sm font-medium">Price</th>
                   <th className="text-left p-4 text-sm font-medium">Stock</th>
@@ -826,7 +826,7 @@ function ProductDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="sku">SKU *</Label>
+              <Label htmlFor="sku">Code *</Label>
               <Input
                 id="sku"
                 value={product.sku}

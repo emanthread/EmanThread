@@ -382,7 +382,7 @@ function ProductDetails({ product }: { product: Product }) {
             <p className="text-sm text-muted-foreground tracking-wider uppercase">
               {product.fabricType}
             </p>
-            <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>
+            <p className="text-sm text-muted-foreground">Code: {product.sku}</p>
           </div>
           <h1 className="text-3xl sm:text-4xl font-semibold leading-tight">
             {product.name}

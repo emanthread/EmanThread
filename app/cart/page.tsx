@@ -20,6 +20,8 @@ export default function CartPage() {
     useCartStore();
   const totalPrice = getTotalPrice();
   const stitchingTotal = getStitchingTotal();
+  const outOfStockItems = items.filter((item) => !item.product.inStock || (item.product.stockQuantity !== undefined && item.product.stockQuantity <= 0));
+  const hasOutOfStock = outOfStockItems.length > 0;
 
   const [mounted, setMounted] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
@@ -156,6 +158,11 @@ export default function CartPage() {
                           <p className="text-sm text-muted-foreground">
                             Color: {item.product.color}
                           </p>
+                          {(!item.product.inStock || (item.product.stockQuantity !== undefined && item.product.stockQuantity <= 0)) && (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded px-2 py-0.5 mt-1">
+                              ⚠ Out of Stock — please remove to checkout
+                            </span>
+                          )}
                           {item.stitchingProfileName && item.stitchingProfileId !== "none" && (
                             <p className="text-xs text-amber-600 mt-1 font-medium">
                               ✂ {item.stitchingProfileName} (+{formatPrice(item.stitchingPrice ?? DEFAULT_STITCHING_FEE)} stitching/unit)
@@ -282,8 +289,20 @@ export default function CartPage() {
                     </div>
                   </div>
 
-                  <Button size="lg" className="w-full" asChild>
-                    <Link href="/checkout">Proceed to Checkout</Link>
+                  {hasOutOfStock && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <p className="text-sm font-medium text-red-700">
+                        ⚠ {outOfStockItems.length === 1 ? `"${outOfStockItems[0].product.name}" is` : `${outOfStockItems.length} items are`} out of stock
+                      </p>
+                      <p className="text-xs text-red-600 mt-0.5">Remove out-of-stock items before checking out.</p>
+                    </div>
+                  )}
+                  <Button size="lg" className="w-full" disabled={hasOutOfStock} asChild={!hasOutOfStock}>
+                    {hasOutOfStock ? (
+                      <span>Proceed to Checkout</span>
+                    ) : (
+                      <Link href="/checkout">Proceed to Checkout</Link>
+                    )}
                   </Button>
 
                   {/* Trust Badges */}

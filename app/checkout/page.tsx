@@ -66,6 +66,10 @@ export default function CheckoutPage() {
   const hasStitchingSelected = selectedItems.some(
     (item) => item.stitchingProfileId != null && item.stitchingProfileId !== "none"
   );
+  const outOfStockItems = items.filter(
+    (item) => !item.product.inStock || (item.product.stockQuantity !== undefined && item.product.stockQuantity <= 0)
+  );
+  const hasOutOfStock = outOfStockItems.length > 0;
 
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -709,7 +713,19 @@ export default function CheckoutPage() {
 
                   {submitError && <p className="text-sm text-red-500 mt-2">{submitError}</p>}
 
-                  <Button type="submit" size="lg" className="w-full mt-4" disabled={isSubmitting || selectedItems.length === 0}>
+                  {hasOutOfStock && (
+                    <div className="bg-red-50 border border-red-300 rounded-lg p-4">
+                      <p className="text-sm font-semibold text-red-700 mb-1">⚠ Cannot place order — out-of-stock items in cart:</p>
+                      <ul className="list-disc list-inside space-y-0.5">
+                        {outOfStockItems.map((item) => (
+                          <li key={item.product.id} className="text-xs text-red-600">{item.product.name}</li>
+                        ))}
+                      </ul>
+                      <p className="text-xs text-red-500 mt-2">Please go back to your cart and remove these items.</p>
+                    </div>
+                  )}
+
+                  <Button type="submit" size="lg" className="w-full mt-4" disabled={isSubmitting || selectedItems.length === 0 || hasOutOfStock}>
                     {isSubmitting ? (
                       <span className="flex items-center gap-2"><span className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" /> Processing...</span>
                     ) : hasStitchingSelected ? (

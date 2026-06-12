@@ -144,7 +144,7 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium">{item.productName}</p>
-                    <p className="text-sm text-muted-foreground">SKU: {item.sku}</p>
+                    <p className="text-sm text-muted-foreground">Code: {item.sku}</p>
                     <p className="text-sm text-muted-foreground mt-0.5">
                       Qty: {item.quantity} × {formatPrice(item.price)}
                     </p>

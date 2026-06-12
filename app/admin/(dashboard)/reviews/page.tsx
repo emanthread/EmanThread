@@ -238,7 +238,7 @@ export default function AdminReviewsPage() {
                             <p className="text-sm font-medium truncate max-w-[200px]">
                               {review.product.name}
                             </p>
-                            <p className="text-xs text-muted-foreground">SKU: {review.product.sku}</p>
+                            <p className="text-xs text-muted-foreground">Code: {review.product.sku}</p>
                           </div>
                         </div>
                       </TableCell>
