@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+
 import { 
   Menu, 
   Search, 
@@ -121,17 +121,10 @@ export function Header() {
               {/* Logo */}
               <Link href="/" className="flex flex-col items-center group">
                 <div className={cn(
-                  "relative h-14 w-14 md:h-16 md:w-16 transition-all duration-500 transform group-hover:scale-110",
-                  !isScrolled ? "p-1 bg-white/10 backdrop-blur-sm rounded-full ring-2 ring-white/20 shadow-2xl" : "p-0.5 bg-white rounded-full shadow-md ring-1 ring-border"
+                  "text-xl md:text-2xl font-serif font-bold tracking-wider transition-colors duration-300 whitespace-nowrap",
+                  !isScrolled ? "text-white" : "text-foreground group-hover:text-primary/80"
                 )}>
-                  <Image
-                    src="/logo.jpg"
-                    alt="Eman Thread"
-                    fill
-                    sizes="(max-width: 768px) 56px, 64px"
-                    className="object-contain rounded-full p-0.5"
-                    priority
-                  />
+                  Eman Thread
                 </div>
               </Link>
             </div>

@@ -20,14 +20,10 @@ export async function GET(req: NextRequest) {
     const limit = 20;
     const search = searchParams.get("search") as string | null;
     const status = searchParams.get("status") as string | null;
-    const source = searchParams.get("source") as string | null;
 
     const where: Record<string, unknown> = { ...adminCompletedFilter() };
     if (status && status !== "all") {
       where.status = status;
-    }
-    if (source && source !== "all") {
-      where.source = source;
     }
     if (search) {
       where.user = {

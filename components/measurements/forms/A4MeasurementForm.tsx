@@ -107,7 +107,6 @@ const CONFIGS: Record<string, FormLayout> = {
         toggles: [
           { label: "Front", key: "frontPocket" },
           { label: "Side", key: "sidePocket" },
-          { label: "Shalwar", key: "shalwarPocket" },
         ],
       },
     ],
@@ -580,10 +579,8 @@ function BottomTypeTabs({
         <div className="a4-rows" style={{ marginTop: "3mm" }}>
           <A4Row label="1. Length"><A4Input value={String(data.shalwarLength1 ?? "")} onChange={(v) => setField("shalwarLength1", v)} readOnly={readOnly} /></A4Row>
           <A4Row label="2. Pancha"><A4Input value={String(data.shalwarPancha1 ?? "")} onChange={(v) => setField("shalwarPancha1", v)} readOnly={readOnly} /></A4Row>
-          <A4Row label="3. Tigh"><A4Input value={String(data.trouserTigh1 ?? "")} onChange={(v) => setField("trouserTigh1", v)} readOnly={readOnly} /></A4Row>
-          <A4Row label="4. Gherra"><A4Input value={String(data.shalwarGherra1 ?? "")} onChange={(v) => setField("shalwarGherra1", v)} readOnly={readOnly} /></A4Row>
-          <A4Row label="5. Assan"><A4Input value={String(data.shalwarAssan1 ?? "")} onChange={(v) => setField("shalwarAssan1", v)} readOnly={readOnly} /></A4Row>
-          <A4Row label="6. Zip"><A4Checkbox checked={String(data.zipCb ?? "0") === "1"} onChange={(v) => setToggle("zipCb", v)} readOnly={readOnly} /></A4Row>
+          <A4Row label="3. Gherra"><A4Input value={String(data.shalwarGherra1 ?? "")} onChange={(v) => setField("shalwarGherra1", v)} readOnly={readOnly} /></A4Row>
+          <A4Row label="4. Elastic"><A4Input value={String(data.shalwarElastic1 ?? "")} onChange={(v) => setField("shalwarElastic1", v)} readOnly={readOnly} /></A4Row>
         </div>
       )}
 
@@ -600,10 +597,8 @@ function BottomTypeTabs({
                 <div style={{ display: "flex", gap: "3mm" }}>
                   <A4Pill label="Front" checked={String(data.frontPocket ?? "0") === "1"} onChange={(v) => setToggle("frontPocket", v)} readOnly={readOnly} />
                   <A4Pill label="Side" checked={String(data.sidePocket ?? "0") === "1"} onChange={(v) => setToggle("sidePocket", v)} readOnly={readOnly} />
-                  <A4Pill label="Shalwar" checked={String(data.shalwarPocket ?? "0") === "1"} onChange={(v) => setToggle("shalwarPocket", v)} readOnly={readOnly} />
                 </div>
               </A4Row>
-              <A4Row label="6. Zip"><A4Checkbox checked={String(data.zipCb ?? "0") === "1"} onChange={(v) => setToggle("zipCb", v)} readOnly={readOnly} /></A4Row>
             </>
           ) : (
             <A4Row label="4. Elastic"><A4Input value={String(data.ladTrouserElastic1 ?? "")} onChange={(v) => setField("ladTrouserElastic1", v)} readOnly={readOnly} /></A4Row>

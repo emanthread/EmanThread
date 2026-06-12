@@ -329,7 +329,6 @@ function CompletedTab() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [sourceFilter, setSourceFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [deleteRecord, setDeleteRecord] = useState<CompletedRecord | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -341,7 +340,6 @@ function CompletedTab() {
       const params = new URLSearchParams({
         page: String(page),
         ...(search && { search }),
-        ...(sourceFilter !== "all" && { source: sourceFilter }),
         ...(statusFilter !== "all" && { status: statusFilter }),
       });
       const res = await fetch(`/api/admin/measurements/completed?${params}`);
@@ -353,7 +351,7 @@ function CompletedTab() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, sourceFilter, statusFilter]);
+  }, [page, search, statusFilter]);
 
   useEffect(() => { fetchRecords(); }, [fetchRecords]);
 
@@ -384,16 +382,6 @@ function CompletedTab() {
               className="pl-9"
             />
           </div>
-          <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setPage(1); }}>
-            <SelectTrigger className="w-36">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Sources</SelectItem>
-              <SelectItem value="order">From Order</SelectItem>
-              <SelectItem value="tailor_request">Tailor Request</SelectItem>
-            </SelectContent>
-          </Select>
           <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
             <SelectTrigger className="w-32">
               <SelectValue />
@@ -417,7 +405,6 @@ function CompletedTab() {
               <thead className="bg-muted/50">
                 <tr>
                   <th className="text-left p-4 text-sm font-medium">Customer</th>
-                  <th className="text-left p-4 text-sm font-medium">Source</th>
                   <th className="text-left p-4 text-sm font-medium">Garment Type</th>
                   <th className="text-left p-4 text-sm font-medium">Completed</th>
                   <th className="text-left p-4 w-16"></th>
@@ -429,17 +416,6 @@ function CompletedTab() {
                     <td className="p-4">
                       <p className="font-medium text-sm">{r.user.name}</p>
                       <p className="text-xs text-muted-foreground">{r.user.email}</p>
-                    </td>
-                    <td className="p-4">
-                      <Badge
-                        className={
-                          r.source === "order"
-                            ? "bg-blue-100 text-blue-700 border-blue-200 text-xs"
-                            : "bg-purple-100 text-purple-700 border-purple-200 text-xs"
-                        }
-                      >
-                        {r.source === "order" ? "From Order" : "Tailor Request"}
-                      </Badge>
                     </td>
                     <td className="p-4">
                       <Badge variant="outline" className="capitalize text-xs">

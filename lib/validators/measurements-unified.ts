@@ -91,6 +91,7 @@ export const unifiedMeasurementSchema = z.object({
   shalwarPancha1: mstr,
   shalwarGherra1: mstr,
   shalwarAssan1: mstr,
+  shalwarElastic1: mstr,
 
   // ─── Trouser (male) ───────────────────────────────────────────────────
   trouserLength1: mstr,
@@ -229,7 +230,7 @@ export function mapToPrismaFields(parsed: UnifiedMeasurementFormData) {
     trouserdata8: parsed.trouserTigh2 || "",
     trouserdata9: parsed.trouserWaist2 || "",
     trouserdata10: parsed.trouserElastic2 || "",
-    trouserdata11: parsed.trouserdata11,
+    trouserdata11: parsed.shalwarElastic1 || parsed.trouserdata11 || "",
     trouserdata12: parsed.trouserdata12,
     trouserdata13: parsed.trouserdata13,
     trouserdata14: parsed.trouserdata14,
@@ -298,7 +299,7 @@ export function mapFromPrismaFields(row: Record<string, unknown>): UnifiedMeasur
     else if (key === "trouserdata8") { result["trouserTigh2"] = val; }
     else if (key === "trouserdata9") { result["trouserWaist2"] = val; }
     else if (key === "trouserdata10") { result["trouserElastic2"] = val; }
-    else if (key === "trouserdata11") { result["trouserdata11"] = val; }
+    else if (key === "trouserdata11") { result["shalwarElastic1"] = val; }
     else if (key === "trouserdata12") { result["trouserdata12"] = val; }
     else if (key === "trouserdata13") { result["trouserdata13"] = val; }
     else if (key === "trouserdata14") { result["trouserdata14"] = val; }
@@ -350,6 +351,7 @@ export const UNIFIED_MEASUREMENT_EMPTY: UnifiedMeasurementFormData = {
   shalwarPancha1: mk(), shalwarPancha2: mk(),
   shalwarGherra1: mk(), shalwarGherra2: mk(),
   shalwarAssan1: mk(), shalwarAssan2: mk(),
+  shalwarElastic1: mk(),
   // Trouser
   trouserLength1: mk(), trouserLength2: mk(),
   trouserPancha1: mk(), trouserPancha2: mk(),
