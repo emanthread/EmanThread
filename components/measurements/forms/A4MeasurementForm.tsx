@@ -35,6 +35,9 @@ interface FieldConfig {
   subInputs?: { label: string; key: DataKey }[];
   toggles?: { label: string; key: DataKey }[];
   groupToggles?: boolean;
+  gridCols?: number;
+  toggleType?: "mini" | "pill";
+  forceSubgrid?: boolean;
 }
 
 interface SectionConfig {
@@ -194,11 +197,14 @@ const CONFIGS: Record<string, FormLayout> = {
             label: "Neck",
             key: "neck1",
             type: "text",
+            gridCols: 2,
+            forceSubgrid: true,
             subInputs: [],
             toggles: [
               { label: "Collar", key: "collarCb" },
               { label: "Bane", key: "baneCb" },
             ],
+            toggleType: "mini",
           },
           { label: "Chest", key: "chest1", type: "text" },
           { label: "Waist", key: "waist1", type: "text" },
@@ -244,6 +250,7 @@ const CONFIGS: Record<string, FormLayout> = {
             label: "Neck",
             key: "neck1",
             type: "text",
+            gridCols: 3,
             subInputs: [
               { label: "Patti Width", key: "armpatti1" },
               { label: "Bane Width", key: "bane1" },
@@ -253,6 +260,7 @@ const CONFIGS: Record<string, FormLayout> = {
               { label: "Collar", key: "collarCb" },
               { label: "Bane", key: "baneCb" },
             ],
+            toggleType: "pill",
           },
           { label: "Chest", key: "chest1", type: "text" },
           { label: "Waist", key: "waist1", type: "text" },
@@ -446,7 +454,7 @@ export function A4MeasurementForm({
     <A4Card key={section.title} title={section.title}>
       {section.fields.map((field, idx) => {
         const value = String(data[field.key] ?? "");
-        const hasSubs = field.subInputs && field.subInputs.length > 0;
+        const hasSubs = (field.subInputs && field.subInputs.length > 0) || field.forceSubgrid;
         const hasToggles = field.toggles && field.toggles.length > 0;
 
         return (
@@ -459,8 +467,8 @@ export function A4MeasurementForm({
               />
             )}
             {hasSubs && (
-              <div className="a4-subgrid">
-                {field.subInputs!.map((si) => (
+              <div className="a4-subgrid" style={{ gridTemplateColumns: field.gridCols ? `repeat(${field.gridCols}, 1fr)` : undefined }}>
+                {field.subInputs?.map((si) => (
                   <A4SubInput
                     key={si.key}
                     label={si.label}
@@ -482,16 +490,19 @@ export function A4MeasurementForm({
                     ))}
                   </div>
                 )}
-                {hasToggles && !field.groupToggles && field.toggles!.map((t) => (
-                  <div className="a4-subitem" key={t.key} style={{ alignItems: "center" }}>
-                    <A4MiniToggle
-                      label={t.label}
-                      checked={String(data[t.key] ?? "0") === "1"}
-                      onChange={(v) => setToggle(t.key, v)}
-                      readOnly={readOnly}
-                    />
-                  </div>
-                ))}
+                {hasToggles && !field.groupToggles && field.toggles!.map((t) => {
+                  const ToggleComponent = field.toggleType === "pill" ? A4Pill : A4MiniToggle;
+                  return (
+                    <div className="a4-subitem" key={t.key} style={{ alignItems: "center" }}>
+                      <ToggleComponent
+                        label={t.label}
+                        checked={String(data[t.key] ?? "0") === "1"}
+                        onChange={(v) => setToggle(t.key, v)}
+                        readOnly={readOnly}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             )}
             {!hasSubs && hasToggles && (
@@ -581,13 +592,14 @@ function BottomTypeTabs({
   const btnStyle = (tab: string): React.CSSProperties => ({
     flex: 1,
     border: "2px solid var(--ink)",
-    background: bottomType === tab ? "var(--ink)" : "#f8fafc",
+    background: bottomType === tab ? "var(--ink)" : "#fff",
     color: bottomType === tab ? "#fff" : "var(--ink)",
     fontWeight: 800,
     padding: "3mm",
     cursor: "pointer",
     borderRadius: "4px",
     fontSize: "14px",
+    textTransform: "uppercase"
   });
 
   return (
@@ -598,7 +610,7 @@ function BottomTypeTabs({
           <button type="button" onClick={() => setBottomType("trouser")} style={btnStyle("trouser")}>Trouser</button>
         </div>
       ) : (
-        <div style={{ display: "flex", gap: "3mm", padding: "3mm", overflowX: "auto", whiteSpace: "nowrap" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "2.5mm", padding: "3mm" }}>
           <button type="button" onClick={() => setBottomType("trouser")} style={btnStyle("trouser")}>Trouser</button>
           <button type="button" onClick={() => setBottomType("simple")} style={btnStyle("simple")}>Simple Shalwar</button>
           <button type="button" onClick={() => setBottomType("belt")} style={btnStyle("belt")}>Belt Shalwar</button>

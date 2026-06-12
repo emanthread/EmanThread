@@ -531,6 +531,26 @@ export const A4_FIELDS: Record<string, { title: string; subtitle: string; fields
         { label: "Chaak", key: "ladChaak1", type: "text" },
         { label: "Options", key: "zipCb", type: "toggle" },
       ],
+      "Trouser": [
+        { label: "1. Length", key: "trouserLength1", type: "text" },
+        { label: "2. Pancha (Bottom)", key: "trouserPancha1", type: "text" },
+        { label: "3. Tigh", key: "trouserTigh1", type: "text" },
+        { label: "4. Elastic", key: "ladTrouserElastic1", type: "text" },
+      ],
+      "Simple Shalwar": [
+        { label: "1. Length", key: "ladSimpleShalwar1", type: "text" },
+        { label: "2. Pancha", key: "ladSimpleShalwarPancha1", type: "text" },
+        { label: "3. Gherra", key: "ladSimpleShalwarGherra1", type: "text" },
+        { label: "Assan", key: "ladSimpleShalwarAssan1", type: "text" },
+        { label: "4. Elastic", key: "ladLasticSimpleShalwar", type: "text" },
+      ],
+      "Belt Shalwar": [
+        { label: "1. Length", key: "ladShalwarBelt1", type: "text" },
+        { label: "2. Pancha", key: "ladShalwarBeltPancha1", type: "text" },
+        { label: "3. Gherra", key: "ladShalwarBeltGherra1", type: "text" },
+        { label: "Assan", key: "ladShalwarBeltAssan1", type: "text" },
+        { label: "4. Elastic", key: "ladLasticShalwarBelt", type: "text" },
+      ],
     },
   },
   female_lehnga_kurti: {
