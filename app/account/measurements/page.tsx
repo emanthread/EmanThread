@@ -43,6 +43,22 @@ const GARMENT_LABELS: Record<string, string> = {
   "simple shalwar": "Simple Shalwar Kameez",
 };
 
+const ACTIVE_MALE_GARMENTS = [
+  "shalwar_kameez_simple_shalwar",
+  "shalwar_kameez_trouser",
+  "simple 3 piece suit",
+  "prince coat 3 piece suit",
+  "shirt",
+];
+
+const ACTIVE_FEMALE_GARMENTS = [
+  "female_shalwar_kameez_simple_shalwar",
+  "female_shalwar_kameez_trouser",
+  "female_shalwar_kameez_belt_shalwar",
+  "frock",
+  "lehnga kurti",
+  "saari",
+];
 // ─── Tailor Request Note Section ─────────────────────────────────────────────
 
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -133,14 +149,17 @@ export default function MeasurementsPage() {
                   <div className="text-sm text-muted-foreground">No prices configured yet.</div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {Object.entries(stitchingPrices[gender]).map(([fabric, price]) => (
-                      <div key={fabric} className="p-3 bg-muted/30 border rounded-md flex flex-col justify-center items-center text-center">
-                        <span className="text-sm font-medium mb-1">
-                          {GARMENT_LABELS[fabric] ?? fabric.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                        </span>
-                        <span className="text-primary font-bold">{formatPrice(price)}</span>
-                      </div>
-                    ))}
+                    {(gender === "male" ? ACTIVE_MALE_GARMENTS : ACTIVE_FEMALE_GARMENTS).map((fabric) => {
+                      const price = stitchingPrices[gender][fabric] || 0;
+                      return (
+                        <div key={fabric} className="p-3 bg-muted/30 border rounded-md flex flex-col justify-center items-center text-center">
+                          <span className="text-sm font-medium mb-1">
+                            {GARMENT_LABELS[fabric] ?? fabric.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                          </span>
+                          <span className="text-primary font-bold">{formatPrice(price)}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
