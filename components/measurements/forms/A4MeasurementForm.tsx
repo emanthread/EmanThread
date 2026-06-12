@@ -9,6 +9,7 @@ import {
   A4Checkbox,
   A4Pill,
   A4SubInput,
+  A4MiniToggle,
 } from "./A4PageLayout";
 import type { UnifiedMeasurementFormData } from "@/lib/validators/measurements-unified";
 
@@ -33,6 +34,7 @@ interface FieldConfig {
   placeholder?: string;
   subInputs?: { label: string; key: DataKey }[];
   toggles?: { label: string; key: DataKey }[];
+  groupToggles?: boolean;
 }
 
 interface SectionConfig {
@@ -73,6 +75,7 @@ const CONFIGS: Record<string, FormLayout> = {
               { label: "Double", key: "doubleCb" },
               { label: "Single", key: "singleCb" },
             ],
+            groupToggles: true,
           },
           {
             label: "Neck",
@@ -191,6 +194,7 @@ const CONFIGS: Record<string, FormLayout> = {
             label: "Neck",
             key: "neck1",
             type: "text",
+            subInputs: [],
             toggles: [
               { label: "Collar", key: "collarCb" },
               { label: "Bane", key: "baneCb" },
@@ -210,7 +214,8 @@ const CONFIGS: Record<string, FormLayout> = {
           { label: "1. Length", key: "trouserLength1", type: "text" },
           { label: "2. Pencha", key: "trouserPancha1", type: "text" },
           { label: "3. Tigh", key: "trouserTigh1", type: "text" },
-          { label: "4. Waist", key: "trouserWaist1", type: "text" },
+          { label: "4. Assan", key: "trouserAssan1", type: "text" },
+          { label: "5. Waist", key: "trouserWaist1", type: "text" },
         ],
         side: true,
       },
@@ -241,8 +246,8 @@ const CONFIGS: Record<string, FormLayout> = {
             type: "text",
             subInputs: [
               { label: "Patti Width", key: "armpatti1" },
-              { label: "Collar Width", key: "collarnok1" },
-              { label: "Collar Nok", key: "bane1" },
+              { label: "Bane Width", key: "bane1" },
+              { label: "Collar Nok", key: "collarnok1" },
             ],
             toggles: [
               { label: "Collar", key: "collarCb" },
@@ -252,12 +257,13 @@ const CONFIGS: Record<string, FormLayout> = {
           { label: "Chest", key: "chest1", type: "text" },
           { label: "Waist", key: "waist1", type: "text" },
           { label: "Hip", key: "ladHip1", type: "text" },
+          {
+            label: "Pocket",
+            key: "frontPocket",
+            type: "toggle",
+            toggles: [{ label: "Front", key: "frontPocket" }],
+          },
         ],
-      },
-      {
-        title: "Pocket",
-        fields: [],
-        toggles: [{ label: "Front", key: "frontPocket" }],
       },
     ],
   },
@@ -326,7 +332,7 @@ const CONFIGS: Record<string, FormLayout> = {
           {
             label: "Options",
             key: "zipCb",
-            type: "text",
+            type: "toggle",
             toggles: [
               { label: "Zip", key: "zipCb" },
               { label: "Plate", key: "armplate1" },
@@ -445,11 +451,13 @@ export function A4MeasurementForm({
 
         return (
           <A4Row key={`${field.key}-${idx}`} label={field.label}>
-            <A4Input
-              value={value}
-              onChange={(v) => setField(field.key, v)}
-              readOnly={readOnly}
-            />
+            {field.type !== "toggle" && (
+              <A4Input
+                value={value}
+                onChange={(v) => setField(field.key, v)}
+                readOnly={readOnly}
+              />
+            )}
             {hasSubs && (
               <div className="a4-subgrid">
                 {field.subInputs!.map((si) => (
@@ -461,10 +469,33 @@ export function A4MeasurementForm({
                     readOnly={readOnly}
                   />
                 ))}
+                {hasToggles && field.groupToggles && (
+                  <div className="a4-subitem double-single">
+                    {field.toggles!.map((t) => (
+                      <A4MiniToggle
+                        key={t.key}
+                        label={t.label}
+                        checked={String(data[t.key] ?? "0") === "1"}
+                        onChange={(v) => setToggle(t.key, v)}
+                        readOnly={readOnly}
+                      />
+                    ))}
+                  </div>
+                )}
+                {hasToggles && !field.groupToggles && field.toggles!.map((t) => (
+                  <div className="a4-subitem" key={t.key} style={{ alignItems: "center" }}>
+                    <A4MiniToggle
+                      label={t.label}
+                      checked={String(data[t.key] ?? "0") === "1"}
+                      onChange={(v) => setToggle(t.key, v)}
+                      readOnly={readOnly}
+                    />
+                  </div>
+                ))}
               </div>
             )}
-            {hasToggles && (
-              <div style={{ display: "flex", gap: "2mm", marginTop: "2mm", flexWrap: "wrap" }}>
+            {!hasSubs && hasToggles && (
+              <div style={{ display: "flex", gap: "2mm", marginTop: field.type === "toggle" ? "0" : "2mm", flexWrap: "wrap" }}>
                 {field.toggles!.map((t) => (
                   <A4Pill
                     key={t.key}
@@ -611,8 +642,19 @@ function BottomTypeTabs({
         <div className="a4-rows" style={{ marginTop: "3mm" }}>
           <A4Row label="1. Length"><A4Input value={String(data.ladSimpleShalwar1 ?? "")} onChange={(v) => setField("ladSimpleShalwar1", v)} readOnly={readOnly} /></A4Row>
           <A4Row label="2. Pancha"><A4Input value={String(data.ladSimpleShalwarPancha1 ?? "")} onChange={(v) => setField("ladSimpleShalwarPancha1", v)} readOnly={readOnly} /></A4Row>
-          <A4Row label="3. Gherra"><A4Input value={String(data.ladSimpleShalwarGherra1 ?? "")} onChange={(v) => setField("ladSimpleShalwarGherra1", v)} readOnly={readOnly} /></A4Row>
-          <A4Row label="4. Elastic"><A4Checkbox checked={String(data.ladLasticSimpleShalwar ?? "0") === "1"} onChange={(v) => setToggle("ladLasticSimpleShalwar", v)} readOnly={readOnly} /></A4Row>
+          <A4Row label="3. Gherra / Assan">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2mm", width: "100%" }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <A4Input value={String(data.ladSimpleShalwarGherra1 ?? "")} onChange={(v) => setField("ladSimpleShalwarGherra1", v)} readOnly={readOnly} />
+                <span style={{ fontSize: "11px", fontWeight: 700, marginTop: "1mm" }}>Gherra</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <A4Input value={String(data.ladSimpleShalwarAssan1 ?? "")} onChange={(v) => setField("ladSimpleShalwarAssan1", v)} readOnly={readOnly} />
+                <span style={{ fontSize: "11px", fontWeight: 700, marginTop: "1mm" }}>Assan</span>
+              </div>
+            </div>
+          </A4Row>
+          <A4Row label="4. Elastic"><A4Input value={String(data.ladLasticSimpleShalwar ?? "")} onChange={(v) => setField("ladLasticSimpleShalwar", v)} readOnly={readOnly} /></A4Row>
         </div>
       )}
 
@@ -621,8 +663,19 @@ function BottomTypeTabs({
         <div className="a4-rows" style={{ marginTop: "3mm" }}>
           <A4Row label="1. Length"><A4Input value={String(data.ladShalwarBelt1 ?? "")} onChange={(v) => setField("ladShalwarBelt1", v)} readOnly={readOnly} /></A4Row>
           <A4Row label="2. Pancha"><A4Input value={String(data.ladShalwarBeltPancha1 ?? "")} onChange={(v) => setField("ladShalwarBeltPancha1", v)} readOnly={readOnly} /></A4Row>
-          <A4Row label="3. Gherra"><A4Input value={String(data.ladShalwarBeltGherra1 ?? "")} onChange={(v) => setField("ladShalwarBeltGherra1", v)} readOnly={readOnly} /></A4Row>
-          <A4Row label="4. Elastic"><A4Checkbox checked={String(data.ladLasticShalwarBelt ?? "0") === "1"} onChange={(v) => setToggle("ladLasticShalwarBelt", v)} readOnly={readOnly} /></A4Row>
+          <A4Row label="3. Gherra / Assan">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2mm", width: "100%" }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <A4Input value={String(data.ladShalwarBeltGherra1 ?? "")} onChange={(v) => setField("ladShalwarBeltGherra1", v)} readOnly={readOnly} />
+                <span style={{ fontSize: "11px", fontWeight: 700, marginTop: "1mm" }}>Gherra</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <A4Input value={String(data.ladShalwarBeltAssan1 ?? "")} onChange={(v) => setField("ladShalwarBeltAssan1", v)} readOnly={readOnly} />
+                <span style={{ fontSize: "11px", fontWeight: 700, marginTop: "1mm" }}>Assan</span>
+              </div>
+            </div>
+          </A4Row>
+          <A4Row label="4. Elastic"><A4Input value={String(data.ladLasticShalwarBelt ?? "")} onChange={(v) => setField("ladLasticShalwarBelt", v)} readOnly={readOnly} /></A4Row>
         </div>
       )}
     </A4Card>

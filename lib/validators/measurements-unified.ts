@@ -97,6 +97,7 @@ export const unifiedMeasurementSchema = z.object({
   trouserLength1: mstr,
   trouserPancha1: mstr,
   trouserTigh1: mstr,
+  trouserAssan1: mstr,
   trouserWaist1: mstr,
   trouserElastic1: mstr,
 
@@ -108,11 +109,13 @@ export const unifiedMeasurementSchema = z.object({
   ladSimpleShalwar1: mstr,
   ladSimpleShalwarPancha1: mstr,
   ladSimpleShalwarGherra1: mstr,
-  ladLasticSimpleShalwar: toggle,
+  ladSimpleShalwarAssan1: mstr,
+  ladLasticSimpleShalwar: mstr,
   ladShalwarBelt1: mstr,
   ladShalwarBeltPancha1: mstr,
   ladShalwarBeltGherra1: mstr,
-  ladLasticShalwarBelt: toggle,
+  ladShalwarBeltAssan1: mstr,
+  ladLasticShalwarBelt: mstr,
   ladTrouserElastic1: mstr,
 
   // ─── Fraction slots preserved for backward compat (unused in new A4 forms) ──
@@ -231,9 +234,9 @@ export function mapToPrismaFields(parsed: UnifiedMeasurementFormData) {
     trouserdata9: parsed.trouserWaist2 || "",
     trouserdata10: parsed.trouserElastic2 || "",
     trouserdata11: parsed.shalwarElastic1 || parsed.trouserdata11 || "",
-    trouserdata12: parsed.trouserdata12,
-    trouserdata13: parsed.trouserdata13,
-    trouserdata14: parsed.trouserdata14,
+    trouserdata12: parsed.trouserAssan1 || parsed.trouserdata12 || "",
+    trouserdata13: parsed.ladSimpleShalwarAssan1 || "",
+    trouserdata14: parsed.ladShalwarBeltAssan1 || "",
     // Ladies extras
     ladGolai1: parsed.ladGolai1, ladGolai2: parsed.ladGolai2,
     ladMori1: parsed.ladMori1, ladMori2: parsed.ladMori2,
@@ -301,8 +304,8 @@ export function mapFromPrismaFields(row: Record<string, unknown>): UnifiedMeasur
     else if (key === "trouserdata10") { result["trouserElastic2"] = val; }
     else if (key === "trouserdata11") { result["shalwarElastic1"] = val; }
     else if (key === "trouserdata12") { result["trouserdata12"] = val; }
-    else if (key === "trouserdata13") { result["trouserdata13"] = val; }
-    else if (key === "trouserdata14") { result["trouserdata14"] = val; }
+    else if (key === "trouserdata13") { result["ladSimpleShalwarAssan1"] = val; }
+    else if (key === "trouserdata14") { result["ladShalwarBeltAssan1"] = val; }
     // Reverse shalwar legacy names
     else if (key === "shalwar1") { result["shalwarLength1"] = val; }
     else if (key === "shalwar2") { result["shalwarLength2"] = val; }
@@ -364,11 +367,13 @@ export const UNIFIED_MEASUREMENT_EMPTY: UnifiedMeasurementFormData = {
   ladSimpleShalwar1: mk(), ladSimpleShalwar2: mk(),
   ladSimpleShalwarPancha1: mk(), ladSimpleShalwarPancha2: mk(),
   ladSimpleShalwarGherra1: mk(), ladSimpleShalwarGherra2: mk(),
-  ladLasticSimpleShalwar: mkToggle,
+  ladSimpleShalwarAssan1: mk(),
+  ladLasticSimpleShalwar: mk(),
   ladShalwarBelt1: mk(), ladShalwarBelt2: mk(),
   ladShalwarBeltPancha1: mk(), ladShalwarBeltPancha2: mk(),
   ladShalwarBeltGherra1: mk(), ladShalwarBeltGherra2: mk(),
-  ladLasticShalwarBelt: mkToggle,
+  ladShalwarBeltAssan1: mk(),
+  ladLasticShalwarBelt: mk(),
   ladTrouserElastic1: mk(), ladTrouserElastic2: mk(),
   trouserdata11: mk(), trouserdata12: mk(), trouserdata13: mk(), trouserdata14: mk(),
 };
@@ -479,11 +484,14 @@ export const A4_FIELDS: Record<string, { title: string; subtitle: string; fields
         { label: "Caff Plate", key: "armplate1", type: "text" },
         { label: "Neck", key: "neck1", type: "text" },
         { label: "Patti Width", key: "armpatti1", type: "text" },
-        { label: "Collar Width", key: "collarnok1", type: "text" },
-        { label: "Collar Nok", key: "bane1", type: "text" },
+        { label: "Bane Width", key: "bane1", type: "text" },
+        { label: "Collar Nok", key: "collarnok1", type: "text" },
+        { label: "Collar", key: "collarCb", type: "toggle" },
+        { label: "Bane", key: "baneCb", type: "toggle" },
         { label: "Chest", key: "chest1", type: "text" },
         { label: "Waist", key: "waist1", type: "text" },
         { label: "Hip", key: "ladHip1", type: "text" },
+        { label: "Pocket", key: "frontPocket", type: "toggle" },
       ],
     },
   },
@@ -520,6 +528,7 @@ export const A4_FIELDS: Record<string, { title: string; subtitle: string; fields
         { label: "Waist", key: "waist1", type: "text" },
         { label: "Gherra", key: "gherra1", type: "text" },
         { label: "Chaak", key: "ladChaak1", type: "text" },
+        { label: "Options", key: "zipCb", type: "toggle" },
       ],
     },
   },

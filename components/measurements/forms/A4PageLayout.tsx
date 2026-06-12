@@ -197,6 +197,31 @@ export function A4Pill({
   );
 }
 
+export function A4MiniToggle({
+  label,
+  checked,
+  onChange,
+  readOnly,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  readOnly?: boolean;
+}) {
+  return (
+    <span
+      className="a4-mini"
+      onClick={() => {
+        if (!readOnly) onChange(!checked);
+      }}
+      style={{ cursor: readOnly ? "default" : "pointer" }}
+    >
+      <A4Checkbox checked={checked} onChange={onChange} readOnly={readOnly} />
+      {label}
+    </span>
+  );
+}
+
 export function A4SubInput({
   label,
   value,

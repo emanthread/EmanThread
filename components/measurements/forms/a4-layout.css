@@ -319,6 +319,22 @@
   justify-content: center;
 }
 
+.a4-subitem.double-single {
+  align-items: flex-start;
+  gap: 2.2mm;
+  text-align: left;
+  padding-left: 3mm;
+}
+
+.a4-mini {
+  display: flex;
+  align-items: center;
+  gap: 2mm;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1;
+}
+
 .a4-subitem .a4-smallline {
   display: block;
   height: 5mm;
