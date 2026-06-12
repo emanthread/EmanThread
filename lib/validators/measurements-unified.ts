@@ -303,7 +303,7 @@ export function mapFromPrismaFields(row: Record<string, unknown>): UnifiedMeasur
     else if (key === "trouserdata9") { result["trouserWaist2"] = val; }
     else if (key === "trouserdata10") { result["trouserElastic2"] = val; }
     else if (key === "trouserdata11") { result["shalwarElastic1"] = val; }
-    else if (key === "trouserdata12") { result["trouserdata12"] = val; }
+    else if (key === "trouserdata12") { result["trouserAssan1"] = val; }
     else if (key === "trouserdata13") { result["ladSimpleShalwarAssan1"] = val; }
     else if (key === "trouserdata14") { result["ladShalwarBeltAssan1"] = val; }
     // Reverse shalwar legacy names
@@ -359,6 +359,7 @@ export const UNIFIED_MEASUREMENT_EMPTY: UnifiedMeasurementFormData = {
   trouserLength1: mk(), trouserLength2: mk(),
   trouserPancha1: mk(), trouserPancha2: mk(),
   trouserTigh1: mk(), trouserTigh2: mk(),
+  trouserAssan1: mk(),
   trouserWaist1: mk(), trouserWaist2: mk(),
   trouserElastic1: mk(), trouserElastic2: mk(),
   // Ladies extras
