@@ -4,14 +4,6 @@ import { MeasurementProfileStatus } from "@prisma/client";
 // ── Centralized filters ──────────────────────────────────────────────
 
 /**
- * Centralized filter: admin tailor requests (source = "tailor_request", not soft-deleted)
- * Single source of truth — ALL admin APIs that query tailor requests MUST use this.
- */
-export function adminTailorRequestFilter() {
-  return { deletedAt: null, source: "tailor_request" as const };
-}
-
-/**
  * Centralized filter: admin measurement profiles (order-linked only)
  * Only returns profiles linked to completed orders (source = "order").
  * Saved user profiles (source = "profile") are intentionally excluded — they

@@ -151,7 +151,7 @@ export default auth((req) => {
     }
 
     // Protected API routes
-    const PROTECTED_API = ["/api/user", "/api/measurements", "/api/tailor-measurements"];
+    const PROTECTED_API = ["/api/user", "/api/measurements"];
     if (PROTECTED_API.some((r) => pathname.startsWith(r))) {
       if (!session) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

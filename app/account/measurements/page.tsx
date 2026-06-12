@@ -7,42 +7,11 @@ import { CartDrawer } from "@/components/cart/cart-drawer";
 import { useAuthStore } from "@/lib/auth-store";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { formatPrice } from "@/lib/data";
-import { UnifiedMeasurementForm } from "@/components/measurements/UnifiedMeasurementForm";
 import { MeasurementProfileManager } from "@/components/measurements/MeasurementProfileManager";
-import type { UnifiedMeasurementFormData } from "@/lib/validators/measurements-unified";
-import {
-  UNIFIED_MEASUREMENT_EMPTY,
-  GARMENT_TYPES,
-  garmentTypeLabel,
-} from "@/lib/validators/measurements-unified";
 
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Ruler,
-  Plus,
-  ClipboardCheck,
-  Send,
-  Eye,
-  AlertTriangle,
-} from "lucide-react";
+import { Ruler, MessageCircle } from "lucide-react";
 
 interface StitchingPrices {
   male: Record<string, number>;
@@ -61,304 +30,25 @@ const GARMENT_LABELS: Record<string, string> = {
   "saari": "Saari",
 };
 
-// ─── Unified Measurement Request Section ──────────────────────────────────────
+// ─── Tailor Request Note Section ─────────────────────────────────────────────
 
-interface TailorRecord {
-  id: string;
-  status: string;
-  gender: string;
-  garmentType: string;
-  notes: string;
-  deliveryDate: string | null;
-  requestedAt: string;
-  [key: string]: unknown;
-}
-
-function UnifiedTailorSection() {
-  const [record, setRecord] = useState<TailorRecord | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [requestOpen, setRequestOpen] = useState(false);
-
-  const fetchRecord = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/tailor-measurements");
-      if (res.ok) {
-        const data = await res.json();
-        setRecord(data.measurement ?? null);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchRecord(); }, [fetchRecord]);
-
-  if (loading) {
-    return <div className="text-sm text-muted-foreground">Loading tailor measurements...</div>;
-  }
-
-  if (!record) {
-    return (
-      <div className="bg-background rounded-lg border p-6 shadow-sm">
-        <div className="flex items-center gap-2 mb-4">
-          <ClipboardCheck className="h-5 w-5 text-primary" />
-          <h2 className="font-semibold text-lg">Tailor Measurement Request</h2>
-        </div>
-        <p className="text-sm text-muted-foreground mb-4">
-          Submit a measurement request to our tailor. We will schedule an appointment and fill in your measurements.
-        </p>
-        <Button onClick={() => setRequestOpen(true)} className="gap-2">
-          <Send className="h-4 w-4" />
-          Submit Measurement Request
-        </Button>
-
-        <Dialog open={requestOpen} onOpenChange={(o) => !o && setRequestOpen(false)}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>New Tailor Measurement Request</DialogTitle>
-            <DialogDescription>
-              Select a saved measurement profile or create one first. Our tailor will take your measurements.
-              </DialogDescription>
-            </DialogHeader>
-            <NewTailorRequestForm
-              onSaved={() => { setRequestOpen(false); fetchRecord(); }}
-            />
-          </DialogContent>
-        </Dialog>
-      </div>
-    );
-  }
-
-  // Parse profile info from notes if present
-  let linkedProfileName = "";
-  let displayNotes = record.notes || "";
-  const profileMatch = displayNotes.match(/^\[Profile:\s*(.+?)\|(.+?)\]/);
-  if (profileMatch) {
-    linkedProfileName = profileMatch[1];
-    displayNotes = displayNotes.replace(profileMatch[0], "").trim();
-  }
-
+function TailorRequestNote() {
   return (
     <div className="bg-background rounded-lg border p-6 shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <ClipboardCheck className="h-5 w-5 text-primary" />
-          <h2 className="font-semibold text-lg">Tailor Measurement</h2>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge
-            className={
-              record.status === "complete"
-                ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-                : "bg-amber-100 text-amber-700 border-amber-200"
-            }
-          >
-            {record.status === "complete" ? "✓ Measurements Recorded" : "⏳ Pending"}
-          </Badge>
-          {record.deliveryDate && (
-            <span className="text-xs text-muted-foreground">
-              Delivery: {new Date(record.deliveryDate).toLocaleDateString()}
-            </span>
-          )}
-        </div>
+      <div className="flex items-center gap-2 mb-4">
+        <MessageCircle className="h-5 w-5 text-primary" />
+        <h2 className="font-semibold text-lg">Tailor Measurement Request</h2>
       </div>
-      {record.status === "pending" ? (
-        <div className="space-y-3">
-          {linkedProfileName && (
-            <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-              <span className="text-sm">
-                <span className="font-medium">Linked Profile:</span> {linkedProfileName}
-              </span>
-            </div>
-          )}
-          <p className="text-sm text-muted-foreground">
-            Your request has been submitted. Our tailor will take your measurements at the scheduled appointment and update this record.
-          </p>
-          {displayNotes && (
-            <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 italic">
-              {displayNotes}
-            </p>
-          )}
-        </div>
-      ) : (
-        <div>
-          {linkedProfileName && (
-            <div className="flex items-center gap-2 p-3 mb-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-              <span className="text-sm">
-                <span className="font-medium">Linked Profile:</span> {linkedProfileName}
-              </span>
-            </div>
-          )}
-          <UnifiedMeasurementForm
-            data={record as unknown as Partial<UnifiedMeasurementFormData>}
-            mode="readonly"
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── New Tailor Request Form ──────────────────────────────────────────────────
-
-interface ProfileOption {
-  id: string;
-  profileName: string;
-  gender: string;
-  garmentType: string;
-}
-
-function NewTailorRequestForm({ onSaved }: { onSaved: () => void }) {
-  const [profiles, setProfiles] = useState<ProfileOption[]>([]);
-  const [profilesLoading, setProfilesLoading] = useState(true);
-  const [gender, setGender] = useState<"Male" | "Female">("Male");
-  const [selectedProfileId, setSelectedProfileId] = useState("");
-  const [garmentType, setGarmentType] = useState("male_shalwar_kameez");
-  const [notes, setNotes] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  // Fetch user's saved measurement profiles (excluding tailor_request records)
-  useEffect(() => {
-    (async () => {
-      setProfilesLoading(true);
-      try {
-        const res = await fetch("/api/measurements");
-        if (res.ok) {
-          const data = await res.json();
-          setProfiles(
-            (data.profiles || []).filter(
-              (p: ProfileOption & { source?: string }) => p.source !== "tailor_request" && p.source !== "order"
-            )
-          );
-        }
-      } catch {
-        // Silently fail
-      } finally {
-        setProfilesLoading(false);
-      }
-    })();
-  }, []);
-
-  // When a profile is selected, auto-derive garmentType from it
-  const handleProfileChange = (profileId: string) => {
-    setSelectedProfileId(profileId);
-    const profile = profiles.find((p) => p.id === profileId);
-    if (profile) {
-      setGarmentType(profile.garmentType);
-    }
-  };
-
-  // When gender changes, clear profile selection if the selected profile doesn't match
-  const handleGenderChange = (v: string) => {
-    const newGender = v as "Male" | "Female";
-    setGender(newGender);
-    // Clear profile selection if current doesn't match new gender
-    if (selectedProfileId) {
-      const current = profiles.find((p) => p.id === selectedProfileId);
-      if (current && current.gender !== newGender) {
-        setSelectedProfileId("");
-        setGarmentType(newGender === "Male" ? "male_shalwar_kameez" : "female_simple_shalwar");
-      }
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!selectedProfileId) {
-      setError("Please select a measurement profile");
-      return;
-    }
-    setSaving(true);
-    setError("");
-    try {
-      const selectedProfile = profiles.find((p) => p.id === selectedProfileId);
-      const res = await fetch("/api/tailor-measurements", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          gender,
-          garmentType,
-          notes,
-          selectedProfileId,
-          selectedProfileName: selectedProfile?.profileName ?? "",
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        onSaved();
-      } else {
-        setError(data.error ?? "Request failed");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Request failed");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Profiles filtered by current gender selection
-  const filteredProfiles = profiles.filter((p) => p.gender === gender);
-
-  return (
-    <div className="space-y-4 py-2">
-      <div>
-        <Label>Gender</Label>
-        <Select
-          value={gender}
-          onValueChange={handleGenderChange}
-        >
-          <SelectTrigger className="mt-1">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Male">Male (مرد)</SelectItem>
-            <SelectItem value="Female">Female (عورت)</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div>
-        <Label>Measurement Profile</Label>
-        {profilesLoading ? (
-          <div className="text-sm text-muted-foreground mt-1">Loading profiles...</div>
-        ) : filteredProfiles.length === 0 ? (
-          <div className="text-sm text-muted-foreground mt-1 p-3 border border-dashed rounded-lg text-center">
-            <p className="font-medium mb-1">No profiles found for {gender === "Male" ? "Male" : "Female"}</p>
-            <p className="text-xs">Create a measurement profile first using the section above, then come back to submit a tailor request.</p>
-          </div>
-        ) : (
-          <Select value={selectedProfileId} onValueChange={handleProfileChange}>
-            <SelectTrigger className="mt-1">
-              <SelectValue placeholder="Select a profile..." />
-            </SelectTrigger>
-            <SelectContent>
-              {filteredProfiles.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.profileName} — {garmentTypeLabel(p.garmentType)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </div>
-
-      <div>
-        <Label>Notes (Optional)</Label>
-        <Textarea
-          placeholder="Any special instructions..."
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          rows={3}
-          className="mt-1"
-        />
-      </div>
-
-      {error && <p className="text-sm text-red-500">{error}</p>}
-
-      <Button onClick={handleSubmit} disabled={saving || !selectedProfileId} className="gap-2">
-        <Send className="h-4 w-4" />
-        {saving ? "Submitting..." : "Submit Request"}
+      <p className="text-sm text-muted-foreground mb-4">
+        We are currently not accepting tailor measurement requests online.
+        Please contact us on WhatsApp for any stitching or measurement inquiries.
+      </p>
+      <Button
+        onClick={() => window.open("https://wa.me/923344556677", "_blank")}
+        className="gap-2"
+      >
+        <MessageCircle className="h-4 w-4" />
+        Contact on WhatsApp
       </Button>
     </div>
   );
@@ -400,7 +90,7 @@ export default function MeasurementsPage() {
                 <Ruler className="h-6 w-6" /> Stitching Services
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
-                Submit tailor requests and manage your measurements
+                Manage your measurements and view stitching prices
               </p>
             </div>
           </div>
@@ -436,9 +126,9 @@ export default function MeasurementsPage() {
             <MeasurementProfileManager />
           </div>
 
-          {/* ── Unified Tailor Measurement Section ── */}
+          {/* ── Tailor Request Note ── */}
           <div className="mb-8">
-            <UnifiedTailorSection />
+            <TailorRequestNote />
           </div>
 
         </div>

@@ -8,19 +8,11 @@ import {
   Eye,
   Ruler,
   Printer,
-  CheckCircle,
-  XCircle,
   Pencil,
-  User,
-  Mail,
-  Calendar,
-  Phone,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -40,32 +32,14 @@ import {
 } from "@/components/ui/dialog";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { UnifiedMeasurementForm } from "@/components/measurements/UnifiedMeasurementForm";
-import { TailorPrintCard, type TailorCardData } from "@/components/admin/tailor-print-card";
+import { TailorPrintCard } from "@/components/admin/tailor-print-card";
 import { getStatusBadgeClass } from "@/lib/utils/status";
-import type {
-  UnifiedMeasurementFormData,
-  GarmentType,
-} from "@/lib/validators/measurements-unified";
 import {
-  GARMENT_TYPES,
   garmentTypeLabel,
   mapFromPrismaFields,
 } from "@/lib/validators/measurements-unified";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-interface TailorMeasurement {
-  id: string;
-  gender: string;
-  garmentType: string;
-  status: string;
-  notes: string;
-  requestedAt: string;
-  updatedAt: string;
-  deliveryDate: string | null;
-  user: { id: string; name: string; email: string; phone?: string | null };
-}
 
 interface LegacyProfile {
   id: string;
@@ -89,310 +63,7 @@ interface CompletedRecord {
   user: { id: string; name: string; email: string };
 }
 
-// ─── Tailor Requests Tab ─────────────────────────────────────────────────────
-
-function TailorRequestsTab() {
-  const [measurements, setMeasurements] = useState<TailorMeasurement[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [genderFilter, setGenderFilter] = useState("all");
-  const [garmentFilter, setGarmentFilter] = useState("all");
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [quickEdit, setQuickEdit] = useState<TailorMeasurement | null>(null);
-  const [savingQuick, setSavingQuick] = useState(false);
-  const [viewDetail, setViewDetail] = useState<TailorMeasurement | null>(null);
-  const [printDetail, setPrintDetail] = useState<TailorMeasurement | null>(null);
-  const limit = 20;
-
-  const fetchMeasurements = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        page: String(page),
-        ...(statusFilter !== "all" && { status: statusFilter }),
-        ...(genderFilter !== "all" && { gender: genderFilter }),
-        ...(garmentFilter !== "all" && { garmentType: garmentFilter }),
-        ...(search && { search }),
-      });
-      const res = await fetch(`/api/admin/tailor-measurements?${params}`);
-      if (res.ok) {
-        const data = await res.json();
-        setMeasurements(data.measurements);
-        setTotal(data.total);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [page, statusFilter, genderFilter, garmentFilter, search]);
-
-  useEffect(() => { fetchMeasurements(); }, [fetchMeasurements]);
-
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    await fetch(`/api/admin/tailor-measurements/${deleteId}`, { method: "DELETE" });
-    setDeleteId(null);
-    fetchMeasurements();
-  };
-
-  const totalPages = Math.ceil(total / limit);
-
-  return (
-    <>
-      <Card>
-        <CardContent className="p-4 flex flex-col sm:flex-row gap-3 flex-wrap">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by customer name, email or phone..."
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="pl-9"
-            />
-          </div>
-          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-            <SelectTrigger className="w-36">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="accepted">Accepted</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
-              <SelectItem value="complete">Complete</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={genderFilter} onValueChange={(v) => { setGenderFilter(v); setPage(1); }}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Genders</SelectItem>
-              <SelectItem value="Male">Male</SelectItem>
-              <SelectItem value="Female">Female</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={garmentFilter} onValueChange={(v) => { setGarmentFilter(v); setPage(1); }}>
-            <SelectTrigger className="w-44">
-              <SelectValue placeholder="All Garment Types" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              {GARMENT_TYPES.map((gt) => (
-                <SelectItem key={gt} value={gt}>{garmentTypeLabel(gt)}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{total} request{total !== 1 ? "s" : ""}</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="text-left p-4 text-sm font-medium">Customer</th>
-                  <th className="text-left p-4 text-sm font-medium">Garment Type</th>
-                  <th className="text-left p-4 text-sm font-medium">Status</th>
-                  <th className="text-left p-4 text-sm font-medium">Requested</th>
-                  <th className="text-left p-4 text-sm font-medium">Delivery</th>
-                  <th className="text-left p-4 w-24"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {measurements.map((m) => (
-                  <tr key={m.id} className="border-t hover:bg-muted/30">
-                    <td className="p-4">
-                      <p className="font-medium text-sm">{m.user.name}</p>
-                      <p className="text-xs text-muted-foreground">{m.user.email}</p>
-                    </td>
-                    <td className="p-4">
-                      <Badge variant="outline" className="text-xs capitalize">
-                        {garmentTypeLabel(m.garmentType || "") || m.gender}
-                      </Badge>
-                    </td>
-                    <td className="p-4">
-                      <Badge className={getStatusBadgeClass(m.status) + " text-xs"}>
-                        {m.status}
-                      </Badge>
-                    </td>
-                    <td className="p-4 text-sm text-muted-foreground">
-                      {new Date(m.requestedAt).toLocaleDateString()}
-                    </td>
-                    <td className="p-4 text-sm text-muted-foreground">
-                      {m.deliveryDate ? new Date(m.deliveryDate).toLocaleDateString() : "—"}
-                    </td>
-                    <td className="p-4">
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => setViewDetail(m)}
-                          title="View"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => setPrintDetail(m)}
-                          title="Print Measurement Sheet"
-                        >
-                          <Printer className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" asChild title="Full Edit">
-                          <Link href={`/admin/measurements/${m.id}`}>
-                            <Ruler className="h-3.5 w-3.5" />
-                          </Link>
-                        </Button>
-                        {m.status === "pending" && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-sky-600 hover:text-sky-600"
-                              onClick={async () => {
-                                await fetch(`/api/admin/tailor-measurements/${m.id}`, {
-                                  method: "PATCH",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ status: "accepted" }),
-                                });
-                                fetchMeasurements();
-                              }}
-                              title="Accept Request"
-                            >
-                              <CheckCircle className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-red-600 hover:text-red-600"
-                              onClick={async () => {
-                                await fetch(`/api/admin/tailor-measurements/${m.id}`, {
-                                  method: "PATCH",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ status: "rejected" }),
-                                });
-                                fetchMeasurements();
-                              }}
-                              title="Reject Request"
-                            >
-                              <XCircle className="h-3.5 w-3.5" />
-                            </Button>
-                          </>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-red-600 hover:text-red-600"
-                          onClick={() => setDeleteId(m.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {measurements.length === 0 && !loading && (
-              <div className="text-center py-12 text-muted-foreground">
-                No tailor measurement requests found
-              </div>
-            )}
-          </div>
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between p-4 border-t">
-              <p className="text-sm text-muted-foreground">Page {page} of {totalPages}</p>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>Previous</Button>
-                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>Next</Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* View Dialog (read-only) */}
-      <Dialog open={!!viewDetail} onOpenChange={(o) => !o && setViewDetail(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {viewDetail?.user.name} — {garmentTypeLabel(viewDetail?.garmentType || "")}
-            </DialogTitle>
-            <DialogDescription>
-              Viewing measurements in read-only mode. Use the Ruler icon for full editing.
-            </DialogDescription>
-          </DialogHeader>
-          {viewDetail && (
-            <UnifiedMeasurementForm
-              data={mapFromPrismaFields(viewDetail as unknown as Record<string, unknown>)}
-              mode="readonly"
-              isAdmin={true}
-              garmentTypeFixed={viewDetail.garmentType}
-              customerName={viewDetail.user.name}
-              customerEmail={viewDetail.user.email}
-              customerPhone={viewDetail.user.phone ?? undefined}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Print Dialog — Tailor Request */}
-      {printDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 print:static print:bg-transparent" onClick={() => setPrintDetail(null)}>
-          <div className="bg-background rounded-lg shadow-xl max-w-[230mm] max-h-[90vh] overflow-y-auto p-6 print:p-0 print:shadow-none print:max-w-none print:max-h-none" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4 print:hidden">
-              <h3 className="text-lg font-semibold">Print Measurement Sheet</h3>
-              <Button variant="ghost" size="sm" onClick={() => setPrintDetail(null)}>Close</Button>
-            </div>
-            <TailorPrintCard
-              data={{
-                serialNo: `MT-${printDetail.id.slice(0, 6).toUpperCase()}`,
-                customerName: printDetail.user.name,
-                deliveryDate: printDetail.deliveryDate
-                  ? new Date(printDetail.deliveryDate).toLocaleDateString()
-                  : new Date(printDetail.requestedAt).toLocaleDateString(),
-                productName: printDetail.notes || garmentTypeLabel(printDetail.garmentType || ""),
-                garmentType: printDetail.garmentType,
-                gender: printDetail.gender,
-                measurements: mapFromPrismaFields(printDetail as unknown as Record<string, unknown>) as unknown as Record<string, string>,
-                stylingPrefs: null,
-                notes: printDetail.notes,
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation */}
-      <Dialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Tailor Measurement?</DialogTitle>
-            <DialogDescription>
-              This will permanently delete this measurement record.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteId(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete}>Delete</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
-
-// ─── Measurement Profiles Tab ────────────────────────────────────────────────────
+// ─── Measurement Profiles Tab ────────────────────────────────────────────────
 
 function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
   const [profiles, setProfiles] = useState<LegacyProfile[]>([]);
@@ -403,9 +74,7 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewProfile, setViewProfile] = useState<LegacyProfile | null>(null);
   const [printProfile, setPrintProfile] = useState<LegacyProfile | null>(null);
-  const [editProfile, setEditProfile] = useState<LegacyProfile | null>(null);
   const [deleteProfile, setDeleteProfile] = useState<LegacyProfile | null>(null);
-  const [savingEdit, setSavingEdit] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const limit = 20;
 
@@ -430,24 +99,6 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
   }, [page, search, statusFilter]);
 
   useEffect(() => { fetchProfiles(); }, [fetchProfiles]);
-
-  const handleEditSave = async (data: UnifiedMeasurementFormData) => {
-    if (!editProfile) return;
-    setSavingEdit(true);
-    try {
-      const res = await fetch(`/api/admin/measurements/${editProfile.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (res.ok) {
-        setEditProfile(null);
-        fetchProfiles();
-      }
-    } finally {
-      setSavingEdit(false);
-    }
-  };
 
   const handleDelete = async () => {
     if (!deleteProfile) return;
@@ -623,8 +274,6 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
           )}
         </DialogContent>
       </Dialog>
-
-      {/* Edit Profile Dialog has been moved to a dedicated page route */}
 
       {/* Delete Profile Confirmation */}
       <Dialog open={!!deleteProfile} onOpenChange={(o) => !o && setDeleteProfile(null)}>
@@ -863,12 +512,8 @@ export default function AdminMeasurementsPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [stats, setStats] = useState({
     totalProfiles: 0,
-    totalTailorRequests: 0,
-    pendingRequests: 0,
-    completeRequests: 0,
     completedCount: 0,
   });
-  const [activeTab, setActiveTab] = useState(hasSearchQuery ? "profiles" : "tailor");
 
   const fetchStats = useCallback(async () => {
     const res = await fetch("/api/admin/measurements/stats");
@@ -889,7 +534,7 @@ export default function AdminMeasurementsPage() {
             <Ruler className="h-6 w-6" /> Stitching & Measurements
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Manage tailor measurement requests and view measurement profiles
+            Manage measurement profiles and completed records
           </p>
         </div>
         <Button variant="outline" size="icon" onClick={() => setRefreshKey((k) => k + 1)}>
@@ -898,25 +543,7 @@ export default function AdminMeasurementsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <p className="text-xs text-muted-foreground">Total Tailor Requests</p>
-            <p className="text-2xl font-bold mt-1">{stats.totalTailorRequests}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <p className="text-xs text-amber-600 font-medium">Pending</p>
-            <p className="text-2xl font-bold mt-1 text-amber-600">{stats.pendingRequests}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <p className="text-xs text-emerald-600 font-medium">Completed</p>
-            <p className="text-2xl font-bold mt-1 text-emerald-600">{stats.completeRequests}</p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 gap-4">
         <Card>
           <CardContent className="pt-4 pb-3">
             <p className="text-xs text-muted-foreground">Measurement Profiles</p>
@@ -926,7 +553,7 @@ export default function AdminMeasurementsPage() {
         <Card>
           <CardContent className="pt-4 pb-3">
             <p className="text-xs text-blue-600 font-medium flex items-center gap-1">
-              <CheckCircle className="h-3 w-3" /> All Completed
+              All Completed
             </p>
             <p className="text-2xl font-bold mt-1 text-blue-600">{stats.completedCount}</p>
           </CardContent>
@@ -934,15 +561,11 @@ export default function AdminMeasurementsPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} key={refreshKey}>
+      <Tabs defaultValue={hasSearchQuery ? "profiles" : "profiles"} key={refreshKey}>
         <TabsList>
-          <TabsTrigger value="tailor">Tailor Requests</TabsTrigger>
           <TabsTrigger value="profiles">Measurement Profiles</TabsTrigger>
           <TabsTrigger value="completed">Completed</TabsTrigger>
         </TabsList>
-        <TabsContent value="tailor" className="space-y-4 mt-4">
-          <TailorRequestsTab />
-        </TabsContent>
         <TabsContent value="profiles" className="space-y-4 mt-4">
           <LegacyProfilesTab initialSearch={urlSearch} />
         </TabsContent>

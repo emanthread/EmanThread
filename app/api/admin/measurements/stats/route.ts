@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { adminTailorRequestFilter, adminProfileFilter, adminCompletedFilter } from "@/lib/db-queries";
+import { adminProfileFilter, adminCompletedFilter } from "@/lib/db-queries";
 
 export const dynamic = "force-dynamic";
 
@@ -15,25 +15,13 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const [
-      totalProfiles,
-      totalTailorRequests,
-      pendingRequests,
-      completeRequests,
-      completedCount,
-    ] = await Promise.all([
+    const [totalProfiles, completedCount] = await Promise.all([
       prisma.measurementProfile.count({ where: adminProfileFilter() }),
-      prisma.measurementProfile.count({ where: adminTailorRequestFilter() }),
-      prisma.measurementProfile.count({ where: adminTailorRequestFilter() }),
-      prisma.measurementProfile.count({ where: adminTailorRequestFilter() }),
       prisma.measurementProfile.count({ where: adminCompletedFilter() }),
     ]);
 
     return NextResponse.json({
       totalProfiles,
-      totalTailorRequests,
-      pendingRequests,
-      completeRequests,
       completedCount,
     });
   } catch (error) {
