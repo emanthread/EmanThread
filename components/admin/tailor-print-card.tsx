@@ -62,13 +62,23 @@ function buildFormData(data: TailorCardData): UnifiedMeasurementFormData {
 ────────────────────────────────────────────────────────────────────────────── */
 const PRINT_STYLE_ID = "tailor-print-global-style";
 
-function ensurePrintStyleInHead() {
+function ensurePrintStyleInHead(format: "a4" | "a6") {
   if (typeof document === "undefined") return;
-  if (document.getElementById(PRINT_STYLE_ID)) return; // already injected
+  
+  let style = document.getElementById(PRINT_STYLE_ID) as HTMLStyleElement;
+  if (!style) {
+    style = document.createElement("style");
+    style.id = PRINT_STYLE_ID;
+    document.head.appendChild(style);
+  }
 
-  const style = document.createElement("style");
-  style.id = PRINT_STYLE_ID;
+  const pageRules = format === "a6" 
+    ? `@page { size: 105mm 148mm; margin: 5mm; }`
+    : `@page { size: A4; margin: 0; }`;
+
   style.textContent = `
+    ${pageRules}
+
     @media print {
       /* ── 1. Hide everything that isn't our portal ── */
       body.tailor-printing > *:not(.tailor-print-portal) {
@@ -83,29 +93,55 @@ function ensurePrintStyleInHead() {
         position: fixed !important;
         top: 0 !important;
         left: 0 !important;
-        width: 210mm !important;
-        height: 297mm !important;
-        overflow: hidden !important;
         background: white !important;
         z-index: 2147483647 !important;
       }
 
+      body.tailor-printing-a4 > .tailor-print-portal {
+        width: 210mm !important;
+        height: 297mm !important;
+      }
+
+      body.tailor-printing-a6 > .tailor-print-portal {
+        width: 95mm !important;
+        height: 138mm !important;
+        overflow: hidden !important;
+      }
+
       /* ── 3. Strip the screen-only scale wrapper ── */
-      body.tailor-printing .tailor-print-portal .a4-scale-wrapper {
+      body.tailor-printing-a4 .tailor-print-portal .a4-scale-wrapper {
         position: static !important;
         height: auto !important;
         width: auto !important;
         overflow: visible !important;
         margin: 0 !important;
       }
-      body.tailor-printing .tailor-print-portal .a4-scale-inner {
+      body.tailor-printing-a4 .tailor-print-portal .a4-scale-inner {
+        position: static !important;
+        transform: none !important;
+        -webkit-transform: none !important;
+      }
+
+      /* ── 3b. Scale wrapper for A6 to scale A4 down to A6 ── */
+      body.tailor-printing-a6 .tailor-print-portal .a4-scale-wrapper {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 210mm !important;
+        height: 297mm !important;
+        overflow: visible !important;
+        margin: 0 !important;
+        transform: scale(0.452) !important;
+        transform-origin: top left !important;
+      }
+      body.tailor-printing-a6 .tailor-print-portal .a4-scale-inner {
         position: static !important;
         transform: none !important;
         -webkit-transform: none !important;
       }
 
       /* ── 4. The actual A4 page fills the paper ── */
-      body.tailor-printing .tailor-print-portal .a4-page {
+      body.tailor-printing-a4 .tailor-print-portal .a4-page {
         position: static !important;
         width: 210mm !important;
         min-height: 297mm !important;
@@ -120,13 +156,79 @@ function ensurePrintStyleInHead() {
         print-color-adjust: exact !important;
       }
 
+      body.tailor-printing-a6 .tailor-print-portal .a4-page {
+        position: static !important;
+        width: 210mm !important;
+        min-height: 297mm !important;
+        height: 297mm !important;
+        margin: 0 !important;
+        padding: 4mm !important;
+        border: none !important;
+        box-shadow: none !important;
+        overflow: hidden !important;
+        background: white !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
       /* ── 5. All descendants inside the portal are visible ── */
       body.tailor-printing .tailor-print-portal * {
         visibility: visible !important;
+        overflow-wrap: break-word !important;
+        word-wrap: break-word !important;
+      }
+
+      /* ── 6. Advanced A6 styling overrides for optimal font readability & spacing ── */
+      body.tailor-printing-a6 .tailor-print-portal .a4-page {
+        padding: 4mm !important;
+      }
+      body.tailor-printing-a6 .tailor-print-portal .a4-row {
+        min-height: 13.5mm !important;
+      }
+      body.tailor-printing-a6 .tailor-print-portal .a4-label {
+        font-size: 16.5px !important; /* ~7.5pt after scale(0.452) */
+        padding: 2.2mm 2mm !important;
+      }
+      body.tailor-printing-a6 .tailor-print-portal .a4-inputline {
+        font-size: 16.5px !important;
+        height: 8mm !important;
+      }
+      body.tailor-printing-a6 .tailor-print-portal .a4-subitem {
+        font-size: 14.5px !important; /* ~6.5pt after scale(0.452) */
+        min-height: 11.5mm !important;
+        padding: 1.2mm !important;
+      }
+      body.tailor-printing-a6 .tailor-print-portal .a4-subitem .a4-smallline input {
+        font-size: 14.5px !important;
+      }
+      body.tailor-printing-a6 .tailor-print-portal .a4-card h3 {
+        font-size: 17px !important; /* ~7.7pt after scale(0.452) */
+        padding: 2.5mm 3mm !important;
+      }
+      body.tailor-printing-a6 .tailor-print-portal .a4-meta {
+        font-size: 13.5px !important;
+        height: 10mm !important;
+      }
+      body.tailor-printing-a6 .tailor-print-portal .a4-meta-input {
+        font-size: 13.5px !important;
+      }
+      body.tailor-printing-a6 .tailor-print-portal .a4-title-area h1 {
+        font-size: 22px !important; /* ~10pt after scale(0.452) */
+      }
+      body.tailor-printing-a6 .tailor-print-portal .a4-title-area h2 {
+        font-size: 32px !important; /* ~14.5pt after scale(0.452) */
+      }
+      body.tailor-printing-a6 .tailor-print-portal .a4-pill {
+        font-size: 12.5px !important;
+        padding: 1mm 2mm !important;
+      }
+      body.tailor-printing-a6 .tailor-print-portal button {
+        padding: 1.5mm !important;
+        font-size: 14px !important;
+        border-width: 1.5px !important;
       }
     }
   `;
-  document.head.appendChild(style);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -148,17 +250,17 @@ function ensurePrintStyleInHead() {
 ────────────────────────────────────────────────────────────────────────────── */
 export function TailorPrintCard({ data }: { data: TailorCardData }) {
   const formData = buildFormData(data);
-  const [isPrinting, setIsPrinting] = React.useState(false);
+  const [printFormat, setPrintFormat] = React.useState<"a4" | "a6" | null>(null);
   const portalContainerRef = React.useRef<HTMLDivElement | null>(null);
 
-  const handlePrint = React.useCallback(() => {
+  const handlePrint = React.useCallback((format: "a4" | "a6") => {
     if (typeof window === "undefined") return;
 
     // Guard: don't start a second print if one is already running
     if (portalContainerRef.current) return;
 
     // Ensure the print CSS is in <head> — idempotent
-    ensurePrintStyleInHead();
+    ensurePrintStyleInHead(format);
 
     // 1. Create portal container directly on <body>
     const container = document.createElement("div");
@@ -168,13 +270,16 @@ export function TailorPrintCard({ data }: { data: TailorCardData }) {
 
     // 2. Mark body for CSS targeting
     document.body.classList.add("tailor-printing");
+    document.body.classList.add(`tailor-printing-${format}`);
 
     // 3. Trigger render of portal content
-    setIsPrinting(true);
+    setPrintFormat(format);
 
     // 4. Cleanup on afterprint (fires after dialog is closed or cancelled)
     const cleanup = () => {
       document.body.classList.remove("tailor-printing");
+      document.body.classList.remove("tailor-printing-a4");
+      document.body.classList.remove("tailor-printing-a6");
       if (portalContainerRef.current) {
         try {
           document.body.removeChild(portalContainerRef.current);
@@ -183,7 +288,7 @@ export function TailorPrintCard({ data }: { data: TailorCardData }) {
         }
         portalContainerRef.current = null;
       }
-      setIsPrinting(false);
+      setPrintFormat(null);
     };
 
     window.addEventListener("afterprint", cleanup, { once: true });
@@ -191,7 +296,7 @@ export function TailorPrintCard({ data }: { data: TailorCardData }) {
 
   // After React renders the portal content, wait one frame + delay, then print
   React.useEffect(() => {
-    if (!isPrinting || !portalContainerRef.current) return;
+    if (!printFormat || !portalContainerRef.current) return;
 
     // requestAnimationFrame ensures the portal DOM has been painted
     const rafId = requestAnimationFrame(() => {
@@ -202,19 +307,30 @@ export function TailorPrintCard({ data }: { data: TailorCardData }) {
     });
 
     return () => cancelAnimationFrame(rafId);
-  }, [isPrinting]);
+  }, [printFormat]);
+
+  const isPrinting = printFormat !== null;
 
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={handlePrint}
-        className="mb-4 print:hidden"
-        id="tailor-print-btn"
-      >
-        <Printer className="h-4 w-4 mr-2" /> Print Tailor Card
-      </Button>
+      <div className="flex flex-wrap gap-2 mb-4 print:hidden" id="tailor-print-options">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePrint("a4")}
+          id="tailor-print-btn-a4"
+        >
+          <Printer className="h-4 w-4 mr-2" /> Print A4 Sheet
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePrint("a6")}
+          id="tailor-print-btn-a6"
+        >
+          <Printer className="h-4 w-4 mr-2" /> Print A6 Card
+        </Button>
+      </div>
 
       {/* Screen preview — always visible for the user to inspect */}
       <A4MeasurementForm
