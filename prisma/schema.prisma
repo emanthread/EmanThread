@@ -75,7 +75,7 @@ model Product {
   sku               String      @unique
   name              String
   slug              String?     @unique
-  groupId           String?     @index
+  groupId           String?
   description       String
   longDescription   String?
   price             Decimal
@@ -101,6 +101,7 @@ model Product {
   category          Category    @relation(fields: [categoryId], references: [id])
 
   @@index([categoryId])
+  @@index([groupId])
 }
 
 model ProductReview {
