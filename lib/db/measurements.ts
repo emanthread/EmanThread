@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { MeasurementProfileStatus } from "@prisma/client";
+import { Prisma, MeasurementProfileStatus, MeasurementSource } from "@prisma/client";
 
 // ── Centralized filters ──────────────────────────────────────────────
 
@@ -19,7 +19,7 @@ export function adminProfileFilter() {
 export function adminCompletedFilter() {
   return {
     status: MeasurementProfileStatus.approved,
-    source: { not: "profile" },
+    source: { not: MeasurementSource.profile },
     deletedAt: null,
   };
 }
