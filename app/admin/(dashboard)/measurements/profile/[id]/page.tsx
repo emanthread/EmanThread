@@ -94,6 +94,10 @@ export default function AdminMeasurementProfileEditPage() {
         );
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
+      } else {
+        const errorData = await res.json();
+        console.error("Save error:", errorData);
+        throw new Error(errorData.error?.formErrors?.[0] || "Failed to save measurement");
       }
     } finally {
       setSaving(false);

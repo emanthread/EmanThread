@@ -92,7 +92,7 @@ async function handleCallback(req: Request) {
               customerName: `${addr.firstName || ""} ${addr.lastName || ""}`.trim(),
             },
             orderId: order.id,
-            // channels omitted — orchestrator handles fallback routing
+            channels: ["email"], // explicitly only send email, to avoid duplicate SMS with order_confirmation
           });
         }
       }

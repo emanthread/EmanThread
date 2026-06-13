@@ -220,6 +220,8 @@ export async function POST(req: Request) {
       stitchingItems: stitchingItems ?? [],
     }, isManualPayment);
 
+    const processedMeasurementProductIds = new Set<string>();
+
     // Attach unified measurement profile to order items (server-side, all payment methods)
     if (measurementItems && measurementItems.length > 0 && userId) {
       // Wrap the entire measurement attachment in a safe try/catch to ensure
@@ -281,6 +283,7 @@ export async function POST(req: Request) {
               productName: mItem.productName,
               measurementSnapshot: snapshot,
             });
+            processedMeasurementProductIds.add(mItem.productId);
           } catch (err) {
             console.error(`Failed to attach measurement for product ${mItem.productId}:`, err);
           }
@@ -370,7 +373,7 @@ export async function POST(req: Request) {
     // Also process item-level measurementProfileId from each validated item
     const validatedItems = items;
     for (const item of validatedItems) {
-      if (item.measurementProfileId && userId) {
+      if (item.measurementProfileId && userId && !processedMeasurementProductIds.has(item.productId)) {
         try {
           const profile = await prisma.measurementProfile.findFirst({
             where: { id: item.measurementProfileId, userId, deletedAt: null },

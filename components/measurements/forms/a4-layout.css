@@ -159,6 +159,12 @@
   color: var(--ink);
 }
 
+.a4-meta-input:disabled {
+  border-bottom-color: transparent;
+  color: #64748b;
+  -webkit-text-fill-color: #64748b;
+}
+
 .a4-grid {
   display: grid;
   grid-template-columns: 1fr 62mm;

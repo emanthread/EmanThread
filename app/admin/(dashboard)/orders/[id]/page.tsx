@@ -207,16 +207,21 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
           </Card>
 
           {/* Stitching Measurements */}
-          {!measurementsLoading && orderMeasurements.length > 0 && (
+          {!measurementsLoading && orderMeasurements.length > 0 && (() => {
+            // Deduplicate by productId so existing duplicate records don't spam the UI
+            const uniqueMeasurements = Array.from(
+              new Map(orderMeasurements.map(om => [om.productId, om])).values()
+            );
+            return (
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Ruler className="h-5 w-5 text-muted-foreground" />
-                  Stitching Measurements ({orderMeasurements.length})
+                  Stitching Measurements ({uniqueMeasurements.length})
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                {orderMeasurements.map((om) => {
+                {uniqueMeasurements.map((om) => {
                   const snapshot = om.measurementSnapshot || {};
                   const profile = om.measurementProfile;
                   const rawM = (snapshot.measurements || {}) as Record<string, unknown>;
@@ -254,7 +259,8 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
                 })}
               </CardContent>
             </Card>
-          )}
+            );
+          })()}
 
           {order.notes && (
             <Card>
