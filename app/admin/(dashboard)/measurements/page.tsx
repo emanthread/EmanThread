@@ -144,9 +144,6 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
         <CardHeader>
           <div className="flex items-center gap-2">
             <CardTitle className="text-base">{total} measurement profile{total !== 1 ? "s" : ""}</CardTitle>
-            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-600 border-amber-200">
-              View-only
-            </Badge>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -249,9 +246,6 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               Measurement Profile — {viewProfile?.profileName}
-              <Badge variant="outline" className="text-xs bg-amber-50 text-amber-600 border-amber-200">
-                View-only
-              </Badge>
             </DialogTitle>
             <DialogDescription>
               Customer: {viewProfile?.user.name} ({viewProfile?.user.email}) · Created: {viewProfile ? new Date(viewProfile.createdAt).toLocaleDateString() : ""}
@@ -331,6 +325,8 @@ function CompletedTab() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [deleteRecord, setDeleteRecord] = useState<CompletedRecord | null>(null);
+  const [viewRecord, setViewRecord] = useState<CompletedRecord | null>(null);
+  const [printRecord, setPrintRecord] = useState<CompletedRecord | null>(null);
   const [deleting, setDeleting] = useState(false);
   const limit = 20;
 
@@ -426,15 +422,35 @@ function CompletedTab() {
                       {new Date(r.updatedAt).toLocaleDateString()}
                     </td>
                     <td className="p-4">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-red-600 hover:text-red-600"
-                        onClick={() => setDeleteRecord(r)}
-                        title="Delete Record"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      <div className="flex gap-1 justify-end">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setViewRecord(r)}
+                          title="View Record"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setPrintRecord(r)}
+                          title="Print Record"
+                        >
+                          <Printer className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-600 hover:text-red-600"
+                          onClick={() => setDeleteRecord(r)}
+                          title="Delete Record"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -475,6 +491,60 @@ function CompletedTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* View Record Dialog */}
+      <Dialog open={!!viewRecord} onOpenChange={(o) => !o && setViewRecord(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              Measurement Profile
+            </DialogTitle>
+            <DialogDescription>
+              Customer: {viewRecord?.user.name} ({viewRecord?.user.email}) · Completed: {viewRecord ? new Date(viewRecord.updatedAt).toLocaleDateString() : ""}
+            </DialogDescription>
+          </DialogHeader>
+          {viewRecord && (
+            <TailorPrintCard
+              data={{
+                serialNo: `MP-${viewRecord.id.slice(0, 6).toUpperCase()}`,
+                customerName: viewRecord.user.name,
+                deliveryDate: new Date(viewRecord.updatedAt).toLocaleDateString(),
+                productName: "Completed Profile",
+                garmentType: viewRecord.garmentType,
+                gender: (viewRecord as any).gender || "Male",
+                measurements: mapFromPrismaFields(viewRecord as unknown as Record<string, unknown>) as unknown as Record<string, string>,
+                stylingPrefs: (viewRecord as any).stylingPrefs || null,
+                notes: (viewRecord as any).notes || "",
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Print Record Dialog */}
+      {printRecord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 print:static print:bg-transparent" onClick={() => setPrintRecord(null)}>
+          <div className="bg-background rounded-lg shadow-xl max-w-[230mm] max-h-[90vh] overflow-y-auto p-6 print:p-0 print:shadow-none print:max-w-none print:max-h-none" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4 print:hidden">
+              <h3 className="text-lg font-semibold">Print Measurement Sheet</h3>
+              <Button variant="ghost" size="sm" onClick={() => setPrintRecord(null)}>Close</Button>
+            </div>
+            <TailorPrintCard
+              data={{
+                serialNo: `MP-${printRecord.id.slice(0, 6).toUpperCase()}`,
+                customerName: printRecord.user.name,
+                deliveryDate: new Date(printRecord.updatedAt).toLocaleDateString(),
+                productName: "Completed Profile",
+                garmentType: printRecord.garmentType,
+                gender: (printRecord as any).gender || "Male",
+                measurements: mapFromPrismaFields(printRecord as unknown as Record<string, unknown>) as unknown as Record<string, string>,
+                stylingPrefs: (printRecord as any).stylingPrefs || null,
+                notes: (printRecord as any).notes || "",
+              }}
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 }

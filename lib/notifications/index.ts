@@ -289,3 +289,99 @@ export function triggerNotification(payload: NotificationPayload): void {
     }
   });
 }
+
+/**
+ * Special parallel dispatch mode ONLY for delivery updates.
+ * This guarantees Email and SMS are fired simultaneously (using Promise.allSettled)
+ * without touching the core fallback chain or getting delayed by retries.
+ * Bypasses WhatsApp completely.
+ * 
+ * IMPORTANT: This does NOT use after() internally. The caller (e.g. API route)
+ * MUST wrap the call in after() if serverless background execution is needed.
+ * 
+ * @returns Summary of dispatch results
+ */
+export async function sendDeliveryUpdateParallel(
+  payload: NotificationPayload
+): Promise<{
+  email: "fulfilled" | "rejected" | "skipped";
+  sms: "fulfilled" | "rejected" | "skipped";
+}> {
+  const isEmailAddress = payload.to.includes("@");
+  const resolvedPhone = payload.phone || (!isEmailAddress ? payload.to : undefined);
+  const hasPhone = Boolean(resolvedPhone?.trim());
+
+  // ── Inject orderId into data for templates ──────────────
+  if (payload.orderId && payload.data && !payload.data.orderId) {
+    payload.data.orderId = payload.orderId;
+  }
+
+  const correlationId = `parallel-${payload.orderId}-${payload.template}`;
+  console.info(`[notifications] [${correlationId}] Starting parallel dispatch...`);
+
+  const summary = {
+    email: "skipped" as const,
+    sms: "skipped" as const,
+  };
+
+  const tasks: Promise<void>[] = [];
+
+  // 1. Email Task
+  if (isEmailAddress) {
+    tasks.push(
+      (async () => {
+        try {
+          const emailResult = await sendWithRetry(emailProvider, payload, "email");
+          // Prefix error message to mark parallel mode in DB if failed
+          if (!emailResult.success) {
+            emailResult.error = `[ParallelMode] ${emailResult.error || "Unknown error"}`;
+            summary.email = "rejected";
+            console.error(`[notifications] [${correlationId}] Email delivery failed:`, emailResult.error);
+          } else {
+            summary.email = "fulfilled";
+          }
+          await logAttempt(payload, "email", emailResult);
+        } catch (err) {
+          summary.email = "rejected";
+          console.error(`[notifications] [${correlationId}] Email task threw:`, err);
+        }
+      })()
+    );
+  } else {
+    console.warn(`[notifications] [${correlationId}] No email address available — Email skipped`);
+  }
+
+  // 2. SMS Task
+  if (hasPhone && notificationDefaults.smsEnabled) {
+    tasks.push(
+      (async () => {
+        try {
+          const smsPayload = { ...payload, to: resolvedPhone! };
+          const smsResult = await sendSMS(smsPayload);
+          // Prefix error message to mark parallel mode in DB if failed
+          if (!smsResult.success) {
+            smsResult.error = `[ParallelMode] ${smsResult.error || "Unknown error"}`;
+            summary.sms = "rejected";
+            console.error(`[notifications] [${correlationId}] SMS delivery failed:`, smsResult.error);
+          } else {
+            summary.sms = "fulfilled";
+          }
+          await logAttempt(smsPayload, "sms", smsResult);
+        } catch (err) {
+          summary.sms = "rejected";
+          console.error(`[notifications] [${correlationId}] SMS task threw:`, err);
+        }
+      })()
+    );
+  } else if (!hasPhone) {
+    console.warn(`[notifications] [${correlationId}] No phone number available — SMS skipped`);
+  } else {
+    console.warn(`[notifications] [${correlationId}] SMS disabled via config — SMS skipped`);
+  }
+
+  // Execute independently, no crash if one fails
+  await Promise.allSettled(tasks);
+
+  console.info(`[notifications] [${correlationId}] Parallel dispatch complete:`, summary);
+  return summary;
+}

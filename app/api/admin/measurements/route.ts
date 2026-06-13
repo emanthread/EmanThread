@@ -43,5 +43,30 @@ export const GET = withLoggedAdminHandler(async (req: Request) => {
     prisma.measurementProfile.count({ where }),
   ])
 
-  return NextResponse.json({ profiles, total, page, limit })
+  const orderNumbers = profiles
+    .filter(p => p.source === 'order' && p.profileName.startsWith('Order #'))
+    .map(p => p.profileName.replace('Order #', ''))
+
+  const orders = await prisma.order.findMany({
+    where: { orderNumber: { in: orderNumbers } },
+    select: { orderNumber: true, createdAt: true }
+  })
+
+  const orderMap = new Map(orders.map(o => [o.orderNumber, o.createdAt]))
+
+  const enhancedProfiles = profiles.map(p => {
+    let orderCreatedAt = p.updatedAt
+    if (p.source === 'order' && p.profileName.startsWith('Order #')) {
+      const onum = p.profileName.replace('Order #', '')
+      if (orderMap.has(onum)) {
+        orderCreatedAt = orderMap.get(onum)!
+      }
+    }
+    return {
+      ...p,
+      createdAt: orderCreatedAt
+    }
+  })
+
+  return NextResponse.json({ profiles: enhancedProfiles, total, page, limit })
 })

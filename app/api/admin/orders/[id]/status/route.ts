@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { isAdminRole } from "@/lib/permissions"; // C9
 import { updateOrderStatus, createAuditLog } from "@/lib/db-queries";
-import { triggerNotification } from "@/lib/notifications";
+import { triggerNotification, sendDeliveryUpdateParallel } from "@/lib/notifications";
 import { prisma } from "@/lib/db";
 import { withLoggedAdminHandler } from "@/lib/logger";
 import { sanitizeDbError } from '@/lib/utils/errors';
@@ -110,22 +110,22 @@ export const PUT = withLoggedAdminHandler(async (
               `[notifications] Skipping duplicate notification for order ${order.orderNumber}, template ${template}`
             );
           } else {
-            triggerNotification({
-              to: addr.email,
-              phone: addr.phone,
-              template: template as any,
-              data: {
-                orderNumber: order.orderNumber,
-                total: String(Number(order.grandTotal)),
-                customerName: `${addr.firstName || ""} ${addr.lastName || ""}`.trim(),
-                trackingNumber: "",
-                estimatedDelivery: "3-5 business days",
-                cancellationReason: result.data.status === "CANCELLED" ? "Cancelled by admin" : "",
-                paymentMethod: order.paymentMethod || "",
-              },
-              orderId: id,
-              // NOTE: channels omitted — orchestrator handles fallback routing.
-              // SMS will be tried first; if it fails, email serves as a hard fallback.
+            after(async () => {
+              await sendDeliveryUpdateParallel({
+                to: addr.email,
+                phone: addr.phone,
+                template: template as any,
+                data: {
+                  orderNumber: order.orderNumber,
+                  total: String(Number(order.grandTotal)),
+                  customerName: `${addr.firstName || ""} ${addr.lastName || ""}`.trim(),
+                  trackingNumber: "",
+                  estimatedDelivery: "3-5 business days",
+                  cancellationReason: result.data.status === "CANCELLED" ? "Cancelled by admin" : "",
+                  paymentMethod: order.paymentMethod || "",
+                },
+                orderId: id,
+              });
             });
           }
         }

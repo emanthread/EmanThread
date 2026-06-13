@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { createOrder, getZoneForCity, getStoreConfig, getDiscountByCode, incrementDiscountUsage } from "@/lib/db-queries";
 import { applyDiscount } from "@/lib/discount-engine";
 import { auth } from "@/auth";
-import { triggerNotification } from "@/lib/notifications";
+import { triggerNotification, sendDeliveryUpdateParallel } from "@/lib/notifications";
 import { resolveAdminRecipients } from "@/lib/notifications/admin-alerts";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
 import { sanitizeDbError } from '@/lib/utils/errors';
@@ -415,18 +415,19 @@ export async function POST(req: Request) {
     }
 
     // Fire-and-forget order confirmation — orchestrator handles fallback routing
-    triggerNotification({
-      to: shippingAddress.email,
-      phone: shippingAddress.phone,
-      template: "order_confirmation",
-      data: {
-        orderNumber: order.orderNumber,
-        total: grandTotal.toString(),
-        paymentMethod,
-        customerName: `${shippingAddress.firstName} ${shippingAddress.lastName}`,
-      },
-      orderId: order.id,
-      // channels omitted — orchestrator handles fallback routing
+    after(async () => {
+      await sendDeliveryUpdateParallel({
+        to: shippingAddress.email,
+        phone: shippingAddress.phone,
+        template: "order_confirmation",
+        data: {
+          orderNumber: order.orderNumber,
+          total: grandTotal.toString(),
+          paymentMethod,
+          customerName: `${shippingAddress.firstName} ${shippingAddress.lastName}`,
+        },
+        orderId: order.id,
+      });
     });
 
     // Check for low stock after order creation and trigger alerts
