@@ -35,9 +35,14 @@ export const PUT = withLoggedAdminHandler(async (req: Request, { params }: { par
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
+  const dataToUpdate = mapToPrismaFields(parsed.data) as Record<string, any>
+  if (body.status && ['pending', 'approved', 'rejected'].includes(body.status)) {
+    dataToUpdate.status = body.status
+  }
+
   const updated = await prisma.measurementProfile.update({
     where: { id },
-    data: mapToPrismaFields(parsed.data),
+    data: dataToUpdate,
   })
   createAuditLog({
     userId: session.user.id,
