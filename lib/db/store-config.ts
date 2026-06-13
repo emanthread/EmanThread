@@ -28,6 +28,7 @@ export interface StoreConfigInput {
   metaDescription?: string;
   googleAnalyticsId?: string;
   facebookPixelId?: string;
+  stitchingNotice?: string;
 }
 
 async function _getStoreConfig(): Promise<StoreConfigInput> {
@@ -59,6 +60,7 @@ async function _getStoreConfig(): Promise<StoreConfigInput> {
       metaDescription: "Discover premium unstitched fabric for men.",
       googleAnalyticsId: "",
       facebookPixelId: "",
+      stitchingNotice: "",
     };
   }
   const map = new Map(rows.map((r) => [r.key, r.value]));
@@ -100,6 +102,7 @@ async function _getStoreConfig(): Promise<StoreConfigInput> {
     tiktok_url: parseStr("tiktok_url", ""),
     googleAnalyticsId: parseStr("googleAnalyticsId", ""),
     facebookPixelId: parseStr("facebookPixelId", ""),
+    stitchingNotice: parseStr("stitchingNotice", ""),
   };
 }
 
@@ -137,6 +140,7 @@ export async function setStoreConfig(data: StoreConfigInput) {
   if (data.tiktok_url !== undefined) entries.push(["tiktok_url", data.tiktok_url]);
   if (data.googleAnalyticsId !== undefined) entries.push(["googleAnalyticsId", data.googleAnalyticsId]);
   if (data.facebookPixelId !== undefined) entries.push(["facebookPixelId", data.facebookPixelId]);
+  if (data.stitchingNotice !== undefined) entries.push(["stitchingNotice", data.stitchingNotice]);
   await Promise.all(
     entries.map(([key, value]) =>
       prisma.storeConfig.upsert({
@@ -146,5 +150,5 @@ export async function setStoreConfig(data: StoreConfigInput) {
       })
     )
   );
-  revalidateTag("store-config", "default");
+  revalidateTag("store-config");
 }

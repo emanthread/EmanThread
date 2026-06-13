@@ -12,6 +12,9 @@ import { formatPrice } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { TailorPrintCard, type TailorCardData } from "@/components/admin/tailor-print-card";
 import { mapFromPrismaFields } from "@/lib/validators/measurements-unified";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { buildWhatsAppUrl, normalizeWhatsAppNumber } from "@/lib/whatsapp-utils";
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   pending: { label: "Pending", color: "bg-yellow-100 text-yellow-700" },
@@ -53,6 +56,17 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
   const [loading, setLoading] = useState(true);
   const [orderMeasurements, setOrderMeasurements] = useState<OrderMeasurement[]>([]);
   const [measurementsLoading, setMeasurementsLoading] = useState(true);
+  const { toast } = useToast();
+
+  const order = orders.find((o) => o.id === resolvedParams.id);
+  const [delayNote, setDelayNote] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+
+  useEffect(() => {
+    if (order) {
+      setDelayNote(order.notes || "");
+    }
+  }, [order]);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -83,8 +97,6 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
       </div>
     );
   }
-
-  const order = orders.find((o) => o.id === resolvedParams.id);
 
   if (!order) {
     return (
@@ -312,6 +324,81 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
                 <p>{order.shippingAddress?.address}</p>
                 <p>{order.shippingAddress?.city}{order.shippingAddress?.province ? `, ${order.shippingAddress.province}` : ''}</p>
                 <p>Pakistan {order.shippingAddress?.postalCode}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Delay Management */}
+          <Card className="border-amber-200 bg-amber-50/5 dark:bg-amber-950/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2 text-amber-700 dark:text-amber-500">
+                <Ruler className="h-5 w-5" />
+                Delay Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="delayNote" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Order Note (Shown to Customer)
+                </label>
+                <Textarea
+                  id="delayNote"
+                  value={delayNote}
+                  onChange={(e) => setDelayNote(e.target.value)}
+                  placeholder="e.g., Stitching is in progress, but we are facing high order volumes. Estimated completion is delayed by 5 days."
+                  rows={3}
+                  maxLength={500}
+                  className="bg-background border-amber-200/60 focus-visible:ring-amber-500"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  This message is visible to the customer on their order details card.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                <Button
+                  onClick={async () => {
+                    setSavingNote(true);
+                    try {
+                      const res = await fetch(`/api/admin/orders/${order.id}/note`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ note: delayNote }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data.error || "Failed to save note");
+                      toast({
+                        title: "Note Saved",
+                        description: "The order note has been updated successfully.",
+                      });
+                      await loadOrders();
+                    } catch (err) {
+                      toast({
+                        title: "Error",
+                        description: err instanceof Error ? err.message : "Failed to update note",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setSavingNote(false);
+                    }
+                  }}
+                  disabled={savingNote}
+                  className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  Save Note
+                </Button>
+                {order.customerPhone && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const message = `Hi ${order.customerName},\n\nThis is Eman Thread. Regarding your stitching order #${order.orderNumber}, we are currently experiencing a rush of stitching orders. Due to this high volume, your order may be slightly delayed. We expect to complete and ship it soon and apologize for any inconvenience.\n\nThank you for your patience!`;
+                      const normalizedPhone = normalizeWhatsAppNumber(order.customerPhone);
+                      window.open(buildWhatsAppUrl(normalizedPhone, message), "_blank");
+                    }}
+                    className="w-full border-emerald-600 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
+                  >
+                    Message on WhatsApp
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

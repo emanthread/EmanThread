@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Package, Truck, CheckCircle, Clock, Eye, RefreshCcw, Loader2, MessageCircle } from "lucide-react";
+import { ArrowLeft, Package, Truck, CheckCircle, Clock, Eye, RefreshCcw, Loader2, MessageCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +45,7 @@ interface Order {
   stitchingFee?: number;
   discountAmount?: number;
   total: number;
+  notes?: string | null;
   items: {
     id: string;
     name: string;
@@ -80,6 +81,12 @@ export default function OrdersPage() {
   const [returnSubmitting, setReturnSubmitting] = useState(false);
   const [returnRequests, setReturnRequests] = useState<any[]>([]);
   const [whatsappNumber, setWhatsappNumber] = useState<string>("");
+
+  // Cancel order state
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelOrder, setCancelOrder] = useState<Order | null>(null);
+  const [cancelReason, setCancelReason] = useState("Changed my mind");
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -287,6 +294,37 @@ export default function OrdersPage() {
                         ))}
                       </div>
 
+                      {order.notes && (
+                        <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-lg text-xs md:text-sm text-amber-800 dark:text-amber-400 flex items-start gap-2">
+                          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-500 mt-0.5" />
+                          <div>
+                            <span className="font-semibold text-amber-900 dark:text-amber-300">Update from Tailor:</span>{" "}
+                            {order.notes}
+                          </div>
+                        </div>
+                      )}
+
+                      {order.status === "processing" && (
+                        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 rounded-lg text-xs md:text-sm text-blue-800 dark:text-blue-400 flex items-start gap-2">
+                          <Clock className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-500 mt-0.5" />
+                          <div>
+                            Your order is already being processed. To request a cancellation, please{" "}
+                            <a
+                              href={buildWhatsAppUrl(
+                                whatsappNumber,
+                                `Hi, I would like to request cancellation for order ${order.orderNumber}.`
+                              )}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-semibold underline text-blue-950 dark:text-blue-300 hover:text-blue-700"
+                            >
+                              contact us on WhatsApp
+                            </a>
+                            .
+                          </div>
+                        </div>
+                      )}
+
                       {/* Order Total & Actions */}
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-4 border-t gap-4">
                         <div className="space-y-1 w-full sm:w-auto">
@@ -325,6 +363,20 @@ export default function OrdersPage() {
                               View Details
                             </Link>
                           </Button>
+                          {order.status === "pending" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                              onClick={() => {
+                                setCancelOrder(order);
+                                setCancelReason("Changed my mind");
+                                setCancelDialogOpen(true);
+                              }}
+                            >
+                              Cancel Order
+                            </Button>
+                          )}
                            {order.status === "delivered" && (
                             <Button
                               variant="outline"
@@ -485,6 +537,88 @@ export default function OrdersPage() {
                 <RefreshCcw className="h-4 w-4 mr-2" />
               )}
               Submit Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Order Dialog */}
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancel Order</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel order {cancelOrder?.orderNumber}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <p className="text-sm font-medium mb-2">Reason for cancellation</p>
+              <Select value={cancelReason} onValueChange={setCancelReason}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Changed my mind">Changed my mind</SelectItem>
+                  <SelectItem value="Ordered by mistake">Ordered by mistake</SelectItem>
+                  <SelectItem value="Found a better price">Found a better price</SelectItem>
+                  <SelectItem value="Delivery time too long">Delivery time too long</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCancelDialogOpen(false)}
+              disabled={cancelling}
+            >
+              No, Keep Order
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={cancelling}
+              onClick={async () => {
+                if (!cancelOrder) return;
+                setCancelling(true);
+                try {
+                  const res = await fetch(`/api/orders/${cancelOrder.id}/cancel`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ reason: cancelReason }),
+                  });
+                  if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.error || "Failed to cancel order");
+                  }
+                  toast({
+                    title: "Order Cancelled",
+                    description: `Order ${cancelOrder.orderNumber} has been successfully cancelled.`,
+                  });
+                  setCancelDialogOpen(false);
+                  
+                  // Re-fetch orders to update the UI
+                  const ordersRes = await fetch("/api/orders/user");
+                  if (ordersRes.ok) {
+                    const data = await ordersRes.json();
+                    setOrders(data);
+                  }
+                } catch (err) {
+                  toast({
+                    title: "Error",
+                    description: err instanceof Error ? err.message : "Failed to cancel order",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setCancelling(false);
+                }
+              }}
+            >
+              {cancelling ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : null}
+              Yes, Cancel Order
             </Button>
           </DialogFooter>
         </DialogContent>

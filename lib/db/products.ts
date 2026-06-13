@@ -112,6 +112,19 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
   return product ? transformProduct(product) : null;
 }
 
+export async function getProductVariations(name: string): Promise<Product[]> {
+  const products = await prisma.product.findMany({
+    where: { name },
+    include: {
+      category: true,
+      reviews: {
+        select: { rating: true, isVisible: true, deletedAt: true },
+      },
+    },
+  });
+  return products.map(transformProduct);
+}
+
 export async function getFilteredProducts(
   filter: ProductFilterInput
 ): Promise<Product[]> {

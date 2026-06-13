@@ -84,10 +84,11 @@ export default function AdminSettingsPage() {
     address: "123 Fashion Street, Lahore, Pakistan",
     currency: "PKR",
     timezone: "Asia/Karachi",
-      instagramUrl: "",
-      facebookUrl: "",
-      youtubeUrl: "",
-      tiktokUrl: "",
+    instagramUrl: "",
+    facebookUrl: "",
+    youtubeUrl: "",
+    tiktokUrl: "",
+    stitchingNotice: "",
   });
 
   const [stitchingPrices, setStitchingPrices] = useState<{ fabricType: string; gender: string; price: number }[]>([]);
@@ -150,6 +151,7 @@ export default function AdminSettingsPage() {
             facebookUrl: data.facebook_url ?? prev.facebookUrl,
             youtubeUrl: data.youtube_url ?? prev.youtubeUrl,
             tiktokUrl: data.tiktok_url ?? prev.tiktokUrl,
+            stitchingNotice: data.stitchingNotice ?? prev.stitchingNotice,
           }));
         }
         if (data.freeShippingThreshold !== undefined) {
@@ -277,6 +279,7 @@ export default function AdminSettingsPage() {
         facebook_url: storeSettings.facebookUrl,
         youtube_url: storeSettings.youtubeUrl,
         tiktok_url: storeSettings.tiktokUrl,
+        stitchingNotice: storeSettings.stitchingNotice,
         freeShippingThreshold: shippingSettings.freeShippingThreshold,
         standardShippingRate: shippingSettings.standardShippingRate,
         expressShippingRate: shippingSettings.expressShippingRate,
@@ -548,6 +551,21 @@ export default function AdminSettingsPage() {
                   }
                   rows={3}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="stitchingNotice">Stitching Notice Banner</Label>
+                <Textarea
+                  id="stitchingNotice"
+                  value={storeSettings.stitchingNotice}
+                  onChange={(e) =>
+                    setStoreSettings({ ...storeSettings, stitchingNotice: e.target.value })
+                  }
+                  rows={2}
+                  placeholder="e.g. Due to high demand, stitching orders currently take 10-14 days instead of 5-7 days."
+                />
+                <p className="text-sm text-muted-foreground">
+                  Leave empty to hide the banner. This notice appears at the top of the website.
+                </p>
               </div>
 
               <Separator />

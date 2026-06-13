@@ -41,7 +41,7 @@ export function WhatsAppButton({ productName, productPrice, productUrl, orderSha
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/store/public")
+    fetch("/api/store/public", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         if (!cancelled && data.whatsappNumber) {

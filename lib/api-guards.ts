@@ -171,11 +171,11 @@ export function guardErrorResponse(err: unknown): NextResponse {
 // ── Unified wrapper ──────────────────────────────────────────────
 // Usage: export const GET = withGuard(async (req) => { ... }, { requireAdmin: true, rateLimit: RateLimits.admin() })
 
-export function withGuard(
-  handler: (req: Request) => Promise<Response>,
+export function withGuard<TContext = any>(
+  handler: (req: Request, context: TContext) => Promise<Response>,
   options: GuardOptions
-): (req: Request) => Promise<Response> {
-  return async (req: Request) => {
+): (req: Request, context: TContext) => Promise<Response> {
+  return async (req: Request, context: TContext) => {
     try {
       // Rate limit first (before auth, to prevent auth abuse)
       if (options.rateLimit) {
@@ -205,7 +205,7 @@ export function withGuard(
         await requireApiKey(req);
       }
 
-      return await handler(req);
+      return await handler(req, context);
     } catch (err) {
       return guardErrorResponse(err);
     }

@@ -32,6 +32,7 @@ import { useAuthStore } from "@/lib/auth-store";
 import { SearchModal } from "@/components/search/search-modal";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
+import { StitchingNoticeBanner } from "./stitching-notice-banner";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -103,6 +104,7 @@ export function Header() {
             : "bg-gradient-to-b from-black/65 via-black/35 to-transparent backdrop-blur-[1px] py-4"
         )}
       >
+        <StitchingNoticeBanner />
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
             {/* Left Section: Mobile Menu & Logo */}

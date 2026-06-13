@@ -6,10 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
-export const dynamic = "force-static";
-export const revalidate = 86400;
+import { getStoreConfig } from "@/lib/db-queries";
 
-export default function ContactPage() {
+export const dynamic = "force-static";
+export const revalidate = 86400; // Will be revalidated via revalidateTag("store-config")
+
+export default async function ContactPage() {
+  const config = await getStoreConfig();
   return (
     <>
       <Header />
@@ -48,11 +51,11 @@ export default function ContactPage() {
                 <div className="space-y-6">
                   <div>
                     <h3 className="font-semibold text-lg">Email</h3>
-                    <p className="text-muted-foreground mt-1">support@emaanthread.com</p>
+                    <p className="text-muted-foreground mt-1">{config.email || "support@emaanthread.com"}</p>
                   </div>
                   <div>
                     <h3 className="font-semibold text-lg">Phone</h3>
-                    <p className="text-muted-foreground mt-1">+92 300 1234567</p>
+                    <p className="text-muted-foreground mt-1">{config.phone || "+92 300 1234567"}</p>
                   </div>
                   <div>
                     <h3 className="font-semibold text-lg">Operating Hours</h3>

@@ -42,12 +42,14 @@ import {
 
 interface ProductPageClientProps {
   product: Product;
+  variations?: Product[];
   frequentlyBought: Product[];
   youMayAlsoLike: Product[];
 }
 
 export default function ProductPageClient({
   product,
+  variations = [],
   frequentlyBought,
   youMayAlsoLike,
 }: ProductPageClientProps) {
@@ -83,7 +85,7 @@ export default function ProductPageClient({
 
         {/* Product Section */}
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-          <ProductDetails product={product} />
+          <ProductDetails product={product} variations={variations} />
         </div>
 
         {/* Frequently Bought Together */}
@@ -152,7 +154,7 @@ function ProductDetailFlashSale() {
   return <ProductFlashSaleBadge endDate={endDate} className="animate-pulse" />;
 }
 
-function ProductDetails({ product }: { product: Product }) {
+function ProductDetails({ product, variations = [] }: { product: Product, variations?: Product[] }) {
   const [selectedImage, setSelectedImage] = useState(0);
   const [isVideoSelected, setIsVideoSelected] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -408,10 +410,30 @@ function ProductDetails({ product }: { product: Product }) {
             <p className="text-sm font-medium mb-3">
               Color: <span className="font-normal">{product.color}</span>
             </p>
-            <div
-              className="w-10 h-10 rounded-full border-2 border-border"
-              style={{ backgroundColor: product.colorHex }}
-            />
+            <div className="flex flex-wrap gap-3">
+              {variations.length > 0 ? (
+                variations.map((variant) => (
+                  <Link
+                    key={variant.id}
+                    href={`/product/${variant.id}`}
+                    className={cn(
+                      "w-10 h-10 rounded-full border-2 transition-all block",
+                      variant.id === product.id
+                        ? "border-accent ring-2 ring-accent/20 ring-offset-2"
+                        : "border-border hover:scale-110"
+                    )}
+                    style={{ backgroundColor: variant.colorHex }}
+                    title={variant.color}
+                  />
+                ))
+              ) : (
+                <div
+                  className="w-10 h-10 rounded-full border-2 border-border block"
+                  style={{ backgroundColor: product.colorHex }}
+                  title={product.color}
+                />
+              )}
+            </div>
           </div>
           {/* Stitching Service Selector */}
           <div className="bg-secondary/30 rounded-lg border border-border/60 p-4 space-y-3">

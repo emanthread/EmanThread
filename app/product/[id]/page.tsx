@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getProductById, getProductBySlug, getProductRecommendations } from "@/lib/db-queries";
+import { getProductById, getProductBySlug, getProductRecommendations, getProductVariations } from "@/lib/db-queries";
 import ProductPageClient from "./product-page-client";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://emaanthreads.com";
@@ -91,7 +91,10 @@ export default async function ProductPage({ params }: Props) {
     notFound();
   }
 
-  const recommendations = await getProductRecommendations(id, 4);
+  const [recommendations, variations] = await Promise.all([
+    getProductRecommendations(id, 4),
+    getProductVariations(product.name),
+  ]);
 
   const productJsonLd = {
     "@context": "https://schema.org",
@@ -140,6 +143,7 @@ export default async function ProductPage({ params }: Props) {
   return (
     <ProductPageClient
       product={product}
+      variations={variations}
       frequentlyBought={recommendations.frequentlyBought}
       youMayAlsoLike={recommendations.youMayAlsoLike}
     />

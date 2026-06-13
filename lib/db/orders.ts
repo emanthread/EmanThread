@@ -198,6 +198,7 @@ export async function getOrdersByUser(userId: string) {
     discountAmount: Number(order.discountAmount || 0),
     total: Number(order.grandTotal),
     paymentMethod: order.paymentMethod,
+    notes: order.notes || null,
     items: order.items.map((item) => ({
       id: item.id,
       name: item.product?.name || "Unknown Product",
@@ -236,6 +237,7 @@ export async function getOrderById(id: string) {
       | "cancelled",
     total: Number(order.grandTotal),
     paymentMethod: order.paymentMethod,
+    notes: order.notes || null,
     items: order.items.map((item) => ({
       id: item.id,
       name: item.product?.name || "Unknown Product",

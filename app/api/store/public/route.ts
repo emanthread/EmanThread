@@ -22,11 +22,7 @@ export const GET = withGuard(async () => {
       standardShippingRate: config.standardShippingRate,
       expressShippingRate: config.expressShippingRate,
       enableCOD: config.enableCOD,
-    }, {
-      headers: {
-        // Store config changes infrequently — cache 10 min, stale for 20 min
-        'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1200',
-      },
+      stitchingNotice: config.stitchingNotice,
     });
   } catch (error) {
     console.error("Get public store config error:", error);

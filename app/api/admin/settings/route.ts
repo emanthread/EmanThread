@@ -34,6 +34,7 @@ const storeConfigSchema = z.object({
   metaDescription: z.string().optional(),
   googleAnalyticsId: z.string().optional(),
   facebookPixelId: z.string().optional(),
+  stitchingNotice: z.string().optional(),
 });
 
 async function checkAdmin() {
