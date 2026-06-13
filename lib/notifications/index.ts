@@ -319,9 +319,12 @@ export async function sendDeliveryUpdateParallel(
   const correlationId = `parallel-${payload.orderId}-${payload.template}`;
   console.info(`[notifications] [${correlationId}] Starting parallel dispatch...`);
 
-  const summary = {
-    email: "skipped" as const,
-    sms: "skipped" as const,
+  const summary: {
+    email: "fulfilled" | "rejected" | "skipped";
+    sms: "fulfilled" | "rejected" | "skipped";
+  } = {
+    email: "skipped",
+    sms: "skipped",
   };
 
   const tasks: Promise<void>[] = [];
