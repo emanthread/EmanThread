@@ -200,9 +200,9 @@ export async function getOrdersByUser(userId: string) {
     paymentMethod: order.paymentMethod,
     items: order.items.map((item) => ({
       id: item.id,
-      name: item.product.name,
-      image: item.product.images
-        ? parseProductImages(item.product.images)[0]
+      name: item.product?.name || "Unknown Product",
+      image: item.product?.images
+        ? parseProductImages(item.product.images)[0] || "/placeholder.jpg"
         : "/placeholder.jpg",
       quantity: item.quantity,
       price: Number(item.priceAtTimeOfPurchase),
@@ -238,9 +238,9 @@ export async function getOrderById(id: string) {
     paymentMethod: order.paymentMethod,
     items: order.items.map((item) => ({
       id: item.id,
-      name: item.product.name,
-      image: item.product.images
-        ? parseProductImages(item.product.images)[0]
+      name: item.product?.name || "Unknown Product",
+      image: item.product?.images
+        ? parseProductImages(item.product.images)[0] || "/placeholder.jpg"
         : "/placeholder.jpg",
       quantity: item.quantity,
       price: Number(item.priceAtTimeOfPurchase),
@@ -330,13 +330,13 @@ export async function getAdminOrders(options: {
         : { address: "", city: "", province: "", postalCode: "" },
       items: order.items.map((item) => ({
         productId: item.productId,
-        productName: item.product.name,
-        productImage: item.product.images
-          ? parseProductImages(item.product.images)[0]
+        productName: item.product?.name || "Unknown Product",
+        productImage: item.product?.images
+          ? parseProductImages(item.product.images)[0] || "/placeholder.jpg"
           : "/placeholder.jpg",
         quantity: item.quantity,
         price: Number(item.priceAtTimeOfPurchase),
-        sku: item.product.sku,
+        sku: item.product?.sku || "N/A",
       })),
       subtotal: Number(order.subtotal),
       shippingCost: Number(order.shippingCost),
@@ -412,13 +412,13 @@ export async function updateOrderStatus(id: string, status: string) {
       : { address: "", city: "", province: "", postalCode: "" },
     items: order.items.map((item) => ({
       productId: item.productId,
-      productName: item.product.name,
-      productImage: item.product.images
-        ? parseProductImages(item.product.images)[0]
+      productName: item.product?.name || "Unknown Product",
+      productImage: item.product?.images
+        ? parseProductImages(item.product.images)[0] || "/placeholder.jpg"
         : "/placeholder.jpg",
       quantity: item.quantity,
       price: Number(item.priceAtTimeOfPurchase),
-      sku: item.product.sku,
+      sku: item.product?.sku || "N/A",
     })),
     subtotal: Number(order.subtotal),
     shippingCost: Number(order.shippingCost),

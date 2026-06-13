@@ -418,12 +418,13 @@ export async function getAdminAnalytics() {
       customerEmail: order.user?.email || "",
       items: order.items.map((item) => ({
         productId: item.productId,
-        productName: item.product.name,
-        productImage:
-          parseProductImages(item.product.images)[0] || "/placeholder.jpg",
+        productName: item.product?.name || "Unknown Product",
+        productImage: item.product?.images
+          ? parseProductImages(item.product.images)[0] || "/placeholder.jpg"
+          : "/placeholder.jpg",
         quantity: item.quantity,
         price: Number(item.priceAtTimeOfPurchase),
-        sku: item.product.sku,
+        sku: item.product?.sku || "N/A",
       })),
       total: Number(order.grandTotal),
       status: order.status.toLowerCase() as
