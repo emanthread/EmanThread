@@ -62,7 +62,7 @@ function buildFormData(data: TailorCardData): UnifiedMeasurementFormData {
 ────────────────────────────────────────────────────────────────────────────── */
 const PRINT_STYLE_ID = "tailor-print-global-style";
 
-function ensurePrintStyleInHead(format: "a4" | "a6") {
+function ensurePrintStyleInHead() {
   if (typeof document === "undefined") return;
   
   let style = document.getElementById(PRINT_STYLE_ID) as HTMLStyleElement;
@@ -72,9 +72,7 @@ function ensurePrintStyleInHead(format: "a4" | "a6") {
     document.head.appendChild(style);
   }
 
-  const pageRules = format === "a6" 
-    ? `@page { size: 105mm 148mm; margin: 5mm; }`
-    : `@page { size: A4; margin: 0; }`;
+  const pageRules = `@page { size: 105mm 148mm; margin: 0; }`;
 
   style.textContent = `
     ${pageRules}
@@ -103,8 +101,8 @@ function ensurePrintStyleInHead(format: "a4" | "a6") {
       }
 
       body.tailor-printing-a6 > .tailor-print-portal {
-        width: 95mm !important;
-        height: 138mm !important;
+        width: 105mm !important;
+        height: 148.5mm !important;
         overflow: hidden !important;
       }
 
@@ -131,7 +129,7 @@ function ensurePrintStyleInHead(format: "a4" | "a6") {
         height: 297mm !important;
         overflow: visible !important;
         margin: 0 !important;
-        transform: scale(0.452) !important;
+        transform: scale(0.5) !important;
         transform-origin: top left !important;
       }
       body.tailor-printing-a6 .tailor-print-portal .a4-scale-inner {
@@ -260,7 +258,7 @@ export function TailorPrintCard({ data }: { data: TailorCardData }) {
     if (portalContainerRef.current) return;
 
     // Ensure the print CSS is in <head> — idempotent
-    ensurePrintStyleInHead(format);
+    ensurePrintStyleInHead();
 
     // 1. Create portal container directly on <body>
     const container = document.createElement("div");
@@ -314,14 +312,6 @@ export function TailorPrintCard({ data }: { data: TailorCardData }) {
   return (
     <>
       <div className="flex flex-wrap gap-2 mb-4 print:hidden" id="tailor-print-options">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlePrint("a4")}
-          id="tailor-print-btn-a4"
-        >
-          <Printer className="h-4 w-4 mr-2" /> Print A4 Sheet
-        </Button>
         <Button
           variant="outline"
           size="sm"
