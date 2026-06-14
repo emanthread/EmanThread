@@ -216,7 +216,7 @@ export async function sendAdminOrderCancelledAlert(
       await resend.emails.send({
         from: resendConfig.fromEmail,
         to: email,
-        subject: \`Order Cancelled: \${data.orderNumber} — Eman Threads\`,
+        subject: `Order Cancelled: ${data.orderNumber} — Eman Threads`,
         html,
       });
     }
