@@ -159,6 +159,7 @@ export default function AdminOrdersPage() {
     processing: orders.filter((o) => o.status === "processing").length,
     shipped: orders.filter((o) => o.status === "shipped").length,
     delivered: orders.filter((o) => o.status === "delivered").length,
+    cancelled: orders.filter((o) => o.status === "cancelled").length,
   };
 
   const handleRefresh = async () => {
@@ -248,7 +249,7 @@ export default function AdminOrdersPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
         {Object.entries(orderCounts).map(([status, count]) => (
           <Card
             key={status}

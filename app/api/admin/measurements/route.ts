@@ -20,6 +20,10 @@ export const GET = withLoggedAdminHandler(async (req: Request) => {
 
   // Use centralized filter — excludes tailor requests (source !== "tailor_request")
   const where: Record<string, unknown> = { ...adminProfileFilter() }
+  if (status && status !== 'all') {
+    where.status = status;
+  }
+  
   if (garmentType && garmentType !== 'all') {
     where.garmentType = { startsWith: garmentType === 'gents' ? 'male_' : 'female_' }
   }

@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { RateLimits } from "@/lib/rate-limiter";
 import { sendDeliveryUpdateParallel } from "@/lib/notifications";
+import { sendAdminOrderCancelledAlert } from "@/lib/notifications/admin-alerts";
 import { sanitizeDbError } from "@/lib/utils/errors";
 import { createAuditLog } from "@/lib/db-queries";
 import { withGuard } from "@/lib/api-guards";
@@ -124,6 +125,19 @@ export const PATCH = withGuard(
           });
         } catch (err) {
           console.error("[notifications] Failed to send order cancellation notification:", err);
+        }
+
+        // Send active admin alert email
+        try {
+          await sendAdminOrderCancelledAlert({
+            orderId: id,
+            orderNumber: order.orderNumber,
+            amount: String(Number(order.grandTotal)),
+            customerName: `${addr.firstName || ""} ${addr.lastName || ""}`.trim(),
+            reason: reason,
+          });
+        } catch (err) {
+          console.error("[admin-alerts] Failed to send admin cancellation alert:", err);
         }
       });
     }

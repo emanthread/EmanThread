@@ -166,3 +166,61 @@ export async function sendAdminPaymentAlert(
     // Never throw — fire-and-forget contract
   }
 }
+
+export interface AdminOrderCancelledAlertData {
+  orderId: string;
+  orderNumber: string;
+  amount: string;
+  customerName: string;
+  reason: string;
+}
+
+/**
+ * Send an admin alert email when an order is cancelled by the user.
+ * Fire-and-forget — catches all errors internally.
+ */
+export async function sendAdminOrderCancelledAlert(
+  data: AdminOrderCancelledAlertData
+): Promise<void> {
+  try {
+    const apiKey = resendConfig.apiKey;
+    if (!apiKey) return;
+
+    const recipients = await resolveAdminRecipients();
+    if (recipients.length === 0) return;
+
+    const html = adminEmailWrapper(
+      "Order Cancelled by Customer",
+      `
+      <div class="verify-banner" style="border-color: #ef4444; background-color: #fef2f2; color: #b91c1c;">
+        <p><strong>🚨 ALERT — Order Cancelled</strong></p>
+      </div>
+      <p>A customer has just cancelled their pending order:</p>
+      <div class="order-details">
+        <p><span class="label">Order #:</span> ${data.orderNumber}</p>
+        <p><span class="label">Customer Name:</span> ${data.customerName}</p>
+        <p><span class="label">Amount:</span> PKR ${data.amount}</p>
+        <p><span class="label">Cancellation Reason:</span> ${data.reason}</p>
+      </div>
+      <p>Inventory stock for this order has been automatically restored.</p>
+      <p style="text-align:center">
+        <a href="${brandUrl}/admin/orders/${data.orderId}" class="btn">View Order Details</a>
+      </p>
+      `
+    );
+
+    const { Resend } = await import("resend");
+    const resend = new Resend(apiKey);
+
+    for (const email of recipients) {
+      await resend.emails.send({
+        from: resendConfig.fromEmail,
+        to: email,
+        subject: \`Order Cancelled: \${data.orderNumber} — Eman Threads\`,
+        html,
+      });
+    }
+  } catch (err) {
+    console.error("[admin-alerts] Failed to send cancellation alert:", err);
+  }
+}

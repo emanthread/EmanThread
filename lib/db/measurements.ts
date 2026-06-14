@@ -7,7 +7,7 @@ export function adminProfileFilter() {
   return { 
     deletedAt: null, 
     source: "order" as const,
-    status: { not: MeasurementProfileStatus.approved }
+    status: MeasurementProfileStatus.pending
   };
 }
 
@@ -19,6 +19,14 @@ export function adminProfileFilter() {
 export function adminCompletedFilter() {
   return {
     status: MeasurementProfileStatus.approved,
+    source: { not: MeasurementSource.profile },
+    deletedAt: null,
+  };
+}
+
+export function adminRejectedFilter() {
+  return {
+    status: MeasurementProfileStatus.rejected,
     source: { not: MeasurementSource.profile },
     deletedAt: null,
   };

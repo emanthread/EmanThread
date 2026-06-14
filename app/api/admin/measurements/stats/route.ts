@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { adminProfileFilter, adminCompletedFilter } from "@/lib/db-queries";
+import { adminProfileFilter, adminCompletedFilter, adminRejectedFilter } from "@/lib/db-queries";
 
 export const dynamic = "force-dynamic";
 
@@ -15,14 +15,16 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const [totalProfiles, completedCount] = await Promise.all([
+    const [totalProfiles, completedCount, rejectedCount] = await Promise.all([
       prisma.measurementProfile.count({ where: adminProfileFilter() }),
       prisma.measurementProfile.count({ where: adminCompletedFilter() }),
+      prisma.measurementProfile.count({ where: adminRejectedFilter() }),
     ]);
 
     return NextResponse.json({
       totalProfiles,
       completedCount,
+      rejectedCount,
     });
   } catch (error) {
     console.error("Admin measurement stats error:", error);
