@@ -181,20 +181,20 @@ function ensurePrintStyleInHead() {
         padding: 4mm !important;
       }
       body.tailor-printing-a6 .tailor-print-portal .a4-row {
-        min-height: 13.5mm !important;
+        min-height: 18.5mm !important;
       }
       body.tailor-printing-a6 .tailor-print-portal .a4-label {
-        font-size: 16.5px !important; /* ~7.5pt after scale(0.452) */
-        padding: 2.2mm 2mm !important;
+        font-size: 16.5px !important;
+        padding: 4mm 2mm !important;
       }
       body.tailor-printing-a6 .tailor-print-portal .a4-inputline {
         font-size: 16.5px !important;
-        height: 8mm !important;
+        height: 12mm !important;
       }
       body.tailor-printing-a6 .tailor-print-portal .a4-subitem {
-        font-size: 14.5px !important; /* ~6.5pt after scale(0.452) */
-        min-height: 11.5mm !important;
-        padding: 1.2mm !important;
+        font-size: 14.5px !important;
+        min-height: 16.5mm !important;
+        padding: 2mm !important;
       }
       body.tailor-printing-a6 .tailor-print-portal .a4-subitem .a4-smallline input {
         font-size: 14.5px !important;
@@ -205,7 +205,7 @@ function ensurePrintStyleInHead() {
       }
       body.tailor-printing-a6 .tailor-print-portal .a4-meta {
         font-size: 13.5px !important;
-        height: 10mm !important;
+        height: 13mm !important;
       }
       body.tailor-printing-a6 .tailor-print-portal .a4-meta-input {
         font-size: 13.5px !important;
