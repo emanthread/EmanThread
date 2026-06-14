@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { unstable_cache, revalidateTag } from "next/cache";
+import { unstable_cache, revalidateTag, revalidatePath } from "next/cache";
 
 export interface StoreConfigInput {
   name?: string;
@@ -150,5 +150,5 @@ export async function setStoreConfig(data: StoreConfigInput) {
       })
     )
   );
-  revalidateTag("store-config");
+  revalidatePath("/", "layout");
 }
