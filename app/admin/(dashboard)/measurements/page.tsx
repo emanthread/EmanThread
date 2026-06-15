@@ -188,33 +188,26 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
                       <Badge variant="outline" className="capitalize text-xs">{profile.garmentType}</Badge>
                     </td>
                     <td className="p-4">
-                      <Badge className={getStatusBadgeClass(profile.status ?? "complete") + " text-xs"}>
-                        {profile.status || "complete"}
-                      </Badge>
+                      <Select 
+                        value={profile.status || "pending"} 
+                        onValueChange={(val) => handleStatusUpdate(profile.id, val)}
+                      >
+                        <SelectTrigger className={`h-8 text-xs w-[110px] ${getStatusBadgeClass(profile.status ?? "pending")}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="approved">Approved</SelectItem>
+                          <SelectItem value="rejected">Rejected</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </td>
                     <td className="p-4 text-sm text-muted-foreground">
                       {new Date(profile.createdAt).toLocaleDateString()}
                     </td>
                      <td className="p-4">
                        <div className="flex gap-1">
-                         <Button
-                           variant="ghost"
-                           size="icon"
-                           className="h-8 w-8 text-green-600 hover:text-green-700"
-                           onClick={() => handleStatusUpdate(profile.id, "approved")}
-                           title="Approve Profile"
-                         >
-                           <CheckCircle2 className="h-4 w-4" />
-                         </Button>
-                         <Button
-                           variant="ghost"
-                           size="icon"
-                           className="h-8 w-8 text-red-600 hover:text-red-700"
-                           onClick={() => handleStatusUpdate(profile.id, "rejected")}
-                           title="Reject Profile"
-                         >
-                           <XCircle className="h-4 w-4" />
-                         </Button>
+
                          <Button
                            variant="ghost"
                            size="icon"
@@ -451,6 +444,7 @@ function CompletedTab() {
                 <tr>
                   <th className="text-left p-4 text-sm font-medium">Customer</th>
                   <th className="text-left p-4 text-sm font-medium">Garment Type</th>
+                  <th className="text-left p-4 text-sm font-medium">Status</th>
                   <th className="text-left p-4 text-sm font-medium">Completed</th>
                   <th className="text-left p-4 w-16"></th>
                 </tr>
@@ -467,29 +461,27 @@ function CompletedTab() {
                         {garmentTypeLabel(r.garmentType || "")}
                       </Badge>
                     </td>
+                    <td className="p-4">
+                      <Select 
+                        value="approved"
+                        onValueChange={(val) => handleStatusUpdate(r.id, val)}
+                      >
+                        <SelectTrigger className={`h-8 text-xs w-[110px] ${getStatusBadgeClass("approved")}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="approved">Approved</SelectItem>
+                          <SelectItem value="rejected">Rejected</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </td>
                     <td className="p-4 text-sm text-muted-foreground">
                       {new Date(r.updatedAt).toLocaleDateString()}
                     </td>
                     <td className="p-4">
                       <div className="flex gap-1 justify-end">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-amber-600 hover:text-amber-700"
-                          onClick={() => handleStatusUpdate(r.id, "pending")}
-                          title="Mark as Pending"
-                        >
-                          <Undo2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-red-600 hover:text-red-700"
-                          onClick={() => handleStatusUpdate(r.id, "rejected")}
-                          title="Reject Record"
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </Button>
+
                         <Button
                           variant="ghost"
                           size="icon"
@@ -716,6 +708,7 @@ function RejectedTab() {
                 <tr>
                   <th className="text-left p-4 text-sm font-medium">Customer</th>
                   <th className="text-left p-4 text-sm font-medium">Garment Type</th>
+                  <th className="text-left p-4 text-sm font-medium">Status</th>
                   <th className="text-left p-4 text-sm font-medium">Rejected</th>
                   <th className="text-left p-4 w-16"></th>
                 </tr>
@@ -732,29 +725,27 @@ function RejectedTab() {
                         {garmentTypeLabel(r.garmentType || "")}
                       </Badge>
                     </td>
+                    <td className="p-4">
+                      <Select 
+                        value="rejected"
+                        onValueChange={(val) => handleStatusUpdate(r.id, val)}
+                      >
+                        <SelectTrigger className={`h-8 text-xs w-[110px] ${getStatusBadgeClass("rejected")}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="approved">Approved</SelectItem>
+                          <SelectItem value="rejected">Rejected</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </td>
                     <td className="p-4 text-sm text-muted-foreground">
                       {new Date(r.updatedAt).toLocaleDateString()}
                     </td>
                     <td className="p-4">
                       <div className="flex gap-1 justify-end">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-green-600 hover:text-green-700"
-                          onClick={() => handleStatusUpdate(r.id, "approved")}
-                          title="Approve Record"
-                        >
-                          <CheckCircle2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-amber-600 hover:text-amber-700"
-                          onClick={() => handleStatusUpdate(r.id, "pending")}
-                          title="Mark as Pending"
-                        >
-                          <Undo2 className="h-4 w-4" />
-                        </Button>
+
                         <Button
                           variant="ghost"
                           size="icon"
