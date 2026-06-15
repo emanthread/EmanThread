@@ -19,13 +19,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 import { UnifiedMeasurementForm } from "@/components/measurements/UnifiedMeasurementForm";
 import { TailorPrintCard, type TailorCardData } from "@/components/admin/tailor-print-card";
 import { getStatusBadgeClass } from "@/lib/utils/status";
@@ -57,7 +51,6 @@ export default function AdminMeasurementProfileEditPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [currentStatus, setCurrentStatus] = useState<string>("pending");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -69,7 +62,6 @@ export default function AdminMeasurementProfileEditPage() {
       }
       const data = await res.json();
       setProfile(data);
-      setCurrentStatus(data.status || "pending");
     } finally {
       setLoading(false);
     }
@@ -85,7 +77,7 @@ export default function AdminMeasurementProfileEditPage() {
       const res = await fetch(`/api/admin/measurements/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, status: currentStatus }),
+        body: JSON.stringify(formData),
       });
       if (res.ok) {
         const updated = await res.json();
@@ -199,16 +191,9 @@ export default function AdminMeasurementProfileEditPage() {
               </div>
               <div className="pt-2">
                 <label className="text-xs text-muted-foreground mb-1 block">Status</label>
-                <Select value={currentStatus} onValueChange={setCurrentStatus}>
-                  <SelectTrigger className="h-8 text-xs w-full">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="approved">Approved / Complete</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Badge className={getStatusBadgeClass(profile.status ?? "pending") + " text-xs capitalize"}>
+                  {profile.status || "pending"}
+                </Badge>
               </div>
               <div className="pt-1 border-t">
                 <span className="text-xs text-muted-foreground">Garment:</span>

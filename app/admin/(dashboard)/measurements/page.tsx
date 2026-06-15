@@ -9,6 +9,9 @@ import {
   Ruler,
   Printer,
   Pencil,
+  CheckCircle2,
+  XCircle,
+  Undo2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -112,6 +115,19 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
     }
   };
 
+  const handleStatusUpdate = async (id: string, newStatus: string) => {
+    try {
+      const res = await fetch(`/api/admin/measurements/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) fetchProfiles();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const totalPages = Math.ceil(total / limit);
 
   return (
@@ -181,6 +197,24 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
                     </td>
                      <td className="p-4">
                        <div className="flex gap-1">
+                         <Button
+                           variant="ghost"
+                           size="icon"
+                           className="h-8 w-8 text-green-600 hover:text-green-700"
+                           onClick={() => handleStatusUpdate(profile.id, "approved")}
+                           title="Approve Profile"
+                         >
+                           <CheckCircle2 className="h-4 w-4" />
+                         </Button>
+                         <Button
+                           variant="ghost"
+                           size="icon"
+                           className="h-8 w-8 text-red-600 hover:text-red-700"
+                           onClick={() => handleStatusUpdate(profile.id, "rejected")}
+                           title="Reject Profile"
+                         >
+                           <XCircle className="h-4 w-4" />
+                         </Button>
                          <Button
                            variant="ghost"
                            size="icon"
@@ -364,6 +398,19 @@ function CompletedTab() {
     }
   };
 
+  const handleStatusUpdate = async (id: string, newStatus: string) => {
+    try {
+      const res = await fetch(`/api/admin/measurements/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) fetchRecords();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const totalPages = Math.ceil(total / limit);
 
   return (
@@ -425,6 +472,24 @@ function CompletedTab() {
                     </td>
                     <td className="p-4">
                       <div className="flex gap-1 justify-end">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-amber-600 hover:text-amber-700"
+                          onClick={() => handleStatusUpdate(r.id, "pending")}
+                          title="Mark as Pending"
+                        >
+                          <Undo2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-600 hover:text-red-700"
+                          onClick={() => handleStatusUpdate(r.id, "rejected")}
+                          title="Reject Record"
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -598,6 +663,19 @@ function RejectedTab() {
     }
   };
 
+  const handleStatusUpdate = async (id: string, newStatus: string) => {
+    try {
+      const res = await fetch(`/api/admin/measurements/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) fetchRecords();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const totalPages = Math.ceil(total / limit);
 
   return (
@@ -659,6 +737,24 @@ function RejectedTab() {
                     </td>
                     <td className="p-4">
                       <div className="flex gap-1 justify-end">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-green-600 hover:text-green-700"
+                          onClick={() => handleStatusUpdate(r.id, "approved")}
+                          title="Approve Record"
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-amber-600 hover:text-amber-700"
+                          onClick={() => handleStatusUpdate(r.id, "pending")}
+                          title="Mark as Pending"
+                        >
+                          <Undo2 className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
