@@ -82,9 +82,9 @@ export const metadata: Metadata = {
   ],
   metadataBase: new URL(siteUrl),
   icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon-32.png",
-    apple: "/favicon-192.png",
+    icon: "/favicon.ico?v=2",
+    shortcut: "/favicon-32.png?v=2",
+    apple: "/favicon-192.png?v=2",
   },
   manifest: "/manifest.json",
   openGraph: {
