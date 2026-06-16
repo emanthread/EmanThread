@@ -135,7 +135,7 @@ export function ProductCard({ product }: ProductCardProps) {
         {/* Product Info */}
         <div className="mt-4 space-y-1 px-3 pb-4">
           <p className="text-xs text-muted-foreground tracking-wider uppercase">
-            {product.fabricType}
+            {product.fabricType}{product.color && ` • ${product.color}`}
           </p>
           <Link href={`/product/${product.id}`}>
             <h3 className="font-medium text-sm leading-tight hover:text-accent transition-colors line-clamp-2">
