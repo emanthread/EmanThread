@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { isAdminRole } from "@/lib/permissions"; // A3.2
-import { getAdminProducts, updateAdminProduct, createAuditLog } from "@/lib/db-queries";
+import { isAdminRole } from "@/lib/permissions";
+import { updateAdminProduct, createAuditLog } from "@/lib/db-queries";
 import { withLoggedAdminHandler } from "@/lib/logger";
 import { sanitizeDbError } from '@/lib/utils/errors';
+import { parseProductImages, parseJsonArray } from "@/lib/utils/parse-images";
 
 export const dynamic = "force-dynamic";
 
@@ -32,12 +33,22 @@ const updateProductSchema = z.object({
   categoryId: z.string().min(1).optional(),
 });
 
+const badgeMap: Record<string, string> = {
+  NEW: "New",
+  TRENDING: "Trending",
+  HOT: "Hot",
+  LIMITED: "Limited",
+  FEATURED: "Featured",
+};
+
+// Returns the session if the user is an admin, null otherwise.
+// Reusing the return value avoids additional auth() calls within the same request.
 async function checkAdmin() {
   const session = await auth();
-  if (!session?.user || !isAdminRole(session.user.role)) { // FIXED: A3.2
-    return false;
+  if (!session?.user || !isAdminRole(session.user.role)) {
+    return null;
   }
-  return true;
+  return session;
 }
 
 export const GET = withLoggedAdminHandler(async (
@@ -50,14 +61,66 @@ export const GET = withLoggedAdminHandler(async (
     }
 
     const { id } = await params;
-    const result = await getAdminProducts();
-    const product = result.products.find((p) => p.id === id);
 
-    if (!product) {
+    // Direct single-row lookup — avoids loading all products just to find one.
+    const p = await prisma.product.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        sku: true,
+        price: true,
+        originalPrice: true,
+        fabricType: true,
+        color: true,
+        colorHex: true,
+        images: true,
+        videoUrl: true,
+        badge: true,
+        inStock: true,
+        stockQuantity: true,
+        lowStockThreshold: true,
+        description: true,
+        longDescription: true,
+        categoryId: true,
+        slug: true,
+        tags: true,
+        metaTitle: true,
+        metaDescription: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!p) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
-    return NextResponse.json(product);
+    return NextResponse.json({
+      id: p.id,
+      name: p.name,
+      sku: p.sku,
+      price: Number(p.price),
+      originalPrice: p.originalPrice ? Number(p.originalPrice) : undefined,
+      fabricType: p.fabricType || "Cotton",
+      color: p.color,
+      colorHex: p.colorHex,
+      images: parseProductImages(p.images),
+      videoUrl: p.videoUrl || undefined,
+      badge: p.badge ? badgeMap[p.badge] : undefined,
+      inStock: p.inStock,
+      stockQuantity: p.stockQuantity,
+      lowStockThreshold: p.lowStockThreshold,
+      description: p.description,
+      longDescription: p.longDescription || "",
+      categoryId: p.categoryId,
+      slug: p.slug || p.sku.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+      tags: parseJsonArray(p.tags),
+      metaTitle: p.metaTitle || undefined,
+      metaDescription: p.metaDescription || undefined,
+      createdAt: p.createdAt.toISOString(),
+      updatedAt: p.updatedAt.toISOString(),
+    });
   } catch (error) {
     console.error("Get product error:", error);
     const { message, status } = sanitizeDbError(error);
@@ -70,7 +133,9 @@ export const PUT = withLoggedAdminHandler(async (
   { params }: { params: Promise<{ id: string }> }
 ) => {
   try {
-    if (!(await checkAdmin())) {
+    // Obtain session once — reused for both the auth gate and the audit log.
+    const session = await checkAdmin();
+    if (!session) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -93,12 +158,11 @@ export const PUT = withLoggedAdminHandler(async (
 
     const updated = await updateAdminProduct(id, result.data);
 
-    // Audit log
-    const auditSession = await auth();
-    if (auditSession?.user) {
+    // Audit log — reuse session obtained above, no extra auth() call needed.
+    if (session.user) {
       void createAuditLog({
-        userId: auditSession.user.id,
-        userEmail: auditSession.user.email || undefined,
+        userId: session.user.id,
+        userEmail: session.user.email || undefined,
         action: "PRODUCT_UPDATED",
         entity: "Product",
         entityId: id,
@@ -120,7 +184,9 @@ export const DELETE = withLoggedAdminHandler(async (
   { params }: { params: Promise<{ id: string }> }
 ) => {
   try {
-    if (!(await checkAdmin())) {
+    // Obtain session once — reused for both the auth gate and the audit log.
+    const session = await checkAdmin();
+    if (!session) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -146,12 +212,11 @@ export const DELETE = withLoggedAdminHandler(async (
       throw e;
     }
 
-    // Audit log
-    const auditSession = await auth();
-    if (auditSession?.user) {
+    // Audit log — reuse session obtained above, no extra auth() call needed.
+    if (session.user) {
       void createAuditLog({
-        userId: auditSession.user.id,
-        userEmail: auditSession.user.email || undefined,
+        userId: session.user.id,
+        userEmail: session.user.email || undefined,
         action: "PRODUCT_DELETED",
         entity: "Product",
         entityId: id,

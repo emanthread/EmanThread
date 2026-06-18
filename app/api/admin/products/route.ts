@@ -28,9 +28,19 @@ const createProductSchema = z.object({
   categoryId: z.string().min(1, "Category is required"),
 });
 
-export const GET = withLoggedAdminHandler(async (req: Request) => {
+// Returns the session if the user is an admin, null otherwise.
+// Reusing the return value avoids additional auth() calls within the same request.
+async function checkAdmin() {
   const session = await auth();
   if (!session?.user || !isAdminRole(session.user.role)) {
+    return null;
+  }
+  return session;
+}
+
+export const GET = withLoggedAdminHandler(async (req: Request) => {
+  // Single auth() call — session verified once, not twice.
+  if (!(await checkAdmin())) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -44,8 +54,9 @@ export const GET = withLoggedAdminHandler(async (req: Request) => {
 });
 
 export const POST = withLoggedAdminHandler(async (req: Request) => {
-  const session = await auth();
-  if (!session?.user || !isAdminRole(session.user.role)) {
+  // Obtain session once — reused for both the auth gate and the audit log.
+  const session = await checkAdmin();
+  if (!session) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -61,7 +72,7 @@ export const POST = withLoggedAdminHandler(async (req: Request) => {
 
   const product = await createAdminProduct(result.data);
 
-  // Audit log
+  // Audit log — reuse session obtained above, no extra auth() call needed.
   void createAuditLog({
     userId: session.user.id,
     userEmail: session.user.email || undefined,
