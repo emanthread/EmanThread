@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -123,6 +123,7 @@ export default function AdminProductsPage() {
 
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+  const [fabricTypes, setFabricTypes] = useState<{ id: string; name: string; isActive: boolean }[]>([]);
 
   useEffect(() => {
     loadProducts();
@@ -130,10 +131,14 @@ export default function AdminProductsPage() {
     // Use /api/admin/categories (not /api/categories) so we always get real
     // Category DB IDs. The public endpoint returns fabricType-grouped data
     // for shop filtering and must never be used as a categoryId source.
-    fetch("/api/admin/categories")
-      .then((r) => r.json())
-      .then((data) => {
-        setCategories(data || []);
+    // Also fetch fabric types so newly-created entries appear in the dropdown.
+    Promise.all([
+      fetch("/api/admin/categories").then((r) => r.json()),
+      fetch("/api/admin/fabric-types").then((r) => r.json()),
+    ])
+      .then(([catData, ftData]) => {
+        setCategories(catData || []);
+        setFabricTypes(Array.isArray(ftData) ? ftData : []);
       })
       .catch(() => toast.error("Failed to load categories"))
       .finally(() => setIsLoadingCategories(false));
@@ -154,6 +159,29 @@ export default function AdminProductsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [tagInput, setTagInput] = useState("");
 
+
+  // Merge Category names + active FabricType names, deduplicated by lowercase name.
+  // Categories come first so their IDs are preserved for categoryId assignment.
+  // Active FabricType entries that don't already exist in categories are appended.
+  const fabricOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const merged: { id: string; name: string }[] = [];
+    for (const c of categories) {
+      const key = c.name.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        merged.push({ id: c.id, name: c.name });
+      }
+    }
+    for (const ft of fabricTypes) {
+      const key = ft.name.toLowerCase();
+      if (ft.isActive && !seen.has(key)) {
+        seen.add(key);
+        merged.push({ id: ft.id, name: ft.name });
+      }
+    }
+    return merged;
+  }, [categories, fabricTypes]);
 
   const filteredProducts = products.filter((product) => {
     const matchesSearch =
@@ -216,10 +244,15 @@ export default function AdminProductsPage() {
     setIsRefreshing(true);
     try {
       await loadProducts();
-      // Same as above — use admin endpoint for real Category DB IDs
-      const res = await fetch("/api/admin/categories");
-      const data = await res.json();
-      if (data) setCategories(data);
+      // Same as above — use admin endpoint for real Category DB IDs.
+      // Also refresh fabric types so newly-created entries appear immediately.
+      const [catRes, ftRes] = await Promise.all([
+        fetch("/api/admin/categories"),
+        fetch("/api/admin/fabric-types"),
+      ]);
+      const [catData, ftData] = await Promise.all([catRes.json(), ftRes.json()]);
+      if (catData) setCategories(catData);
+      if (Array.isArray(ftData)) setFabricTypes(ftData);
     } catch {
       // Silently fail — individual handlers show toasts if needed
     } finally {
@@ -738,7 +771,7 @@ export default function AdminProductsPage() {
         isEdit={isEditProductOpen}
         product={productForm}
         setProduct={setProductForm}
-        categories={categories}
+        categories={fabricOptions}
         isLoadingCategories={isLoadingCategories}
         uploadingImage={uploadingImage}
         uploadingVideo={uploadingVideo}
