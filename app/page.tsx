@@ -12,8 +12,10 @@ import { TestimonialsSection } from "@/components/home/testimonials-section";
 
 import { getAllProducts, getFeaturedCategories } from "@/lib/db-queries";
 
+export const revalidate = 300; // Cache the home page for 5 minutes
+
 export default async function HomePage() {
-  const products = await getAllProducts();
+  const products = await getAllProducts(20);
   const featuredCategories = await getFeaturedCategories();
 
   return (

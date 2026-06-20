@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import type { Product, Category } from "@/lib/data";
 import { parseProductImages, parseJsonArray } from "@/lib/utils/parse-images";
+import { unstable_cache } from "next/cache";
 
 const badgeMap: Record<string, Product["badge"]> = {
   NEW: "New",
@@ -58,6 +59,8 @@ export interface ProductFilterInput {
   search?: string;
   color?: string;
   season?: string;
+  page?: number;
+  limit?: number;
 }
 
 export type RecommendationStrategy = "category" | "cooccurrence" | "hybrid";
@@ -73,7 +76,7 @@ export interface RecommendationResult {
   youMayAlsoLike: Product[];
 }
 
-export async function getAllProducts(): Promise<Product[]> {
+export async function getAllProducts(limit?: number): Promise<Product[]> {
   const products = await prisma.product.findMany({
     include: {
       category: true,
@@ -82,6 +85,7 @@ export async function getAllProducts(): Promise<Product[]> {
       },
     },
     orderBy: { createdAt: "desc" },
+    ...(limit ? { take: limit } : {}),
   });
   return products.map(transformProduct);
 }
@@ -127,7 +131,7 @@ export async function getProductVariations(name: string): Promise<Product[]> {
 
 export async function getFilteredProducts(
   filter: ProductFilterInput
-): Promise<Product[]> {
+) {
   const where: any = {};
   if (filter.category) {
     const cats = filter.category.split(",");
@@ -170,17 +174,33 @@ export async function getFilteredProducts(
       orderBy = { createdAt: "desc" };
   }
 
-  const products = await prisma.product.findMany({
-    where,
-    orderBy,
-    include: {
-      category: true,
-      reviews: {
-        select: { rating: true, isVisible: true, deletedAt: true },
+  const page = filter.page ?? 1;
+  const limit = filter.limit ?? 20;
+  const skip = (page - 1) * limit;
+
+  const [products, total] = await Promise.all([
+    prisma.product.findMany({
+      where,
+      orderBy,
+      skip,
+      take: limit,
+      include: {
+        category: true,
+        reviews: {
+          select: { rating: true, isVisible: true, deletedAt: true },
+        },
       },
-    },
-  });
-  return products.map(transformProduct);
+    }),
+    prisma.product.count({ where }),
+  ]);
+
+  return {
+    products: products.map(transformProduct),
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
 }
 
 export async function getDistinctColors(): Promise<string[]> {
@@ -237,25 +257,29 @@ export async function getFrequentlyBoughtTogether(
   return orderedProducts.map(transformProduct);
 }
 
-export async function getProductRecommendations(
-  productId: string,
-  limit: number = 4
-): Promise<RecommendationResult> {
-  const [frequentlyBought, youMayAlsoLike] = await Promise.all([
-    getFrequentlyBoughtTogether(productId, limit),
-    getRelatedProducts(productId, limit),
-  ]);
+export const getProductRecommendations = unstable_cache(
+  async (
+    productId: string,
+    limit: number = 4
+  ): Promise<RecommendationResult> => {
+    const [frequentlyBought, youMayAlsoLike] = await Promise.all([
+      getFrequentlyBoughtTogether(productId, limit),
+      getRelatedProducts(productId, limit),
+    ]);
 
-  const frequentlyBoughtIds = new Set(frequentlyBought.map((p) => p.id));
-  const dedupedYouMayAlsoLike = youMayAlsoLike.filter(
-    (p) => !frequentlyBoughtIds.has(p.id)
-  );
+    const frequentlyBoughtIds = new Set(frequentlyBought.map((p) => p.id));
+    const dedupedYouMayAlsoLike = youMayAlsoLike.filter(
+      (p) => !frequentlyBoughtIds.has(p.id)
+    );
 
-  return {
-    frequentlyBought,
-    youMayAlsoLike: dedupedYouMayAlsoLike,
-  };
-}
+    return {
+      frequentlyBought,
+      youMayAlsoLike: dedupedYouMayAlsoLike,
+    };
+  },
+  ["product-recommendations"],
+  { revalidate: 3600, tags: ["recommendations"] }
+);
 
 export async function getRelatedProducts(
   productId: string,
@@ -398,7 +422,13 @@ export async function getFeaturedCategories(): Promise<Category[]> {
 
 // ── Admin helpers ────────────────────────────────────────────────
 
-export async function getAdminProducts(page?: number, limit?: number, search?: string) {
+export async function getAdminProducts(
+  page?: number,
+  limit?: number,
+  search?: string,
+  category?: string,
+  stock?: string
+) {
   const currentPage = page ?? 1;
   const pageSize = limit ?? 50;
   const skip = (currentPage - 1) * pageSize;
@@ -409,6 +439,20 @@ export async function getAdminProducts(page?: number, limit?: number, search?: s
       { name: { contains: search, mode: "insensitive" } },
       { sku: { contains: search, mode: "insensitive" } },
     ];
+  }
+
+  if (category && category !== "all") {
+    where.fabricType = { equals: category, mode: "insensitive" };
+  }
+
+  if (stock && stock !== "all") {
+    if (stock === "in-stock") {
+      where.stockQuantity = { gt: 10 }; // Assuming threshold is 10 for global filter if not dynamic
+    } else if (stock === "low-stock") {
+      where.stockQuantity = { lte: 10, gt: 0 };
+    } else if (stock === "out-of-stock") {
+      where.stockQuantity = 0;
+    }
   }
 
   const [products, total] = await Promise.all([
@@ -430,7 +474,6 @@ export async function getAdminProducts(page?: number, limit?: number, search?: s
         stockQuantity: true,
         lowStockThreshold: true,
         description: true,
-        longDescription: true,
         categoryId: true,
         category: true,
         slug: true,
@@ -464,7 +507,6 @@ export async function getAdminProducts(page?: number, limit?: number, search?: s
       stockQuantity: p.stockQuantity,
       lowStockThreshold: p.lowStockThreshold,
       description: p.description,
-      longDescription: p.longDescription || "",
       categoryId: p.categoryId,
       slug: p.slug || p.sku.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
       tags: parseJsonArray(p.tags),

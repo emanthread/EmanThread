@@ -48,9 +48,11 @@ export const GET = withLoggedAdminHandler(async (req: Request) => {
   const page = parseInt(searchParams.get('page') || '1');
   const limit = parseInt(searchParams.get('limit') || '50');
   const search = searchParams.get('search') || undefined;
+  const category = searchParams.get('category') || undefined;
+  const stock = searchParams.get('stock') || undefined;
 
-  const result = await getAdminProducts(page, limit, search);
-  return NextResponse.json(result.products);
+  const result = await getAdminProducts(page, limit, search, category, stock);
+  return NextResponse.json(result);
 });
 
 export const POST = withLoggedAdminHandler(async (req: Request) => {

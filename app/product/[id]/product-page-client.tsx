@@ -213,7 +213,7 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
   }, [isAuthenticated]);
 
   // Get stitching price for this product's fabric type
-  const productStitchingPrice = stitchingPriceMap[product.fabricType.toLowerCase()] ?? DEFAULT_STITCHING_FEE;
+  const productStitchingPrice = stitchingPriceMap[(product.fabricType || "").toLowerCase()] ?? DEFAULT_STITCHING_FEE;
   const hasStitchingSelected = selectedMeasurement !== "none" && selectedMeasurement !== "";
 
   // Get the selected profile name

@@ -5,6 +5,8 @@ import ProductPageClient from "./product-page-client";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://emaanthreads.com";
 
+export const revalidate = 300; // Cache product pages for 5 minutes
+
 interface Props {
   params: Promise<{ id: string }>;
 }

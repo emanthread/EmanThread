@@ -119,14 +119,13 @@ function emptyProduct(): AdminProduct {
 }
 
 export default function AdminProductsPage() {
-  const { products, updateProductStock, addProduct, updateProduct, loadProducts, deleteProduct } = useAdminStore();
+  const { products, productsTotal, productsPage, productsTotalPages, updateProductStock, addProduct, updateProduct, loadProducts, deleteProduct } = useAdminStore();
 
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [fabricTypes, setFabricTypes] = useState<{ id: string; name: string; isActive: boolean }[]>([]);
 
   useEffect(() => {
-    loadProducts();
     setIsLoadingCategories(true);
     // Use /api/admin/categories (not /api/categories) so we always get real
     // Category DB IDs. The public endpoint returns fabricType-grouped data
@@ -158,6 +157,20 @@ export default function AdminProductsPage() {
   const [productToDelete, setProductToDelete] = useState<AdminProduct | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [tagInput, setTagInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedSearch(searchQuery), 500);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    loadProducts(1, 50, debouncedSearch, categoryFilter, stockFilter);
+  }, [loadProducts, debouncedSearch, categoryFilter, stockFilter]);
+
+  const handlePageChange = (newPage: number) => {
+    loadProducts(newPage, 50, debouncedSearch, categoryFilter, stockFilter);
+  };
 
 
   // Merge Category names + active FabricType names, deduplicated by lowercase name.
@@ -183,23 +196,8 @@ export default function AdminProductsPage() {
     return merged;
   }, [categories, fabricTypes]);
 
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch =
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.sku.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory =
-      categoryFilter === "all" ||
-      product.fabricType.toLowerCase().replace(" & ", "-").replace(" ", "-") ===
-        categoryFilter;
-    const matchesStock =
-      stockFilter === "all" ||
-      (stockFilter === "low-stock" &&
-        product.stockQuantity <= product.lowStockThreshold) ||
-      (stockFilter === "in-stock" &&
-        product.stockQuantity > product.lowStockThreshold) ||
-      (stockFilter === "out-of-stock" && product.stockQuantity === 0);
-    return matchesSearch && matchesCategory && matchesStock;
-  });
+  // Server-side filtered products are stored directly in `products`.
+  const filteredProducts = products;
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -243,7 +241,7 @@ export default function AdminProductsPage() {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await loadProducts();
+      await loadProducts(productsPage, 50, debouncedSearch, categoryFilter, stockFilter);
       // Same as above — use admin endpoint for real Category DB IDs.
       // Also refresh fabric types so newly-created entries appear immediately.
       const [catRes, ftRes] = await Promise.all([
@@ -695,6 +693,32 @@ export default function AdminProductsPage() {
           {filteredProducts.length === 0 && (
             <div className="text-center py-12">
               <p className="text-muted-foreground">No products found</p>
+            </div>
+          )}
+
+          {productsTotalPages > 1 && (
+            <div className="flex items-center justify-between p-4 border-t">
+              <p className="text-sm text-muted-foreground">
+                Showing page {productsPage} of {productsTotalPages} ({productsTotal} total)
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(productsPage - 1)}
+                  disabled={productsPage <= 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(productsPage + 1)}
+                  disabled={productsPage >= productsTotalPages}
+                >
+                  Next
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

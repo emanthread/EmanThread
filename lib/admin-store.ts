@@ -61,7 +61,7 @@ export interface AdminProduct {
   stockQuantity: number;
   lowStockThreshold: number;
   description: string;
-  longDescription: string;
+  longDescription?: string;
   metaTitle?: string;
   metaDescription?: string;
   tags: string[];
@@ -192,6 +192,9 @@ export interface Customer {
 interface AdminState {
   orders: Order[];
   products: AdminProduct[];
+  productsTotal: number;
+  productsPage: number;
+  productsTotalPages: number;
   customers: Customer[];
   discounts: Discount[];
   notifications: Notification[];
@@ -206,7 +209,7 @@ interface AdminState {
   
   // Loaders
   loadOrders: () => Promise<void>;
-  loadProducts: () => Promise<void>;
+  loadProducts: (page?: number, limit?: number, search?: string, category?: string, stock?: string) => Promise<void>;
   loadCustomers: () => Promise<void>;
   loadStats: () => Promise<void>;
   loadDiscounts: () => Promise<void>;
@@ -268,6 +271,9 @@ export const useAdminStore = create<AdminState>()(
     (set, get) => ({
       orders: [],
       products: [],
+      productsTotal: 0,
+      productsPage: 1,
+      productsTotalPages: 0,
       customers: [],
       discounts: [],
       notifications: [],
@@ -291,12 +297,24 @@ export const useAdminStore = create<AdminState>()(
         }
       },
 
-      loadProducts: async () => {
+      loadProducts: async (page = 1, limit = 50, search = "", category = "", stock = "") => {
         try {
-          const res = await fetch("/api/admin/products");
+          const url = new URL("/api/admin/products", window.location.origin);
+          url.searchParams.set("page", page.toString());
+          url.searchParams.set("limit", limit.toString());
+          if (search) url.searchParams.set("search", search);
+          if (category && category !== "all") url.searchParams.set("category", category);
+          if (stock && stock !== "all") url.searchParams.set("stock", stock);
+
+          const res = await fetch(url.toString());
           if (!res.ok) return;
           const data = await res.json();
-          set({ products: data || [] });
+          set({ 
+            products: data.products || [],
+            productsTotal: data.total || 0,
+            productsPage: data.page || 1,
+            productsTotalPages: data.totalPages || 0
+          });
         } catch (err) {
           console.error("Failed to load products:", err);
         }

@@ -14,9 +14,10 @@ import { QuickViewModal } from "./quick-view-modal";
 
 interface ProductCardProps {
   product: Product;
+  priority?: boolean;
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, priority = false }: ProductCardProps) {
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
@@ -54,8 +55,9 @@ export function ProductCard({ product }: ProductCardProps) {
               src={getProductImage(product.images)}
               alt={product.name}
               fill
+              priority={priority}
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              className="object-cover transition-transform duration-700 scale-100 group-hover:scale-110"
+              className="object-cover transition-transform duration-700 scale-100 lg:group-hover:scale-110"
             />
             {product.images[1] && (
               <Image
@@ -64,7 +66,7 @@ export function ProductCard({ product }: ProductCardProps) {
                 fill
                 loading="lazy"
                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                className="object-cover absolute inset-0 transition-all duration-700 opacity-0 group-hover:opacity-100 scale-100 group-hover:scale-110"
+                className="object-cover absolute inset-0 transition-all duration-700 opacity-0 lg:group-hover:opacity-100 scale-100 lg:group-hover:scale-110"
               />
             )}
           </Link>
@@ -88,7 +90,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
           {/* Quick Actions */}
           <div
-            className="absolute bottom-0 left-0 right-0 p-4 flex gap-2 transition-all duration-300 opacity-95 translate-y-0 group-hover:opacity-100"
+            className="absolute bottom-0 left-0 right-0 p-4 flex gap-2 transition-all duration-300 opacity-95 translate-y-0 lg:group-hover:opacity-100"
           >
             <Button
               size="sm"
