@@ -1,8 +1,11 @@
 import { Suspense } from "react";
-import { getFilteredProducts, getAllCategories, getDistinctColors, getDistinctSeasons } from "@/lib/db-queries";
+import { getFilteredProducts, getAllCategories, getDistinctColors } from "@/lib/db-queries";
 import { ShopContent } from "./shop-client";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://emaanthreads.com";
+
+// Seasons are a fixed list — no DB call needed (mirrors /api/products/seasons)
+const SEASONS = ["Summer", "Winter", "Eid", "Festive", "All Season", "Casual", "Formal", "Wedding"];
 
 const breadcrumbJsonLd = {
   "@context": "https://schema.org",
@@ -36,7 +39,7 @@ export default async function ShopPage({ searchParams }: { searchParams: { [key:
   const season = typeof searchParams.season === "string" ? searchParams.season : undefined;
 
   // Fetch initial data in parallel on the server
-  const [data, categories, colors, seasons] = await Promise.all([
+  const [data, categories, colors] = await Promise.all([
     getFilteredProducts({
       category,
       minPrice,
@@ -50,7 +53,6 @@ export default async function ShopPage({ searchParams }: { searchParams: { [key:
     }),
     getAllCategories(),
     getDistinctColors(),
-    getDistinctSeasons()
   ]);
 
   return (
@@ -64,7 +66,7 @@ export default async function ShopPage({ searchParams }: { searchParams: { [key:
           initialProducts={data.products} 
           initialCategories={categories}
           initialColors={colors}
-          initialSeasons={seasons}
+          initialSeasons={SEASONS}
         />
       </Suspense>
     </>
