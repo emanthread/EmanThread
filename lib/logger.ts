@@ -59,10 +59,10 @@ function applyRateLimit(req: Request, config: RateLimitConfig): boolean {
 // ── Wrapper for admin API routes ─────────────────────────────────
 // Logs every request with user ID from session. Applies admin rate limiting.
 // Usage: export const GET = withLoggedAdminHandler(async (req) => { ... })
-export function withLoggedAdminHandler(
-  handler: (req: Request, ...args: any[]) => Promise<Response>
-): (req: Request, ...args: any[]) => Promise<Response> {
-  return async (req: Request, ...args: any[]) => {
+export function withLoggedAdminHandler<T extends Request>(
+  handler: (req: T, ...args: any[]) => Promise<Response>
+): (req: T, ...args: any[]) => Promise<Response> {
+  return async (req: T, ...args: any[]) => {
     const start = Date.now();
     const url = new URL(req.url);
     let userId: string | undefined;
@@ -107,11 +107,11 @@ export function withLoggedAdminHandler(
 // ── Wrapper for public API routes ────────────────────────────────
 // Logs + rate limits public-facing endpoints.
 // Usage: export const GET = withPublicHandler(async (req) => { ... })
-export function withPublicHandler(
-  handler: (req: Request, ...args: any[]) => Promise<Response>,
+export function withPublicHandler<T extends Request>(
+  handler: (req: T, ...args: any[]) => Promise<Response>,
   limitType: "public" | "auth" | "payment" = "public"
-): (req: Request, ...args: any[]) => Promise<Response> {
-  return async (req: Request, ...args: any[]) => {
+): (req: T, ...args: any[]) => Promise<Response> {
+  return async (req: T, ...args: any[]) => {
     const start = Date.now();
     const url = new URL(req.url);
 
