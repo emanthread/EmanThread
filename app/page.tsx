@@ -14,7 +14,7 @@ import { getHeroSlides } from "@/lib/db/store-config";
 //   all below the fold — deferring them shrinks the initial JS bundle.
 const CartDrawer = dynamic(
   () => import("@/components/cart/cart-drawer").then((m) => ({ default: m.CartDrawer })),
-  { ssr: false, loading: () => null }
+  { loading: () => null }
 );
 
 const TrendingSection = dynamic(
