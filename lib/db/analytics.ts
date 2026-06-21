@@ -387,6 +387,7 @@ export async function getAdminAnalytics() {
         items: {
           take: 3, // Dashboard shows at most 2 item thumbnails + overflow count
           select: {
+            productId: true,
             quantity: true,
             priceAtTimeOfPurchase: true,
             product: { select: { name: true, images: true, sku: true } },
