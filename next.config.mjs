@@ -65,6 +65,26 @@ let nextConfig = {
           },
         ],
       },
+      {
+        // Hero slides: public, read-only — cache 5 min, serve stale for 10 min while revalidating
+        source: '/api/hero-slides',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=300, stale-while-revalidate=600',
+          },
+        ],
+      },
+      {
+        // Public product listing API — cache 2 min, serve stale for 5 min while revalidating
+        source: '/api/products',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=120, stale-while-revalidate=300',
+          },
+        ],
+      },
     ]
   },
 

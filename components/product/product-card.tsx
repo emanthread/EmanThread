@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { Eye, Heart, ShoppingBag } from "lucide-react";
@@ -10,7 +11,13 @@ import { useCartStore } from "@/lib/cart-store";
 import { useWishlistStore } from "@/lib/wishlist-store";
 import { formatPrice, type Product } from "@/lib/data";
 import { cn, getProductImage } from "@/lib/utils";
-import { QuickViewModal } from "./quick-view-modal";
+
+// Lazy-load QuickViewModal — only needed on click, not on every card render.
+// With up to 20 cards per page this saves significant initial JS bundle size.
+const QuickViewModal = dynamic(
+  () => import("./quick-view-modal").then((m) => ({ default: m.QuickViewModal })),
+  { ssr: false, loading: () => null }
+);
 
 interface ProductCardProps {
   product: Product;

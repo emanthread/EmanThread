@@ -112,6 +112,68 @@ export const getStoreConfig = unstable_cache(
   { revalidate: 300, tags: ["store-config"] }
 );
 
+// ── Hero Slides ──────────────────────────────────────────────────────────────
+
+export interface HeroSlide {
+  image: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  cta: string;
+  link: string;
+}
+
+const DEFAULT_HERO_SLIDES: HeroSlide[] = [
+  {
+    image: "/images/fabrics/hero_fabric_summer_1780065728421.png",
+    title: "The Art of Fine Fabric",
+    subtitle: "Summer Collection 2026",
+    description:
+      "Discover our curated selection of premium unstitched fabrics, crafted for the distinguished gentleman.",
+    cta: "Shop Collection",
+    link: "/shop",
+  },
+  {
+    image: "/images/fabrics/hero_fabric_boski_1780066040016.png",
+    title: "Timeless Elegance",
+    subtitle: "Premium Boski",
+    description:
+      "Experience the luxurious silk-cotton blend that defines sophistication.",
+    cta: "Explore Boski",
+    link: "/shop?category=boski",
+  },
+  {
+    image: "/images/fabrics/hero_fabric_wash_wear_1780066058724.png",
+    title: "Comfort Meets Style",
+    subtitle: "Wash & Wear",
+    description:
+      "Effortless elegance with easy care - perfect for the modern lifestyle.",
+    cta: "Shop Now",
+    link: "/shop?category=wash-wear",
+  },
+];
+
+async function _getHeroSlides(): Promise<HeroSlide[]> {
+  try {
+    const row = await prisma.storeConfig.findUnique({
+      where: { key: "hero_slides" },
+    });
+    if (!row) return DEFAULT_HERO_SLIDES;
+    const parsed = JSON.parse(row.value);
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed as HeroSlide[];
+    return DEFAULT_HERO_SLIDES;
+  } catch {
+    return DEFAULT_HERO_SLIDES;
+  }
+}
+
+// Cached: 5-min TTL — matches the admin expectation that slides update within 5 min.
+export const getHeroSlides = unstable_cache(
+  _getHeroSlides,
+  ["hero-slides"],
+  { revalidate: 300, tags: ["hero-slides"] }
+);
+
 export async function setStoreConfig(data: StoreConfigInput) {
   const entries: [string, string][] = [];
   if (data.name !== undefined) entries.push(["name", data.name]);

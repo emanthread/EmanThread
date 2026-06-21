@@ -1,5 +1,3 @@
-"use client";
-
 import { Crown, ShieldCheck, Sparkles, Truck } from "lucide-react";
 
 const highlights = [

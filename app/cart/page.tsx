@@ -25,22 +25,15 @@ export default function CartPage() {
 
   const [mounted, setMounted] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState(5000);
 
   useEffect(() => {
     setMounted(true);
     fetch("/api/products")
       .then((res) => res.json())
-      .then((data) => setProducts(Array.isArray(data) ? data : []))
+      .then((data) => setProducts(Array.isArray(data) ? data : (data?.products || [])))
       .catch((err) => console.error(err));
   }, []);
-
-  if (!mounted) return null;
-
-  const recommendedProducts = products
-    .filter((p) => !items.some((item) => item.product.id === p.id))
-    .slice(0, 4);
-
-  const [freeShippingThreshold, setFreeShippingThreshold] = useState(5000);
 
   useEffect(() => {
     fetch("/api/store/public")
@@ -50,6 +43,12 @@ export default function CartPage() {
       })
       .catch(() => {}); // fallback to 5000 default
   }, []);
+
+  if (!mounted) return null;
+
+  const recommendedProducts = products
+    .filter((p) => !items.some((item) => item.product.id === p.id))
+    .slice(0, 4);
   const remainingForFreeShipping = Math.max(
     0,
     freeShippingThreshold - totalPrice

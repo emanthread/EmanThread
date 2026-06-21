@@ -160,12 +160,12 @@ export default async function RootLayout({
           {process.env.NODE_ENV === "production" && <Analytics />}
         </ThemeProvider>
 
-        {/* JSON-LD structured data — next/script avoids React <script> warning */}
+        {/* JSON-LD structured data — afterInteractive so crawlers get it but it never blocks hydration */}
         <Script
           id="website-jsonld"
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
-          strategy="beforeInteractive"
+          strategy="afterInteractive"
         />
 
         {/* Organization JSON-LD — tells Google which logo to show in Knowledge Graph / SERPs */}
@@ -173,7 +173,7 @@ export default async function RootLayout({
           id="organization-jsonld"
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
-          strategy="beforeInteractive"
+          strategy="afterInteractive"
         />
 
         {/* Google Analytics (gtag.js) — only loads if an ID is configured */}

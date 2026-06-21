@@ -1,98 +1,40 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { HeroSlide } from "@/lib/db/store-config";
 
-interface HeroSlide {
-  image: string;
-  title: string;
-  subtitle: string;
-  description: string;
-  cta: string;
-  link: string;
+interface HeroSectionProps {
+  initialSlides: HeroSlide[];
 }
 
-const DEFAULT_SLIDES: HeroSlide[] = [
-  {
-    image:
-      "/images/fabrics/hero_fabric_summer_1780065728421.png",
-    title: "The Art of Fine Fabric",
-    subtitle: "Summer Collection 2026",
-    description:
-      "Discover our curated selection of premium unstitched fabrics, crafted for the distinguished gentleman.",
-    cta: "Shop Collection",
-    link: "/shop",
-  },
-  {
-    image:
-      "/images/fabrics/hero_fabric_boski_1780066040016.png",
-    title: "Timeless Elegance",
-    subtitle: "Premium Boski",
-    description:
-      "Experience the luxurious silk-cotton blend that defines sophistication.",
-    cta: "Explore Boski",
-    link: "/shop?category=boski",
-  },
-  {
-    image:
-      "/images/fabrics/hero_fabric_wash_wear_1780066058724.png",
-    title: "Comfort Meets Style",
-    subtitle: "Wash & Wear",
-    description:
-      "Effortless elegance with easy care - perfect for the modern lifestyle.",
-    cta: "Shop Now",
-    link: "/shop?category=wash-wear",
-  },
-];
-
-export function HeroSection() {
-  const [heroSlides, setHeroSlides] = useState<HeroSlide[]>(DEFAULT_SLIDES);
+export function HeroSection({ initialSlides }: HeroSectionProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [loaded, setLoaded] = useState(false);
 
+  // Auto-advance slides — no client fetch needed, slides come from the server
   useEffect(() => {
-    fetch("/api/hero-slides")
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch");
-        return res.json();
-      })
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setHeroSlides(data);
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to load hero slides from API:", err);
-      })
-      .finally(() => {
-        setLoaded(true);
-      });
-  }, []);
-
-  useEffect(() => {
-    if (!loaded) return;
+    if (initialSlides.length <= 1) return;
     const interval = setInterval(() => {
       setIsTransitioning(true);
       setTimeout(() => {
-        setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
+        setCurrentSlide((prev) => (prev + 1) % initialSlides.length);
         setIsTransitioning(false);
       }, 500);
     }, 6000);
-
     return () => clearInterval(interval);
-  }, [loaded, heroSlides.length]);
+  }, [initialSlides.length]);
 
-  const slide = heroSlides[currentSlide];
+  const slide = initialSlides[currentSlide];
 
   return (
     <section className="relative h-[60vh] min-h-[450px] md:h-screen md:min-h-[700px] max-h-[900px] overflow-hidden">
       {/* Background Images */}
-      {heroSlides.map((s, index) => (
+      {initialSlides.map((s, index) => (
         <div
           key={index}
           className={cn(
@@ -157,7 +99,7 @@ export function HeroSection() {
 
       {/* Slide Indicators */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-3">
-        {heroSlides.map((_, index) => (
+        {initialSlides.map((_, index) => (
           <button
             key={index}
             onClick={() => {

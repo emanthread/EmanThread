@@ -376,7 +376,23 @@ export async function getAdminAnalytics() {
     prisma.order.findMany({
       take: 5,
       orderBy: { createdAt: "desc" },
-      include: { items: { include: { product: true } }, user: true },
+      // Strict select — only fetch fields rendered in the dashboard Recent Orders table
+      select: {
+        id: true,
+        orderNumber: true,
+        grandTotal: true,
+        status: true,
+        createdAt: true,
+        user: { select: { name: true, email: true } },
+        items: {
+          take: 3, // Dashboard shows at most 2 item thumbnails + overflow count
+          select: {
+            quantity: true,
+            priceAtTimeOfPurchase: true,
+            product: { select: { name: true, images: true, sku: true } },
+          },
+        },
+      },
     }),
     prisma.productReview.aggregate({
       _avg: { rating: true },
@@ -500,11 +516,49 @@ export async function getAdminAlertCounts() {
   };
 }
 
-export async function getAdminCustomers() {
-  const users = await prisma.user.findMany({
-    include: { addresses: true },
-    orderBy: { createdAt: "desc" },
-  });
+export async function getAdminCustomers({
+  page = 1,
+  limit = 25,
+  search = "",
+  status = "",
+}: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+} = {}) {
+  const skip = (page - 1) * limit;
+
+  // Build where clause for server-side search + status filter
+  const where: Record<string, unknown> = {};
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: "insensitive" } },
+      { email: { contains: search, mode: "insensitive" } },
+      { phone: { contains: search, mode: "insensitive" } },
+    ];
+  }
+
+  const [users, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      // Strict select on addresses — only fetch the 3 fields used in the return mapping
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        createdAt: true,
+        addresses: {
+          select: { phone: true, city: true, isDefault: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.user.count({ where }),
+  ]);
 
   // Use aggregation instead of loading all orders (M3)
   const userIds = users.map((u) => u.id);
@@ -517,7 +571,7 @@ export async function getAdminCustomers() {
   });
   const aggMap = new Map(orderAgg.map((a) => [a.userId!, a]));
 
-  return users.map((user) => {
+  const mapped = users.map((user) => {
     const agg = aggMap.get(user.id);
     const totalOrders = agg?._count.id ?? 0;
     const totalSpent = Number(agg?._sum.grandTotal ?? 0);
@@ -545,4 +599,12 @@ export async function getAdminCustomers() {
       createdAt: user.createdAt.toISOString().split("T")[0],
     };
   });
+
+  return {
+    customers: mapped,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
 }

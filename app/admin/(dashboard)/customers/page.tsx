@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -16,6 +16,8 @@ import {
   RefreshCw,
   Trash2,
   AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,60 +46,105 @@ import {
 } from "@/components/ui/dialog";
 import { formatPrice } from "@/lib/data";
 import { cn } from "@/lib/utils";
-import { useAdminStore, type Customer } from "@/lib/admin-store";
+import { useDebounce } from "@/hooks/use-debounce";
+import { type Customer } from "@/lib/admin-store";
+
+const PAGE_SIZE = 25;
+
+interface PaginatedCustomers {
+  customers: Customer[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
 
 export default function AdminCustomersPage() {
   const router = useRouter();
-  const { customers, loadCustomers, deleteCustomer } = useAdminStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("recent");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const [data, setData] = useState<PaginatedCustomers>({
+    customers: [],
+    total: 0,
+    page: 1,
+    limit: PAGE_SIZE,
+    totalPages: 0,
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const [viewProfileCustomer, setViewProfileCustomer] = useState<Customer | null>(null);
   const [deleteCustomerTarget, setDeleteCustomerTarget] = useState<Customer | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Debounce search to avoid API call on every keystroke
+  const debouncedSearch = useDebounce(searchQuery, 300);
+
+  const fetchCustomers = useCallback(async (page: number, search: string, status: string, showSpinner = true) => {
+    if (showSpinner) setIsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: PAGE_SIZE.toString(),
+      });
+      if (search) params.set("search", search);
+      if (status && status !== "all") params.set("status", status);
+
+      const res = await fetch(`/api/admin/customers?${params}`);
+      if (!res.ok) throw new Error("Failed to load customers");
+      const json = await res.json();
+      setData(json);
+    } catch (err) {
+      console.error("Load customers error:", err);
+      toast.error("Failed to load customers");
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  // Re-fetch when debounced search, status, or page changes
   useEffect(() => {
-    loadCustomers();
-  }, [loadCustomers]);
+    setCurrentPage(1); // reset to page 1 on filter change
+    fetchCustomers(1, debouncedSearch, statusFilter);
+  }, [debouncedSearch, statusFilter, fetchCustomers]);
 
-  const filteredCustomers = customers
-    .filter((customer) => {
-      const matchesSearch =
-        customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        customer.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        customer.phone.includes(searchQuery);
-      const matchesStatus =
-        statusFilter === "all" || customer.status === statusFilter;
-      return matchesSearch && matchesStatus;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case "recent":
-          return new Date(b.lastOrderDate).getTime() - new Date(a.lastOrderDate).getTime();
-        case "spent":
-          return b.totalSpent - a.totalSpent;
-        case "orders":
-          return b.totalOrders - a.totalOrders;
-        case "name":
-          return a.name.localeCompare(b.name);
-        default:
-          return 0;
-      }
-    });
+  // Re-fetch on page change (separate so page-change doesn't reset to 1)
+  useEffect(() => {
+    fetchCustomers(currentPage, debouncedSearch, statusFilter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage]);
 
-  const totalCustomers = customers.length;
-  const activeCustomers = customers.filter((c) => c.status === "active").length;
-  const totalRevenue = customers.reduce((sum, c) => sum + c.totalSpent, 0);
-  const totalOrders = customers.reduce((sum, c) => sum + c.totalOrders, 0);
-  const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+  // Client-side sort (sorting within the current page — server-side sort would need API changes)
+  const sortedCustomers = [...data.customers].sort((a, b) => {
+    switch (sortBy) {
+      case "recent":
+        return new Date(b.lastOrderDate).getTime() - new Date(a.lastOrderDate).getTime();
+      case "spent":
+        return b.totalSpent - a.totalSpent;
+      case "orders":
+        return b.totalOrders - a.totalOrders;
+      case "name":
+        return a.name.localeCompare(b.name);
+      default:
+        return 0;
+    }
+  });
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchCustomers(currentPage, debouncedSearch, statusFilter, false);
+  };
 
   const handleExportCustomers = () => {
     const csvContent =
       "data:text/csv;charset=utf-8," +
       ["ID,Name,Email,Phone,City,Total Orders,Total Spent,Join Date"]
         .concat(
-          filteredCustomers.map(
+          data.customers.map(
             (c) =>
               `${c.id},"${c.name}","${c.email}","${c.phone}","${c.city}",${c.totalOrders},${c.totalSpent},${new Date(c.createdAt).toLocaleDateString()}`
           )
@@ -110,6 +157,24 @@ export default function AdminCustomersPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleDeleteCustomer = async () => {
+    if (!deleteCustomerTarget) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/customers/${deleteCustomerTarget.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete customer");
+      toast.success("Customer deleted successfully");
+      setDeleteCustomerTarget(null);
+      await fetchCustomers(currentPage, debouncedSearch, statusFilter, false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete customer");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -125,11 +190,7 @@ export default function AdminCustomersPage() {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={async () => {
-              setIsRefreshing(true);
-              await loadCustomers();
-              setIsRefreshing(false);
-            }}
+            onClick={handleRefresh}
             disabled={isRefreshing}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
@@ -142,30 +203,24 @@ export default function AdminCustomersPage() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      {/* Stats — derived from current full count */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">{totalCustomers}</p>
+            <p className="text-2xl font-bold">{data.total}</p>
             <p className="text-sm text-muted-foreground">Total Customers</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-emerald-600">{activeCustomers}</p>
-            <p className="text-sm text-muted-foreground">Active</p>
+            <p className="text-2xl font-bold">{data.totalPages}</p>
+            <p className="text-sm text-muted-foreground">Total Pages</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">{formatPrice(totalRevenue)}</p>
-            <p className="text-sm text-muted-foreground">Total Revenue</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">{formatPrice(Math.round(avgOrderValue))}</p>
-            <p className="text-sm text-muted-foreground">Avg. Order Value</p>
+            <p className="text-2xl font-bold">{data.customers.length}</p>
+            <p className="text-sm text-muted-foreground">Showing</p>
           </CardContent>
         </Card>
       </div>
@@ -182,8 +237,13 @@ export default function AdminCustomersPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
               />
+              {searchQuery !== debouncedSearch && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                  Searching…
+                </span>
+              )}
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}>
               <SelectTrigger className="w-full sm:w-36">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
@@ -209,139 +269,175 @@ export default function AdminCustomersPage() {
       </Card>
 
       {/* Customers List */}
-      <Card>
-        <CardContent className="p-4 flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium">Quick Segments:</span>
-          <Badge variant="secondary">VIP ({customers.filter((c) => c.totalSpent > 80000).length})</Badge>
-          <Badge variant="secondary">Frequent ({customers.filter((c) => c.totalOrders >= 10).length})</Badge>
-          <Badge variant="secondary">At Risk ({customers.filter((c) => c.status === "inactive").length})</Badge>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-4">
-        {filteredCustomers.map((customer) => {
-          const initials = customer.name
-            .split(" ")
-            .map((n) => n[0])
-            .join("")
-            .toUpperCase();
-
-          return (
-            <Card key={customer.id} className="hover:shadow-md transition-shadow">
+      {isLoading ? (
+        <div className="grid gap-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Card key={i}>
               <CardContent className="p-6">
-                <div className="flex flex-col sm:flex-row gap-4">
-                  {/* Customer Info */}
-                  <div className="flex items-start gap-4 flex-1">
-                    <Avatar className="h-12 w-12">
-                      <AvatarFallback className="bg-primary text-primary-foreground">
-                        {initials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold">{customer.name}</h3>
-                        <Badge
-                          variant="secondary"
-                          className={cn(
-                            customer.status === "active"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-gray-100 text-gray-600"
-                          )}
-                        >
-                          {customer.status}
-                        </Badge>
-                      </div>
-                      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1 truncate max-w-[200px] sm:max-w-none" title={customer.email}>
-                          <Mail className="h-4 w-4 shrink-0" />
-                          <span className="truncate">{customer.email}</span>
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Phone className="h-4 w-4" />
-                          {customer.phone}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-4 w-4" />
-                          {customer.city}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Stats */}
-                  <div className="grid grid-cols-3 gap-2 sm:gap-8 w-full sm:w-auto mt-2 sm:mt-0">
-                    <div className="text-center">
-                      <div className="flex items-center gap-1 text-muted-foreground mb-1">
-                        <ShoppingBag className="h-4 w-4" />
-                        <span className="text-xs">Orders</span>
-                      </div>
-                      <p className="text-xl font-bold">{customer.totalOrders}</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-xs text-muted-foreground mb-1">Total Spent</div>
-                      <p className="text-xl font-bold">{formatPrice(customer.totalSpent)}</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="flex items-center gap-1 text-muted-foreground mb-1">
-                        <Calendar className="h-4 w-4" />
-                        <span className="text-xs">Last Order</span>
-                      </div>
-                      <p className="text-sm font-medium">
-                        {new Date(customer.lastOrderDate).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setViewProfileCustomer(customer)}>
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Profile
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => router.push("/admin/orders")}>
-                        <ShoppingBag className="h-4 w-4 mr-2" />
-                        View Orders
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => {
-                        if (!customer.email || customer.email.trim() === "") {
-                          toast.error("No email address found for this customer.");
-                        } else {
-                          window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(customer.email)}`, '_blank');
-                        }
-                      }}>
-                        <Mail className="h-4 w-4 mr-2" />
-                        Send Email
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => setDeleteCustomerTarget(customer)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete Customer
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+                <div className="h-16 bg-muted/40 animate-pulse rounded" />
               </CardContent>
             </Card>
-          );
-        })}
+          ))}
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-4">
+            {sortedCustomers.map((customer) => {
+              const initials = customer.name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .toUpperCase();
 
-        {filteredCustomers.length === 0 && (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">No customers found</p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+              return (
+                <Card key={customer.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-6">
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      {/* Customer Info */}
+                      <div className="flex items-start gap-4 flex-1">
+                        <Avatar className="h-12 w-12">
+                          <AvatarFallback className="bg-primary text-primary-foreground">
+                            {initials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-semibold">{customer.name}</h3>
+                            <Badge
+                              variant="secondary"
+                              className={cn(
+                                customer.status === "active"
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : "bg-gray-100 text-gray-600"
+                              )}
+                            >
+                              {customer.status}
+                            </Badge>
+                          </div>
+                          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1 truncate max-w-[200px] sm:max-w-none" title={customer.email}>
+                              <Mail className="h-4 w-4 shrink-0" />
+                              <span className="truncate">{customer.email}</span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Phone className="h-4 w-4" />
+                              {customer.phone}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-4 w-4" />
+                              {customer.city}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
 
+                      {/* Stats */}
+                      <div className="grid grid-cols-3 gap-2 sm:gap-8 w-full sm:w-auto mt-2 sm:mt-0">
+                        <div className="text-center">
+                          <div className="flex items-center gap-1 text-muted-foreground mb-1">
+                            <ShoppingBag className="h-4 w-4" />
+                            <span className="text-xs">Orders</span>
+                          </div>
+                          <p className="text-xl font-bold">{customer.totalOrders}</p>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xs text-muted-foreground mb-1">Total Spent</div>
+                          <p className="text-xl font-bold">{formatPrice(customer.totalSpent)}</p>
+                        </div>
+                        <div className="text-center">
+                          <div className="flex items-center gap-1 text-muted-foreground mb-1">
+                            <Calendar className="h-4 w-4" />
+                            <span className="text-xs">Last Order</span>
+                          </div>
+                          <p className="text-sm font-medium">
+                            {new Date(customer.lastOrderDate).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setViewProfileCustomer(customer)}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Profile
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => router.push("/admin/orders")}>
+                            <ShoppingBag className="h-4 w-4 mr-2" />
+                            View Orders
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {
+                            if (!customer.email || customer.email.trim() === "") {
+                              toast.error("No email address found for this customer.");
+                            } else {
+                              window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(customer.email)}`, '_blank');
+                            }
+                          }}>
+                            <Mail className="h-4 w-4 mr-2" />
+                            Send Email
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setDeleteCustomerTarget(customer)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete Customer
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+
+            {sortedCustomers.length === 0 && (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <p className="text-muted-foreground">No customers found</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Pagination */}
+          {data.totalPages > 1 && (
+            <div className="flex items-center justify-between pt-2">
+              <p className="text-sm text-muted-foreground">
+                Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, data.total)} of {data.total} customers
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage <= 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm font-medium px-2">
+                  Page {currentPage} of {data.totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentPage((p) => Math.min(data.totalPages, p + 1))}
+                  disabled={currentPage >= data.totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* View Profile Dialog */}
       <Dialog open={!!viewProfileCustomer} onOpenChange={() => setViewProfileCustomer(null)}>
         <DialogContent>
           <DialogHeader>
@@ -406,7 +502,7 @@ export default function AdminCustomersPage() {
             </DialogTitle>
             <DialogDescription>
               Are you sure you want to delete <strong>{deleteCustomerTarget?.name}</strong>?
-              This action cannot be undone. The customer's account and all associated data
+              This action cannot be undone. The customer&apos;s account and all associated data
               (addresses, reviews, measurements) will be permanently removed. Order history
               will be preserved but disassociated from this customer.
             </DialogDescription>
@@ -422,13 +518,7 @@ export default function AdminCustomersPage() {
             <Button
               variant="destructive"
               disabled={isDeleting}
-              onClick={async () => {
-                if (!deleteCustomerTarget) return;
-                setIsDeleting(true);
-                await deleteCustomer(deleteCustomerTarget.id);
-                setIsDeleting(false);
-                setDeleteCustomerTarget(null);
-              }}
+              onClick={handleDeleteCustomer}
             >
               {isDeleting ? "Deleting..." : "Delete Customer"}
             </Button>

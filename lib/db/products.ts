@@ -76,7 +76,7 @@ export interface RecommendationResult {
   youMayAlsoLike: Product[];
 }
 
-export async function getAllProducts(limit?: number): Promise<Product[]> {
+async function _getAllProducts(limit?: number): Promise<Product[]> {
   const products = await prisma.product.findMany({
     include: {
       category: true,
@@ -89,6 +89,13 @@ export async function getAllProducts(limit?: number): Promise<Product[]> {
   });
   return products.map(transformProduct);
 }
+
+// Cached: 2-min TTL, tag "products" for admin-triggered revalidation
+export const getAllProducts = unstable_cache(
+  _getAllProducts,
+  ["all-products"],
+  { revalidate: 120, tags: ["products"] }
+);
 
 export async function getProductById(id: string): Promise<Product | null> {
   const product = await prisma.product.findUnique({
@@ -129,9 +136,7 @@ export async function getProductVariations(name: string): Promise<Product[]> {
   return products.map(transformProduct);
 }
 
-export async function getFilteredProducts(
-  filter: ProductFilterInput
-) {
+async function _getFilteredProducts(filter: ProductFilterInput) {
   const where: any = {};
   if (filter.category) {
     const cats = filter.category.split(",");
@@ -203,13 +208,27 @@ export async function getFilteredProducts(
   };
 }
 
-export async function getDistinctColors(): Promise<string[]> {
+// Cached: 2-min TTL. Cache key includes all filter args for unique entries per filter combo.
+export const getFilteredProducts = unstable_cache(
+  _getFilteredProducts,
+  ["filtered-products"],
+  { revalidate: 120, tags: ["products"] }
+);
+
+async function _getDistinctColors(): Promise<string[]> {
   const products = await prisma.product.findMany({
     distinct: ["color"],
     select: { color: true },
   });
   return products.map((p) => p.color).sort();
 }
+
+// Cached: 10-min TTL. Colors change rarely and this query runs on every shop page load.
+export const getDistinctColors = unstable_cache(
+  _getDistinctColors,
+  ["distinct-colors"],
+  { revalidate: 600, tags: ["products"] }
+);
 
 export async function getFrequentlyBoughtTogether(
   productId: string,
@@ -338,7 +357,7 @@ export async function getRelatedProducts(
   return related.map(transformProduct);
 }
 
-export async function getAllCategories(): Promise<Category[]> {
+async function _getAllCategories(): Promise<Category[]> {
   // Fetch ALL categories from the Category table so every category always
   // appears in the sidebar -- even those with 0 products currently.
   const allCategories = await prisma.category.findMany({
@@ -379,8 +398,16 @@ export async function getAllCategories(): Promise<Category[]> {
   }));
 }
 
-export async function getFeaturedCategories(): Promise<Category[]> {
-  const allCategories = await getAllCategories();
+// Cached: 10-min TTL. Categories change rarely and this query runs on every shop page load.
+export const getAllCategories = unstable_cache(
+  _getAllCategories,
+  ["all-categories"],
+  { revalidate: 600, tags: ["categories"] }
+);
+
+async function _getFeaturedCategories(): Promise<Category[]> {
+  // Call the raw function directly (not the cached wrapper) to avoid double-caching
+  const allCategories = await _getAllCategories();
 
   // Normalize: strip all non-alphanumeric chars and lowercase.
   // e.g. "Wash And Wear " -> "washandwear", "Wash & Wear" -> "washandwear"
@@ -419,6 +446,13 @@ export async function getFeaturedCategories(): Promise<Category[]> {
   // Fallback to the regular categories if no StoreConfig is set
   return allCategories;
 }
+
+// Cached: 10-min TTL. Featured categories are admin-configured and rarely change.
+export const getFeaturedCategories = unstable_cache(
+  _getFeaturedCategories,
+  ["featured-categories"],
+  { revalidate: 600, tags: ["categories"] }
+);
 
 // ── Admin helpers ────────────────────────────────────────────────
 
@@ -673,7 +707,31 @@ export async function getAdminProductsWithStock(
 
   const [products, total] = await prisma.$transaction([
     prisma.product.findMany({
-      include: { category: true },
+      // Strict select — category is not used in the return shape; removed the join
+      select: {
+        id: true,
+        name: true,
+        sku: true,
+        price: true,
+        originalPrice: true,
+        fabricType: true,
+        color: true,
+        colorHex: true,
+        images: true,
+        videoUrl: true,
+        badge: true,
+        inStock: true,
+        stockQuantity: true,
+        lowStockThreshold: true,
+        description: true,
+        longDescription: true,
+        slug: true,
+        tags: true,
+        metaTitle: true,
+        metaDescription: true,
+        createdAt: true,
+        updatedAt: true,
+      },
       orderBy: { stockQuantity: "asc" },
       skip,
       take: limit,

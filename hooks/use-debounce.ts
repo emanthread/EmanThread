@@ -1,0 +1,23 @@
+import { useState, useEffect } from "react";
+
+/**
+ * Debounces a value by the given delay (ms).
+ * Use this on search inputs to prevent firing API calls / re-renders on every keystroke.
+ *
+ * @example
+ * const debouncedSearch = useDebounce(searchQuery, 300);
+ * useEffect(() => { fetchResults(debouncedSearch); }, [debouncedSearch]);
+ */
+export function useDebounce<T>(value: T, delay: number = 300): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debouncedValue;
+}
