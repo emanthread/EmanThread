@@ -95,7 +95,7 @@ export default function ProductPageClient({
               <h2 className="text-2xl font-semibold mb-8">
                 Frequently Bought Together
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
                 {frequentlyBought.map((p) => (
                   <ProductCard key={p.id} product={p} />
                 ))}
@@ -109,7 +109,7 @@ export default function ProductPageClient({
           <section className="py-16">
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
               <h2 className="text-2xl font-semibold mb-8">You May Also Like</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
                 {youMayAlsoLike.map((p) => (
                   <ProductCard key={`related-${p.id}`} product={p} />
                 ))}

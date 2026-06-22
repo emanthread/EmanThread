@@ -27,7 +27,7 @@ export function LuxuryHighlightsSection() {
   return (
     <section className="py-10 border-y border-border/70 bg-gradient-to-b from-background to-secondary/30">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {highlights.map((item) => (
             <div
               key={item.title}

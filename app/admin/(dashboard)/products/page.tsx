@@ -154,6 +154,7 @@ export default function AdminProductsPage() {
   const [productForm, setProductForm] = useState<AdminProduct>(emptyProduct());
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [productToDelete, setProductToDelete] = useState<AdminProduct | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [tagInput, setTagInput] = useState("");
@@ -359,6 +360,7 @@ export default function AdminProductsPage() {
   };
 
   const handleSaveProduct = async () => {
+    setIsSaving(true);
     const payload = {
       ...productForm,
       badge: productForm.badge?.toUpperCase(),
@@ -379,6 +381,8 @@ export default function AdminProductsPage() {
       setProductForm(emptyProduct());
     } catch (err: any) {
       toast.error(err.message || "Failed to save product");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -807,6 +811,7 @@ export default function AdminProductsPage() {
         onAddTag={handleAddTag}
         onRemoveTag={handleRemoveTag}
         onSave={handleSaveProduct}
+        isSaving={isSaving}
       />
     </div>
   );
@@ -832,6 +837,7 @@ interface ProductDialogProps {
   onAddTag: (tag: string) => void;
   onRemoveTag: (tag: string) => void;
   onSave: () => void;
+  isSaving: boolean;
 }
 
 function ProductDialog({
@@ -852,6 +858,7 @@ function ProductDialog({
   onAddTag,
   onRemoveTag,
   onSave,
+  isSaving,
 }: ProductDialogProps) {
   const update = (field: keyof AdminProduct, value: any) => {
     setProduct((prev) => ({ ...prev, [field]: value }));
@@ -1214,8 +1221,9 @@ function ProductDialog({
           </Button>
           <Button
             onClick={onSave}
-            disabled={!product.name || !product.sku || product.images.length === 0}
+            disabled={isSaving || !product.name || !product.sku || product.images.length === 0}
           >
+            {isSaving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             {isEdit ? "Save Changes" : "Add Product"}
           </Button>
         </DialogFooter>

@@ -23,7 +23,7 @@ export function CategoriesSection({ categories }: { categories: Category[] }) {
         </div>
 
         {/* Categories Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
           {categories.slice(0, 3).map((category, index) => (
             <Link
               key={category.id}
@@ -56,10 +56,10 @@ export function CategoriesSection({ categories }: { categories: Category[] }) {
                 {/* Content */}
                 <div className="absolute inset-0 p-6 flex flex-col justify-end">
 
-                  <h3 className="text-2xl font-semibold text-primary-foreground">
+                  <h3 className="text-lg sm:text-2xl font-semibold text-primary-foreground">
                     {category.name}
                   </h3>
-                  <p className="text-sm text-primary-foreground/80 mt-1 max-w-xs">
+                  <p className="text-xs sm:text-sm text-primary-foreground/80 mt-1 max-w-xs">
                     {category.description}
                   </p>
                   <div className="mt-4 flex items-center gap-2 text-primary-foreground group-hover:text-accent transition-colors">
@@ -91,10 +91,10 @@ export function CategoriesSection({ categories }: { categories: Category[] }) {
                 {/* Content */}
                 <div className="absolute inset-0 p-6 flex flex-col justify-end">
 
-                  <h3 className="text-2xl font-semibold text-primary-foreground">
+                  <h3 className="text-lg sm:text-2xl font-semibold text-primary-foreground">
                     {category.name}
                   </h3>
-                  <p className="text-sm text-primary-foreground/80 mt-1 max-w-xs">
+                  <p className="text-xs sm:text-sm text-primary-foreground/80 mt-1 max-w-xs">
                     {category.description}
                   </p>
                   <div className="mt-4 flex items-center gap-2 text-primary-foreground group-hover:text-accent transition-colors">
