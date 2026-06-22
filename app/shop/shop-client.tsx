@@ -55,7 +55,7 @@ export function ShopContent({
   );
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000]);
   const [sortBy, setSortBy] = useState("featured");
-  const [gridSize, setGridSize] = useState<"small" | "large">("large");
+  const [gridSize, setGridSize] = useState<"small" | "large">("small");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [selectedColor, setSelectedColor] = useState<string>("");
@@ -263,7 +263,7 @@ export function ShopContent({
                 />
               </div>
 
-              <div className="hidden sm:flex border border-border rounded-lg overflow-hidden">
+              <div className="flex border border-border rounded-lg overflow-hidden">
                 <button
                   onClick={() => setGridSize("large")}
                   className={cn(
@@ -607,7 +607,7 @@ export function ShopContent({
                     className={cn(
                       "grid gap-3 sm:gap-6",
                       gridSize === "large"
-                        ? "grid-cols-2 sm:grid-cols-2 lg:grid-cols-3"
+                        ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
                         : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
                     )}
                   >
