@@ -549,6 +549,7 @@ export async function getAdminCustomers({
         name: true,
         email: true,
         phone: true,
+        isAdminCreated: true,
         createdAt: true,
         addresses: {
           select: { phone: true, city: true, isDefault: true },
@@ -597,6 +598,7 @@ export async function getAdminCustomers({
       totalSpent,
       lastOrderDate,
       status: "active" as const,
+      isAdminCreated: user.isAdminCreated,
       createdAt: user.createdAt.toISOString().split("T")[0],
     };
   });

@@ -186,6 +186,7 @@ export interface Customer {
   totalSpent: number;
   lastOrderDate: string;
   status: "active" | "inactive";
+  isAdminCreated?: boolean;
   createdAt: string;
 }
 

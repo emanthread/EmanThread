@@ -64,8 +64,16 @@ export async function PUT(
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
+    if (profile.isDefault && profile.status === "approved" && profile.profileName === "Admin Default") {
+      return NextResponse.json({ error: "This profile is read-only and cannot be modified." }, { status: 403 });
+    }
+
     const body = await request.json();
     const parsed = unifiedMeasurementSchema.partial().parse(body);
+
+    if (parsed.profileName === "Admin Default") {
+      return NextResponse.json({ error: "The name 'Admin Default' is reserved for admin use." }, { status: 400 });
+    }
 
     // If changing profileName, check for duplicates
     if (parsed.profileName && parsed.profileName !== profile.profileName) {
@@ -153,6 +161,10 @@ export async function DELETE(
     const profile = await getOwnedProfile(id, session.user.id);
     if (!profile) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    }
+
+    if (profile.isDefault && profile.status === "approved" && profile.profileName === "Admin Default") {
+      return NextResponse.json({ error: "This profile is read-only and cannot be deleted." }, { status: 403 });
     }
 
     // Soft delete

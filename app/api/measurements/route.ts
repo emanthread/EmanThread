@@ -67,6 +67,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const parsed = unifiedMeasurementSchema.parse(body);
 
+    if (parsed.profileName === "Admin Default") {
+      return NextResponse.json({ error: "The name 'Admin Default' is reserved for admin use." }, { status: 400 });
+    }
+
     console.log("[measurements] Creating profile:", { userId: session.user.id, profileName: parsed.profileName, garmentType: parsed.garmentType });
 
     const profile = await prisma.$transaction(async (tx) => {

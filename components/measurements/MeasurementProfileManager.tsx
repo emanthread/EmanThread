@@ -197,7 +197,9 @@ export function MeasurementProfileManager({
       {/* Profile list */}
       {!loading && profiles.length > 0 && (
         <div className="space-y-2">
-          {profiles.map((profile) => (
+          {profiles.map((profile) => {
+            const isAdminDefault = profile.isDefault && profile.status === "approved" && profile.profileName === "Admin Default";
+            return (
             <div
               key={profile.id}
               className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30 transition-colors"
@@ -207,12 +209,20 @@ export function MeasurementProfileManager({
                   <span className="text-sm font-medium truncate">
                     {profile.profileName}
                   </span>
-                  {profile.isDefault && (
+                  {profile.isDefault && !isAdminDefault && (
                     <Badge
                       variant="outline"
                       className="text-[10px] px-1.5 py-0 h-4 bg-amber-50 text-amber-600 border-amber-200"
                     >
                       Default
+                    </Badge>
+                  )}
+                  {isAdminDefault && (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] px-1.5 py-0 h-4 bg-blue-50 text-blue-700 border-blue-200"
+                    >
+                      Admin Default · Read Only
                     </Badge>
                   )}
                   {profile.source === "tailor_request" && (
@@ -250,7 +260,7 @@ export function MeasurementProfileManager({
                     Select
                   </Button>
                 )}
-                {!profile.isDefault && (
+                {!profile.isDefault && !isAdminDefault && (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -261,44 +271,46 @@ export function MeasurementProfileManager({
                     <Star className="h-3.5 w-3.5 text-muted-foreground hover:text-amber-500" />
                   </Button>
                 )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  disabled={editLoading}
-                  onClick={async () => {
-                    setEditLoading(true);
-                    try {
-                      const res = await fetch(`/api/measurements/${profile.id}`);
-                      if (!res.ok) throw new Error("Failed to load profile");
-                      const json = await res.json();
-                      // mapFromPrismaFields translates Prisma column names
-                      // (e.g. shalwar1→shalwarLength1) into form field keys
-                      setFullEditData(mapFromPrismaFields(json.profile));
-                      setEditProfile(profile);
-                    } catch (err) {
-                      console.error("[EditProfile] fetch error:", err);
-                      toast({ title: "Could not load profile. Please try again.", variant: "destructive" });
-                    } finally {
-                      setEditLoading(false);
-                    }
-                  }}
-                  title="Edit profile"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-red-500 hover:text-red-600"
-                  onClick={() => setDeleteTarget(profile)}
-                  title="Delete profile"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                {!isAdminDefault && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      disabled={editLoading}
+                      onClick={async () => {
+                        setEditLoading(true);
+                        try {
+                          const res = await fetch(`/api/measurements/${profile.id}`);
+                          if (!res.ok) throw new Error("Failed to load profile");
+                          const json = await res.json();
+                          setFullEditData(mapFromPrismaFields(json.profile));
+                          setEditProfile(profile);
+                        } catch (err) {
+                          console.error("[EditProfile] fetch error:", err);
+                          toast({ title: "Could not load profile. Please try again.", variant: "destructive" });
+                        } finally {
+                          setEditLoading(false);
+                        }
+                      }}
+                      title="Edit profile"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-red-500 hover:text-red-600"
+                      onClick={() => setDeleteTarget(profile)}
+                      title="Delete profile"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
-          ))}
+          )})}
         </div>
       )}
 

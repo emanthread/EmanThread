@@ -20,6 +20,7 @@ model User {
   permissions         Json                 @default("[]")
   isVerified          Boolean              @default(false)
   tokenVersion        Int                  @default(0)
+  isAdminCreated      Boolean              @default(false)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   addresses           Address[]

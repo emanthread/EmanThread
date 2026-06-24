@@ -18,12 +18,15 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  UserPlus,
+  Ruler,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -80,7 +83,16 @@ export default function AdminCustomersPage() {
   const [deleteCustomerTarget, setDeleteCustomerTarget] = useState<Customer | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Debounce search to avoid API call on every keystroke
+  // Add Customer State
+  const [addCustomerOpen, setAddCustomerOpen] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [addForm, setAddForm] = useState({ name: "", email: "", phone: "", city: "" });
+
+  // View Measurements State
+  const [viewMeasurementsCustomer, setViewMeasurementsCustomer] = useState<Customer | null>(null);
+  const [measurements, setMeasurements] = useState<any[]>([]);
+  const [isLoadingMeasurements, setIsLoadingMeasurements] = useState(false);
+
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   const fetchCustomers = useCallback(async (page: number, search: string, status: string, showSpinner = true) => {
@@ -106,19 +118,15 @@ export default function AdminCustomersPage() {
     }
   }, []);
 
-  // Re-fetch when debounced search, status, or page changes
   useEffect(() => {
-    setCurrentPage(1); // reset to page 1 on filter change
+    setCurrentPage(1);
     fetchCustomers(1, debouncedSearch, statusFilter);
   }, [debouncedSearch, statusFilter, fetchCustomers]);
 
-  // Re-fetch on page change (separate so page-change doesn't reset to 1)
   useEffect(() => {
     fetchCustomers(currentPage, debouncedSearch, statusFilter);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage]);
+  }, [currentPage, fetchCustomers, debouncedSearch, statusFilter]);
 
-  // Client-side sort (sorting within the current page — server-side sort would need API changes)
   const sortedCustomers = [...data.customers].sort((a, b) => {
     switch (sortBy) {
       case "recent":
@@ -142,11 +150,11 @@ export default function AdminCustomersPage() {
   const handleExportCustomers = () => {
     const csvContent =
       "data:text/csv;charset=utf-8," +
-      ["ID,Name,Email,Phone,City,Total Orders,Total Spent,Join Date"]
+      ["ID,Name,Email,Phone,City,Local Customer,Total Orders,Total Spent,Join Date"]
         .concat(
           data.customers.map(
             (c) =>
-              `${c.id},"${c.name}","${c.email}","${c.phone}","${c.city}",${c.totalOrders},${c.totalSpent},${new Date(c.createdAt).toLocaleDateString()}`
+              `${c.id},"${c.name}","${c.email}","${c.phone}","${c.city}",${c.isAdminCreated ? "Yes" : "No"},${c.totalOrders},${c.totalSpent},${new Date(c.createdAt).toLocaleDateString()}`
           )
         )
         .join("\n");
@@ -177,9 +185,64 @@ export default function AdminCustomersPage() {
     }
   };
 
+  const handleAddCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsAdding(true);
+    try {
+      const res = await fetch("/api/admin/customers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(addForm),
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create customer");
+      
+      toast.success("Customer created successfully. A password setup email has been sent.");
+      setAddCustomerOpen(false);
+      setAddForm({ name: "", email: "", phone: "", city: "" });
+      fetchCustomers(1, debouncedSearch, statusFilter);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create customer");
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  const handleViewMeasurements = async (customer: Customer) => {
+    setViewMeasurementsCustomer(customer);
+    setIsLoadingMeasurements(true);
+    try {
+      const res = await fetch(`/api/admin/customers/${customer.id}/measurements`);
+      if (!res.ok) throw new Error("Failed to load measurements");
+      const data = await res.json();
+      setMeasurements(data.profiles || []);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load measurements");
+    } finally {
+      setIsLoadingMeasurements(false);
+    }
+  };
+
+  const handleCreateMeasurement = async () => {
+    if (!viewMeasurementsCustomer) return;
+    try {
+      const res = await fetch(`/api/admin/customers/${viewMeasurementsCustomer.id}/measurements`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}), // Sending empty to create default profile with defaults
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create measurement profile");
+      
+      router.push(`/admin/measurements/profile/${data.profile.id}`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create measurement profile");
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Customers</h1>
@@ -198,12 +261,15 @@ export default function AdminCustomersPage() {
           </Button>
           <Button variant="outline" onClick={handleExportCustomers}>
             <Download className="h-4 w-4 mr-2" />
-            Export Customers
+            Export
+          </Button>
+          <Button onClick={() => setAddCustomerOpen(true)}>
+            <UserPlus className="h-4 w-4 mr-2" />
+            Add Customer
           </Button>
         </div>
       </div>
 
-      {/* Stats — derived from current full count */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-4 text-center">
@@ -225,7 +291,6 @@ export default function AdminCustomersPage() {
         </Card>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-4">
@@ -268,7 +333,6 @@ export default function AdminCustomersPage() {
         </CardContent>
       </Card>
 
-      {/* Customers List */}
       {isLoading ? (
         <div className="grid gap-4">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -293,7 +357,6 @@ export default function AdminCustomersPage() {
                 <Card key={customer.id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-6">
                     <div className="flex flex-col sm:flex-row gap-4">
-                      {/* Customer Info */}
                       <div className="flex items-start gap-4 flex-1">
                         <Avatar className="h-12 w-12">
                           <AvatarFallback className="bg-primary text-primary-foreground">
@@ -313,6 +376,11 @@ export default function AdminCustomersPage() {
                             >
                               {customer.status}
                             </Badge>
+                            {customer.isAdminCreated && (
+                              <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50">
+                                Local Customer
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1 truncate max-w-[200px] sm:max-w-none" title={customer.email}>
@@ -331,7 +399,6 @@ export default function AdminCustomersPage() {
                         </div>
                       </div>
 
-                      {/* Stats */}
                       <div className="grid grid-cols-3 gap-2 sm:gap-8 w-full sm:w-auto mt-2 sm:mt-0">
                         <div className="text-center">
                           <div className="flex items-center gap-1 text-muted-foreground mb-1">
@@ -355,7 +422,6 @@ export default function AdminCustomersPage() {
                         </div>
                       </div>
 
-                      {/* Actions */}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">
@@ -367,6 +433,12 @@ export default function AdminCustomersPage() {
                             <Eye className="h-4 w-4 mr-2" />
                             View Profile
                           </DropdownMenuItem>
+                          {customer.isAdminCreated && (
+                            <DropdownMenuItem onClick={() => handleViewMeasurements(customer)}>
+                              <Ruler className="h-4 w-4 mr-2" />
+                              View Measurements
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => router.push("/admin/orders")}>
                             <ShoppingBag className="h-4 w-4 mr-2" />
                             View Orders
@@ -405,7 +477,6 @@ export default function AdminCustomersPage() {
             )}
           </div>
 
-          {/* Pagination */}
           {data.totalPages > 1 && (
             <div className="flex items-center justify-between pt-2">
               <p className="text-sm text-muted-foreground">
@@ -459,6 +530,11 @@ export default function AdminCustomersPage() {
                   <Badge variant={viewProfileCustomer.status === "active" ? "default" : "secondary"}>
                     {viewProfileCustomer.status}
                   </Badge>
+                  {viewProfileCustomer.isAdminCreated && (
+                    <Badge variant="outline" className="ml-2 border-blue-200 text-blue-700 bg-blue-50">
+                      Local Customer
+                    </Badge>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm mt-4">
@@ -523,6 +599,94 @@ export default function AdminCustomersPage() {
               {isDeleting ? "Deleting..." : "Delete Customer"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Customer Dialog */}
+      <Dialog open={addCustomerOpen} onOpenChange={setAddCustomerOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Local Customer</DialogTitle>
+            <DialogDescription>
+              Create an account for an in-store customer. A password setup link will be emailed to them.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddCustomer} className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name <span className="text-red-500">*</span></Label>
+              <Input id="name" required value={addForm.name} onChange={e => setAddForm({...addForm, name: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email <span className="text-red-500">*</span></Label>
+              <Input id="email" type="email" required value={addForm.email} onChange={e => setAddForm({...addForm, email: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone</Label>
+              <Input id="phone" value={addForm.phone} onChange={e => setAddForm({...addForm, phone: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="city">City</Label>
+              <Input id="city" value={addForm.city} onChange={e => setAddForm({...addForm, city: e.target.value})} />
+            </div>
+            <div className="flex justify-end gap-3 pt-4">
+              <Button type="button" variant="outline" onClick={() => setAddCustomerOpen(false)} disabled={isAdding}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isAdding}>
+                {isAdding ? "Adding..." : "Add Customer"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Measurements Dialog */}
+      <Dialog open={!!viewMeasurementsCustomer} onOpenChange={() => setViewMeasurementsCustomer(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Measurement Profiles for {viewMeasurementsCustomer?.name}</DialogTitle>
+            <DialogDescription>
+              View and manage measurement profiles created by admin for this local customer.
+            </DialogDescription>
+          </DialogHeader>
+          {isLoadingMeasurements ? (
+            <div className="py-8 flex justify-center">
+              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="space-y-4 pt-4">
+              {measurements.length === 0 ? (
+                <div className="text-center py-8 bg-muted/20 rounded-lg">
+                  <Ruler className="h-8 w-8 mx-auto text-muted-foreground mb-3 opacity-50" />
+                  <p className="text-muted-foreground">No admin-created measurements found for this customer.</p>
+                  <Button className="mt-4" onClick={handleCreateMeasurement}>
+                    Create Measurement Profile
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    This customer has an admin-created default profile.
+                  </p>
+                  {measurements.map(profile => (
+                    <Card key={profile.id}>
+                      <CardContent className="p-4 flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{profile.profileName}</p>
+                          <p className="text-sm text-muted-foreground mt-1 capitalize">
+                            {profile.gender} • {profile.garmentType.replace(/_/g, " ")}
+                          </p>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => router.push(`/admin/measurements/profile/${profile.id}`)}>
+                          Edit / Print
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
