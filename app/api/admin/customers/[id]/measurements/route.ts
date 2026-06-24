@@ -31,7 +31,7 @@ export const GET = withLoggedAdminHandler(async (
         profileName: "Admin Default",
         deletedAt: null,
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { updatedAt: "desc" },
       include: {
         user: { select: { name: true, email: true } },
       },
@@ -81,8 +81,8 @@ export const POST = withLoggedAdminHandler(async (
         isDefault: true,
         status: "approved",
         source: "profile",
-        profileName: "Admin Default",
         ...mapToPrismaFields(parsed as any),
+        profileName: "Admin Default",
       },
     });
 
@@ -91,7 +91,8 @@ export const POST = withLoggedAdminHandler(async (
         userId: session.user.id,
         action: "MEASUREMENT_CREATED",
         entity: "MeasurementProfile",
-        details: { profileId: newProfile.id, targetUserId: id, adminCreated: true },
+        entityId: newProfile.id,
+        newValue: { targetUserId: id, adminCreated: true },
         ipAddress: req.headers.get("x-forwarded-for") || "unknown",
         userAgent: req.headers.get("user-agent") || "unknown",
       },

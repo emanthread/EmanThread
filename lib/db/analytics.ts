@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { parseProductImages } from "@/lib/utils/parse-images";
 
 // ── Period helpers ──────────────────────────────────────────────
@@ -531,7 +532,7 @@ export async function getAdminCustomers({
   const skip = (page - 1) * limit;
 
   // Build where clause for server-side search + status filter
-  const where: Record<string, unknown> = {};
+  const where: Prisma.UserWhereInput = {};
   if (search) {
     where.OR = [
       { name: { contains: search, mode: "insensitive" } },
