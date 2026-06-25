@@ -282,9 +282,9 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
           {viewProfile && (
             <TailorPrintCard
               data={{
-                serialNo: `MP-${viewProfile.id.slice(0, 6).toUpperCase()}`,
-                customerName: viewProfile.user.name,
-                deliveryDate: new Date(viewProfile.createdAt).toLocaleDateString(),
+                serialNo: (viewProfile as any).serialNumber || `MP-${viewProfile.id.slice(0, 6).toUpperCase()}`,
+                customerName: (viewProfile as any).customerName || viewProfile.user.name,
+                deliveryDate: (viewProfile as any).deliveryDate ? new Date((viewProfile as any).deliveryDate).toLocaleDateString() : new Date(viewProfile.createdAt).toLocaleDateString(),
                 productName: viewProfile.profileName,
                 garmentType: viewProfile.garmentType,
                 gender: viewProfile.gender,
@@ -325,9 +325,9 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
             </div>
             <TailorPrintCard
               data={{
-                serialNo: `MP-${printProfile.id.slice(0, 6).toUpperCase()}`,
-                customerName: printProfile.user.name,
-                deliveryDate: new Date(printProfile.createdAt).toLocaleDateString(),
+                serialNo: (printProfile as any).serialNumber || `MP-${printProfile.id.slice(0, 6).toUpperCase()}`,
+                customerName: (printProfile as any).customerName || printProfile.user.name,
+                deliveryDate: (printProfile as any).deliveryDate ? new Date((printProfile as any).deliveryDate).toLocaleDateString() : new Date(printProfile.createdAt).toLocaleDateString(),
                 productName: printProfile.profileName,
                 garmentType: printProfile.garmentType,
                 gender: printProfile.gender,
@@ -565,9 +565,9 @@ function CompletedTab() {
           {viewRecord && (
             <TailorPrintCard
               data={{
-                serialNo: `MP-${viewRecord.id.slice(0, 6).toUpperCase()}`,
-                customerName: viewRecord.user.name,
-                deliveryDate: new Date(viewRecord.updatedAt).toLocaleDateString(),
+                serialNo: (viewRecord as any).serialNumber || `MP-${viewRecord.id.slice(0, 6).toUpperCase()}`,
+                customerName: (viewRecord as any).customerName || viewRecord.user.name,
+                deliveryDate: (viewRecord as any).deliveryDate ? new Date((viewRecord as any).deliveryDate).toLocaleDateString() : new Date(viewRecord.updatedAt).toLocaleDateString(),
                 productName: "Completed Profile",
                 garmentType: viewRecord.garmentType,
                 gender: (viewRecord as any).gender || "Male",
@@ -590,9 +590,9 @@ function CompletedTab() {
             </div>
             <TailorPrintCard
               data={{
-                serialNo: `MP-${printRecord.id.slice(0, 6).toUpperCase()}`,
-                customerName: printRecord.user.name,
-                deliveryDate: new Date(printRecord.updatedAt).toLocaleDateString(),
+                serialNo: (printRecord as any).serialNumber || `MP-${printRecord.id.slice(0, 6).toUpperCase()}`,
+                customerName: (printRecord as any).customerName || printRecord.user.name,
+                deliveryDate: (printRecord as any).deliveryDate ? new Date((printRecord as any).deliveryDate).toLocaleDateString() : new Date(printRecord.updatedAt).toLocaleDateString(),
                 productName: "Completed Profile",
                 garmentType: printRecord.garmentType,
                 gender: (printRecord as any).gender || "Male",
@@ -820,9 +820,9 @@ function RejectedTab() {
           {viewRecord && (
             <TailorPrintCard
               data={{
-                serialNo: `MP-${viewRecord.id.slice(0, 6).toUpperCase()}`,
-                customerName: viewRecord.user.name,
-                deliveryDate: new Date(viewRecord.updatedAt).toLocaleDateString(),
+                serialNo: (viewRecord as any).serialNumber || `MP-${viewRecord.id.slice(0, 6).toUpperCase()}`,
+                customerName: (viewRecord as any).customerName || viewRecord.user.name,
+                deliveryDate: (viewRecord as any).deliveryDate ? new Date((viewRecord as any).deliveryDate).toLocaleDateString() : new Date(viewRecord.updatedAt).toLocaleDateString(),
                 productName: "Rejected Profile",
                 garmentType: viewRecord.garmentType,
                 gender: (viewRecord as any).gender || "Male",

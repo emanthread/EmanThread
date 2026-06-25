@@ -34,6 +34,8 @@ interface MeasurementProfileDetail {
   garmentType: string;
   notes: string | null;
   status?: string;
+  serialNumber?: string;
+  customerName?: string;
   createdAt: string;
   updatedAt: string;
   user: {
@@ -130,14 +132,17 @@ export default function AdminMeasurementProfileEditPage() {
   }
 
   const garmentLabel = garmentTypeLabel(profile.garmentType || "") || profile.gender;
-  const serialNo = `MP-${profile.id.slice(0, 6).toUpperCase()}`;
-  const printDate = profile.createdAt
-    ? new Date(profile.createdAt).toLocaleDateString()
-    : new Date().toLocaleDateString();
+  const serialNo = profile.serialNumber || `MP-${profile.id.slice(0, 6).toUpperCase()}`;
+  
+  const printDate = profile.deliveryDate
+    ? new Date(profile.deliveryDate as string).toLocaleDateString()
+    : profile.createdAt
+      ? new Date(profile.createdAt).toLocaleDateString()
+      : new Date().toLocaleDateString();
 
   const printCardData: TailorCardData = {
     serialNo,
-    customerName: customer.name,
+    customerName: (profile.customerName as string) || customer.name,
     deliveryDate: printDate,
     productName: profile.profileName || garmentLabel,
     garmentType: profile.garmentType,

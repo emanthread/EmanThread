@@ -21,6 +21,7 @@ export async function GET() {
     const profiles = await prisma.measurementProfile.findMany({
       where: { userId: session.user.id, deletedAt: null, source: "profile" },
       orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }],
+      select: {
         id: true,
         profileName: true,
         isDefault: true,

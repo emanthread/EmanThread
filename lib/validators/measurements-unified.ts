@@ -180,6 +180,8 @@ export function mapToPrismaFields(parsed: UnifiedMeasurementFormData) {
     gender: parsed.gender,
     garmentType: parsed.garmentType,
     profileName: parsed.profileName,
+    customerName: parsed.customerName,
+    serialNumber: parsed.serialNumber,
     notes: parsed.notes,
     deliveryDate: parsed.deliveryDate && parsed.deliveryDate !== "" && !isNaN(Date.parse(parsed.deliveryDate))
       ? new Date(parsed.deliveryDate)

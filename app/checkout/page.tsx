@@ -652,7 +652,7 @@ export default function CheckoutPage() {
                                   variants = variants.filter((v) => v.key.includes("trouser"));
                                 }
                               } else if (profile.garmentType === "female_simple_shalwar") {
-                                const availableVariants = [];
+                                const availableVariants: string[] = [];
                                 if (hasFemaleSimpleShalwar) availableVariants.push("female_shalwar_kameez_simple_shalwar");
                                 if (hasFemaleBeltShalwar) availableVariants.push("female_shalwar_kameez_belt_shalwar");
                                 if (hasTrouser) availableVariants.push("female_shalwar_kameez_trouser");

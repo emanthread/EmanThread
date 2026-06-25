@@ -383,6 +383,8 @@ model MeasurementProfile {
   id                      String    @id @default(uuid())
   userId                  String
   profileName             String    @default("Default")
+  customerName            String?
+  serialNumber            String?
   isDefault               Boolean   @default(false)
   length1                 String    @default("")
   length2                 String    @default("")

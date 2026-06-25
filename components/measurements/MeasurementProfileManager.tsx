@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Trash2, Star, Pencil, Ruler } from "lucide-react";
+import { Plus, Trash2, Star, Pencil, Ruler, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +63,7 @@ export function MeasurementProfileManager({
   const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(defaultCreateMode);
+  const [formMode, setFormMode] = useState<"edit" | "readonly">("edit");
   const [editProfile, setEditProfile] = useState<ProfileSummary | null>(null);
   // fullEditData holds the complete profile fetched from /api/measurements/[id]
   // (includes all measurement columns — the list API only returns summary fields)
@@ -271,6 +272,33 @@ export function MeasurementProfileManager({
                     <Star className="h-3.5 w-3.5 text-muted-foreground hover:text-amber-500" />
                   </Button>
                 )}
+                {isAdminDefault && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    disabled={editLoading}
+                    onClick={async () => {
+                      setEditLoading(true);
+                      try {
+                        const res = await fetch(`/api/measurements/${profile.id}`);
+                        if (!res.ok) throw new Error("Failed to load profile");
+                        const json = await res.json();
+                        setFullEditData(mapFromPrismaFields(json.profile));
+                        setFormMode("readonly");
+                        setEditProfile(profile);
+                      } catch (err) {
+                        console.error("[ViewProfile] fetch error:", err);
+                        toast({ title: "Could not load profile. Please try again.", variant: "destructive" });
+                      } finally {
+                        setEditLoading(false);
+                      }
+                    }}
+                    title="View profile"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
+                )}
                 {!isAdminDefault && (
                   <>
                     <Button
@@ -285,6 +313,7 @@ export function MeasurementProfileManager({
                           if (!res.ok) throw new Error("Failed to load profile");
                           const json = await res.json();
                           setFullEditData(mapFromPrismaFields(json.profile));
+                          setFormMode("edit");
                           setEditProfile(profile);
                         } catch (err) {
                           console.error("[EditProfile] fetch error:", err);
@@ -341,15 +370,19 @@ export function MeasurementProfileManager({
       >
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Profile — {editProfile?.profileName}</DialogTitle>
+            <DialogTitle>
+              {formMode === "readonly" ? "View Profile" : "Edit Profile"} — {editProfile?.profileName}
+            </DialogTitle>
             <DialogDescription>
-              Update your saved measurements.
+              {formMode === "readonly"
+                ? "Viewing admin-provided measurements."
+                : "Update your saved measurements."}
             </DialogDescription>
           </DialogHeader>
           {editProfile && fullEditData && (
             <UnifiedMeasurementForm
               data={fullEditData}
-              mode="edit"
+              mode={formMode}
               garmentTypeFixed={editProfile.garmentType}
               onSave={handleSaveEdit}
             />
