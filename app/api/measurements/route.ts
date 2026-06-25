@@ -21,7 +21,6 @@ export async function GET() {
     const profiles = await prisma.measurementProfile.findMany({
       where: { userId: session.user.id, deletedAt: null, source: "profile" },
       orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }],
-      select: {
         id: true,
         profileName: true,
         isDefault: true,
@@ -31,6 +30,10 @@ export async function GET() {
         notes: true,
         deliveryDate: true,
         updatedAt: true,
+        shalwar1: true,
+        ladSimpleShalwar1: true,
+        ladShalwarBelt1: true,
+        trouserdata1: true,
       },
     });
 

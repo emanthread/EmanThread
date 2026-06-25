@@ -97,7 +97,7 @@ export default function CheckoutPage() {
   const [stitchingPriceMap, setStitchingPriceMap] = useState<Record<string, number>>({});
   const [transactionId, setTransactionId] = useState('');
   const [saveAddress, setSaveAddress] = useState(false);
-  const [measurementProfiles, setMeasurementProfiles] = useState<Array<{ id: string; profileName: string; garmentType: string; isDefault: boolean }>>([]);
+  const [measurementProfiles, setMeasurementProfiles] = useState<Array<{ id: string; profileName: string; garmentType: string; isDefault: boolean; shalwar1?: string; ladSimpleShalwar1?: string; ladShalwarBelt1?: string; trouserdata1?: string }>>([]);
   // Per-item shalwar variant selection for items where the profile is a shalwar kameez type.
   // Key: productId, Value: stitching price DB key for the chosen variant.
   const [itemShalwarVariants, setItemShalwarVariants] = useState<Record<string, string>>({});
@@ -192,11 +192,15 @@ export default function CheckoutPage() {
         .then((r) => r.json())
         .then((data) => {
           if (data?.profiles) {
-            const profiles = data.profiles.map((p: { id: string; profileName: string; garmentType: string; isDefault: boolean }) => ({
+            const profiles = data.profiles.map((p: any) => ({
               id: p.id,
               profileName: p.profileName,
               garmentType: p.garmentType,
               isDefault: p.isDefault,
+              shalwar1: p.shalwar1,
+              ladSimpleShalwar1: p.ladSimpleShalwar1,
+              ladShalwarBelt1: p.ladShalwarBelt1,
+              trouserdata1: p.trouserdata1,
             }));
             setMeasurementProfiles(profiles);
 
@@ -633,9 +637,38 @@ export default function CheckoutPage() {
                             {(() => {
                               if (!item.stitchingProfileId || item.stitchingProfileId === "none") return null;
                               const profile = measurementProfiles.find((p) => p.id === item.stitchingProfileId);
-                              const variants = shalwarVariantOptions[profile?.garmentType ?? ""];
-                              if (!variants) return null;
-                              const selectedVariant = itemShalwarVariants[item.product.id] ?? variants[0].key;
+                              let variants = shalwarVariantOptions[profile?.garmentType ?? ""];
+                              if (!variants || !profile) return null;
+
+                              const hasMaleShalwar = !!profile.shalwar1;
+                              const hasFemaleSimpleShalwar = !!profile.ladSimpleShalwar1;
+                              const hasFemaleBeltShalwar = !!profile.ladShalwarBelt1;
+                              const hasTrouser = !!profile.trouserdata1;
+
+                              if (profile.garmentType === "male_shalwar_kameez") {
+                                if (hasMaleShalwar && !hasTrouser) {
+                                  variants = variants.filter((v) => v.key.includes("shalwar"));
+                                } else if (hasTrouser && !hasMaleShalwar) {
+                                  variants = variants.filter((v) => v.key.includes("trouser"));
+                                }
+                              } else if (profile.garmentType === "female_simple_shalwar") {
+                                const availableVariants = [];
+                                if (hasFemaleSimpleShalwar) availableVariants.push("female_shalwar_kameez_simple_shalwar");
+                                if (hasFemaleBeltShalwar) availableVariants.push("female_shalwar_kameez_belt_shalwar");
+                                if (hasTrouser) availableVariants.push("female_shalwar_kameez_trouser");
+
+                                if (availableVariants.length > 0) {
+                                  variants = variants.filter((v) => availableVariants.includes(v.key));
+                                }
+                              }
+
+                              // Ensure selected variant is valid
+                              let selectedVariant = itemShalwarVariants[item.product.id];
+                              if (!selectedVariant || !variants.find((v) => v.key === selectedVariant)) {
+                                selectedVariant = variants[0].key;
+                                // Need to trigger update, but we are rendering. 
+                                // It will update on next interaction, but we should default to visual match.
+                              }
                               return (
                                 <select
                                   value={selectedVariant}
