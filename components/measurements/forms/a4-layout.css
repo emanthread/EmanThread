@@ -256,7 +256,8 @@
   border-left: none;
   border-right: none;
   background: transparent;
-  font-size: 14px;
+  font-size: 16px;
+  font-weight: 600;
   padding: 0 2mm;
   outline: none;
   border-radius: 0;
@@ -276,7 +277,7 @@
 .a4-box {
   width: 5.3mm;
   height: 5.3mm;
-  border: 1.8px solid var(--ink);
+  border: 2.2px solid var(--ink);
   display: inline-block;
   border-radius: 1px;
   cursor: pointer;
@@ -370,6 +371,7 @@
   background: transparent;
   text-align: center;
   font-size: 12px;
+  font-weight: 600;
   outline: none;
 }
 
