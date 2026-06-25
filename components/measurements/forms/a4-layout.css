@@ -256,8 +256,7 @@
   border-left: none;
   border-right: none;
   background: transparent;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 14px;
   padding: 0 2mm;
   outline: none;
   border-radius: 0;
@@ -275,9 +274,9 @@
 }
 
 .a4-box {
-  width: 6.5mm;
-  height: 6.5mm;
-  border: 2px solid var(--ink);
+  width: 5.3mm;
+  height: 5.3mm;
+  border: 1.8px solid var(--ink);
   display: inline-block;
   border-radius: 1px;
   cursor: pointer;
@@ -291,9 +290,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
-  color: var(--ink);
-  font-weight: 800;
+  font-size: 9px;
+  color: red !important;
+  font-weight: 700;
 }
 
 .a4-box.disabled {
@@ -370,8 +369,7 @@
   height: 100%;
   background: transparent;
   text-align: center;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12px;
   outline: none;
 }
 

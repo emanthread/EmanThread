@@ -201,8 +201,7 @@ function ensurePrintStyleInHead() {
         padding: 4mm 2mm !important;
       }
       body.tailor-printing-a6 .tailor-print-portal .a4-inputline {
-        font-size: 18px !important;
-        font-weight: 600 !important;
+        font-size: 16.5px !important;
         height: 12mm !important;
       }
       body.tailor-printing-a6 .tailor-print-portal .a4-subitem {
@@ -211,8 +210,7 @@ function ensurePrintStyleInHead() {
         padding: 2mm !important;
       }
       body.tailor-printing-a6 .tailor-print-portal .a4-subitem .a4-smallline input {
-        font-size: 16px !important;
-        font-weight: 600 !important;
+        font-size: 14.5px !important;
       }
       body.tailor-printing-a6 .tailor-print-portal .a4-card h3 {
         font-size: 17px !important; /* ~7.7pt after scale(0.452) */
@@ -239,14 +237,6 @@ function ensurePrintStyleInHead() {
         padding: 1.5mm !important;
         font-size: 14px !important;
         border-width: 1.5px !important;
-      }
-      body.tailor-printing-a6 .tailor-print-portal .a4-box {
-        width: 11mm !important;
-        height: 11mm !important;
-        border-width: 3px !important;
-      }
-      body.tailor-printing-a6 .tailor-print-portal .a4-box.checked::after {
-        font-size: 26px !important;
       }
     }
   `;
