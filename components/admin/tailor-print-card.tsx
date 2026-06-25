@@ -170,6 +170,19 @@ function ensurePrintStyleInHead() {
       }
 
       /* ── 5. All descendants inside the portal are visible ── */
+      body.tailor-printing .tailor-print-portal {
+        --ink: #000000 !important;
+        --muted: #000000 !important;
+        --line: #000000 !important;
+        --brand: #000000 !important;
+      }
+      body.tailor-printing .tailor-print-portal .a4-header,
+      body.tailor-printing .tailor-print-portal .a4-card h3,
+      body.tailor-printing .tailor-print-portal .a4-label,
+      body.tailor-printing .tailor-print-portal .a4-pill,
+      body.tailor-printing .tailor-print-portal .a4-subitem {
+        background: #fff !important;
+      }
       body.tailor-printing .tailor-print-portal * {
         visibility: visible !important;
         overflow-wrap: break-word !important;
@@ -188,7 +201,8 @@ function ensurePrintStyleInHead() {
         padding: 4mm 2mm !important;
       }
       body.tailor-printing-a6 .tailor-print-portal .a4-inputline {
-        font-size: 16.5px !important;
+        font-size: 18px !important;
+        font-weight: 600 !important;
         height: 12mm !important;
       }
       body.tailor-printing-a6 .tailor-print-portal .a4-subitem {
@@ -197,7 +211,8 @@ function ensurePrintStyleInHead() {
         padding: 2mm !important;
       }
       body.tailor-printing-a6 .tailor-print-portal .a4-subitem .a4-smallline input {
-        font-size: 14.5px !important;
+        font-size: 16px !important;
+        font-weight: 600 !important;
       }
       body.tailor-printing-a6 .tailor-print-portal .a4-card h3 {
         font-size: 17px !important; /* ~7.7pt after scale(0.452) */
@@ -224,6 +239,14 @@ function ensurePrintStyleInHead() {
         padding: 1.5mm !important;
         font-size: 14px !important;
         border-width: 1.5px !important;
+      }
+      body.tailor-printing-a6 .tailor-print-portal .a4-box {
+        width: 11mm !important;
+        height: 11mm !important;
+        border-width: 3px !important;
+      }
+      body.tailor-printing-a6 .tailor-print-portal .a4-box.checked::after {
+        font-size: 26px !important;
       }
     }
   `;
