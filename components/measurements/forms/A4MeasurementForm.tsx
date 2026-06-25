@@ -621,17 +621,17 @@ function BottomTypeTabs({
     background: bottomType === tab ? "var(--ink)" : "#fff",
     color: bottomType === tab ? "#fff" : "var(--ink)",
     fontWeight: 800,
-    padding: variant === 'ladies' ? "2.8mm 2mm" : "3mm 1.5mm",
+    padding: variant === 'ladies' ? "2.8mm 2mm" : "3mm 1mm",
     cursor: "pointer",
     borderRadius: "4px",
-    fontSize: variant === 'ladies' ? "12.5px" : "12.5px",
+    fontSize: variant === 'ladies' ? "12.5px" : "11.5px",
     textTransform: "uppercase"
   });
 
   return (
     <A4Card title="Bottom Type">
       {variant === 'mens' ? (
-        <div style={{ display: "flex", gap: "3mm", padding: "3mm" }}>
+        <div style={{ display: "flex", gap: "1.5mm", padding: "2mm" }}>
           <button type="button" onClick={() => setBottomType("shalwar")} style={btnStyle("shalwar")} disabled={readOnly}>Shalwar</button>
           <button type="button" onClick={() => setBottomType("trouser")} style={btnStyle("trouser")} disabled={readOnly}>Trouser</button>
         </div>
