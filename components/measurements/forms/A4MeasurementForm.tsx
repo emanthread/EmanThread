@@ -621,10 +621,10 @@ function BottomTypeTabs({
     background: bottomType === tab ? "var(--ink)" : "#fff",
     color: bottomType === tab ? "#fff" : "var(--ink)",
     fontWeight: 800,
-    padding: variant === 'ladies' ? "2.8mm 2mm" : "3mm",
+    padding: variant === 'ladies' ? "2.8mm 2mm" : "3mm 1.5mm",
     cursor: "pointer",
     borderRadius: "4px",
-    fontSize: variant === 'ladies' ? "12.5px" : "14px",
+    fontSize: variant === 'ladies' ? "12.5px" : "12.5px",
     textTransform: "uppercase"
   });
 
@@ -649,7 +649,12 @@ function BottomTypeTabs({
           <A4Row label="1. Length"><A4Input value={String(data.shalwarLength1 ?? "")} onChange={(v) => setField("shalwarLength1", v)} readOnly={readOnly} /></A4Row>
           <A4Row label="2. Pancha"><A4Input value={String(data.shalwarPancha1 ?? "")} onChange={(v) => setField("shalwarPancha1", v)} readOnly={readOnly} /></A4Row>
           <A4Row label="3. Gherra"><A4Input value={String(data.shalwarGherra1 ?? "")} onChange={(v) => setField("shalwarGherra1", v)} readOnly={readOnly} /></A4Row>
-          <A4Row label="4. Elastic"><A4Input value={String(data.shalwarElastic1 ?? "")} onChange={(v) => setField("shalwarElastic1", v)} readOnly={readOnly} /></A4Row>
+          <A4Row label="4. Pocket">
+            <div style={{ display: "flex", gap: "3mm" }}>
+              <A4Pill label="Front" checked={String(data.frontPocket ?? "0") === "1"} onChange={(v) => setToggle("frontPocket", v)} readOnly={readOnly} />
+              <A4Pill label="Side" checked={String(data.sidePocket ?? "0") === "1"} onChange={(v) => setToggle("sidePocket", v)} readOnly={readOnly} />
+            </div>
+          </A4Row>
         </div>
       )}
 
@@ -664,8 +669,7 @@ function BottomTypeTabs({
               <A4Row label="4. Elastic Length"><A4Input value={String(data.trouserElastic1 ?? "")} onChange={(v) => setField("trouserElastic1", v)} readOnly={readOnly} /></A4Row>
               <A4Row label="5. Pocket">
                 <div style={{ display: "flex", gap: "3mm" }}>
-                  <A4Pill label="Front" checked={String(data.frontPocket ?? "0") === "1"} onChange={(v) => setToggle("frontPocket", v)} readOnly={readOnly} />
-                  <A4Pill label="Side" checked={String(data.sidePocket ?? "0") === "1"} onChange={(v) => setToggle("sidePocket", v)} readOnly={readOnly} />
+                  <A4Pill label="Pocket" checked={String(data.shalwarPocket ?? "0") === "1"} onChange={(v) => setToggle("shalwarPocket", v)} readOnly={readOnly} />
                 </div>
               </A4Row>
             </>
