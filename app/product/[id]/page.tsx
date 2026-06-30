@@ -1,11 +1,27 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getProductById, getProductBySlug, getProductRecommendations, getProductVariations } from "@/lib/db-queries";
+import { prisma } from "@/lib/db";
 import ProductPageClient from "./product-page-client";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://emaanthreads.com";
 
 export const revalidate = 300; // Cache product pages for 5 minutes
+export const dynamicParams = true; // Allow new products added after build to still work
+
+// Pre-build all in-stock product pages at deploy time → served from CDN, zero DB wait
+export async function generateStaticParams() {
+  try {
+    const products = await prisma.product.findMany({
+      select: { id: true, slug: true },
+      where: { inStock: true },
+    });
+    return products.map((p) => ({ id: p.slug ?? p.id }));
+  } catch {
+    // If DB is unavailable at build time, fall back gracefully to dynamic rendering
+    return [];
+  }
+}
 
 interface Props {
   params: Promise<{ id: string }>;

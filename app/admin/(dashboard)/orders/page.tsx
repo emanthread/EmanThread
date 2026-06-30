@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -72,13 +72,13 @@ export default function AdminOrdersPage() {
   const { orders, deleteOrder, updateOrderStatus, loadOrders, notificationLogs, loadNotificationLogs } = useAdminStore();
 
   useEffect(() => {
-    loadOrders();
+    loadOrders(statusFilter);
     const params = new URLSearchParams(window.location.search);
     const search = params.get("search");
     if (search) {
       setSearchQuery(search);
     }
-  }, [loadOrders]);
+  }, [loadOrders, statusFilter]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
@@ -158,14 +158,14 @@ export default function AdminOrdersPage() {
     setSelectedOrders([]);
   };
 
-  const orderCounts = {
+  const orderCounts = useMemo(() => ({
     all: orders.length,
     pending: orders.filter((o) => o.status === "pending").length,
     processing: orders.filter((o) => o.status === "processing").length,
     shipped: orders.filter((o) => o.status === "shipped").length,
     delivered: orders.filter((o) => o.status === "delivered").length,
     cancelled: orders.filter((o) => o.status === "cancelled").length,
-  };
+  }), [orders]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);

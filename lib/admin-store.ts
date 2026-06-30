@@ -209,7 +209,7 @@ interface AdminState {
   sidebarOpen: boolean;
   
   // Loaders
-  loadOrders: () => Promise<void>;
+  loadOrders: (status?: string) => Promise<void>;
   loadProducts: (page?: number, limit?: number, search?: string, category?: string, stock?: string) => Promise<void>;
   loadCustomers: () => Promise<void>;
   loadStats: () => Promise<void>;
@@ -287,9 +287,13 @@ export const useAdminStore = create<AdminState>()(
       shippingZones: [],
       sidebarOpen: true,
 
-      loadOrders: async () => {
+      loadOrders: async (status?: string) => {
         try {
-          const res = await fetch("/api/admin/orders");
+          const url = new URL("/api/admin/orders", window.location.origin);
+          if (status && status !== "all") {
+            url.searchParams.set("status", status);
+          }
+          const res = await fetch(url.toString());
           if (!res.ok) return;
           const data = await res.json();
           set({ orders: data.orders || [] });

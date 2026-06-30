@@ -28,12 +28,19 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const { addItem } = useCartStore();
   const { toggleItem, isInWishlist } = useWishlistStore();
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handleProductClick = () => {
+    setIsNavigating(true);
+    // Reset after navigation completes (safety fallback)
+    setTimeout(() => setIsNavigating(false), 3000);
+  };
 
   const handleAddToCart = () => {
     addItem(product);
@@ -57,7 +64,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
       >
         {/* Image Container */}
         <div className="relative aspect-[2/3] bg-secondary overflow-hidden rounded-2xl">
-          <Link href={`/product/${product.id}`} className="relative block h-full w-full">
+          <Link href={`/product/${product.id}`} className="relative block h-full w-full" onClick={handleProductClick}>
             <Image
               src={getProductImage(product.images)}
               alt={product.name}
@@ -76,6 +83,18 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
                 className="object-cover absolute inset-0 transition-all duration-700 opacity-0 lg:group-hover:opacity-100 scale-100 lg:group-hover:scale-110"
               />
             )}
+            {/* Shimmer overlay — sweeps left-to-right on click */}
+            <div
+              className={cn(
+                "absolute inset-0 pointer-events-none transition-opacity duration-300",
+                isNavigating ? "opacity-100" : "opacity-0"
+              )}
+              style={{
+                background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.35) 50%, transparent 100%)",
+                backgroundSize: "200% 100%",
+                animation: isNavigating ? "shimmerSweep 0.7s ease-in-out infinite" : "none",
+              }}
+            />
           </Link>
 
           {/* Badge */}
@@ -146,7 +165,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
           <p className="text-xs text-muted-foreground tracking-wider uppercase">
             {product.fabricType}{product.color && ` • ${product.color}`}
           </p>
-          <Link href={`/product/${product.id}`}>
+          <Link href={`/product/${product.id}`} onClick={handleProductClick}>
             <h3 className="font-medium text-sm leading-tight hover:text-accent transition-colors line-clamp-2">
               {product.name}
             </h3>
@@ -168,6 +187,14 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
         isOpen={isQuickViewOpen}
         onClose={() => setIsQuickViewOpen(false)}
       />
+
+      {/* Shimmer animation keyframes */}
+      <style jsx global>{`
+        @keyframes shimmerSweep {
+          0% { background-position: -100% center; }
+          100% { background-position: 200% center; }
+        }
+      `}</style>
     </>
   );
 }

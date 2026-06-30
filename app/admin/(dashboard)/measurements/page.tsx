@@ -116,15 +116,21 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
   };
 
   const handleStatusUpdate = async (id: string, newStatus: string) => {
+    // 1. Optimistic update: instantly update UI
+    setProfiles((prev) => prev.map((p) => p.id === id ? { ...p, status: newStatus } : p));
+    
     try {
       const res = await fetch(`/api/admin/measurements/${id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
-      if (res.ok) fetchProfiles();
+      if (!res.ok) throw new Error("Failed to update status");
+      // Intentionally NOT calling fetchProfiles() on success to prevent UI jump/flicker
     } catch (e) {
       console.error(e);
+      // 2. Revert on failure by re-fetching actual state
+      fetchProfiles();
     }
   };
 

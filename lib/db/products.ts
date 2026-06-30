@@ -97,7 +97,7 @@ export const getAllProducts = unstable_cache(
   { revalidate: 120, tags: ["products"] }
 );
 
-export async function getProductById(id: string): Promise<Product | null> {
+async function _getProductById(id: string): Promise<Product | null> {
   const product = await prisma.product.findUnique({
     where: { id },
     include: {
@@ -110,7 +110,14 @@ export async function getProductById(id: string): Promise<Product | null> {
   return product ? transformProduct(product) : null;
 }
 
-export async function getProductBySlug(slug: string): Promise<Product | null> {
+// Cached: 5-min TTL, invalidated when admin updates/creates a product
+export const getProductById = unstable_cache(
+  _getProductById,
+  ["product-by-id"],
+  { revalidate: 300, tags: ["products"] }
+);
+
+async function _getProductBySlug(slug: string): Promise<Product | null> {
   const product = await prisma.product.findUnique({
     where: { slug },
     include: {
@@ -122,6 +129,13 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
   });
   return product ? transformProduct(product) : null;
 }
+
+// Cached: 5-min TTL, same tag as getProductById
+export const getProductBySlug = unstable_cache(
+  _getProductBySlug,
+  ["product-by-slug"],
+  { revalidate: 300, tags: ["products"] }
+);
 
 export async function getProductVariations(name: string): Promise<Product[]> {
   const products = await prisma.product.findMany({
