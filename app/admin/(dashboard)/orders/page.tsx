@@ -71,14 +71,7 @@ const paymentMethodLabels = {
 export default function AdminOrdersPage() {
   const { orders, deleteOrder, updateOrderStatus, loadOrders, notificationLogs, loadNotificationLogs } = useAdminStore();
 
-  useEffect(() => {
-    loadOrders(statusFilter);
-    const params = new URLSearchParams(window.location.search);
-    const search = params.get("search");
-    if (search) {
-      setSearchQuery(search);
-    }
-  }, [loadOrders, statusFilter]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
@@ -90,6 +83,15 @@ export default function AdminOrdersPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [newStatus, setNewStatus] = useState<OrderStatus>("pending");
+
+  useEffect(() => {
+    loadOrders(statusFilter);
+    const params = new URLSearchParams(window.location.search);
+    const search = params.get("search");
+    if (search) {
+      setSearchQuery(search);
+    }
+  }, [loadOrders, statusFilter]);
 
   const filteredOrders = orders.filter((order) => {
     const matchesSearch =
