@@ -51,6 +51,7 @@ import { formatPrice } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { useDebounce } from "@/hooks/use-debounce";
 import { type Customer } from "@/lib/admin-store";
+import { GARMENT_TYPES_BY_GENDER, garmentTypeLabel } from "@/lib/validators/measurements-unified";
 
 const PAGE_SIZE = 25;
 
@@ -92,6 +93,11 @@ export default function AdminCustomersPage() {
   const [viewMeasurementsCustomer, setViewMeasurementsCustomer] = useState<Customer | null>(null);
   const [measurements, setMeasurements] = useState<any[]>([]);
   const [isLoadingMeasurements, setIsLoadingMeasurements] = useState(false);
+
+  // Create Measurement Setup State
+  const [createMeasurementOpen, setCreateMeasurementOpen] = useState(false);
+  const [createMeasurementForm, setCreateMeasurementForm] = useState({ profileName: "", gender: "Male", garmentType: "male_shalwar_kameez" });
+  const [isCreatingMeasurement, setIsCreatingMeasurement] = useState(false);
 
   const debouncedSearch = useDebounce(searchQuery, 300);
 
@@ -224,20 +230,34 @@ export default function AdminCustomersPage() {
     }
   };
 
-  const handleCreateMeasurement = async () => {
+  const handleOpenCreateMeasurement = () => {
+    setCreateMeasurementForm({ profileName: "", gender: "Male", garmentType: "male_shalwar_kameez" });
+    setCreateMeasurementOpen(true);
+  };
+
+  const submitCreateMeasurement = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!viewMeasurementsCustomer) return;
+    setIsCreatingMeasurement(true);
     try {
       const res = await fetch(`/api/admin/customers/${viewMeasurementsCustomer.id}/measurements`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}), // Sending empty to create default profile with defaults
+        body: JSON.stringify({
+          profileName: createMeasurementForm.profileName || undefined,
+          gender: createMeasurementForm.gender,
+          garmentType: createMeasurementForm.garmentType,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create measurement profile");
       
+      setCreateMeasurementOpen(false);
       router.push(`/admin/measurements/profile/${data.profile.id}`);
     } catch (err: any) {
       toast.error(err.message || "Failed to create measurement profile");
+    } finally {
+      setIsCreatingMeasurement(false);
     }
   };
 
@@ -659,15 +679,21 @@ export default function AdminCustomersPage() {
                 <div className="text-center py-8 bg-muted/20 rounded-lg">
                   <Ruler className="h-8 w-8 mx-auto text-muted-foreground mb-3 opacity-50" />
                   <p className="text-muted-foreground">No admin-created measurements found for this customer.</p>
-                  <Button className="mt-4" onClick={handleCreateMeasurement}>
+                  <Button className="mt-4" onClick={handleOpenCreateMeasurement}>
                     Create Measurement Profile
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground mb-4">
-                    This customer has an admin-created default profile.
-                  </p>
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-sm text-muted-foreground">
+                      This customer has admin-created measurement profiles.
+                    </p>
+                    <Button size="sm" onClick={handleOpenCreateMeasurement}>
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Create New Profile
+                    </Button>
+                  </div>
                   {measurements.map(profile => (
                     <Card key={profile.id}>
                       <CardContent className="p-4 flex items-center justify-between">
@@ -687,6 +713,70 @@ export default function AdminCustomersPage() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Measurement Setup Dialog */}
+      <Dialog open={createMeasurementOpen} onOpenChange={setCreateMeasurementOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Profile Details</DialogTitle>
+            <DialogDescription>
+              Set the name, gender, and garment category before filling in measurements.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submitCreateMeasurement} className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label>Profile Name</Label>
+              <Input
+                value={createMeasurementForm.profileName}
+                onChange={(e) => setCreateMeasurementForm({ ...createMeasurementForm, profileName: e.target.value })}
+                placeholder="e.g. Wedding Suit, Casual"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Gender</Label>
+              <Select
+                value={createMeasurementForm.gender}
+                onValueChange={(val) => setCreateMeasurementForm({
+                  ...createMeasurementForm,
+                  gender: val,
+                  garmentType: val === "Male" ? "male_shalwar_kameez" : "female_simple_shalwar"
+                })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Male">Male</SelectItem>
+                  <SelectItem value="Female">Female</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Garment Type</Label>
+              <Select
+                value={createMeasurementForm.garmentType}
+                onValueChange={(val) => setCreateMeasurementForm({ ...createMeasurementForm, garmentType: val })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(createMeasurementForm.gender === "Female" ? GARMENT_TYPES_BY_GENDER.Female : GARMENT_TYPES_BY_GENDER.Male).map((gt) => (
+                    <SelectItem key={gt} value={gt}>
+                      {garmentTypeLabel(gt).replace(/^(Men |Ladies )/, "")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-3 pt-4">
+              <Button type="button" variant="outline" onClick={() => setCreateMeasurementOpen(false)} disabled={isCreatingMeasurement}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isCreatingMeasurement}>
+                {isCreatingMeasurement ? "Creating..." : "Continue"}
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

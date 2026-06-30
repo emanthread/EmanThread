@@ -144,7 +144,7 @@ export default function AdminMeasurementProfileEditPage() {
     serialNo,
     customerName: (profile.customerName as string) || customer.name,
     deliveryDate: printDate,
-    productName: profile.profileName || garmentLabel,
+    productName: (profile.profileName || garmentLabel).startsWith("[Admin] ") ? `${(profile.profileName || garmentLabel).replace("[Admin] ", "")} (Default)` : (profile.profileName || garmentLabel),
     garmentType: profile.garmentType,
     gender: profile.gender,
     measurements: flatMeasurements,

@@ -199,7 +199,11 @@ export function MeasurementProfileManager({
       {!loading && profiles.length > 0 && (
         <div className="space-y-2">
           {profiles.map((profile) => {
-            const isAdminDefault = profile.isDefault && profile.status === "approved" && profile.profileName === "Admin Default";
+            const isAdminDefault = profile.isDefault && profile.status === "approved" && (profile.profileName === "Admin Default" || profile.profileName.startsWith("[Admin] "));
+            const displayName = profile.profileName.startsWith("[Admin] ") 
+              ? profile.profileName.replace("[Admin] ", "")
+              : profile.profileName;
+            
             return (
             <div
               key={profile.id}
@@ -208,7 +212,7 @@ export function MeasurementProfileManager({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium truncate">
-                    {profile.profileName}
+                    {displayName}
                   </span>
                   {profile.isDefault && !isAdminDefault && (
                     <Badge

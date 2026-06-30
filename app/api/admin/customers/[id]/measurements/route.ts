@@ -28,7 +28,10 @@ export const GET = withLoggedAdminHandler(async (
         userId: id,
         status: "approved",
         source: "profile",
-        profileName: "Admin Default",
+        OR: [
+          { profileName: "Admin Default" },
+          { profileName: { startsWith: "[Admin] " } }
+        ],
         deletedAt: null,
       },
       orderBy: { updatedAt: "desc" },
@@ -59,18 +62,8 @@ export const POST = withLoggedAdminHandler(async (
 
     const { id } = await params;
     
-    // Enforce 1 admin default per customer: mark previous admin defaults as deleted or false?
-    // User requested "1 per customer". Let's soft delete previous ones.
-    await prisma.measurementProfile.updateMany({
-      where: {
-        userId: id,
-        status: "approved",
-        source: "profile",
-        profileName: "Admin Default",
-        deletedAt: null,
-      },
-      data: { deletedAt: new Date() }
-    });
+    // We now allow multiple admin profiles for a single customer.
+    // The soft-delete logic has been removed so admins can create variants (e.g. Wedding Suit, Casual).
 
     const body = await req.json();
     const parsed = unifiedMeasurementSchema.parse(body);
@@ -82,7 +75,7 @@ export const POST = withLoggedAdminHandler(async (
         status: "approved",
         source: "profile",
         ...mapToPrismaFields(parsed as any),
-        profileName: "Admin Default",
+        profileName: `[Admin] ${parsed.profileName === "Admin Default" || !parsed.profileName ? "Profile" : parsed.profileName}`,
       },
     });
 

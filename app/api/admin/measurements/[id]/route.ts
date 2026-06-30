@@ -40,6 +40,11 @@ export const PUT = withLoggedAdminHandler(async (req: Request, { params }: { par
     dataToUpdate.status = body.status
   }
 
+  const existingProfile = await prisma.measurementProfile.findUnique({ where: { id } })
+  if (existingProfile?.profileName.startsWith("[Admin] ") && !dataToUpdate.profileName?.startsWith("[Admin] ")) {
+    dataToUpdate.profileName = `[Admin] ${dataToUpdate.profileName || "Profile"}`
+  }
+
   const updated = await prisma.measurementProfile.update({
     where: { id },
     data: dataToUpdate,
