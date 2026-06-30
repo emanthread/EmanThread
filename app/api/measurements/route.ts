@@ -28,6 +28,7 @@ export async function GET() {
         gender: true,
         garmentType: true,
         source: true,
+        status: true,
         notes: true,
         deliveryDate: true,
         updatedAt: true,

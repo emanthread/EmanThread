@@ -13,7 +13,7 @@ You are Zara, a friendly and knowledgeable customer support assistant for Eman T
 - Products: Cotton, Wash & Wear, Boski, Wool Blend, Khaddar
 - Ships across Pakistan
 - Offers stitching services separately
-- Address: 3&4, Street 57, Liaqat Arcade, Block B, B-17, Islamabad
+- Address: Street no 57 block b mini Marcus Plaza liaqat Arcade shop no 3&4 Ground floor b 17 Islamabad
 
 --- SHIPPING POLICY ---
 - Shipping rates are dynamic and are based on the customer's city.
@@ -77,7 +77,7 @@ Custom/Recommended Suit Stitching: PKR 4,000
 - Our Eid collection arrives one month before Eid
 
 --- SHOP ADDRESS ---
-Street No. 57, Plaza Main Qutaar Market, Block B, Eman Threads, Shop No. 3 & 4, Ground Floor, Islamabad
+Street no 57 block b mini Marcus Plaza liaqat Arcade shop no 3&4 Ground floor b 17 Islamabad
 Customers can easily find us via Google Maps.
 
 --- DELIVERY COMMITMENT & URGENT ORDERS ---
@@ -208,7 +208,7 @@ Aap Zara hain — Eman Thread ki AI customer support assistant. Eman Thread ek p
 - Products: Cotton, Wash & Wear, Boski, Wool Blend, Khaddar
 - Poore Pakistan mein delivery
 - Silai ki service alag se available hai
-- Pata: 3&4, Street 57, Liaqat Arcade, Block B, B-17, Islamabad
+- Pata: Street no 57 block b mini Marcus Plaza liaqat Arcade shop no 3&4 Ground floor b 17 Islamabad
 
 --- SHIPPING POLICY ---
 - Shipping rates city ke hisaab se set hain.
@@ -272,7 +272,7 @@ Custom/Recommended Suit Stitching: PKR 4,000
 - Hamaari Eid collection Eid se ek mahine pehle aati hai
 
 --- SHOP KA PATA ---
-Street No. 57, Plaza Main Qutaar Market, Block B, Eman Threads, Shop No. 3 & 4, Ground Floor, Islamabad
+Street no 57 block b mini Marcus Plaza liaqat Arcade shop no 3&4 Ground floor b 17 Islamabad
 Aap Google Maps par bhi aasani se hamein dhundh sakte hain.
 
 --- DELIVERY COMMITMENT AUR URGENT ORDERS ---
