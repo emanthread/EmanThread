@@ -57,30 +57,25 @@ export async function getRevenueOverview(timeRange: string) {
       startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   }
 
-  const orders = await prisma.order.findMany({
-    where: {
-      createdAt: { gte: startDate },
-      status: { not: "CANCELLED" },
-    },
-    select: {
-      grandTotal: true,
-      createdAt: true,
-    },
-    orderBy: { createdAt: "asc" },
-  });
+  // Push the grouping to Postgres — returns only N rows (one per month) instead of
+  // downloading every order into Node.js and reducing in JavaScript.
+  const rows = await prisma.$queryRaw<{ month: string; revenue: number }[]>`
+    SELECT
+      TO_CHAR("createdAt", 'MM') AS month,
+      SUM("grandTotal")::float    AS revenue
+    FROM "Order"
+    WHERE "createdAt" >= ${startDate}
+      AND "status" != 'CANCELLED'
+    GROUP BY TO_CHAR("createdAt", 'MM')
+    ORDER BY month ASC
+  `;
 
-  const monthMap = new Map<string, number>();
-  orders.forEach((o) => {
-    const month = o.createdAt.toISOString().slice(0, 7);
-    monthMap.set(month, (monthMap.get(month) || 0) + Number(o.grandTotal));
-  });
-
-  const sorted = Array.from(monthMap.entries()).sort();
-  return sorted.map(([month, revenue]) => ({
-    month: month.slice(5),
-    revenue,
+  return rows.map((row) => ({
+    month: row.month,
+    revenue: Number(row.revenue),
   }));
 }
+
 
 export async function getTopProducts(limit: number = 5) {
   const items = await prisma.orderItem.groupBy({
