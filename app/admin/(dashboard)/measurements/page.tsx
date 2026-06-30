@@ -845,6 +845,7 @@ export default function AdminMeasurementsPage() {
   const urlSearch = searchParams.get("search") || "";
   const hasSearchQuery = !!urlSearch;
   const [refreshKey, setRefreshKey] = useState(0);
+  const [initializedTabs, setInitializedTabs] = useState<Set<string>>(new Set(["profiles"]));
   const [stats, setStats] = useState({
     totalProfiles: 0,
     completedCount: 0,
@@ -905,7 +906,11 @@ export default function AdminMeasurementsPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue={hasSearchQuery ? "profiles" : "profiles"} key={refreshKey}>
+      <Tabs 
+        defaultValue={hasSearchQuery ? "profiles" : "profiles"} 
+        key={refreshKey}
+        onValueChange={(val) => setInitializedTabs((prev) => new Set([...prev, val]))}
+      >
         <TabsList>
           <TabsTrigger value="profiles">Measurement Profiles</TabsTrigger>
           <TabsTrigger value="completed">Completed</TabsTrigger>
@@ -915,10 +920,10 @@ export default function AdminMeasurementsPage() {
           <LegacyProfilesTab initialSearch={urlSearch} />
         </TabsContent>
         <TabsContent value="completed" className="space-y-4 mt-4">
-          <CompletedTab />
+          {initializedTabs.has("completed") && <CompletedTab />}
         </TabsContent>
         <TabsContent value="rejected" className="space-y-4 mt-4">
-          <RejectedTab />
+          {initializedTabs.has("rejected") && <RejectedTab />}
         </TabsContent>
       </Tabs>
     </div>

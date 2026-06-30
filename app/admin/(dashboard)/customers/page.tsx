@@ -124,14 +124,19 @@ export default function AdminCustomersPage() {
     }
   }, []);
 
-  useEffect(() => {
-    setCurrentPage(1);
-    fetchCustomers(1, debouncedSearch, statusFilter);
-  }, [debouncedSearch, statusFilter, fetchCustomers]);
+  const prevSearch = React.useRef(debouncedSearch);
+  const prevStatus = React.useRef(statusFilter);
 
   useEffect(() => {
-    fetchCustomers(currentPage, debouncedSearch, statusFilter);
-  }, [currentPage, fetchCustomers, debouncedSearch, statusFilter]);
+    let pageToFetch = currentPage;
+    if (prevSearch.current !== debouncedSearch || prevStatus.current !== statusFilter) {
+      pageToFetch = 1;
+      setCurrentPage(1);
+      prevSearch.current = debouncedSearch;
+      prevStatus.current = statusFilter;
+    }
+    fetchCustomers(pageToFetch, debouncedSearch, statusFilter);
+  }, [currentPage, debouncedSearch, statusFilter, fetchCustomers]);
 
   const sortedCustomers = [...data.customers].sort((a, b) => {
     switch (sortBy) {

@@ -64,10 +64,8 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     loadStats();
-    loadOrders();
-    loadProducts();
     loadTopProducts();
-  }, [loadStats, loadOrders, loadProducts, loadTopProducts]);
+  }, [loadStats, loadTopProducts]);
 
   useEffect(() => {
     if (timeRange !== "custom") {
@@ -84,7 +82,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const interval = setInterval(() => {
       loadStats();
-    }, 30000);
+    }, 120000);
     return () => clearInterval(interval);
   }, [loadStats]);
 

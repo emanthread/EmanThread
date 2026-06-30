@@ -103,6 +103,8 @@ model Product {
 
   @@index([categoryId])
   @@index([groupId])
+  @@index([inStock, stockQuantity])
+  @@index([fabricType])
 }
 
 model ProductReview {
@@ -493,6 +495,7 @@ model MeasurementProfile {
   @@index([source])
   @@index([deletedAt]) // M9
   @@index([userId, deletedAt])
+  @@index([status])
 }
 
 model StitchingOrder {

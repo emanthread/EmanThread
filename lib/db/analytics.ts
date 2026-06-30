@@ -139,28 +139,34 @@ export async function getAdminAnalyticsDetail(
     prevStartDate = range.prevStartDate;
   }
 
-  // Current period orders (non-cancelled) — M5: removed items include, use aggregation instead
-  const currentOrders = await prisma.order.findMany({
-    where: {
-      createdAt: { gte: startDate },
-      status: { not: "CANCELLED" },
-    },
-    select: {
-      id: true,
-      grandTotal: true,
-      createdAt: true,
-      shippingAddress: true,
-    },
-  });
-
-  // Previous period orders (for change calculation)
-  const prevOrders = await prisma.order.findMany({
-    where: {
-      createdAt: { gte: prevStartDate, lt: startDate },
-      status: { not: "CANCELLED" },
-    },
-    select: { grandTotal: true },
-  });
+  // Parallelize the 4 initial queries
+  const [currentOrders, prevOrders, totalCustomers, prevCustomers] = await Promise.all([
+    prisma.order.findMany({
+      where: {
+        createdAt: { gte: startDate },
+        status: { not: "CANCELLED" },
+      },
+      select: {
+        id: true,
+        grandTotal: true,
+        createdAt: true,
+        shippingAddress: true,
+      },
+    }),
+    prisma.order.findMany({
+      where: {
+        createdAt: { gte: prevStartDate, lt: startDate },
+        status: { not: "CANCELLED" },
+      },
+      select: { grandTotal: true },
+    }),
+    prisma.user.count({
+      where: { createdAt: { lte: startDate } },
+    }),
+    prisma.user.count({
+      where: { createdAt: { gte: prevStartDate, lt: startDate } },
+    })
+  ]);
 
   // Overview stats
   const currentRevenue = currentOrders.reduce(
@@ -173,12 +179,6 @@ export async function getAdminAnalyticsDetail(
   );
   const totalOrders = currentOrders.length;
   const prevOrdersCount = prevOrders.length;
-  const totalCustomers = await prisma.user.count({
-    where: { createdAt: { lte: startDate } },
-  });
-  const prevCustomers = await prisma.user.count({
-    where: { createdAt: { gte: prevStartDate, lt: startDate } },
-  });
 
   const avgOrderValue = totalOrders > 0 ? currentRevenue / totalOrders : 0;
   const prevAvgOrderValue =
@@ -255,6 +255,8 @@ export async function getAdminAnalyticsDetail(
     const pageViews = await prisma.pageView.findMany({
       where: { createdAt: { gte: startDate } },
       select: { referrer: true, utmSource: true },
+      take: 10_000,
+      orderBy: { createdAt: "desc" },
     });
 
     const sourceMap = new Map<string, number>();

@@ -431,32 +431,50 @@ export const useAdminStore = create<AdminState>()(
       toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 
       deleteCustomer: async (customerId) => {
+        // Optimistic local update
+        set((state) => ({
+          customers: state.customers.filter((c) => c.id !== customerId),
+        }));
         try {
           const res = await fetch(`/api/admin/customers/${customerId}`, {
             method: "DELETE",
           });
           if (!res.ok) throw new Error("Failed to delete customer");
           toast.success("Customer deleted successfully");
-          await get().loadCustomers();
         } catch (err) {
           console.error("Delete customer error:", err);
           toast.error(err instanceof Error ? err.message : "Failed to delete customer");
+          // Revert by re-fetching
+          await get().loadCustomers();
         }
       },
 
       deleteOrder: async (orderId) => {
+        // Optimistic local update
+        set((state) => ({
+          orders: state.orders.filter((o) => o.id !== orderId),
+        }));
         try {
           const res = await fetch(`/api/admin/orders/${orderId}`, {
             method: "DELETE",
           });
           if (!res.ok) throw new Error("Failed to delete order");
-          await get().loadOrders();
         } catch (err) {
           console.error("Delete order error:", err);
+          // Revert by re-fetching
+          await get().loadOrders();
         }
       },
 
       updateOrderStatus: async (orderId, status) => {
+        // Optimistic local update
+        set((state) => ({
+          orders: state.orders.map((order) =>
+            order.id === orderId
+              ? { ...order, status, updatedAt: new Date().toISOString() }
+              : order
+          ),
+        }));
         try {
           const res = await fetch(`/api/admin/orders/${orderId}/status`, {
             method: "PUT",
@@ -464,9 +482,10 @@ export const useAdminStore = create<AdminState>()(
             body: JSON.stringify({ status: status.toUpperCase() }),
           });
           if (!res.ok) throw new Error("Failed to update status");
-          await get().loadOrders();
         } catch (err) {
           console.error("Update order status error:", err);
+          // Revert by re-fetching
+          await get().loadOrders();
         }
       },
 
@@ -600,6 +619,14 @@ export const useAdminStore = create<AdminState>()(
       },
 
       updateDiscount: async (discountId, data) => {
+        // Optimistic local update
+        set((state) => ({
+          discounts: state.discounts.map((discount) =>
+            discount.id === discountId
+              ? { ...discount, ...data }
+              : discount
+          ),
+        }));
         try {
           const res = await fetch(`/api/admin/discounts/${discountId}`, {
             method: "PUT",
@@ -607,25 +634,39 @@ export const useAdminStore = create<AdminState>()(
             body: JSON.stringify(data),
           });
           if (!res.ok) throw new Error("Failed to update discount");
-          await get().loadDiscounts();
         } catch (err) {
           console.error("Update discount error:", err);
+          // Revert by re-fetching
+          await get().loadDiscounts();
         }
       },
 
       deleteDiscount: async (discountId) => {
+        // Optimistic local update
+        set((state) => ({
+          discounts: state.discounts.filter((d) => d.id !== discountId),
+        }));
         try {
           const res = await fetch(`/api/admin/discounts/${discountId}`, {
             method: "DELETE",
           });
           if (!res.ok) throw new Error("Failed to delete discount");
-          await get().loadDiscounts();
         } catch (err) {
           console.error("Delete discount error:", err);
+          // Revert by re-fetching
+          await get().loadDiscounts();
         }
       },
 
       updateReturnRequestStatus: async (requestId, status, refundAmount) => {
+        // Optimistic local update
+        set((state) => ({
+          returnRequests: state.returnRequests.map((req) =>
+            req.id === requestId
+              ? { ...req, status, refundAmount: refundAmount ?? req.refundAmount, updatedAt: new Date().toISOString() }
+              : req
+          ),
+        }));
         try {
           const res = await fetch(`/api/admin/returns/${requestId}/status`, {
             method: "PUT",
@@ -633,10 +674,12 @@ export const useAdminStore = create<AdminState>()(
             body: JSON.stringify({ status: status.toUpperCase(), refundAmount }),
           });
           if (!res.ok) throw new Error("Failed to update return request status");
-          await get().loadReturnRequests();
+          // Re-load stats for top-level badge changes, but skip heavy returnRequests load
           await get().loadStats();
         } catch (err) {
           console.error("Update return request status error:", err);
+          // Revert by re-fetching
+          await get().loadReturnRequests();
         }
       },
 
@@ -661,15 +704,20 @@ export const useAdminStore = create<AdminState>()(
       },
 
       deleteReturnRequest: async (requestId) => {
+        // Optimistic local update
+        set((state) => ({
+          returnRequests: state.returnRequests.filter((req) => req.id !== requestId),
+        }));
         try {
           const res = await fetch(`/api/admin/returns/${requestId}`, {
             method: "DELETE",
           });
           if (!res.ok) throw new Error("Failed to delete return request");
-          await get().loadReturnRequests();
           await get().loadStats();
         } catch (err) {
           console.error("Delete return request error:", err);
+          // Revert by re-fetching
+          await get().loadReturnRequests();
         }
       },
 

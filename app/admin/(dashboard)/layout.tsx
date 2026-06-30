@@ -195,6 +195,13 @@ export default function AdminLayout({
     router.push("/");
   };
 
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  if (!hasMounted) return null;
+
   // Server-side auth is handled by middleware.ts — this is a lightweight client fallback
   if (!isAuthenticated || !isStaffRole(user?.role ?? "")) {
     return (
