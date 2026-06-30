@@ -1,6 +1,10 @@
 /* ── A4 Measurement Layout Styles ──────────────────────────────────────────── */
 /* Extracted from A4PageLayout.tsx styled-jsx to fix rendering crash in Next.js 16 */
 
+.a4-page-root, .a4-page-root * {
+  box-sizing: border-box;
+}
+
 .a4-page-root {
   --ink: #172554;
   --muted: #64748b;
@@ -35,11 +39,16 @@
   body {
     background: #fff;
   }
+  .a4-logo img {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
   .a4-page-root {
-    --ink: #000000 !important;
-    --muted: #000000 !important;
-    --line: #000000 !important;
-    --brand: #000000 !important;
+    --ink: #023E8A !important;
+    --muted: #023E8A !important;
+    --line: #023E8A !important;
+    --brand: #023E8A !important;
   }
   .a4-header, .a4-card h3, .a4-label, .a4-pill, .a4-subitem {
     background: #fff !important;

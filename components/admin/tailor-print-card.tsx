@@ -171,10 +171,10 @@ function ensurePrintStyleInHead() {
 
       /* ── 5. All descendants inside the portal are visible ── */
       body.tailor-printing .tailor-print-portal {
-        --ink: #000000 !important;
-        --muted: #000000 !important;
-        --line: #000000 !important;
-        --brand: #000000 !important;
+        --ink: #023E8A !important;
+        --muted: #023E8A !important;
+        --line: #023E8A !important;
+        --brand: #023E8A !important;
       }
       body.tailor-printing .tailor-print-portal .a4-header,
       body.tailor-printing .tailor-print-portal .a4-card h3,

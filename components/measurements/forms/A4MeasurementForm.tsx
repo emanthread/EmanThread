@@ -616,7 +616,7 @@ function BottomTypeTabs({
   const setToggle = (k: DataKey, v: boolean) => onChange({ ...data, [k]: v ? "1" : "0" });
 
   const btnStyle = (tab: string): React.CSSProperties => ({
-    flex: "0 1 45%",
+    flex: "0 1 40%",
     border: "2px solid var(--ink)",
     background: bottomType === tab ? "var(--ink)" : "#fff",
     color: bottomType === tab ? "#fff" : "var(--ink)",
