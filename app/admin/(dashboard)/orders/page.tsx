@@ -73,6 +73,11 @@ export default function AdminOrdersPage() {
 
   useEffect(() => {
     loadOrders();
+    const params = new URLSearchParams(window.location.search);
+    const search = params.get("search");
+    if (search) {
+      setSearchQuery(search);
+    }
   }, [loadOrders]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");

@@ -439,7 +439,7 @@ export default function AdminCustomersPage() {
                               View Measurements
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuItem onClick={() => router.push("/admin/orders")}>
+                          <DropdownMenuItem onClick={() => router.push("/admin/orders?search=" + encodeURIComponent(customer.email || customer.name))}>
                             <ShoppingBag className="h-4 w-4 mr-2" />
                             View Orders
                           </DropdownMenuItem>
