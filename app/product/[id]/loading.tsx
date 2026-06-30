@@ -97,7 +97,7 @@ export default function ProductPageLoading() {
         </div>
       </main>
 
-      <style jsx global>{`
+      <style>{`
         @keyframes shimmer {
           0% { background-position: -200% center; }
           100% { background-position: 200% center; }
