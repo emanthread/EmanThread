@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -124,8 +124,8 @@ export default function AdminCustomersPage() {
     }
   }, []);
 
-  const prevSearch = React.useRef(debouncedSearch);
-  const prevStatus = React.useRef(statusFilter);
+  const prevSearch = useRef(debouncedSearch);
+  const prevStatus = useRef(statusFilter);
 
   useEffect(() => {
     let pageToFetch = currentPage;
