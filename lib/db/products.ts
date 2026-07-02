@@ -166,12 +166,125 @@ async function _getFilteredProducts(filter: ProductFilterInput) {
     if (filter.maxPrice !== undefined) where.price.lte = filter.maxPrice;
   }
   if (filter.search) {
-    where.OR = [
-      { name:        { contains: filter.search, mode: "insensitive" } },
-      { color:       { contains: filter.search, mode: "insensitive" } },
-      { fabricType:  { contains: filter.search, mode: "insensitive" } },
-      { description: { contains: filter.search, mode: "insensitive" } },
-    ];
+    // ── Color synonym & spelling-variant map ─────────────────────────────
+    // Keys are what a user might type; values are all DB variants to match.
+    // Covers: British/American spelling, hyphenation, common shade aliases,
+    // and conceptually related tones used in Pakistani menswear.
+    const COLOR_SYNONYMS: Record<string, string[]> = {
+      // gray / grey
+      "gray":       ["gray", "grey"],
+      "grey":       ["gray", "grey"],
+      // white variants
+      "white":      ["white", "off white", "off-white", "offwhite", "ivory", "cream", "pearl", "snow"],
+      "off-white":  ["off white", "off-white", "offwhite", "ivory", "cream", "pearl"],
+      "offwhite":   ["off white", "off-white", "offwhite", "ivory", "cream", "pearl"],
+      "ivory":      ["ivory", "off white", "off-white", "cream", "pearl"],
+      "cream":      ["cream", "ivory", "off white", "beige", "pearl"],
+      "pearl":      ["pearl", "ivory", "cream", "off white"],
+      // beige / tan family
+      "beige":      ["beige", "tan", "sand", "camel", "champagne", "khaki", "nude"],
+      "tan":        ["tan", "beige", "sand", "camel", "khaki"],
+      "camel":      ["camel", "tan", "beige", "sand", "brown"],
+      "champagne":  ["champagne", "beige", "cream", "ivory", "gold"],
+      "khaki":      ["khaki", "tan", "beige", "olive"],
+      "nude":       ["nude", "beige", "skin", "blush"],
+      // blue family
+      "blue":       ["blue", "navy", "cobalt", "royal", "denim", "sky", "teal", "turquoise", "aqua", "indigo"],
+      "navy":       ["navy", "navy blue", "dark blue", "midnight blue"],
+      "cobalt":     ["cobalt", "royal blue", "cobalt blue"],
+      "sky":        ["sky", "sky blue", "baby blue", "light blue"],
+      "indigo":     ["indigo", "denim", "navy"],
+      "teal":       ["teal", "turquoise", "aqua", "cyan"],
+      "turquoise":  ["turquoise", "teal", "aqua", "cyan"],
+      // green family
+      "green":      ["green", "olive", "emerald", "forest", "mint", "sage", "army", "military", "bottle"],
+      "olive":      ["olive", "army green", "military", "khaki"],
+      "emerald":    ["emerald", "emerald green", "bottle green", "forest green"],
+      "mint":       ["mint", "mint green", "sage"],
+      // red family
+      "red":        ["red", "crimson", "scarlet", "maroon", "burgundy", "wine", "cherry", "rust"],
+      "maroon":     ["maroon", "burgundy", "wine", "dark red", "crimson"],
+      "burgundy":   ["burgundy", "maroon", "wine", "dark red"],
+      "wine":       ["wine", "burgundy", "maroon", "dark red"],
+      "crimson":    ["crimson", "scarlet", "red", "maroon"],
+      "rust":       ["rust", "terracotta", "brick", "burnt orange"],
+      "terracotta": ["terracotta", "rust", "brick", "clay"],
+      // pink / purple family
+      "pink":       ["pink", "rose", "blush", "fuchsia", "coral", "hot pink", "baby pink", "light pink"],
+      "rose":       ["rose", "pink", "blush", "mauve"],
+      "blush":      ["blush", "pink", "rose", "nude", "baby pink"],
+      "purple":     ["purple", "violet", "lavender", "mauve", "plum", "lilac"],
+      "violet":     ["violet", "purple", "lavender", "plum"],
+      "lavender":   ["lavender", "purple", "lilac", "mauve"],
+      "mauve":      ["mauve", "lavender", "rose", "purple"],
+      "plum":       ["plum", "purple", "maroon", "dark purple"],
+      // orange / yellow family
+      "orange":     ["orange", "rust", "amber", "peach", "apricot", "terracotta"],
+      "yellow":     ["yellow", "mustard", "golden", "gold", "lemon", "butter"],
+      "mustard":    ["mustard", "golden", "gold", "yellow", "ochre"],
+      "gold":       ["gold", "golden", "mustard", "champagne"],
+      "peach":      ["peach", "apricot", "coral", "blush", "salmon"],
+      "coral":      ["coral", "peach", "salmon", "orange"],
+      // brown family
+      "brown":      ["brown", "chocolate", "coffee", "caramel", "chestnut", "camel", "tan", "mocha"],
+      "chocolate":  ["chocolate", "brown", "dark brown", "coffee"],
+      "coffee":     ["coffee", "brown", "mocha", "chocolate"],
+      "caramel":    ["caramel", "brown", "golden", "tan"],
+      // black / dark family
+      "black":      ["black", "charcoal", "dark", "jet", "onyx", "ebony"],
+      "charcoal":   ["charcoal", "dark grey", "dark gray", "anthracite", "slate"],
+      "slate":      ["slate", "charcoal", "dark grey", "dark gray", "grey", "gray"],
+      // silver / light
+      "silver":     ["silver", "silver mist", "grey", "gray", "light grey"],
+
+      // ── Fabric / category synonyms ───────────────────────────────────
+      // Cotton
+      "cotton":     ["cotton", "cottons", "pure cotton"],
+      // Wash & Wear — user may omit the & or use "and"
+      "wash":       ["wash", "wash & wear", "wash and wear"],
+      "wear":       ["wear", "wash & wear", "wash and wear"],
+      "ww":         ["wash & wear", "wash and wear"],
+      // Boski — silk-cotton blend
+      "boski":      ["boski", "silk", "boski silk", "silk blend", "silk cotton"],
+      "silk":       ["silk", "boski", "boski silk", "silk blend"],
+      // Khaddar — handwoven traditional
+      "khaddar":    ["khaddar", "khadar", "khaddr", "handwoven", "hand woven", "traditional"],
+      "khadar":     ["khaddar", "khadar", "khaddr"],
+      "handwoven":  ["handwoven", "hand woven", "khaddar"],
+      "traditional":["traditional", "khaddar", "handwoven"],
+      // Wool Blend — winter
+      "wool":       ["wool", "wool blend", "woolen", "woollen", "winter"],
+      "woolen":     ["woolen", "woollen", "wool", "wool blend"],
+      "winter":     ["winter", "wool", "wool blend", "khaddar"],
+      // Lawn / Linen / Chiffon (if added later)
+      "lawn":       ["lawn"],
+      "linen":      ["linen"],
+      "chiffon":    ["chiffon"],
+      // General fabric words
+      "fabric":     ["fabric", "cloth", "material"],
+      "suit":       ["suit", "fabric", "cloth"],
+      "unstitched": ["unstitched", "fabric", "cloth"],
+      // color/colour
+      "color":      ["color", "colour"],
+      "colour":     ["color", "colour"],
+    };
+
+    // Split user query into individual words, expand each with synonyms,
+    // deduplicate, then build a flat OR clause: any variant in any field = match.
+    const rawWords = filter.search.trim().split(/\s+/).filter(Boolean);
+    const expandedSet = new Set<string>();
+    for (const word of rawWords) {
+      const lower = word.toLowerCase();
+      const variants = COLOR_SYNONYMS[lower] ?? [word];
+      for (const v of variants) expandedSet.add(v);
+    }
+
+    where.OR = Array.from(expandedSet).flatMap((word) => [
+      { name:        { contains: word, mode: "insensitive" } },
+      { color:       { contains: word, mode: "insensitive" } },
+      { fabricType:  { contains: word, mode: "insensitive" } },
+      { description: { contains: word, mode: "insensitive" } },
+    ]);
   }
   if (filter.color) {
     where.color = { equals: filter.color, mode: "insensitive" };
