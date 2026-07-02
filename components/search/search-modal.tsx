@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Search, X, TrendingUp, Clock, ArrowRight } from "lucide-react";
@@ -9,7 +9,7 @@ import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { products, formatPrice, type Product } from "@/lib/data";
+import { formatPrice, type Product } from "@/lib/data";
 import { cn, getProductImage } from "@/lib/utils";
 
 interface SearchModalProps {
@@ -31,28 +31,49 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Product[]>([]);
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const latestQuery = useRef(query);
+  latestQuery.current = query;
 
-  const handleSearch = useCallback((searchQuery: string) => {
+  useEffect(() => {
+    if (isOpen && featuredProducts.length === 0) {
+      fetch("/api/products?limit=4&sort=featured")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && Array.isArray(data.products)) {
+            setFeaturedProducts(data.products);
+          }
+        })
+        .catch(console.error);
+    }
+  }, [isOpen, featuredProducts.length]);
+
+  const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setResults([]);
       return;
     }
 
     setIsSearching(true);
-    
-    // Simulate search delay
-    setTimeout(() => {
-      const filtered = products.filter(
-        (product) =>
-          product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          product.fabricType.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          product.color.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          product.description.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setResults(filtered);
-      setIsSearching(false);
-    }, 300);
+
+    try {
+      const res = await fetch(`/api/products?search=${encodeURIComponent(searchQuery)}&limit=10`);
+      const data = await res.json();
+      
+      if (searchQuery !== latestQuery.current) return;
+
+      if (data && Array.isArray(data.products)) {
+        setResults(data.products);
+      } else {
+        setResults([]);
+      }
+    } catch (e) {
+      console.error(e);
+      if (searchQuery === latestQuery.current) setResults([]);
+    } finally {
+      if (searchQuery === latestQuery.current) setIsSearching(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -63,8 +84,8 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
     return () => clearTimeout(debounce);
   }, [query, handleSearch]);
 
-  const handleProductClick = (productId: string) => {
-    router.push(`/product/${productId}`);
+  const handleProductClick = (product: Product) => {
+    router.push(`/product/${product.slug || product.id}`);
     onClose();
     setQuery("");
   };
@@ -142,7 +163,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {trendingSearches.map((term) => (
-                    <button
+                      <button
                       key={term}
                       onClick={() => handleQuickSearch(term)}
                       className="px-3 py-1.5 text-sm bg-primary/10 text-primary rounded-full hover:bg-primary/20 transition-colors"
@@ -159,30 +180,36 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                   Featured Products
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
-                  {products.slice(0, 4).map((product) => (
-                    <button
-                      key={product.id}
-                      onClick={() => handleProductClick(product.id)}
-                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors text-left"
-                    >
-                      <div className="relative h-16 w-16 rounded-md overflow-hidden bg-muted shrink-0">
-                        <Image
-                          src={getProductImage(product.images)}
-                          alt={product.name}
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {product.name}
-                        </p>
-                        <p className="text-sm text-accent">
-                          {formatPrice(product.price)}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
+                  {featuredProducts.length > 0 ? (
+                    featuredProducts.map((product) => (
+                      <button
+                        key={product.id}
+                        onClick={() => handleProductClick(product)}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors text-left"
+                      >
+                        <div className="relative h-16 w-16 rounded-md overflow-hidden bg-muted shrink-0">
+                          <Image
+                            src={getProductImage(product.images)}
+                            alt={product.name}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {product.name}
+                          </p>
+                          <p className="text-sm text-accent">
+                            {formatPrice(product.price)}
+                          </p>
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="col-span-2 text-sm text-muted-foreground py-2">
+                      Loading featured products...
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -216,7 +243,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                     {results.slice(0, 5).map((product) => (
                       <button
                         key={product.id}
-                        onClick={() => handleProductClick(product.id)}
+                        onClick={() => handleProductClick(product)}
                         className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors w-full text-left group"
                       >
                         <div className="relative h-16 w-16 rounded-md overflow-hidden bg-muted shrink-0">
