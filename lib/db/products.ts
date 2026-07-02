@@ -166,10 +166,15 @@ async function _getFilteredProducts(filter: ProductFilterInput) {
     if (filter.maxPrice !== undefined) where.price.lte = filter.maxPrice;
   }
   if (filter.search) {
-    where.name = { contains: filter.search, mode: "insensitive" };
+    where.OR = [
+      { name:        { contains: filter.search, mode: "insensitive" } },
+      { color:       { contains: filter.search, mode: "insensitive" } },
+      { fabricType:  { contains: filter.search, mode: "insensitive" } },
+      { description: { contains: filter.search, mode: "insensitive" } },
+    ];
   }
   if (filter.color) {
-    where.color = filter.color;
+    where.color = { equals: filter.color, mode: "insensitive" };
   }
   if (filter.season) {
     where.tags = { contains: filter.season, mode: "insensitive" };
