@@ -87,7 +87,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
           <DialogTitle>Search</DialogTitle>
         </VisuallyHidden.Root>
         {/* Search Input */}
-        <div className="flex items-center gap-3 p-4 border-b border-border">
+        <div className="flex items-center gap-3 p-4 pr-12 border-b border-border">
           <Search className="h-5 w-5 text-muted-foreground shrink-0" />
           <Input
             type="text"

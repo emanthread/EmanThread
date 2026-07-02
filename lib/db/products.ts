@@ -387,7 +387,10 @@ async function _getAllCategories(): Promise<Category[]> {
   // Build a lowercase lookup map: fabricType -> count
   const countMap = new Map<string, number>();
   for (const g of fabricGroups) {
-    countMap.set(g.fabricType.toLowerCase(), g._count.fabricType);
+    if (!g.fabricType) continue;
+    const key = g.fabricType.toLowerCase();
+    const currentCount = countMap.get(key) || 0;
+    countMap.set(key, currentCount + g._count.fabricType);
   }
 
   // Fallback images keyed by lowercase category name.
