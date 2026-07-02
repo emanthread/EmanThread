@@ -222,12 +222,15 @@ async function _getFilteredProducts(filter: ProductFilterInput) {
   };
 }
 
-// Cached: 2-min TTL. Cache key includes all filter args for unique entries per filter combo.
-export const getFilteredProducts = unstable_cache(
-  _getFilteredProducts,
-  ["filtered-products"],
-  { revalidate: 120, tags: ["products"] }
-);
+// Cached: 2-min TTL. Cache key includes serialised filter args so every
+// unique filter combination gets its own cache entry. The "products" tag
+// is still used for admin-triggered revalidation across all entries.
+export const getFilteredProducts = (filter: ProductFilterInput) =>
+  unstable_cache(
+    () => _getFilteredProducts(filter),
+    ["filtered-products", JSON.stringify(filter)],
+    { revalidate: 120, tags: ["products"] }
+  )();
 
 async function _getDistinctColors(): Promise<string[]> {
   const products = await prisma.product.findMany({
