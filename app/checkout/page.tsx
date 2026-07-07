@@ -107,7 +107,7 @@ function AdminMeasurementLookup({ onSelect }: { onSelect: (m: any) => void }) {
             >
               <option value="" disabled>Select measurement...</option>
               {records.map(r => (
-                <option key={r.id} value={r.id}>👁 {r.customerName}</option>
+                <option key={r.id} value={r.id}>{r.customerName}</option>
               ))}
             </select>
           )}
@@ -711,7 +711,7 @@ export default function CheckoutPage() {
                                 )}
                                 {item.adminMeasurement && (
                                   <option value={`admin_${item.adminMeasurement.id}`}>
-                                    👁 {item.adminMeasurement.customerName}
+                                    {item.adminMeasurement.customerName}
                                   </option>
                                 )}
                                 <option value="create_new">+ Create New Profile</option>
@@ -797,6 +797,7 @@ export default function CheckoutPage() {
                                       price: newPrice,
                                       profileId: item.stitchingProfileId!,
                                       profileName: item.stitchingProfileName ?? "Stitching Required",
+                                      adminMeasurement: item.adminMeasurement,
                                     });
                                   }}
                                   className="w-full text-xs border border-primary/40 rounded-md px-2 py-1 bg-primary/5 mt-1 text-primary font-medium"

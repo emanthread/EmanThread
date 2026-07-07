@@ -352,6 +352,7 @@ function CustomerMeasurementsContent() {
     try {
       const params = new URLSearchParams({ page: String(pg), limit: String(limit) });
       if (searchVal.trim()) params.set("search", searchVal.trim());
+      params.set("_t", Date.now().toString()); // prevent browser caching
       const res = await fetch(`/api/admin/customer-measurements?${params}`);
       if (res.ok) {
         const data = await res.json();

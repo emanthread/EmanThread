@@ -316,6 +316,13 @@ export function mapFromPrismaFields(row: Record<string, unknown>): UnifiedMeasur
     else if (key === "ladTrouserdata16") { result["ladTrouserElastic2"] = val; }
     // Direct pass-through for names that match
     else if (key in result) { result[key] = val; }
+    else {
+      // Try to convert snake_case to camelCase and check if it exists in result
+      const camelKey = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+      if (camelKey in result) {
+        result[camelKey] = val;
+      }
+    }
   }
 
   return result as UnifiedMeasurementFormData;
