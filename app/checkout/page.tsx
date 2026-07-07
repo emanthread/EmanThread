@@ -49,6 +49,69 @@ const paymentMethods = [
   { id: "safepay", name: "Safepay", description: "Pay securely via Safepay — cards, wallets & more", icon: Lock },
 ];
 
+// --- Admin Measurement Selector ---
+function AdminMeasurementLookup({ onSelect }: { onSelect: (m: any) => void }) {
+  const [phone, setPhone] = useState("");
+  const [records, setRecords] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (phone.length < 7) { setRecords([]); return; }
+    const t = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/customer-measurements/lookup?phone=${encodeURIComponent(phone)}`);
+        if (res.ok) {
+          const d = await res.json();
+          setRecords(d.records || []);
+        }
+      } finally { setLoading(false); }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [phone]);
+
+  return (
+    <div className="mt-2 bg-muted/20 rounded border border-border/50 px-2 py-2 text-xs transition-all">
+      <div 
+        className="flex justify-between items-center cursor-pointer text-muted-foreground font-medium hover:text-foreground"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <span>Have admin-stored measurements?</span>
+        <span>{isOpen ? "▲" : "▼"}</span>
+      </div>
+      {isOpen && (
+        <div className="mt-2 space-y-2">
+          <Input 
+            placeholder="Add Phone Number (optional)..." 
+            value={phone} onChange={(e) => setPhone(e.target.value)}
+            className="h-7 text-xs"
+          />
+          {loading && <p className="text-[10px] text-muted-foreground">Searching...</p>}
+          {records.length > 0 && (
+            <select 
+              className="w-full text-xs border border-border rounded-md px-2 py-1 bg-background"
+              onChange={(e) => {
+                const rec = records.find(r => r.id === e.target.value);
+                if (rec) onSelect(rec);
+              }}
+              defaultValue=""
+            >
+              <option value="" disabled>Select measurement...</option>
+              {records.map(r => (
+                <option key={r.id} value={r.id}>{r.customerName} ({r.garmentType.replace(/_/g, " ")})</option>
+              ))}
+            </select>
+          )}
+          {phone.length >= 7 && !loading && records.length === 0 && (
+             <p className="text-[10px] text-muted-foreground">No records found for this number.</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, getTotalPrice, getStitchingTotal, hasStitching, clearCart, updateStitching } = useCartStore();
@@ -337,6 +400,7 @@ export default function CheckoutPage() {
             productId: item.product.id,
             fabricType: item.product.fabricType,
             stitchingPrice: item.stitchingPrice ?? DEFAULT_STITCHING_FEE,
+            adminMeasurement: item.adminMeasurement ? item.adminMeasurement : undefined,
           }));
       }
 
@@ -633,10 +697,30 @@ export default function CheckoutPage() {
                               )}
                               <option value="create_new">+ Create New Profile</option>
                             </select>
+
+                            <AdminMeasurementLookup 
+                              onSelect={(rec) => {
+                                setItemShalwarVariants((prev) => { const next = { ...prev }; delete next[item.product.id]; return next; });
+                                const priceKey = garmentTypeToPriceKey(rec.garmentType ?? "", undefined);
+                                const price = stitchingPriceMap[priceKey] ?? DEFAULT_STITCHING_FEE;
+                                updateStitching(item.product.id, {
+                                  price,
+                                  profileId: `admin_${rec.id}`,
+                                  profileName: `Admin: ${rec.customerName}`,
+                                  adminMeasurement: rec
+                                });
+                              }}
+                            />
+                            
                             {/* Shalwar variant selector — only shown when a shalwar kameez profile is active */}
                             {(() => {
                               if (!item.stitchingProfileId || item.stitchingProfileId === "none") return null;
-                              const profile = measurementProfiles.find((p) => p.id === item.stitchingProfileId);
+                              // Check standard profiles first, then check if it's an admin measurement profile
+                              let profile = measurementProfiles.find((p) => p.id === item.stitchingProfileId);
+                              if (!profile && item.adminMeasurement) {
+                                profile = item.adminMeasurement;
+                              }
+                              if (!profile) return null;
                               let variants = shalwarVariantOptions[profile?.garmentType ?? ""];
                               if (!variants || !profile) return null;
 

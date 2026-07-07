@@ -5,6 +5,8 @@ import {
   Search,
   RefreshCw,
   Trash2,
+  Plus,
+  Database,
   Eye,
   Ruler,
   Printer,
@@ -880,9 +882,23 @@ export default function AdminMeasurementsPage() {
             Manage measurement profiles and completed records
           </p>
         </div>
-        <Button variant="outline" size="icon" onClick={() => setRefreshKey((k) => k + 1)}>
-          <RefreshCw className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" className="gap-2 border-primary/20 hover:bg-primary/5 text-primary">
+            <Link href="/admin/customer-measurements">
+              <Database className="h-4 w-4" />
+              View Measurements
+            </Link>
+          </Button>
+          <Button asChild className="gap-2">
+            <Link href="/admin/customer-measurements?add=true">
+              <Plus className="h-4 w-4" />
+              Add Measurement
+            </Link>
+          </Button>
+          <Button variant="outline" size="icon" onClick={() => setRefreshKey((k) => k + 1)}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}

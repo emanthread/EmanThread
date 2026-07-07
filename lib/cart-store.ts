@@ -11,6 +11,7 @@ export interface CartItem {
   stitchingProfileId?: string | null;
   stitchingPrice?: number | null;
   stitchingProfileName?: string | null;
+  adminMeasurement?: any; // Full measurement snapshot for admin-added measurements
 }
 
 interface CartState {
@@ -19,7 +20,7 @@ interface CartState {
   addItem: (product: Product, quantity?: number, stitchingOptions?: { price: number; profileId: string; profileName: string }) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
-  updateStitching: (productId: string, options: { price: number | null; profileId: string | null; profileName: string | null }) => void;
+  updateStitching: (productId: string, options: { price: number | null; profileId: string | null; profileName: string | null; adminMeasurement?: any }) => void;
   clearCart: () => void;
   openCart: () => void;
   closeCart: () => void;
@@ -103,6 +104,7 @@ export const useCartStore = create<CartState>()(
                   stitchingPrice: options.price,
                   stitchingProfileId: options.profileId,
                   stitchingProfileName: options.profileName,
+                  adminMeasurement: options.adminMeasurement,
                 }
               : item
           ),
