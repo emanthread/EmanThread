@@ -259,7 +259,7 @@ function ensurePrintStyleInHead() {
    4. Wait 350ms for React paint + browser layout flush, then window.print().
    5. afterprint → remove portal div, remove body class, reset state.
 ────────────────────────────────────────────────────────────────────────────── */
-export function TailorPrintCard({ data }: { data: TailorCardData }) {
+export function TailorPrintCard({ data, hidePrint }: { data: TailorCardData, hidePrint?: boolean }) {
   const formData = buildFormData(data);
   const [printFormat, setPrintFormat] = React.useState<"a4" | "a6" | null>(null);
   const portalContainerRef = React.useRef<HTMLDivElement | null>(null);
@@ -324,16 +324,18 @@ export function TailorPrintCard({ data }: { data: TailorCardData }) {
 
   return (
     <>
-      <div className="flex flex-wrap gap-2 mb-4 print:hidden" id="tailor-print-options">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlePrint("a6")}
-          id="tailor-print-btn-a6"
-        >
-          <Printer className="h-4 w-4 mr-2" /> Print A6 Card
-        </Button>
-      </div>
+      {!hidePrint && (
+        <div className="flex flex-wrap gap-2 mb-4 print:hidden" id="tailor-print-options">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePrint("a6")}
+            id="tailor-print-btn-a6"
+          >
+            <Printer className="h-4 w-4 mr-2" /> Print A6 Card
+          </Button>
+        </div>
+      )}
 
       {/* Screen preview — always visible for the user to inspect */}
       <A4MeasurementForm

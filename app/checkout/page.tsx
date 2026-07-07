@@ -896,11 +896,12 @@ export default function CheckoutPage() {
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              Measurement Profile — 👁 {viewAdminProfile?.customerName}
+              Measurement Profile — {viewAdminProfile?.customerName}
             </DialogTitle>
           </DialogHeader>
           {viewAdminProfile && (
             <TailorPrintCard
+              hidePrint={true}
               data={{
                 serialNo: `MP-${viewAdminProfile.id.slice(0, 6).toUpperCase()}`,
                 customerName: viewAdminProfile.customerName,
