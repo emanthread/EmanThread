@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  Search, Plus, Eye, Pencil, Trash2, Users, X,
+  Search, Plus, Eye, Pencil, Trash2, Users, X, Printer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { garmentTypeLabel, mapFromPrismaFields, mapToPrismaFields } from "@/lib/validators/measurements-unified";
 import { UnifiedMeasurementForm } from "@/components/measurements/UnifiedMeasurementForm";
+import { TailorPrintCard } from "@/components/admin/tailor-print-card";
 import type { UnifiedMeasurementFormData } from "@/lib/validators/measurements-unified";
 import { UNIFIED_MEASUREMENT_EMPTY } from "@/lib/validators/measurements-unified";
 
@@ -340,6 +341,7 @@ function CustomerMeasurementsContent() {
   const [showAdd, setShowAdd] = useState(searchParams.get("add") === "true");
   const [editRecord, setEditRecord] = useState<CustomerMeasurement | null>(null);
   const [viewRecord, setViewRecord] = useState<CustomerMeasurement | null>(null);
+  const [printRecord, setPrintRecord] = useState<CustomerMeasurement | null>(null);
   const [deleteRecord, setDeleteRecord] = useState<CustomerMeasurement | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -470,10 +472,16 @@ function CustomerMeasurementsContent() {
                           variant="ghost" size="icon" className="h-8 w-8"
                           onClick={() => setEditRecord(r)} title="Edit"
                         >
-                          <Pencil className="h-3.5 w-3.5" />
+                          <Pencil className="h-4 w-4" />
                         </Button>
                         <Button
-                          variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-600"
+                          variant="ghost" size="icon" className="h-8 w-8"
+                          onClick={() => setPrintRecord(r)} title="Print"
+                        >
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
                           onClick={() => setDeleteRecord(r)} title="Delete"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -540,6 +548,31 @@ function CustomerMeasurementsContent() {
               {deleting ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 4. Print Dialog */}
+      <Dialog open={!!printRecord} onOpenChange={(o) => !o && setPrintRecord(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Print Measurement Profile</DialogTitle>
+          </DialogHeader>
+          {printRecord && (
+            <TailorPrintCard
+              data={{
+                serialNo: `CM-${printRecord.id.slice(0, 6).toUpperCase()}`,
+                customerName: printRecord.customer_name,
+                deliveryDate: new Date(printRecord.created_at).toLocaleDateString(),
+                productName: "Admin Customer Measurement",
+                garmentType: printRecord.garment_type,
+                gender: printRecord.gender || "Male",
+                // Map snake_case to camelCase for the print card
+                measurements: mapFromPrismaFields(printRecord),
+                stylingPrefs: null,
+                notes: printRecord.notes ?? "",
+              }}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

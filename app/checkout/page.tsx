@@ -13,6 +13,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { TailorPrintCard } from "@/components/admin/tailor-print-card";
 import { getProductImage } from "@/lib/utils";
 import { useCartStore } from "@/lib/cart-store";
 import { formatPrice } from "@/lib/data";
@@ -21,6 +28,7 @@ import {
   ChevronLeft,
   CreditCard,
   Banknote,
+  Eye,
   Smartphone,
   Lock,
   CheckCircle,
@@ -99,7 +107,7 @@ function AdminMeasurementLookup({ onSelect }: { onSelect: (m: any) => void }) {
             >
               <option value="" disabled>Select measurement...</option>
               {records.map(r => (
-                <option key={r.id} value={r.id}>{r.customerName} ({r.garmentType.replace(/_/g, " ")})</option>
+                <option key={r.id} value={r.id}>👁 {r.customerName}</option>
               ))}
             </select>
           )}
@@ -160,6 +168,7 @@ export default function CheckoutPage() {
   const [stitchingPriceMap, setStitchingPriceMap] = useState<Record<string, number>>({});
   const [transactionId, setTransactionId] = useState('');
   const [saveAddress, setSaveAddress] = useState(false);
+  const [viewAdminProfile, setViewAdminProfile] = useState<any>(null);
   const [measurementProfiles, setMeasurementProfiles] = useState<Array<{ id: string; profileName: string; garmentType: string; isDefault: boolean; shalwar1?: string; ladSimpleShalwar1?: string; ladShalwarBelt1?: string; trouserdata1?: string }>>([]);
   // Per-item shalwar variant selection for items where the profile is a shalwar kameez type.
   // Key: productId, Value: stitching price DB key for the chosen variant.
@@ -653,50 +662,73 @@ export default function CheckoutPage() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium line-clamp-1">{item.product.name}</p>
                             <p className="text-xs text-muted-foreground">{item.product.fabricType}</p>
-                            <select
-                              value={item.stitchingProfileId && item.stitchingProfileId !== "none" ? item.stitchingProfileId : "none"}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                if (val === "none" || val === "create_new") {
-                                  if (val === "create_new") {
-                                    router.push("/account/measurements");
-                                    return;
+                            <div className="flex gap-2 items-start w-full">
+                              <select
+                                value={item.stitchingProfileId && item.stitchingProfileId !== "none" ? item.stitchingProfileId : "none"}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === "none" || val === "create_new") {
+                                    if (val === "create_new") {
+                                      router.push("/account/measurements");
+                                      return;
+                                    }
+                                    // Clear variant selection too
+                                    setItemShalwarVariants((prev) => { const next = { ...prev }; delete next[item.product.id]; return next; });
+                                    updateStitching(item.product.id, { price: null, profileId: null, profileName: null, adminMeasurement: undefined });
+                                  } else {
+                                    // If changing back from admin to standard profile, clear adminMeasurement
+                                    let adminMeasurement = undefined;
+                                    
+                                    const profile = measurementProfiles.find((p) => p.id === val);
+                                    // Determine correct stitching price via garmentType mapping.
+                                    // If the profile is a shalwar kameez type, check if user already
+                                    // selected a variant; otherwise default to simple shalwar.
+                                    const currentVariant = itemShalwarVariants[item.product.id];
+                                    const priceKey = garmentTypeToPriceKey(profile?.garmentType ?? "", currentVariant);
+                                    const price = stitchingPriceMap[priceKey] ?? DEFAULT_STITCHING_FEE;
+                                    updateStitching(item.product.id, {
+                                      price,
+                                      profileId: val,
+                                      profileName: profile?.profileName ?? "Stitching Required",
+                                      adminMeasurement,
+                                    });
                                   }
-                                  // Clear variant selection too
-                                  setItemShalwarVariants((prev) => { const next = { ...prev }; delete next[item.product.id]; return next; });
-                                  updateStitching(item.product.id, { price: null, profileId: null, profileName: null });
-                                } else {
-                                  const profile = measurementProfiles.find((p) => p.id === val);
-                                  // Determine correct stitching price via garmentType mapping.
-                                  // If the profile is a shalwar kameez type, check if user already
-                                  // selected a variant; otherwise default to simple shalwar.
-                                  const currentVariant = itemShalwarVariants[item.product.id];
-                                  const priceKey = garmentTypeToPriceKey(profile?.garmentType ?? "", currentVariant);
-                                  const price = stitchingPriceMap[priceKey] ?? DEFAULT_STITCHING_FEE;
-                                  updateStitching(item.product.id, {
-                                    price,
-                                    profileId: val,
-                                    profileName: profile?.profileName ?? "Stitching Required"
-                                  });
-                                }
-                              }}
-                              disabled={!isAuthenticated}
-                              title={!isAuthenticated ? "Login to add stitching" : undefined}
-                              className="w-full text-xs border border-border rounded-md px-2 py-1 bg-background mt-1 disabled:opacity-60 disabled:cursor-not-allowed"
-                            >
-                              <option value="none">No Stitching</option>
-                              {!isAuthenticated && (
-                                <option value="" disabled>Login to see saved profiles</option>
+                                }}
+                                disabled={!isAuthenticated}
+                                title={!isAuthenticated ? "Login to add stitching" : undefined}
+                                className="flex-1 text-xs border border-border rounded-md px-2 py-1.5 bg-background mt-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                              >
+                                <option value="none">No Stitching</option>
+                                {!isAuthenticated && (
+                                  <option value="" disabled>Login to see saved profiles</option>
+                                )}
+                                {isAuthenticated && measurementProfiles.length === 0 ? (
+                                  <option value="" disabled>No profiles yet</option>
+                                ) : (
+                                  measurementProfiles.map((p) => (
+                                    <option key={p.id} value={p.id}>{p.profileName}</option>
+                                  ))
+                                )}
+                                {item.adminMeasurement && (
+                                  <option value={`admin_${item.adminMeasurement.id}`}>
+                                    👁 {item.adminMeasurement.customerName}
+                                  </option>
+                                )}
+                                <option value="create_new">+ Create New Profile</option>
+                              </select>
+                              
+                              {item.adminMeasurement && item.stitchingProfileId === `admin_${item.adminMeasurement.id}` && (
+                                <Button 
+                                  variant="outline" 
+                                  size="icon" 
+                                  className="h-7 w-7 mt-1 shrink-0" 
+                                  onClick={() => setViewAdminProfile(item.adminMeasurement)}
+                                  title="View Admin Measurement"
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
                               )}
-                              {isAuthenticated && measurementProfiles.length === 0 ? (
-                                <option value="" disabled>No profiles yet</option>
-                              ) : (
-                                measurementProfiles.map((p) => (
-                                  <option key={p.id} value={p.id}>{p.profileName}</option>
-                                ))
-                              )}
-                              <option value="create_new">+ Create New Profile</option>
-                            </select>
+                            </div>
 
                             <AdminMeasurementLookup 
                               onSelect={(rec) => {
@@ -859,6 +891,30 @@ export default function CheckoutPage() {
         </div>
       </main>
       <Footer />
+      <Dialog open={!!viewAdminProfile} onOpenChange={(o) => !o && setViewAdminProfile(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              Measurement Profile — 👁 {viewAdminProfile?.customerName}
+            </DialogTitle>
+          </DialogHeader>
+          {viewAdminProfile && (
+            <TailorPrintCard
+              data={{
+                serialNo: `MP-${viewAdminProfile.id.slice(0, 6).toUpperCase()}`,
+                customerName: viewAdminProfile.customerName,
+                deliveryDate: new Date(viewAdminProfile.createdAt).toLocaleDateString(),
+                productName: "Admin Stored Measurement",
+                garmentType: viewAdminProfile.garmentType,
+                gender: viewAdminProfile.gender || "Male",
+                measurements: viewAdminProfile,
+                stylingPrefs: null,
+                notes: "",
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

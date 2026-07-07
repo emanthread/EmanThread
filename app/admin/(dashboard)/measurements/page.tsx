@@ -883,7 +883,7 @@ export default function AdminMeasurementsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button asChild variant="outline" className="gap-2 border-primary/20 hover:bg-primary/5 text-primary">
+          <Button asChild className="gap-2 border border-primary/20 bg-primary/10 hover:bg-primary/20 text-primary">
             <Link href="/admin/customer-measurements">
               <Database className="h-4 w-4" />
               View Measurements

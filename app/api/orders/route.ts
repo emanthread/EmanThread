@@ -43,6 +43,7 @@ const createOrderSchema = z.object({
     productId: z.string(),
     fabricType: z.string(),
     stitchingPrice: z.number(),
+    adminMeasurement: z.any().optional(),
   })).optional(),
   measurementItems: z.array(z.object({
     productId: z.string(),
@@ -232,9 +233,15 @@ export async function POST(req: Request) {
         // Use the specific measurementProfileId from the first stitching item if provided
         const specifiedProfileId = measurementItems.find(mi => mi.measurementProfileId)?.measurementProfileId
           ?? items.find(i => (i as any).measurementProfileId)?.measurementProfileId;
+          
+        // Check if an adminMeasurement was passed from the frontend
+        const adminMeasurement = stitchingItems?.find(s => s.adminMeasurement != null)?.adminMeasurement;
 
         let unified;
-        if (specifiedProfileId) {
+        if (adminMeasurement) {
+          // Map adminMeasurement to match MeasurementProfile structure
+          unified = { ...adminMeasurement, source: "admin", notes: "Admin Stored Measurement" };
+        } else if (specifiedProfileId) {
           unified = await prisma.measurementProfile.findFirst({
             where: { id: specifiedProfileId, userId, deletedAt: null, source: "profile" },
           });
