@@ -122,8 +122,62 @@ export function UnifiedMeasurementForm({
       ? GARMENT_TYPES_BY_GENDER.Female
       : GARMENT_TYPES_BY_GENDER.Male;
 
-  // ─── Step 1: Profile Name ───────────────────────────────────────────────
+  // ─── Step 1: Profile Name / Admin Identity ──────────────────────────────
   if (wizard && step === 1) {
+    // Admin mode: collect phone + customer name
+    if (isAdmin) {
+      const canContinue =
+        !!(data as any).adminPhone?.trim() && !!(data.customerName || "").trim();
+
+      return (
+        <div className="max-w-md mx-auto py-12 px-4">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
+              <User className="h-8 w-8" />
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight">Customer Identity</h2>
+            <p className="text-sm text-muted-foreground mt-2">
+              Enter the customer's phone number and name to create their measurement record.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Phone Number *</Label>
+              <Input
+                value={(data as any).adminPhone || ""}
+                onChange={(e) => setField("adminPhone" as any, e.target.value)}
+                placeholder="e.g. 03001234567"
+                className="h-11 text-base font-mono"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Customer Name *</Label>
+              <Input
+                value={data.customerName || ""}
+                onChange={(e) => setField("customerName", e.target.value)}
+                placeholder="e.g. Ahmed Ali"
+                className="h-11 text-base"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-8">
+            <Button
+              onClick={() => setStep(2)}
+              disabled={!canContinue}
+              size="lg"
+              className="gap-2"
+            >
+              Continue <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    // Normal user mode: profile name
     return (
       <div className="max-w-md mx-auto py-12 px-4">
         <div className="text-center mb-8">
