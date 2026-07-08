@@ -632,14 +632,14 @@ function BottomTypeTabs({
     <A4Card title="Bottom Type">
       {variant === 'mens' ? (
         <div style={{ display: "flex", gap: "1.5mm", padding: "2mm" }}>
-          <button type="button" onClick={() => setBottomType("shalwar")} style={btnStyle("shalwar")} disabled={readOnly}>Shalwar</button>
-          <button type="button" onClick={() => setBottomType("trouser")} style={btnStyle("trouser")} disabled={readOnly}>Trouser</button>
+          <button type="button" onClick={() => setBottomType("shalwar")} style={btnStyle("shalwar")}>Shalwar</button>
+          <button type="button" onClick={() => setBottomType("trouser")} style={btnStyle("trouser")}>Trouser</button>
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "2.5mm", padding: "3mm" }}>
-          <button type="button" onClick={() => setBottomType("trouser")} style={btnStyle("trouser")} disabled={readOnly}>Trouser</button>
-          <button type="button" onClick={() => setBottomType("simple")} style={btnStyle("simple")} disabled={readOnly}>Simple Shalwar</button>
-          <button type="button" onClick={() => setBottomType("belt")} style={btnStyle("belt")} disabled={readOnly}>Belt Shalwar</button>
+          <button type="button" onClick={() => setBottomType("trouser")} style={btnStyle("trouser")}>Trouser</button>
+          <button type="button" onClick={() => setBottomType("simple")} style={btnStyle("simple")}>Simple Shalwar</button>
+          <button type="button" onClick={() => setBottomType("belt")} style={btnStyle("belt")}>Belt Shalwar</button>
         </div>
       )}
 
