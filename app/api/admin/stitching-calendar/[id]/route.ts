@@ -26,7 +26,7 @@ const patchSchema = z.object({
 // PATCH /api/admin/stitching-calendar/[id]
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await checkAdmin();
   if (!user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -41,8 +41,10 @@ export async function PATCH(
       );
     }
 
+    const { id } = await params;
+
     const updated = await prisma.stitchingCalendarRule.update({
-      where: { id: params.id },
+      where: { id },
       data: result.data,
     });
 
@@ -51,7 +53,7 @@ export async function PATCH(
       userEmail: user.email || undefined,
       action: "SETTINGS_CHANGED",
       entity: "StitchingCalendarRule",
-      entityId: params.id,
+      entityId: (await params).id,
       newValue: result.data,
     });
 
@@ -71,14 +73,15 @@ export async function PATCH(
 // DELETE /api/admin/stitching-calendar/[id]
 export async function DELETE(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await checkAdmin();
   if (!user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   try {
+    const { id } = await params;
     await prisma.stitchingCalendarRule.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     void createAuditLog({
@@ -86,7 +89,7 @@ export async function DELETE(
       userEmail: user.email || undefined,
       action: "SETTINGS_CHANGED",
       entity: "StitchingCalendarRule",
-      entityId: params.id,
+      entityId: (await params).id,
       newValue: { deleted: true },
     });
 
