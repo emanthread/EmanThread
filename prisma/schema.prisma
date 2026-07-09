@@ -143,9 +143,10 @@ model Order {
   grandTotal       Decimal
   notes            String?
   shippingAddress  Json
-  stitchingFee     Decimal                  @default(0)
-  stitchingPaid    Boolean                  @default(false)
-  stitchingSnapshots Json?
+  stitchingFee          Decimal                  @default(0)
+  stitchingPaid         Boolean                  @default(false)
+  stitchingDeliveryDate DateTime?
+  stitchingSnapshots    Json?
   createdAt        DateTime                 @default(now())
   updatedAt        DateTime                 @updatedAt
   manualPayment    ManualPaymentSubmission?
@@ -532,6 +533,23 @@ model StitchingOrder {
   @@index([deletedAt]) // M9
 }
 
+model StitchingCalendarRule {
+  id        String            @id @default(cuid())
+  type      StitchingRuleType
+  date      DateTime?         // For single-day rules (BLOCKED_DATE, CAPACITY_OVERRIDE)
+  startDate DateTime?         // For range rules (BLOCKED_RANGE, CAPACITY_RANGE)
+  endDate   DateTime?         // For range rules
+  capacity  Int?              // null = fully blocked; number = custom daily threshold
+  label     String?           // e.g. "Eid ul Fitr", "Ramadan Season", "Wedding Season"
+  isActive  Boolean           @default(true)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@index([type, isActive])
+  @@index([date])
+  @@index([startDate, endDate])
+}
+
 model ManualPaymentSubmission {
   id              String              @id @default(cuid())
   orderId         String              @unique
@@ -740,6 +758,13 @@ enum StitchingStatus {
   IN_PROGRESS
   COMPLETED
   DELIVERED
+}
+
+enum StitchingRuleType {
+  BLOCKED_DATE       // Single day blocked entirely
+  CAPACITY_OVERRIDE  // Single day with custom threshold
+  BLOCKED_RANGE      // Date range fully blocked
+  CAPACITY_RANGE     // Date range with custom threshold
 }
 
 enum MeasurementProfileStatus {

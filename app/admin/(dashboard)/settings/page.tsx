@@ -93,6 +93,9 @@ export default function AdminSettingsPage() {
 
   const [stitchingPrices, setStitchingPrices] = useState<{ fabricType: string; gender: string; price: number }[]>([]);
   const [stitchingSaving, setStitchingSaving] = useState(false);
+  const [stitchingDailyThreshold, setStitchingDailyThreshold] = useState(12);
+  const [stitchingLeadDays, setStitchingLeadDays] = useState(6);
+  const [stitchingScheduleSaving, setStitchingScheduleSaving] = useState(false);
 
   const [shippingSettings, setShippingSettings] = useState({
     freeShippingThreshold: 5000,
@@ -153,6 +156,13 @@ export default function AdminSettingsPage() {
             tiktokUrl: data.tiktok_url ?? prev.tiktokUrl,
             stitchingNotice: data.stitchingNotice ?? prev.stitchingNotice,
           }));
+        }
+        // Load stitching schedule settings
+        if (data.stitchingDailyThreshold !== undefined) {
+          setStitchingDailyThreshold(data.stitchingDailyThreshold ?? 12);
+        }
+        if (data.stitchingLeadDays !== undefined) {
+          setStitchingLeadDays(data.stitchingLeadDays ?? 6);
         }
         if (data.freeShippingThreshold !== undefined) {
           setShippingSettings((prev) => ({
@@ -370,6 +380,71 @@ export default function AdminSettingsPage() {
 
         {/* Stitching Prices Tab */}
         <TabsContent value="stitching">
+          {/* Delivery Schedule Settings */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span>🗓</span> Delivery Schedule Settings
+              </CardTitle>
+              <CardDescription>
+                Control how many stitching orders can be delivered per day and the minimum lead time from order to delivery.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="stitchingDailyThreshold">Daily Delivery Cap</Label>
+                  <Input
+                    id="stitchingDailyThreshold"
+                    type="number"
+                    min="1"
+                    max="200"
+                    value={stitchingDailyThreshold}
+                    onChange={(e) => setStitchingDailyThreshold(parseInt(e.target.value) || 12)}
+                  />
+                  <p className="text-xs text-muted-foreground">Maximum stitching orders that can be delivered on any single day. Default: 12</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="stitchingLeadDays">Lead Days</Label>
+                  <Input
+                    id="stitchingLeadDays"
+                    type="number"
+                    min="1"
+                    max="60"
+                    value={stitchingLeadDays}
+                    onChange={(e) => setStitchingLeadDays(parseInt(e.target.value) || 6)}
+                  />
+                  <p className="text-xs text-muted-foreground">Minimum days from order date to first possible stitching delivery. Default: 6</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-border">
+                <a href="/admin/stitching-calendar" className="text-sm text-primary hover:underline flex items-center gap-1">
+                  🗓 Manage blocked dates & seasonal rules →
+                </a>
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    setStitchingScheduleSaving(true);
+                    try {
+                      const res = await fetch("/api/admin/settings", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ stitchingDailyThreshold, stitchingLeadDays }),
+                      });
+                      if (!res.ok) throw new Error((await res.json()).error || "Failed");
+                      toast({ title: "Schedule settings saved", description: "Threshold and lead days updated." });
+                    } catch (err) {
+                      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" });
+                    } finally { setStitchingScheduleSaving(false); }
+                  }}
+                  disabled={stitchingScheduleSaving}
+                >
+                  {stitchingScheduleSaving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+                  Save Schedule
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle>Stitching Prices by Garment</CardTitle>

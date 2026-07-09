@@ -35,6 +35,8 @@ const storeConfigSchema = z.object({
   googleAnalyticsId: z.string().optional(),
   facebookPixelId: z.string().optional(),
   stitchingNotice: z.string().optional(),
+  stitchingDailyThreshold: z.number().int().min(1).max(200).optional(),
+  stitchingLeadDays: z.number().int().min(1).max(60).optional(),
 });
 
 async function checkAdmin() {

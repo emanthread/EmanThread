@@ -78,10 +78,24 @@ function ConfirmOrderContent() {
           <h1 className="text-3xl font-semibold mb-4">Order Placed Successfully!</h1>
           <p className="text-muted-foreground mb-2">Your order has been placed successfully.</p>
           <p className="text-muted-foreground mb-8">Order confirmation has been sent to your email.</p>
-          <div className="bg-secondary/50 rounded-lg p-6 mb-8">
+          <div className="bg-secondary/50 rounded-lg p-6 mb-6">
             <p className="text-sm text-muted-foreground mb-2">Order Number</p>
             <p className="text-2xl font-mono font-semibold">{order.orderNumber}</p>
           </div>
+          {order.stitchingDeliveryDate && (
+            <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 rounded-lg p-5 mb-6">
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <span className="text-2xl">🧵</span>
+                <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Estimated Stitching Delivery</p>
+              </div>
+              <p className="text-lg font-bold text-emerald-800 dark:text-emerald-200">
+                {new Date(order.stitchingDeliveryDate).toLocaleDateString("en-PK", {
+                  weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Karachi",
+                })}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">Based on our current order queue</p>
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button asChild>
               <Link href="/shop">Continue Shopping</Link>
@@ -122,6 +136,21 @@ function ConfirmOrderContent() {
             )}
             {order.discountAmount > 0 && (
               <p><span className="font-medium">Discount:</span> -PKR {Number(order.discountAmount).toLocaleString()}</p>
+            )}
+            {order.stitchingDeliveryDate && (
+              <div className="mt-2 pt-2 border-t border-emerald-200 dark:border-emerald-700">
+                <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-md px-3 py-2">
+                  <span className="text-lg">🧵</span>
+                  <div>
+                    <p className="text-xs text-emerald-700 dark:text-emerald-300 font-medium">Estimated Stitching Delivery</p>
+                    <p className="text-sm font-bold text-emerald-800 dark:text-emerald-200">
+                      {new Date(order.stitchingDeliveryDate).toLocaleDateString("en-PK", {
+                        weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Karachi",
+                      })}
+                    </p>
+                  </div>
+                </div>
+              </div>
             )}
             {Number(order.stitchingFee) > 0 ? (
               <>

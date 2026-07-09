@@ -30,6 +30,7 @@ import {
   FileText,
   MoreHorizontal,
   Layers,
+  CalendarDays,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,6 +68,7 @@ const navItems = [
   { href: "/admin/returns", icon: BarChart3, label: "Returns" },
   { href: "/admin/payment-verification", icon: CreditCard, label: "Payments" },
   { href: "/admin/measurements", icon: Ruler, label: "Stitching" },
+  { href: "/admin/stitching-calendar", icon: CalendarDays, label: "Delivery Calendar" },
   { href: "/admin/audit-logs", icon: ClipboardList, label: "Audit Logs" },
   { href: "/admin/newsletter", icon: Mail, label: "Newsletter" },
   { href: "/admin/media-library", icon: ImageIcon, label: "Media Library" },

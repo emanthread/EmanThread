@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getProvider, isSandbox } from "@/lib/payments";
+import { getProvider } from "@/lib/payments";
 import {
   updatePaymentTransaction,
   updateOrderPaymentStatus,
@@ -9,58 +9,36 @@ import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-async function handleCallback(req: Request) {
+export async function GET(req: Request) {
   try {
-    let payload: Record<string, string> = {};
-    
-    if (req.method === "POST") {
-      try {
-        const body = await req.json();
-        payload = body as Record<string, string>;
-      } catch {
-        const formData = await req.formData();
-        formData.forEach((value, key) => {
-          payload[key] = value.toString();
-        });
-      }
-    } else {
-      const { searchParams } = new URL(req.url);
-      searchParams.forEach((value, key) => {
-        payload[key] = value;
-      });
-    }
+    const { searchParams } = new URL(req.url);
+    const sessionId = searchParams.get("session_id");
 
-    const provider = getProvider("card");
-    const result = await provider.verifyCallback(payload);
-
-    // Defense-in-depth: reject tampered callbacks explicitly in production
-    if (!isSandbox && !result.success && result.failureReason?.includes("HMAC")) {
-      console.error("[SECURITY] Card gateway callback HMAC verification failed in production", {
-        txnRef: result.transactionId,
-      });
+    if (!sessionId) {
       return NextResponse.json(
-        { error: "Forbidden", code: "HMAC_VERIFICATION_FAILED" },
-        { status: 403 }
+        { error: "Missing session_id parameter" },
+        { status: 400 }
       );
     }
 
-    const txnRef = result.transactionId;
+    const provider = getProvider("card");
+    const result = await provider.verifyCallback({ session_id: sessionId });
+
     const { prisma } = await import("@/lib/db");
     const transaction = await prisma.paymentTransaction.findFirst({
-      where: { transactionRef: txnRef },
+      where: { transactionRef: sessionId },
       orderBy: { createdAt: "desc" },
     });
 
     if (!transaction) {
-      console.error("Card callback: transaction not found for ref", txnRef);
+      console.error("Stripe callback: transaction not found for session", sessionId);
       return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
     }
 
     await updatePaymentTransaction(transaction.id, {
       status: result.status.toUpperCase(),
-      gatewayResponse: payload,
       failureReason: result.failureReason,
-      transactionRef: result.providerRef || txnRef,
+      transactionRef: result.providerRef || sessionId,
     });
 
     if (result.success) {
@@ -80,8 +58,11 @@ async function handleCallback(req: Request) {
             data: {
               orderNumber: order.orderNumber,
               total: String(Number(transaction.amount)),
-              transactionRef: result.providerRef || txnRef || "",
+              transactionRef: result.providerRef || sessionId || "",
               customerName: `${addr.firstName || ""} ${addr.lastName || ""}`.trim(),
+              ...(order.stitchingDeliveryDate
+                ? { stitchingDeliveryDate: new Date(order.stitchingDeliveryDate).toISOString() }
+                : {}),
             },
             orderId: order.id,
             channels: ["email"], // explicitly only send email, to avoid duplicate SMS with order_confirmation
@@ -99,18 +80,10 @@ async function handleCallback(req: Request) {
 
     return NextResponse.redirect(redirectUrl);
   } catch (error) {
-    console.error("Card callback error:", error);
+    console.error("Stripe callback error:", error);
     return NextResponse.json(
       { error: "Callback processing failed" },
       { status: 500 }
     );
   }
-}
-
-export async function GET(req: Request) {
-  return handleCallback(req);
-}
-
-export async function POST(req: Request) {
-  return handleCallback(req);
 }

@@ -17,6 +17,8 @@ import {
   CreditCard,
   MessageSquare,
   Star,
+  Scissors,
+  CalendarDays,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -130,6 +132,41 @@ export default function AdminDashboard() {
       bgColor: "bg-amber-100",
     },
   ];
+
+  // Stitching capacity widget
+  const [stitchingCapacity, setStitchingCapacity] = useState<{
+    todayCount: number; tomorrowCount: number; threshold: number; nextOpenDate: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    const today = new Date();
+    const month = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+    fetch(`/api/admin/stitching-calendar/capacity?month=${month}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (!data?.days) return;
+        const todayStr = today.toISOString().slice(0, 10);
+        const tom = new Date(today); tom.setDate(tom.getDate() + 1);
+        const tomStr = tom.toISOString().slice(0, 10);
+        const todayStats = data.days[todayStr];
+        const tomStats = data.days[tomStr];
+        // Find next open date starting from today
+        let nextOpenDate: string | null = null;
+        const allDays = Object.entries(data.days as Record<string, { count: number; capacity: number | null; blocked: boolean }>);
+        for (const [day, s] of allDays.sort()) {
+          if (day >= todayStr && !s.blocked && s.capacity !== null && s.count < s.capacity) {
+            nextOpenDate = day; break;
+          }
+        }
+        setStitchingCapacity({
+          todayCount: todayStats?.count ?? 0,
+          tomorrowCount: tomStats?.count ?? 0,
+          threshold: data.threshold,
+          nextOpenDate,
+        });
+      })
+      .catch(() => {});
+  }, []);
 
   // Payment queue state
   const [paymentQueueStats, setPaymentQueueStats] = useState({ pending: 0, flagged: 0 });
@@ -293,6 +330,59 @@ export default function AdminDashboard() {
           </Link>
         ))}
       </div>
+
+      {/* Stitching Capacity Widget */}
+      {stitchingCapacity && (
+        <Card className="border-l-4 border-l-primary">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Scissors className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">Stitching Delivery Capacity</p>
+                  <p className="text-xs text-muted-foreground">Daily limit: {stitchingCapacity.threshold} orders</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4 sm:gap-8">
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground mb-0.5">Today</p>
+                  <p className={cn("text-xl font-bold",
+                    stitchingCapacity.todayCount >= stitchingCapacity.threshold ? "text-red-600" :
+                    stitchingCapacity.todayCount >= stitchingCapacity.threshold * 0.75 ? "text-amber-600" : "text-emerald-600"
+                  )}>
+                    {stitchingCapacity.todayCount}<span className="text-xs text-muted-foreground font-normal">/{stitchingCapacity.threshold}</span>
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground mb-0.5">Tomorrow</p>
+                  <p className={cn("text-xl font-bold",
+                    stitchingCapacity.tomorrowCount >= stitchingCapacity.threshold ? "text-red-600" :
+                    stitchingCapacity.tomorrowCount >= stitchingCapacity.threshold * 0.75 ? "text-amber-600" : "text-emerald-600"
+                  )}>
+                    {stitchingCapacity.tomorrowCount}<span className="text-xs text-muted-foreground font-normal">/{stitchingCapacity.threshold}</span>
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground mb-0.5">Next Open</p>
+                  <p className="text-xs font-semibold text-primary">
+                    {stitchingCapacity.nextOpenDate
+                      ? new Date(stitchingCapacity.nextOpenDate).toLocaleDateString("en-PK", { weekday: "short", day: "numeric", month: "short", timeZone: "Asia/Karachi" })
+                      : "—"}
+                  </p>
+                </div>
+              </div>
+              <Link href="/admin/stitching-calendar">
+                <Button variant="outline" size="sm">
+                  <CalendarDays className="h-3.5 w-3.5 mr-1.5" />
+                  Calendar
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Revenue Chart */}

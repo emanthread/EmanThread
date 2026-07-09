@@ -82,6 +82,9 @@ async function handleCallback(req: Request) {
               total: String(Number(transaction.amount)),
               transactionRef: result.providerRef || txnRef || "",
               customerName: `${addr.firstName || ""} ${addr.lastName || ""}`.trim(),
+              ...(order.stitchingDeliveryDate
+                ? { stitchingDeliveryDate: new Date(order.stitchingDeliveryDate).toISOString() }
+                : {}),
             },
             orderId: order.id,
             channels: ["email"], // explicitly only send email, to avoid duplicate SMS with order_confirmation

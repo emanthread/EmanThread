@@ -29,6 +29,8 @@ export interface StoreConfigInput {
   googleAnalyticsId?: string;
   facebookPixelId?: string;
   stitchingNotice?: string;
+  stitchingDailyThreshold?: number;
+  stitchingLeadDays?: number;
 }
 
 async function _getStoreConfig(): Promise<StoreConfigInput> {
@@ -103,6 +105,8 @@ async function _getStoreConfig(): Promise<StoreConfigInput> {
     googleAnalyticsId: parseStr("googleAnalyticsId", ""),
     facebookPixelId: parseStr("facebookPixelId", ""),
     stitchingNotice: parseStr("stitchingNotice", ""),
+    stitchingDailyThreshold: parseNum("stitchingDailyThreshold", 12),
+    stitchingLeadDays: parseNum("stitchingLeadDays", 6),
   };
 }
 
@@ -203,6 +207,8 @@ export async function setStoreConfig(data: StoreConfigInput) {
   if (data.googleAnalyticsId !== undefined) entries.push(["googleAnalyticsId", data.googleAnalyticsId]);
   if (data.facebookPixelId !== undefined) entries.push(["facebookPixelId", data.facebookPixelId]);
   if (data.stitchingNotice !== undefined) entries.push(["stitchingNotice", data.stitchingNotice]);
+  if (data.stitchingDailyThreshold !== undefined) entries.push(["stitchingDailyThreshold", String(data.stitchingDailyThreshold)]);
+  if (data.stitchingLeadDays !== undefined) entries.push(["stitchingLeadDays", String(data.stitchingLeadDays)]);
   await Promise.all(
     entries.map(([key, value]) =>
       prisma.storeConfig.upsert({

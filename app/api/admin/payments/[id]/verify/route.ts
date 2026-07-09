@@ -41,6 +41,9 @@ export async function POST(
           total: String(Number(order.grandTotal)),
           transactionRef: order.id,
           customerName: `${addr.firstName || ''} ${addr.lastName || ''}`.trim(),
+          ...(order.stitchingDeliveryDate
+            ? { stitchingDeliveryDate: new Date(order.stitchingDeliveryDate).toISOString() }
+            : {}),
         },
         orderId: order.id,
         channels: ["email"], // explicitly only send email, to avoid duplicate SMS with order_confirmation

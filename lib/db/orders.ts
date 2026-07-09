@@ -33,6 +33,7 @@ export interface CreateOrderInput {
   grandTotal: number;
   stitchingFee?: number;
   stitchingItems?: Array<{ productId: string; fabricType: string; stitchingPrice: number }>;
+  stitchingDeliveryDate?: Date;
 }
 
 /** Runtime shape of the shippingAddress JSON column. */
@@ -114,6 +115,7 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
         notes: data.notes || null,
         shippingAddress: data.shippingAddress as unknown as Prisma.InputJsonValue,
         stitchingFee: data.stitchingFee ?? 0,
+        stitchingDeliveryDate: data.stitchingDeliveryDate ?? null,
         stitchingSnapshots: data.stitchingItems ? JSON.parse(JSON.stringify(data.stitchingItems)) : null,
         items: {
           create: data.items.map((item) => ({
@@ -166,6 +168,7 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
     status: order.status,
     grandTotal: Number(order.grandTotal),
     createdAt: order.createdAt.toISOString(),
+    stitchingDeliveryDate: order.stitchingDeliveryDate?.toISOString() ?? null,
   };
 }
 

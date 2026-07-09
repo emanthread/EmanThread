@@ -11,6 +11,35 @@ const brandName = "Eman Thread";
 const brandUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
 const brandColor = "#1a1a1a";
 
+/**
+ * Formats an ISO date string as a human-readable date in PKT.
+ * e.g. "2026-07-19T19:00:00.000Z" → "Saturday, 19 July 2026"
+ */
+function formatDeliveryDatePKT(isoDate: string): string {
+  try {
+    return new Date(isoDate).toLocaleDateString("en-PK", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: "Asia/Karachi",
+    });
+  } catch {
+    return isoDate;
+  }
+}
+
+/** Renders the stitching delivery date banner for emails (empty string if no date). */
+function stitchingDeliveryBlock(isoDate: string | undefined): string {
+  if (!isoDate) return "";
+  return `
+<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:16px 0;text-align:center">
+  <p style="margin:0 0 4px;font-size:13px;color:#15803d;font-weight:600">🧵 Estimated Stitching Delivery</p>
+  <p style="margin:0;font-size:18px;font-weight:700;color:#14532d">${formatDeliveryDatePKT(isoDate)}</p>
+  <p style="margin:4px 0 0;font-size:11px;color:#6b7280">Based on our current order queue</p>
+</div>`;
+}
+
 function emailWrapper(title: string, content: string): string {
   return `<!DOCTYPE html>
 <html>
@@ -74,6 +103,7 @@ export const EmailTemplates: Record<NotificationTemplate, EmailTemplateDef> = {
   <p><strong>Total:</strong> PKR ${data.total}</p>
   <p><strong>Payment Method:</strong> ${data.paymentMethod}</p>
 </div>
+${stitchingDeliveryBlock(data.stitchingDeliveryDate)}
 <p>You'll receive another update when your order ships.</p>
 <a href="${brandUrl}/order-status/${data.orderId || data.orderNumber}" class="btn">View Order</a>`
       ),
@@ -91,6 +121,7 @@ export const EmailTemplates: Record<NotificationTemplate, EmailTemplateDef> = {
   <p><strong>Amount Paid:</strong> PKR ${data.total}</p>
   <p><strong>Transaction ID:</strong> ${data.transactionRef || "N/A"}</p>
 </div>
+${stitchingDeliveryBlock(data.stitchingDeliveryDate)}
 <p>Your order is now being processed.</p>
 <a href="${brandUrl}/order-status/${data.orderId || data.orderNumber}" class="btn">View Order</a>`
       ),
@@ -224,9 +255,9 @@ export const SMSTemplates: Record<
   order_processing: (data) =>
     `Eman Thread: Order ${data.orderNumber} is now being processed. We'll update you when it ships!`,
   order_confirmation: (data) =>
-    `Eman Thread: Order ${data.orderNumber} confirmed. Total: PKR ${data.total}. Thank you for shopping with us!`,
+    `Eman Thread: Order ${data.orderNumber} confirmed. Total: PKR ${data.total}.${data.stitchingDeliveryDate ? ` Stitching delivery: ${formatDeliveryDatePKT(data.stitchingDeliveryDate)}.` : ""} Thank you for shopping with us!`,
   payment_success: (data) =>
-    `Eman Thread: Payment received for order ${data.orderNumber}. Amount: PKR ${data.total}. Txn: ${data.transactionRef || "N/A"}`,
+    `Eman Thread: Payment received for order ${data.orderNumber}. Amount: PKR ${data.total}. Txn: ${data.transactionRef || "N/A"}.${data.stitchingDeliveryDate ? ` Stitching delivery: ${formatDeliveryDatePKT(data.stitchingDeliveryDate)}.` : ""}`,
   order_shipped: (data) =>
     `Eman Thread: Order ${data.orderNumber} shipped. Tracking: ${data.trackingNumber || "N/A"}. Expected: ${data.estimatedDelivery || "3-5 days"}`,
   order_delivered: (data) =>
@@ -252,9 +283,9 @@ export const WhatsAppTemplates: Record<
   order_processing: (data) =>
     `⚙️ *Eman Thread* — Order Processing\n\nOrder #: ${data.orderNumber}\n\nYour order is being prepared. We'll notify you when it ships.`,
   order_confirmation: (data) =>
-    `🧵 *Eman Thread* — Order Confirmed\n\nOrder #: ${data.orderNumber}\nTotal: PKR ${data.total}\nPayment: ${data.paymentMethod}\n\nWe'll update you when it ships.`,
+    `🧵 *Eman Thread* — Order Confirmed\n\nOrder #: ${data.orderNumber}\nTotal: PKR ${data.total}\nPayment: ${data.paymentMethod}${data.stitchingDeliveryDate ? `\n\n📅 *Stitching Delivery:* ${formatDeliveryDatePKT(data.stitchingDeliveryDate)}` : ""}\n\nWe'll update you when it ships.`,
   payment_success: (data) =>
-    `💳 *Eman Thread* — Payment Received\n\nOrder #: ${data.orderNumber}\nAmount: PKR ${data.total}\nTxn ID: ${data.transactionRef || "N/A"}\n\nThank you!`,
+    `💳 *Eman Thread* — Payment Received\n\nOrder #: ${data.orderNumber}\nAmount: PKR ${data.total}\nTxn ID: ${data.transactionRef || "N/A"}${data.stitchingDeliveryDate ? `\n\n📅 *Stitching Delivery:* ${formatDeliveryDatePKT(data.stitchingDeliveryDate)}` : ""}\n\nThank you!`,
   order_shipped: (data) =>
     `🚚 *Eman Thread* — Order Shipped\n\nOrder #: ${data.orderNumber}\nTracking: ${data.trackingNumber || "N/A"}\nExpected: ${data.estimatedDelivery || "3-5 days"}`,
   order_delivered: (data) =>

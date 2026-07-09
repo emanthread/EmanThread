@@ -152,6 +152,9 @@ export default function CheckoutPage() {
   const [couponCode, setCouponCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState<number | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
+  const [stitchingDeliveryEstimate, setStitchingDeliveryEstimate] = useState<string | null>(null);
+  const [estimateLoading, setEstimateLoading] = useState(false);
+  const [stitchingDeliveryDate, setStitchingDeliveryDate] = useState<string | null>(null);
 
   // Payment account details — fetched server-side, never in the client bundle
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetails | null>(null);
@@ -302,6 +305,24 @@ export default function CheckoutPage() {
     }
   }, [isAuthenticated]);
 
+  // Fetch estimated stitching delivery date when stitching is selected
+  useEffect(() => {
+    if (!hasStitchingSelected) {
+      setStitchingDeliveryEstimate(null);
+      return;
+    }
+    setEstimateLoading(true);
+    const controller = new AbortController();
+    fetch("/api/stitching/delivery-estimate", { signal: controller.signal })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.formatted) setStitchingDeliveryEstimate(data.formatted);
+      })
+      .catch(() => { /* non-fatal */ })
+      .finally(() => setEstimateLoading(false));
+    return () => controller.abort();
+  }, [hasStitchingSelected]);
+
   // When stitching is selected, COD is not valid — switch to nayapay or meezan_bank
   useEffect(() => {
     if (hasStitchingSelected && paymentMethod === "cod") {
@@ -432,6 +453,10 @@ export default function CheckoutPage() {
         setIsSubmitting(false);
         return;
       }
+      // Capture stitching delivery date if returned by the server
+      if (orderData.stitchingDeliveryDate) {
+        setStitchingDeliveryDate(orderData.stitchingDeliveryDate);
+      }
 
       if (FEATURE_FLAGS.MANUAL_PAYMENT_MODE && (paymentMethod === "nayapay" || paymentMethod === "meezan_bank")) {
         clearCart();
@@ -521,10 +546,24 @@ export default function CheckoutPage() {
             <h1 className="text-3xl font-semibold mb-4">Order Placed Successfully!</h1>
             <p className="text-muted-foreground mb-2">Your order has been placed successfully.</p>
             <p className="text-muted-foreground mb-8">Order confirmation has been sent to your email.</p>
-            <div className="bg-secondary/50 rounded-lg p-6 mb-8">
+            <div className="bg-secondary/50 rounded-lg p-6 mb-6">
               <p className="text-sm text-muted-foreground mb-2">Order Number</p>
               <p className="text-2xl font-mono font-semibold">{orderNumber}</p>
             </div>
+            {stitchingDeliveryDate && (
+              <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 rounded-lg p-5 mb-6">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <span className="text-2xl">🧵</span>
+                  <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Estimated Stitching Delivery</p>
+                </div>
+                <p className="text-lg font-bold text-emerald-800 dark:text-emerald-200">
+                  {new Date(stitchingDeliveryDate).toLocaleDateString("en-PK", {
+                    weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Karachi",
+                  })}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">Based on our current order queue</p>
+              </div>
+            )}
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button asChild><Link href="/shop">Continue Shopping</Link></Button>
               <Button variant="outline" asChild><Link href="/">Back to Home</Link></Button>
@@ -842,6 +881,24 @@ export default function CheckoutPage() {
                     )}
                     {appliedDiscount !== null && appliedDiscount > 0 && <div className="flex justify-between text-sm text-emerald-600"><span>Discount</span><span>-{formatPrice(appliedDiscount)}</span></div>}
                     {zoneName && <div className="flex justify-between text-xs text-muted-foreground"><span>Delivery to {zoneName}</span><span>{estimatedDays}</span></div>}
+
+                    {/* Stitching delivery estimate — shown BEFORE order is placed */}
+                    {hasStitchingSelected && (
+                      <div className="mt-3 p-3 rounded-lg border border-emerald-200 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className="text-base">🧵</span>
+                          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">Estimated Stitching Delivery</p>
+                        </div>
+                        {estimateLoading ? (
+                          <p className="text-xs text-muted-foreground animate-pulse">Calculating best date...</p>
+                        ) : stitchingDeliveryEstimate ? (
+                          <p className="text-sm font-bold text-emerald-800 dark:text-emerald-200">{stitchingDeliveryEstimate}</p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">Calculating...</p>
+                        )}
+                        <p className="text-[10px] text-muted-foreground mt-0.5">Based on current queue</p>
+                      </div>
+                    )}
                     {hasStitchingSelected ? (
                       <>
                         <div className="flex justify-between font-semibold text-base pt-3 border-t border-border text-amber-600">

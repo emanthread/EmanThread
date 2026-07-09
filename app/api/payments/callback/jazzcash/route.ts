@@ -46,13 +46,9 @@ async function handleCallback(req: Request) {
     }
 
     // Find the transaction by provider ref
-    const orderId = payload.pp_BillReference ? undefined : undefined;
-    // Since we don't have direct orderId in callback, find via transactionRef
-    // For now, we look up by the txnRef
     const txnRef = result.transactionId;
     
     // Find all pending transactions for this provider ref
-    const { prisma } = await import("@/lib/db");
     const transaction = await prisma.paymentTransaction.findFirst({
       where: { transactionRef: txnRef },
       orderBy: { createdAt: "desc" },
@@ -91,6 +87,9 @@ async function handleCallback(req: Request) {
               total: String(Number(transaction.amount)),
               transactionRef: result.providerRef || txnRef || "",
               customerName: `${addr.firstName || ""} ${addr.lastName || ""}`.trim(),
+              ...(order.stitchingDeliveryDate
+                ? { stitchingDeliveryDate: new Date(order.stitchingDeliveryDate).toISOString() }
+                : {}),
             },
             orderId: order.id,
             channels: ["email"], // explicitly only send email, to avoid duplicate SMS with order_confirmation

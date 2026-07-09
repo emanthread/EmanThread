@@ -2,6 +2,7 @@ import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { createOrder, getZoneForCity, getStoreConfig, getDiscountByCode, incrementDiscountUsage } from "@/lib/db-queries";
+import { calculateStitchingDeliveryDate } from "@/lib/db/stitching-schedule";
 import { applyDiscount } from "@/lib/discount-engine";
 import { auth } from "@/auth";
 import { triggerNotification, sendDeliveryUpdateParallel } from "@/lib/notifications";
@@ -174,6 +175,25 @@ export async function POST(req: Request) {
     // compatibility but is ignored; the fee is recomputed from stitchingItems.
     const finalStitchingFee = calculatedStitchingFee;
 
+    // ── Smart stitching delivery date ─────────────────────────────────────────
+    // If this order has stitching, calculate the first available delivery date
+    // using the configurable threshold and lead-days, respecting calendar rules.
+    let stitchingDeliveryDate: Date | undefined;
+    if (finalStitchingFee > 0) {
+      try {
+        const threshold = storeConfig.stitchingDailyThreshold ?? 12;
+        const leadDays  = storeConfig.stitchingLeadDays ?? 6;
+        stitchingDeliveryDate = await calculateStitchingDeliveryDate(
+          new Date(),
+          threshold,
+          leadDays
+        );
+      } catch (schedErr) {
+        // Non-fatal: if scheduling fails, order still goes through without a delivery date
+        console.error("[orders] Stitching delivery date calculation failed:", schedErr);
+      }
+    }
+
     const grandTotal = Math.max(0, subtotal + shippingCost - discountAmount + finalStitchingFee);
 
     // Enrich shipping address with zone info
@@ -219,6 +239,7 @@ export async function POST(req: Request) {
       couponCode: appliedDiscountCode, // C8: atomic increment inside createOrder transaction
       stitchingFee: finalStitchingFee,
       stitchingItems: stitchingItems ?? [],
+      stitchingDeliveryDate,
     }, isManualPayment);
 
     const processedMeasurementProductIds = new Set<string>();
@@ -435,6 +456,9 @@ export async function POST(req: Request) {
           total: grandTotal.toString(),
           paymentMethod,
           customerName: `${shippingAddress.firstName} ${shippingAddress.lastName}`,
+          ...(stitchingDeliveryDate
+            ? { stitchingDeliveryDate: stitchingDeliveryDate.toISOString() }
+            : {}),
         },
         orderId: order.id,
       });
@@ -479,7 +503,13 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json(order, { status: 201 });
+    return NextResponse.json(
+      {
+        ...order,
+        stitchingDeliveryDate: order.stitchingDeliveryDate ?? null,
+      },
+      { status: 201 }
+    );
   } catch (error: any) {
     if (error?.message === "CSRF validation failed") {
       return NextResponse.json(

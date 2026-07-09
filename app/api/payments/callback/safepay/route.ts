@@ -11,9 +11,8 @@ export const dynamic = "force-dynamic";
 
 async function handleCallback(req: Request) {
   try {
-    // Safepay sends callbacks as GET (redirect) or POST (webhook)
     let payload: Record<string, string> = {};
-
+    
     if (req.method === "POST") {
       try {
         const body = await req.json();
@@ -34,10 +33,9 @@ async function handleCallback(req: Request) {
     const provider = getProvider("safepay");
     const result = await provider.verifyCallback(payload);
 
-    // Reject tampered callbacks explicitly in production
     if (!isSandbox && !result.success && result.failureReason?.includes("signature")) {
-      console.error("[SECURITY] Safepay callback signature verification failed in production", {
-        trackerToken: result.transactionId,
+      console.error("[SECURITY] Safepay callback signature verification failed", {
+        txnRef: result.transactionId,
       });
       return NextResponse.json(
         { error: "Forbidden", code: "SIGNATURE_VERIFICATION_FAILED" },
@@ -45,36 +43,33 @@ async function handleCallback(req: Request) {
       );
     }
 
-    // Safepay sends tracker token as "tracker" or "tracker_token"
-    const trackerToken = payload.tracker || payload.tracker_token || result.transactionId;
+    const tracker = result.transactionId || payload.tracker;
+    if (!tracker) {
+      return NextResponse.json({ error: "Missing tracker" }, { status: 400 });
+    }
 
-    // Look up the transaction by tracker token (stored as transactionRef during initiate)
     const { prisma } = await import("@/lib/db");
     const transaction = await prisma.paymentTransaction.findFirst({
-      where: { transactionRef: trackerToken },
+      where: { transactionRef: tracker },
       orderBy: { createdAt: "desc" },
     });
 
     if (!transaction) {
-      console.error("Safepay callback: transaction not found for tracker", trackerToken);
-      // Still redirect gracefully instead of leaving the user on a blank page
-      const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-      return NextResponse.redirect(`${baseUrl}/checkout?error=payment_failed`);
+      console.error("Safepay callback: transaction not found for tracker", tracker);
+      return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
     }
 
-    // Update transaction record
     await updatePaymentTransaction(transaction.id, {
       status: result.status.toUpperCase(),
       gatewayResponse: payload,
       failureReason: result.failureReason,
-      transactionRef: result.providerRef || trackerToken,
+      transactionRef: result.providerRef || tracker,
     });
 
-    // Update order on success
     if (result.success) {
       await updateOrderPaymentStatus(transaction.orderId, "PAID");
 
-      // Fire payment success notification
+      // Trigger payment success notification
       const order = await prisma.order.findUnique({
         where: { id: transaction.orderId },
       });
@@ -88,8 +83,11 @@ async function handleCallback(req: Request) {
             data: {
               orderNumber: order.orderNumber,
               total: String(Number(transaction.amount)),
-              transactionRef: result.providerRef || trackerToken || "",
+              transactionRef: result.providerRef || tracker || "",
               customerName: `${addr.firstName || ""} ${addr.lastName || ""}`.trim(),
+              ...(order.stitchingDeliveryDate
+                ? { stitchingDeliveryDate: new Date(order.stitchingDeliveryDate).toISOString() }
+                : {}),
             },
             orderId: order.id,
             channels: ["email"], // explicitly only send email, to avoid duplicate SMS with order_confirmation
@@ -100,7 +98,6 @@ async function handleCallback(req: Request) {
       await updateOrderPaymentStatus(transaction.orderId, "FAILED");
     }
 
-    // Redirect customer to confirmation or failure page
     const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
     const redirectUrl = result.success
       ? `${baseUrl}/order-confirmation?order=${transaction.orderId}`
@@ -109,8 +106,10 @@ async function handleCallback(req: Request) {
     return NextResponse.redirect(redirectUrl);
   } catch (error) {
     console.error("Safepay callback error:", error);
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-    return NextResponse.redirect(`${baseUrl}/checkout?error=payment_failed`);
+    return NextResponse.json(
+      { error: "Callback processing failed" },
+      { status: 500 }
+    );
   }
 }
 

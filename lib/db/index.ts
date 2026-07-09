@@ -3,6 +3,7 @@ export * from './orders';
 export * from './payments';
 export * from './measurements';
 export * from './stitching';
+export * from './stitching-schedule';
 export * from './discounts';
 export * from './returns';
 export * from './shipping';
