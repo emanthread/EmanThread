@@ -37,6 +37,12 @@ const storeConfigSchema = z.object({
   stitchingNotice: z.string().optional(),
   stitchingDailyThreshold: z.number().int().min(1).max(200).optional(),
   stitchingLeadDays: z.number().int().min(1).max(60).optional(),
+  nayapayAccount: z.string().optional(),
+  nayapayName: z.string().optional(),
+  nayapayPhone: z.string().optional(),
+  meezanAccountNumber: z.string().optional(),
+  meezanIban: z.string().optional(),
+  meezanAccountName: z.string().optional(),
 });
 
 async function checkAdmin() {

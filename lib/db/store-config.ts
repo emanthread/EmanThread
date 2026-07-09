@@ -31,6 +31,12 @@ export interface StoreConfigInput {
   stitchingNotice?: string;
   stitchingDailyThreshold?: number;
   stitchingLeadDays?: number;
+  nayapayAccount?: string;
+  nayapayName?: string;
+  nayapayPhone?: string;
+  meezanAccountNumber?: string;
+  meezanIban?: string;
+  meezanAccountName?: string;
 }
 
 async function _getStoreConfig(): Promise<StoreConfigInput> {
@@ -107,6 +113,12 @@ async function _getStoreConfig(): Promise<StoreConfigInput> {
     stitchingNotice: parseStr("stitchingNotice", ""),
     stitchingDailyThreshold: parseNum("stitchingDailyThreshold", 12),
     stitchingLeadDays: parseNum("stitchingLeadDays", 6),
+    nayapayAccount: parseStr("nayapayAccount", process.env.NAYAPAY_ACCOUNT || "samar.abbas636@nayapay"),
+    nayapayName: parseStr("nayapayName", process.env.NAYAPAY_NAME || "Samar Abbas"),
+    nayapayPhone: parseStr("nayapayPhone", process.env.NAYAPAY_PHONE || "+92 302 2996677"),
+    meezanAccountNumber: parseStr("meezanAccountNumber", process.env.MEEZAN_ACCOUNT_NUMBER || "03260114999042"),
+    meezanIban: parseStr("meezanIban", process.env.MEEZAN_IBAN || "PK51MEZN0003260114999042"),
+    meezanAccountName: parseStr("meezanAccountName", process.env.MEEZAN_ACCOUNT_NAME || "EMAN THREAD"),
   };
 }
 
@@ -209,6 +221,12 @@ export async function setStoreConfig(data: StoreConfigInput) {
   if (data.stitchingNotice !== undefined) entries.push(["stitchingNotice", data.stitchingNotice]);
   if (data.stitchingDailyThreshold !== undefined) entries.push(["stitchingDailyThreshold", String(data.stitchingDailyThreshold)]);
   if (data.stitchingLeadDays !== undefined) entries.push(["stitchingLeadDays", String(data.stitchingLeadDays)]);
+  if (data.nayapayAccount !== undefined) entries.push(["nayapayAccount", data.nayapayAccount]);
+  if (data.nayapayName !== undefined) entries.push(["nayapayName", data.nayapayName]);
+  if (data.nayapayPhone !== undefined) entries.push(["nayapayPhone", data.nayapayPhone]);
+  if (data.meezanAccountNumber !== undefined) entries.push(["meezanAccountNumber", data.meezanAccountNumber]);
+  if (data.meezanIban !== undefined) entries.push(["meezanIban", data.meezanIban]);
+  if (data.meezanAccountName !== undefined) entries.push(["meezanAccountName", data.meezanAccountName]);
   await Promise.all(
     entries.map(([key, value]) =>
       prisma.storeConfig.upsert({

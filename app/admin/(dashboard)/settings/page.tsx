@@ -89,6 +89,12 @@ export default function AdminSettingsPage() {
     youtubeUrl: "",
     tiktokUrl: "",
     stitchingNotice: "",
+    nayapayAccount: "",
+    nayapayName: "",
+    nayapayPhone: "",
+    meezanAccountNumber: "",
+    meezanIban: "",
+    meezanAccountName: "",
   });
 
   const [stitchingPrices, setStitchingPrices] = useState<{ fabricType: string; gender: string; price: number }[]>([]);
@@ -155,6 +161,12 @@ export default function AdminSettingsPage() {
             youtubeUrl: data.youtube_url ?? prev.youtubeUrl,
             tiktokUrl: data.tiktok_url ?? prev.tiktokUrl,
             stitchingNotice: data.stitchingNotice ?? prev.stitchingNotice,
+            nayapayAccount: data.nayapayAccount ?? prev.nayapayAccount,
+            nayapayName: data.nayapayName ?? prev.nayapayName,
+            nayapayPhone: data.nayapayPhone ?? prev.nayapayPhone,
+            meezanAccountNumber: data.meezanAccountNumber ?? prev.meezanAccountNumber,
+            meezanIban: data.meezanIban ?? prev.meezanIban,
+            meezanAccountName: data.meezanAccountName ?? prev.meezanAccountName,
           }));
         }
         // Load stitching schedule settings
@@ -290,6 +302,12 @@ export default function AdminSettingsPage() {
         youtube_url: storeSettings.youtubeUrl,
         tiktok_url: storeSettings.tiktokUrl,
         stitchingNotice: storeSettings.stitchingNotice,
+        nayapayAccount: storeSettings.nayapayAccount,
+        nayapayName: storeSettings.nayapayName,
+        nayapayPhone: storeSettings.nayapayPhone,
+        meezanAccountNumber: storeSettings.meezanAccountNumber,
+        meezanIban: storeSettings.meezanIban,
+        meezanAccountName: storeSettings.meezanAccountName,
         freeShippingThreshold: shippingSettings.freeShippingThreshold,
         standardShippingRate: shippingSettings.standardShippingRate,
         expressShippingRate: shippingSettings.expressShippingRate,
@@ -861,6 +879,85 @@ export default function AdminSettingsPage() {
                   </div>
                   <Switch defaultChecked disabled />
                 </div>
+                
+                <Separator />
+                
+                <h3 className="text-lg font-medium">NayaPay Settings</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="nayapayAccount">NayaPay ID</Label>
+                    <Input
+                      id="nayapayAccount"
+                      value={storeSettings.nayapayAccount}
+                      onChange={(e) =>
+                        setStoreSettings({ ...storeSettings, nayapayAccount: e.target.value })
+                      }
+                      placeholder="samar.abbas636@nayapay"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="nayapayName">Account Name</Label>
+                    <Input
+                      id="nayapayName"
+                      value={storeSettings.nayapayName}
+                      onChange={(e) =>
+                        setStoreSettings({ ...storeSettings, nayapayName: e.target.value })
+                      }
+                      placeholder="Samar Abbas"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="nayapayPhone">Mobile Number</Label>
+                    <Input
+                      id="nayapayPhone"
+                      value={storeSettings.nayapayPhone}
+                      onChange={(e) =>
+                        setStoreSettings({ ...storeSettings, nayapayPhone: e.target.value })
+                      }
+                      placeholder="+92 302 2996677"
+                    />
+                  </div>
+                </div>
+
+                <Separator />
+
+                <h3 className="text-lg font-medium">Meezan Bank Settings</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="meezanAccountNumber">Account Number</Label>
+                    <Input
+                      id="meezanAccountNumber"
+                      value={storeSettings.meezanAccountNumber}
+                      onChange={(e) =>
+                        setStoreSettings({ ...storeSettings, meezanAccountNumber: e.target.value })
+                      }
+                      placeholder="03260114999042"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="meezanIban">IBAN</Label>
+                    <Input
+                      id="meezanIban"
+                      value={storeSettings.meezanIban}
+                      onChange={(e) =>
+                        setStoreSettings({ ...storeSettings, meezanIban: e.target.value })
+                      }
+                      placeholder="PK51MEZN0003260114999042"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="meezanAccountName">Account Name</Label>
+                    <Input
+                      id="meezanAccountName"
+                      value={storeSettings.meezanAccountName}
+                      onChange={(e) =>
+                        setStoreSettings({ ...storeSettings, meezanAccountName: e.target.value })
+                      }
+                      placeholder="EMAN THREAD"
+                    />
+                  </div>
+                </div>
+
               </div>
             </CardContent>
           </Card>
