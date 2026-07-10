@@ -45,6 +45,7 @@ const createOrderSchema = z.object({
     fabricType: z.string(),
     stitchingPrice: z.number(),
     adminMeasurement: z.any().optional(),
+    stitchingVariantName: z.string().optional(),
   })).optional(),
   measurementItems: z.array(z.object({
     productId: z.string(),
@@ -315,11 +316,15 @@ export async function POST(req: Request) {
 
         for (const mItem of measurementItems) {
           try {
+            const itemSnapshot = { ...snapshot } as any;
+            itemSnapshot.stitchingVariantName = stitchingItems?.find(s => s.productId === mItem.productId)?.stitchingVariantName;
+            itemSnapshot.stitchingPrice = stitchingItems?.find(s => s.productId === mItem.productId)?.stitchingPrice;
+
             await attachMeasurementToOrder({
               orderId: order.id,
               productId: mItem.productId,
               productName: mItem.productName,
-              measurementSnapshot: snapshot,
+              measurementSnapshot: itemSnapshot,
             });
             processedMeasurementProductIds.add(mItem.productId);
           } catch (err) {
@@ -389,8 +394,6 @@ export async function POST(req: Request) {
               ladLasticShalwarBelt: unified.ladLasticShalwarBelt,
               ladTrouserdata15: unified.ladTrouserdata15,
               ladTrouserdata16: unified.ladTrouserdata16,
-              stitchingVariantName: stitchingItems?.find(s => s.productId === mi.productId)?.stitchingVariantName,
-              stitchingPrice: stitchingItems?.find(s => s.productId === mi.productId)?.stitchingPrice,
             },
           });
         } catch (err) {

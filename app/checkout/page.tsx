@@ -176,7 +176,7 @@ export default function CheckoutPage() {
   const [transactionId, setTransactionId] = useState('');
   const [saveAddress, setSaveAddress] = useState(false);
 
-  const [measurementProfiles, setMeasurementProfiles] = useState<Array<{ id: string; profileName: string; garmentType: string; isDefault: boolean; shalwar1?: string; ladSimpleShalwar1?: string; ladShalwarBelt1?: string; trouserdata1?: string }>>([]);
+  const [measurementProfiles, setMeasurementProfiles] = useState<Array<{ id: string; profileName: string; garmentType: string; isDefault: boolean; shalwar1?: string; ladSimpleShalwar1?: string; ladShalwarBelt1?: string; trouserdata1?: string; ladTrouserdata15?: string }>>([]);
   // Per-item shalwar variant selection for items where the profile is a shalwar kameez type.
   // Key: productId, Value: stitching price DB key for the chosen variant.
   const [itemShalwarVariants, setItemShalwarVariants] = useState<Record<string, string>>({});
