@@ -51,6 +51,7 @@ const createOrderSchema = z.object({
     productName: z.string(),
     measurementProfileId: z.string().optional(),
   })).optional(),
+  preferredDeliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), // customer-preferred delivery date (YYYY-MM-DD)
 });
 
 export async function POST(req: Request) {
@@ -191,6 +192,15 @@ export async function POST(req: Request) {
       } catch (schedErr) {
         // Non-fatal: if scheduling fails, order still goes through without a delivery date
         console.error("[orders] Stitching delivery date calculation failed:", schedErr);
+      }
+
+      // If the customer picked a preferred delivery date, use it — but only if it's
+      // on or after the auto-calculated earliest available date (server-side guard).
+      if (body.preferredDeliveryDate && stitchingDeliveryDate) {
+        const preferred = new Date(body.preferredDeliveryDate + "T00:00:00+05:00"); // interpret as PKT
+        if (!isNaN(preferred.getTime()) && preferred >= stitchingDeliveryDate) {
+          stitchingDeliveryDate = preferred;
+        }
       }
     }
 

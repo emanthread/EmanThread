@@ -20,6 +20,7 @@ import { formatPrice } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import {
   ChevronLeft,
+  ChevronRight,
   CreditCard,
   Banknote,
   Smartphone,
@@ -28,6 +29,8 @@ import {
   MessageCircle,
   Building2,
   Landmark,
+  CalendarDays,
+  X,
 } from "lucide-react";
 
 interface PaymentDetails {
@@ -148,6 +151,14 @@ export default function CheckoutPage() {
   const [stitchingDeliveryEstimate, setStitchingDeliveryEstimate] = useState<string | null>(null);
   const [estimateLoading, setEstimateLoading] = useState(false);
   const [stitchingDeliveryDate, setStitchingDeliveryDate] = useState<string | null>(null);
+
+  // ── Customize Delivery calendar state ─────────────────────────────────────
+  const [preferredDeliveryDate, setPreferredDeliveryDate] = useState<string | null>(null);
+  const [showDeliveryCalendar, setShowDeliveryCalendar] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState<string>(""); // "YYYY-MM"
+  const [availableDates, setAvailableDates] = useState<Record<string, { available: boolean; spotsLeft: number; blocked: boolean }>>({});
+  const [earliestDate, setEarliestDate] = useState<string>("");
+  const [calendarLoading, setCalendarLoading] = useState(false);
 
   // Payment account details — fetched server-side, never in the client bundle
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetails | null>(null);
@@ -316,6 +327,58 @@ export default function CheckoutPage() {
     return () => controller.abort();
   }, [hasStitchingSelected]);
 
+  // Fetch available delivery dates when calendar is opened
+  const fetchAvailableDates = async (month: string) => {
+    setCalendarLoading(true);
+    try {
+      const res = await fetch(`/api/stitching/available-dates?month=${month}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAvailableDates(data.days || {});
+        setEarliestDate(data.earliestDate || "");
+      }
+    } catch { /* non-fatal */ }
+    finally { setCalendarLoading(false); }
+  };
+
+  const openCalendar = () => {
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    setCalendarMonth(month);
+    setShowDeliveryCalendar(true);
+    fetchAvailableDates(month);
+  };
+
+  const shiftCalendarMonth = (delta: number) => {
+    const [y, m] = calendarMonth.split("-").map(Number);
+    const d = new Date(y, m - 1 + delta, 1);
+    const next = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    setCalendarMonth(next);
+    fetchAvailableDates(next);
+  };
+
+  // Build calendar grid days for the current calendarMonth
+  const buildCalendarDays = () => {
+    if (!calendarMonth) return [];
+    const [y, m] = calendarMonth.split("-").map(Number);
+    const firstDay = new Date(y, m - 1, 1).getDay(); // 0=Sun
+    const daysInMonth = new Date(y, m, 0).getDate();
+    // Adjust so week starts Monday (0=Mon ... 6=Sun)
+    const startOffset = (firstDay + 6) % 7;
+    const cells: Array<{ dateStr: string | null; day: number | null }> = [];
+    for (let i = 0; i < startOffset; i++) cells.push({ dateStr: null, day: null });
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      cells.push({ dateStr, day: d });
+    }
+    return cells;
+  };
+
+  const formatPreferredDate = (dateStr: string) => {
+    const d = new Date(dateStr + "T12:00:00+05:00");
+    return d.toLocaleDateString("en-PK", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Karachi" });
+  };
+
   // When stitching is selected, COD is not valid — switch to nayapay or meezan_bank
   useEffect(() => {
     if (hasStitchingSelected && paymentMethod === "cod") {
@@ -425,6 +488,10 @@ export default function CheckoutPage() {
             stitchingPrice: item.stitchingPrice ?? DEFAULT_STITCHING_FEE,
             adminMeasurement: item.adminMeasurement ? item.adminMeasurement : undefined,
           }));
+        // Include customer-preferred delivery date if selected
+        if (preferredDeliveryDate) {
+          payload.preferredDeliveryDate = preferredDeliveryDate;
+        }
       }
 
       // Include measurement information for stitching items (server-side attachment)
@@ -880,6 +947,131 @@ export default function CheckoutPage() {
                           <p className="text-xs text-muted-foreground">Calculating...</p>
                         )}
                         <p className="text-[10px] text-muted-foreground mt-0.5">Based on current queue</p>
+
+                        {/* ── Customize Delivery ──────────────────────── */}
+                        <div className="mt-2 pt-2 border-t border-emerald-200 dark:border-emerald-700">
+                          <div className="flex items-center justify-between">
+                            <button
+                              type="button"
+                              onClick={openCalendar}
+                              className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 dark:hover:text-emerald-200 transition-colors font-medium"
+                            >
+                              <CalendarDays className="h-3.5 w-3.5" />
+                              Customize Delivery
+                            </button>
+                            {preferredDeliveryDate && (
+                              <button
+                                type="button"
+                                onClick={() => setPreferredDeliveryDate(null)}
+                                className="text-[10px] text-muted-foreground hover:text-destructive flex items-center gap-0.5"
+                              >
+                                <X className="h-2.5 w-2.5" /> Clear
+                              </button>
+                            )}
+                          </div>
+                          {preferredDeliveryDate && (
+                            <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-1 font-medium">
+                              📅 {formatPreferredDate(preferredDeliveryDate)}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* ── Inline Calendar Popup ───────────────────── */}
+                        {showDeliveryCalendar && (
+                          <div className="mt-2 bg-background border border-border rounded-lg shadow-lg p-3 text-xs">
+                            {/* Header */}
+                            <div className="flex items-center justify-between mb-2">
+                              <button
+                                type="button"
+                                onClick={() => shiftCalendarMonth(-1)}
+                                className="p-1 rounded hover:bg-muted transition-colors"
+                              >
+                                <ChevronLeft className="h-3.5 w-3.5" />
+                              </button>
+                              <span className="font-semibold text-sm">
+                                {new Date(calendarMonth + "-01").toLocaleDateString("en-PK", { month: "long", year: "numeric", timeZone: "Asia/Karachi" })}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => shiftCalendarMonth(1)}
+                                className="p-1 rounded hover:bg-muted transition-colors"
+                              >
+                                <ChevronRight className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+
+                            {/* Weekday headers */}
+                            <div className="grid grid-cols-7 mb-1">
+                              {["Mo","Tu","We","Th","Fr","Sa","Su"].map(d => (
+                                <div key={d} className="text-center text-[10px] text-muted-foreground font-medium py-0.5">{d}</div>
+                              ))}
+                            </div>
+
+                            {/* Days grid */}
+                            {calendarLoading ? (
+                              <div className="text-center py-4 text-muted-foreground animate-pulse">Loading...</div>
+                            ) : (
+                              <div className="grid grid-cols-7 gap-0.5">
+                                {buildCalendarDays().map((cell, idx) => {
+                                  if (!cell.dateStr) return <div key={idx} />;
+                                  const info = availableDates[cell.dateStr];
+                                  const isSelected = preferredDeliveryDate === cell.dateStr;
+                                  const isAvailable = info?.available ?? false;
+                                  const isBlocked = info?.blocked ?? false;
+                                  const isTooEarly = cell.dateStr < earliestDate;
+                                  const isDisabled = !isAvailable || isTooEarly || isBlocked || !info;
+                                  return (
+                                    <button
+                                      key={cell.dateStr}
+                                      type="button"
+                                      disabled={isDisabled}
+                                      onClick={() => {
+                                        setPreferredDeliveryDate(cell.dateStr);
+                                        setShowDeliveryCalendar(false);
+                                      }}
+                                      title={
+                                        isBlocked ? "Blocked" :
+                                        isTooEarly ? "Too early" :
+                                        !info ? "Unavailable" :
+                                        isAvailable ? `${info.spotsLeft} spots left` :
+                                        "Fully booked"
+                                      }
+                                      className={cn(
+                                        "w-full aspect-square flex items-center justify-center rounded text-[11px] font-medium transition-colors",
+                                        isSelected
+                                          ? "bg-emerald-600 text-white"
+                                          : isAvailable
+                                          ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-800/40 cursor-pointer"
+                                          : "text-muted-foreground/40 cursor-not-allowed line-through"
+                                      )}
+                                    >
+                                      {cell.day}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* Legend */}
+                            <div className="flex items-center gap-3 mt-2 pt-2 border-t border-border">
+                              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                <span className="inline-block w-3 h-3 rounded bg-emerald-100 dark:bg-emerald-900/30"></span> Available
+                              </span>
+                              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                <span className="inline-block w-3 h-3 rounded bg-muted"></span> Unavailable
+                              </span>
+                            </div>
+
+                            {/* Close */}
+                            <button
+                              type="button"
+                              onClick={() => setShowDeliveryCalendar(false)}
+                              className="mt-2 w-full text-[10px] text-muted-foreground hover:text-foreground text-center py-1 rounded hover:bg-muted transition-colors"
+                            >
+                              Close
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                     {hasStitchingSelected ? (
