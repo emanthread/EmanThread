@@ -208,7 +208,7 @@ export default async function OrderStatusPage({ params }: PageProps) {
           </CardHeader>
           <CardContent className="space-y-3">
             {order.items.map((item) => {
-              const itemMeasurement = order.itemMeasurements?.find((m) => m.orderItemId === item.id);
+              const itemMeasurement = order.itemMeasurements?.find((m) => m.productId === item.productId);
               const measurementData = itemMeasurement?.measurementSnapshot as Record<string, any> | null;
               const variantName = measurementData?.stitchingVariantName;
               const variantPrice = measurementData?.stitchingPrice;
