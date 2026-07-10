@@ -16,12 +16,15 @@ export async function generateStaticParams() {
       select: { id: true, slug: true },
       where: { inStock: true },
     });
-    return products.map((p) => ({ id: p.slug ?? p.id }));
+    return products
+      .map((p) => ({ id: p.slug ?? p.id }))
+      .filter((p) => p.id.length <= 200); // skip products with abnormally long slugs/ids (ENAMETOOLONG guard)
   } catch {
     // If DB is unavailable at build time, fall back gracefully to dynamic rendering
     return [];
   }
 }
+
 
 interface Props {
   params: Promise<{ id: string }>;
