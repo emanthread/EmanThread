@@ -862,7 +862,7 @@ export default function CheckoutPage() {
                               const hasMaleShalwar = !!profile.shalwar1;
                               const hasFemaleSimpleShalwar = !!profile.ladSimpleShalwar1;
                               const hasFemaleBeltShalwar = !!profile.ladShalwarBelt1;
-                              const hasTrouser = !!profile.trouserdata1 || !!profile.ladTrouserdata15;
+                              const hasTrouser = !!profile.trouserdata1;
 
                               if (profile.garmentType === "male_shalwar_kameez") {
                                 if (hasMaleShalwar && !hasTrouser) {
