@@ -622,10 +622,12 @@ function BottomTypeTabs({
     color: bottomType === tab ? "#fff" : "var(--ink)",
     fontWeight: 800,
     padding: variant === 'ladies' ? "2.8mm 2mm" : "3mm 1mm",
-    cursor: "pointer",
+    cursor: readOnly ? "default" : "pointer",
     borderRadius: "4px",
     fontSize: variant === 'ladies' ? "12.5px" : "11.5px",
-    textTransform: "uppercase"
+    textTransform: "uppercase",
+    pointerEvents: readOnly ? "none" : "auto",
+    opacity: readOnly && bottomType !== tab ? 0.6 : 1,
   });
 
   return (

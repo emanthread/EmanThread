@@ -389,6 +389,8 @@ export async function POST(req: Request) {
               ladLasticShalwarBelt: unified.ladLasticShalwarBelt,
               ladTrouserdata15: unified.ladTrouserdata15,
               ladTrouserdata16: unified.ladTrouserdata16,
+              stitchingVariantName: stitchingItems?.find(s => s.productId === mi.productId)?.stitchingVariantName,
+              stitchingPrice: stitchingItems?.find(s => s.productId === mi.productId)?.stitchingPrice,
             },
           });
         } catch (err) {

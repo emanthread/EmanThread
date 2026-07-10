@@ -482,12 +482,26 @@ export default function CheckoutPage() {
         payload.stitchingFee = stitchingTotal;
         payload.stitchingItems = selectedItems
           .filter((item) => item.stitchingProfileId != null && item.stitchingProfileId !== "none")
-          .map((item) => ({
-            productId: item.product.id,
-            fabricType: item.product.fabricType,
-            stitchingPrice: item.stitchingPrice ?? DEFAULT_STITCHING_FEE,
-            adminMeasurement: item.adminMeasurement ? item.adminMeasurement : undefined,
-          }));
+          .map((item) => {
+            let variantName = undefined;
+            const profileId = item.stitchingProfileId;
+            const profile = profileId ? (measurementProfiles.find(p => p.id === profileId) || item.adminMeasurement) : null;
+            if (profile) {
+              const variants = shalwarVariantOptions[profile.garmentType ?? ""];
+              const selectedKey = itemShalwarVariants[item.product.id];
+              const variantOpt = variants?.find(v => v.key === selectedKey);
+              if (variantOpt) {
+                variantName = variantOpt.label;
+              }
+            }
+            return {
+              productId: item.product.id,
+              fabricType: item.product.fabricType,
+              stitchingPrice: item.stitchingPrice ?? DEFAULT_STITCHING_FEE,
+              adminMeasurement: item.adminMeasurement ? item.adminMeasurement : undefined,
+              stitchingVariantName: variantName,
+            };
+          });
         // Include customer-preferred delivery date if selected
         if (preferredDeliveryDate) {
           payload.preferredDeliveryDate = preferredDeliveryDate;
@@ -848,7 +862,7 @@ export default function CheckoutPage() {
                               const hasMaleShalwar = !!profile.shalwar1;
                               const hasFemaleSimpleShalwar = !!profile.ladSimpleShalwar1;
                               const hasFemaleBeltShalwar = !!profile.ladShalwarBelt1;
-                              const hasTrouser = !!profile.trouserdata1;
+                              const hasTrouser = !!profile.trouserdata1 || !!profile.ladTrouserdata15;
 
                               if (profile.garmentType === "male_shalwar_kameez") {
                                 if (hasMaleShalwar && !hasTrouser) {

@@ -359,34 +359,43 @@ function PaymentConfirmationContent() {
               <CardContent>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    {order.items?.map((item: any, i: number) => {
-                      let imageUrl = "/placeholder.jpg";
-                      try {
-                        const parsed = typeof item.product?.images === "string" ? JSON.parse(item.product.images) : item.product?.images;
-                        if (Array.isArray(parsed) && parsed.length > 0) imageUrl = parsed[0];
-                      } catch (e) {
-                        console.error('[PaymentConfirmation] Error parsing product image:', e);
-                      }
-                      return (
-                      <div key={i} className="flex gap-3 pb-3 border-b border-border last:border-0">
-                        <div className="relative w-12 h-14 bg-secondary rounded overflow-hidden shrink-0">
-                          <Image
-                            src={imageUrl}
-                            alt={item.product?.name || "Product"}
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{item.product?.name}</p>
-                          <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
-                        </div>
-                        <p className="text-sm font-medium shrink-0">
-                          {formatPrice(Number(item.priceAtTimeOfPurchase) * item.quantity)}
-                        </p>
-                      </div>
-                      );
-                    })}
+                        {order.items?.map((item: any, i: number) => {
+                          let imageUrl = "/placeholder.jpg";
+                          try {
+                            const parsed = typeof item.product?.images === "string" ? JSON.parse(item.product.images) : item.product?.images;
+                            if (Array.isArray(parsed) && parsed.length > 0) imageUrl = parsed[0];
+                          } catch (e) {
+                            console.error('[PaymentConfirmation] Error parsing product image:', e);
+                          }
+                          const measurement = order.itemMeasurements?.find((m: any) => m.productId === item.product?.id || m.productName === item.product?.name);
+                          const variantName = measurement?.measurementSnapshot?.stitchingVariantName;
+                          const variantPrice = measurement?.measurementSnapshot?.stitchingPrice;
+
+                          return (
+                          <div key={i} className="flex gap-3 pb-3 border-b border-border last:border-0">
+                            <div className="relative w-12 h-14 bg-secondary rounded overflow-hidden shrink-0">
+                              <Image
+                                src={imageUrl}
+                                alt={item.product?.name || "Product"}
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium">{item.product?.name}</p>
+                              <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
+                              {variantName && (
+                                <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-1 font-medium bg-amber-50 dark:bg-amber-950/30 inline-block px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-900/50">
+                                  ✨ {variantName} {variantPrice ? `(+${formatPrice(variantPrice)})` : ""}
+                                </p>
+                              )}
+                            </div>
+                            <p className="text-sm font-medium shrink-0">
+                              {formatPrice(Number(item.priceAtTimeOfPurchase) * item.quantity)}
+                            </p>
+                          </div>
+                          );
+                        })}
                   </div>
 
                   <div className="space-y-1.5 text-sm pt-2">

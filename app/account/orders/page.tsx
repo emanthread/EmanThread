@@ -46,6 +46,8 @@ interface OrderMeasurement {
     measurements: Record<string, string>;
     stylingPrefs?: any;
     notes?: string;
+    stitchingVariantName?: string;
+    stitchingPrice?: number;
   };
 }
 
@@ -292,24 +294,34 @@ export default function OrdersPage() {
                     <CardContent className="py-4">
                       {/* Order Items */}
                       <div className="space-y-3 mb-4">
-                        {order.items.map((item) => (
-                          <div key={item.id} className="flex items-center gap-4">
-                            <div className="relative h-16 w-16 rounded-md overflow-hidden bg-muted shrink-0">
-                              <Image
-                                src={item.image}
-                                alt={item.name}
-                                fill
-                                className="object-cover"
-                              />
+                        {order.items.map((item) => {
+                          const measurement = order.measurements?.find(m => m.productId === item.id || m.productName === item.name);
+                          const variantName = measurement?.snapshot?.stitchingVariantName;
+                          const variantPrice = measurement?.snapshot?.stitchingPrice;
+                          return (
+                            <div key={item.id} className="flex items-center gap-4">
+                              <div className="relative h-16 w-16 rounded-md overflow-hidden bg-muted shrink-0">
+                                <Image
+                                  src={item.image}
+                                  alt={item.name}
+                                  fill
+                                  className="object-cover"
+                                />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium truncate">{item.name}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Qty: {item.quantity} × {formatPrice(item.price)}
+                                </p>
+                                {variantName && (
+                                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 font-medium bg-amber-50 dark:bg-amber-950/30 inline-block px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-900/50">
+                                    ✨ {variantName} {variantPrice ? `(+${formatPrice(variantPrice)})` : ""}
+                                  </p>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate">{item.name}</p>
-                              <p className="text-sm text-muted-foreground">
-                                Qty: {item.quantity} × {formatPrice(item.price)}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
 
                       {order.notes && (

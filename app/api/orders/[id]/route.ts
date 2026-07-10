@@ -22,6 +22,7 @@ export async function GET(
             product: true,
           },
         },
+        itemMeasurements: true,
       },
     });
 
