@@ -181,6 +181,7 @@ export async function getOrdersByUser(userId: string) {
           product: true,
         },
       },
+      itemMeasurements: true,
     },
     orderBy: { createdAt: "desc" },
   });
@@ -210,6 +211,12 @@ export async function getOrdersByUser(userId: string) {
         : "/placeholder.jpg",
       quantity: item.quantity,
       price: Number(item.priceAtTimeOfPurchase),
+    })),
+    measurements: (order.itemMeasurements || []).map((m) => ({
+      id: m.id,
+      productId: m.productId,
+      productName: m.productName,
+      snapshot: m.measurementSnapshot as any,
     })),
   }));
 }

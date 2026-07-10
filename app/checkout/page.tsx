@@ -13,13 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { TailorPrintCard } from "@/components/admin/tailor-print-card";
+
 import { getProductImage } from "@/lib/utils";
 import { useCartStore } from "@/lib/cart-store";
 import { formatPrice } from "@/lib/data";
@@ -28,7 +22,6 @@ import {
   ChevronLeft,
   CreditCard,
   Banknote,
-  Eye,
   Smartphone,
   Lock,
   CheckCircle,
@@ -171,7 +164,7 @@ export default function CheckoutPage() {
   const [stitchingPriceMap, setStitchingPriceMap] = useState<Record<string, number>>({});
   const [transactionId, setTransactionId] = useState('');
   const [saveAddress, setSaveAddress] = useState(false);
-  const [viewAdminProfile, setViewAdminProfile] = useState<any>(null);
+
   const [measurementProfiles, setMeasurementProfiles] = useState<Array<{ id: string; profileName: string; garmentType: string; isDefault: boolean; shalwar1?: string; ladSimpleShalwar1?: string; ladShalwarBelt1?: string; trouserdata1?: string }>>([]);
   // Per-item shalwar variant selection for items where the profile is a shalwar kameez type.
   // Key: productId, Value: stitching price DB key for the chosen variant.
@@ -756,17 +749,7 @@ export default function CheckoutPage() {
                                 <option value="create_new">+ Create New Profile</option>
                               </select>
                               
-                              {item.adminMeasurement && item.stitchingProfileId === `admin_${item.adminMeasurement.id}` && (
-                                <Button 
-                                  variant="outline" 
-                                  size="icon" 
-                                  className="h-7 w-7 mt-1 shrink-0" 
-                                  onClick={() => setViewAdminProfile(item.adminMeasurement)}
-                                  title="View Admin Measurement"
-                                >
-                                  <Eye className="h-3.5 w-3.5" />
-                                </Button>
-                              )}
+
                             </div>
 
                             <AdminMeasurementLookup 
@@ -949,31 +932,7 @@ export default function CheckoutPage() {
         </div>
       </main>
       <Footer />
-      <Dialog open={!!viewAdminProfile} onOpenChange={(o) => !o && setViewAdminProfile(null)}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              Measurement Profile — {viewAdminProfile?.customerName}
-            </DialogTitle>
-          </DialogHeader>
-          {viewAdminProfile && (
-            <TailorPrintCard
-              hidePrint={true}
-              data={{
-                serialNo: `MP-${viewAdminProfile.id.slice(0, 6).toUpperCase()}`,
-                customerName: viewAdminProfile.customerName,
-                deliveryDate: new Date(viewAdminProfile.createdAt).toLocaleDateString(),
-                productName: "Admin Stored Measurement",
-                garmentType: viewAdminProfile.garmentType,
-                gender: viewAdminProfile.gender || "Male",
-                measurements: viewAdminProfile,
-                stylingPrefs: null,
-                notes: "",
-              }}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+
     </>
   );
 }
