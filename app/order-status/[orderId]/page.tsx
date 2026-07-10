@@ -169,7 +169,7 @@ export default async function OrderStatusPage({ params }: PageProps) {
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Payment Method</span>
-              <span>{order.paymentMethod === "MANUAL_BANK_TRANSFER" ? "Bank Transfer" : order.paymentMethod}</span>
+              <span>{order.paymentMethod}</span>
             </div>
             {stitchingFee > 0 && (
               <>
