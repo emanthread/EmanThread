@@ -934,27 +934,25 @@ export default function CheckoutPage() {
 
                     {/* Stitching delivery estimate — shown BEFORE order is placed */}
                     {hasStitchingSelected && (
-                      <div className="mt-3 p-3 rounded-lg border border-emerald-200 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20">
+                      <div className="mt-3 p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
                         <div className="flex items-center gap-1.5 mb-0.5">
-                          <span className="text-base">🧵</span>
-                          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">Estimated Stitching Delivery</p>
+                          <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">Estimated Stitching Delivery</p>
                         </div>
                         {estimateLoading ? (
                           <p className="text-xs text-muted-foreground animate-pulse">Calculating best date...</p>
                         ) : stitchingDeliveryEstimate ? (
-                          <p className="text-sm font-bold text-emerald-800 dark:text-emerald-200">{stitchingDeliveryEstimate}</p>
+                          <p className="text-sm font-bold text-amber-800 dark:text-amber-200">{stitchingDeliveryEstimate}</p>
                         ) : (
                           <p className="text-xs text-muted-foreground">Calculating...</p>
                         )}
-                        <p className="text-[10px] text-muted-foreground mt-0.5">Based on current queue</p>
 
                         {/* ── Customize Delivery ──────────────────────── */}
-                        <div className="mt-2 pt-2 border-t border-emerald-200 dark:border-emerald-700">
+                        <div className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-800">
                           <div className="flex items-center justify-between">
                             <button
                               type="button"
                               onClick={openCalendar}
-                              className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 dark:hover:text-emerald-200 transition-colors font-medium"
+                              className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 transition-colors font-medium"
                             >
                               <CalendarDays className="h-3.5 w-3.5" />
                               Customize Delivery
@@ -970,7 +968,7 @@ export default function CheckoutPage() {
                             )}
                           </div>
                           {preferredDeliveryDate && (
-                            <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-1 font-medium">
+                            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1 font-medium">
                               📅 {formatPreferredDate(preferredDeliveryDate)}
                             </p>
                           )}
