@@ -934,25 +934,25 @@ export default function CheckoutPage() {
 
                     {/* Stitching delivery estimate — shown BEFORE order is placed */}
                     {hasStitchingSelected && (
-                      <div className="mt-3 p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
+                      <div className="mt-3 p-3 rounded-lg border border-primary/20 bg-primary/5">
                         <div className="flex items-center gap-1.5 mb-0.5">
-                          <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">Estimated Stitching Delivery</p>
+                          <p className="text-xs font-semibold text-primary/80">Estimated Stitching Delivery</p>
                         </div>
                         {estimateLoading ? (
                           <p className="text-xs text-muted-foreground animate-pulse">Calculating best date...</p>
                         ) : stitchingDeliveryEstimate ? (
-                          <p className="text-sm font-bold text-amber-800 dark:text-amber-200">{stitchingDeliveryEstimate}</p>
+                          <p className="text-sm font-bold text-primary">{stitchingDeliveryEstimate}</p>
                         ) : (
                           <p className="text-xs text-muted-foreground">Calculating...</p>
                         )}
 
                         {/* ── Customize Delivery ──────────────────────── */}
-                        <div className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-800">
+                        <div className="mt-2 pt-2 border-t border-primary/20">
                           <div className="flex items-center justify-between">
                             <button
                               type="button"
                               onClick={openCalendar}
-                              className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 transition-colors font-medium"
+                              className="flex items-center gap-1.5 text-xs text-primary/80 hover:text-primary transition-colors font-medium"
                             >
                               <CalendarDays className="h-3.5 w-3.5" />
                               Customize Delivery
@@ -968,7 +968,7 @@ export default function CheckoutPage() {
                             )}
                           </div>
                           {preferredDeliveryDate && (
-                            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1 font-medium">
+                            <p className="text-xs text-primary/90 mt-1 font-medium">
                               📅 {formatPreferredDate(preferredDeliveryDate)}
                             </p>
                           )}
