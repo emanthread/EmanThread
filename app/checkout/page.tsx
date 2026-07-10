@@ -102,9 +102,22 @@ function AdminMeasurementLookup({ onSelect }: { onSelect: (m: any) => void }) {
               defaultValue=""
             >
               <option value="" disabled>Select measurement...</option>
-              {records.map(r => (
-                <option key={r.id} value={r.id}>{r.customerName}</option>
-              ))}
+              {records.map(r => {
+                const typeMap: Record<string, string> = {
+                  male_shalwar_kameez: "Male Shalwar Kameez",
+                  male_simple_3_piece: "Male 3 Piece Suit",
+                  male_prince_coat: "Male Prince Coat",
+                  male_shirt: "Male Shirt",
+                  female_simple_shalwar: "Female Shalwar Kameez",
+                  female_frock: "Female Frock",
+                  female_lehnga_kurti: "Female Lehnga Kurti",
+                  female_saari: "Female Saari"
+                };
+                const label = typeMap[r.garmentType] || r.garmentType.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                return (
+                  <option key={r.id} value={r.id}>{r.customerName} - {label}</option>
+                );
+              })}
             </select>
           )}
           {phone.length >= 7 && !loading && records.length === 0 && (

@@ -18,6 +18,7 @@ async function getOrderStatus(orderIdentifier: string) {
     where: { id: orderIdentifier },
     include: {
       items: { include: { product: { select: { name: true, images: true } } } },
+      itemMeasurements: true,
       manualPayment: true,
     },
   });
@@ -27,6 +28,7 @@ async function getOrderStatus(orderIdentifier: string) {
       where: { orderNumber: orderIdentifier },
       include: {
         items: { include: { product: { select: { name: true, images: true } } } },
+        itemMeasurements: true,
         manualPayment: true,
       },
     });
@@ -59,6 +61,14 @@ export default async function OrderStatusPage({ params }: PageProps) {
   const orderStatusBadge = getStatusBadge(order.status);
   const manualPayment = order.manualPayment;
   const addr = order.shippingAddress as Record<string, string> | null;
+
+  const stitchingFee = Number(order.stitchingFee || 0);
+  const shippingCost = Number(order.shippingCost || 0);
+  const subtotal = Number(order.subtotal || 0);
+  const grandTotal = Number(order.grandTotal || 0);
+
+  const dueOnDelivery = stitchingFee > 0 ? stitchingFee + shippingCost : shippingCost;
+  const payNow = stitchingFee > 0 ? subtotal : grandTotal;
 
   return (
     <div className="min-h-screen bg-secondary/30">
@@ -138,13 +148,42 @@ export default async function OrderStatusPage({ params }: PageProps) {
               <span>{order.createdAt.toISOString().split("T")[0]}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Total</span>
-              <span className="font-semibold">{formatPrice(Number(order.grandTotal))}</span>
+              <span className="text-muted-foreground">Subtotal</span>
+              <span>{formatPrice(subtotal)}</span>
+            </div>
+            {shippingCost > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Shipping</span>
+                <span>{formatPrice(shippingCost)}</span>
+              </div>
+            )}
+            {stitchingFee > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Stitching Fee</span>
+                <span>{formatPrice(stitchingFee)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground font-medium">Total</span>
+              <span className="font-semibold">{formatPrice(grandTotal)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Payment Method</span>
-              <span>{order.paymentMethod}</span>
+              <span>{order.paymentMethod === "MANUAL_BANK_TRANSFER" ? "Bank Transfer" : order.paymentMethod}</span>
             </div>
+            {stitchingFee > 0 && (
+              <>
+                <div className="border-t border-border/50 my-2 pt-2"></div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Pay Now (Fabric)</span>
+                  <span className="font-semibold">{formatPrice(payNow)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Due on Delivery (Stitching + Shipping)</span>
+                  <span className="font-semibold">{formatPrice(dueOnDelivery)}</span>
+                </div>
+              </>
+            )}
             {manualPayment && (
               <>
                 <div className="flex justify-between text-sm">
@@ -168,12 +207,26 @@ export default async function OrderStatusPage({ params }: PageProps) {
             <CardTitle className="text-base">Items</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {order.items.map((item) => (
-              <div key={item.id} className="flex justify-between text-sm">
-                <span>{item.product.name} × {item.quantity}</span>
-                <span className="font-medium">{formatPrice(Number(item.priceAtTimeOfPurchase) * item.quantity)}</span>
-              </div>
-            ))}
+            {order.items.map((item) => {
+              const itemMeasurement = order.itemMeasurements?.find((m) => m.orderItemId === item.id);
+              const measurementData = itemMeasurement?.measurementSnapshot as Record<string, any> | null;
+              const variantName = measurementData?.stitchingVariantName;
+              const variantPrice = measurementData?.stitchingPrice;
+              
+              return (
+                <div key={item.id} className="flex justify-between text-sm">
+                  <div className="flex flex-col">
+                    <span>{item.product.name} × {item.quantity}</span>
+                    {variantName && (
+                      <span className="text-xs text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded w-fit mt-1 border border-amber-200">
+                        ✨ {variantName}
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-medium">{formatPrice(Number(item.priceAtTimeOfPurchase) * item.quantity)}</span>
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
 

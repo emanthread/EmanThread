@@ -43,6 +43,7 @@ interface OrderMeasurement {
     measurements?: Record<string, string>;
     stylingPrefs?: Record<string, unknown>;
     notes?: string;
+    stitchingVariantName?: string;
   };
   measurementProfile?: {
     profileName: string;
@@ -133,8 +134,17 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
+      {(() => {
+        const stitchingFee = Number(order.stitchingFee || 0);
+        const shippingCost = Number(order.shippingCost || 0);
+        const subtotal = Number(order.subtotal || 0);
+        const grandTotal = Number(order.total || 0);
+      
+        const dueOnDelivery = stitchingFee > 0 ? stitchingFee + shippingCost : shippingCost;
+        const payNow = stitchingFee > 0 ? subtotal : grandTotal;
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="md:col-span-2 space-y-6">
           {/* Order Items */}
           <Card>
             <CardHeader>
@@ -144,28 +154,38 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {order.items.map((item, index) => (
-                <div key={index} className="flex items-start gap-4 py-2 border-b last:border-0 last:pb-0">
-                  <div className="relative h-16 w-16 rounded-md overflow-hidden bg-muted shrink-0">
-                    <Image
-                      src={item.productImage}
-                      alt={item.productName}
-                      fill
-                      className="object-cover"
-                    />
+              {order.items.map((item, index) => {
+                const itemMeasurement = orderMeasurements.find(m => m.productId === item.productId);
+                const variantName = itemMeasurement?.measurementSnapshot?.stitchingVariantName;
+                
+                return (
+                  <div key={index} className="flex items-start gap-4 py-2 border-b last:border-0 last:pb-0">
+                    <div className="relative h-16 w-16 rounded-md overflow-hidden bg-muted shrink-0">
+                      <Image
+                        src={item.productImage}
+                        alt={item.productName}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium">{item.productName}</p>
+                      {variantName && (
+                        <span className="inline-block text-xs text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 mt-1 mb-1">
+                          ✨ {variantName}
+                        </span>
+                      )}
+                      <p className="text-sm text-muted-foreground">Code: {item.sku}</p>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        Qty: {item.quantity} × {formatPrice(item.price)}
+                      </p>
+                    </div>
+                    <div className="text-right font-medium">
+                      {formatPrice(item.price * item.quantity)}
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium">{item.productName}</p>
-                    <p className="text-sm text-muted-foreground">Code: {item.sku}</p>
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      Qty: {item.quantity} × {formatPrice(item.price)}
-                    </p>
-                  </div>
-                  <div className="text-right font-medium">
-                    {formatPrice(item.price * item.quantity)}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </CardContent>
           </Card>
 
@@ -202,6 +222,20 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
                 <span>Total</span>
                 <span>{formatPrice(order.total)}</span>
               </div>
+              
+              {stitchingFee > 0 && (
+                <>
+                  <div className="border-t border-border/50 my-2 pt-2"></div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Paid Amount (Fabric)</span>
+                    <span className="font-semibold">{formatPrice(payNow)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Due on Delivery (Stitching + Shipping)</span>
+                    <span className="font-semibold">{formatPrice(dueOnDelivery)}</span>
+                  </div>
+                </>
+              )}
 
               <div className="mt-6 pt-6 border-t grid grid-cols-2 gap-4">
                 <div>
@@ -404,6 +438,8 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
           </Card>
         </div>
       </div>
+      );
+      })()}
     </div>
   );
 }
