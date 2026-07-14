@@ -334,7 +334,7 @@ const CONFIGS: Record<string, FormLayout> = {
           { label: "Neck", key: "neck1", type: "text" },
           { label: "Chest", key: "chest1", type: "text" },
           { label: "Waist", key: "waist1", type: "text" },
-          { label: "Gherra", key: "gherra1", type: "text" },
+          { label: "Hip", key: "gherra1", type: "text" },
           { label: "Chaak", key: "ladChaak1", type: "text" },
           {
             label: "Options",
