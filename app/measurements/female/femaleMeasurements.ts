@@ -111,7 +111,7 @@ const ladiesShalwarKameezForm: FemaleMeasurementForm = {
         { id: "lsk-neck",  label: "Neck",  type: "input" },
         { id: "lsk-chest", label: "Chest", type: "input" },
         { id: "lsk-waist", label: "Waist", type: "input" },
-        { id: "lsk-gherra", label: "Gherra", type: "input" },
+        { id: "lsk-gherra", label: "Hip",    type: "input" },
         { id: "lsk-chaak",  label: "Chaak",  type: "input" },
         {
           id: "lsk-options",
