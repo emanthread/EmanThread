@@ -872,10 +872,10 @@ export default function CheckoutPage() {
                               let variants = shalwarVariantOptions[profile?.garmentType ?? ""];
                               if (!variants || !profile) return null;
 
-                              const hasMaleShalwar = !!(profile.shalwar1 || profile.shalwarLength1);
-                              const hasFemaleSimpleShalwar = !!profile.ladSimpleShalwar1;
-                              const hasFemaleBeltShalwar = !!profile.ladShalwarBelt1;
-                              const hasTrouser = !!(profile.trouserdata1 || profile.trouserLength1);
+                              const hasMaleShalwar = !!((profile as any).shalwar1 || (profile as any).shalwarLength1);
+                              const hasFemaleSimpleShalwar = !!(profile as any).ladSimpleShalwar1;
+                              const hasFemaleBeltShalwar = !!(profile as any).ladShalwarBelt1;
+                              const hasTrouser = !!((profile as any).trouserdata1 || (profile as any).trouserLength1);
 
                               if (profile.garmentType === "male_shalwar_kameez") {
                                 if (hasMaleShalwar && !hasTrouser) {
