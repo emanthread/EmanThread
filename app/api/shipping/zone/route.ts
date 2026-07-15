@@ -3,8 +3,7 @@ import { z } from "zod";
 import { getZoneForCity } from "@/lib/db-queries";
 import { sanitizeDbError } from '@/lib/utils/errors';
 
-// Cache for 10 min, serve stale for 30 min while revalidating
-export const revalidate = 600;
+export const dynamic = "force-dynamic";
 
 const querySchema = z.object({
   city: z.string().min(1, "City is required"),
