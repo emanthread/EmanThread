@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-export const dynamic = "force-dynamic";
+// Cache for 5 min — matches the Cache-Control header set in next.config.mjs
+export const revalidate = 300;
 
 const DEFAULT_SLIDES = [
   {

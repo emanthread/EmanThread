@@ -3,7 +3,8 @@ import { getStoreConfig } from "@/lib/db-queries";
 import { withGuard } from "@/lib/api-guards";
 import { RateLimits } from "@/lib/rate-limiter";
 
-export const dynamic = "force-dynamic";
+// Store config is near-static — cache for 5 min, serve stale for 10 min while revalidating
+export const revalidate = 300;
 
 export const GET = withGuard(async () => {
   try {

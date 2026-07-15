@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Inter, Noto_Serif } from "next/font/google";
 import Script from "next/script";
-import { Analytics } from "@vercel/analytics/next";
+import { unstable_cache } from "next/cache";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthSync } from "@/components/auth-sync";
 import { ClientWidgets } from "@/app/client-widgets";
@@ -10,10 +10,10 @@ import "./globals.css";
 
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["400", "600"], // Reduced from 5 weights to 2 — cuts font payload ~40%
   variable: "--font-cormorant",
   display: "swap",    // Don't block render — show fallback font immediately
-  preload: true,      // Preload so it swaps in ASAP; display:swap handles FOUT
+  preload: false,     // Decorative heading font — not render-critical
 });
 
 const inter = Inter({
@@ -129,8 +129,13 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Fetch tracking IDs from store config (saved via Admin → Settings → SEO)
-  const config = await getStoreConfig();
+  // Cache store config for 1 hour — GA/Pixel IDs don't change at runtime
+  const getCachedStoreConfig = unstable_cache(
+    () => getStoreConfig(),
+    ["root-layout-store-config"],
+    { revalidate: 3600 }
+  );
+  const config = await getCachedStoreConfig();
   const { googleAnalyticsId, facebookPixelId } = config;
 
   return (
@@ -157,7 +162,6 @@ export default async function RootLayout({
           </div>
           <AuthSync />
           <ClientWidgets />
-          {process.env.NODE_ENV === "production" && <Analytics />}
         </ThemeProvider>
 
         {/* JSON-LD structured data — afterInteractive so crawlers get it but it never blocks hydration */}

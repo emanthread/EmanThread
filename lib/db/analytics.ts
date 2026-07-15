@@ -362,6 +362,7 @@ export async function getAdminAnalytics() {
     pendingReturnRequestsCount,
     recentOrders,
     reviewStats,
+    lowStockCount,
   ] = await Promise.all([
     prisma.order.aggregate({
       _sum: { grandTotal: true },
@@ -398,6 +399,15 @@ export async function getAdminAnalytics() {
       _count: { id: true },
       where: { isVisible: true, deletedAt: null },
     }),
+    // Previously a serial await AFTER Promise.all — now runs in parallel
+    prisma.product.count({
+      where: {
+        AND: [
+          { stockQuantity: { lte: 5 } },
+          { stockQuantity: { gt: 0 } },
+        ],
+      },
+    }),
   ]);
 
   const totalRevenue = Number(revenueAgg._sum.grandTotal || 0);
@@ -415,14 +425,7 @@ export async function getAdminAnalytics() {
     averageOrderValue: avgOrderValue,
     aovChange: 0,
     pendingOrders: pendingOrdersCount,
-    lowStockItems: await prisma.product.count({
-      where: {
-        AND: [
-          { stockQuantity: { lte: 5 } },
-          { stockQuantity: { gt: 0 } },
-        ],
-      },
-    }),
+    lowStockItems: lowStockCount,
     returnRequests: pendingReturnRequestsCount,
     totalReviews,
     averageRating,

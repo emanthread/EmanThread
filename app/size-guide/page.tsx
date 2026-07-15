@@ -3,9 +3,7 @@ import { Footer } from "@/components/layout/footer";
 import { CartDrawer } from "@/components/cart/cart-drawer";
 import { getContentPage } from "@/lib/content-pages";
 
-// Must remain force-dynamic: getContentPage() reads prisma.storeConfig which requires
-// a live database connection — this cannot be statically rendered at build time.
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 export default async function SizeGuidePage() {
   const content = await getContentPage("size_guide_content");

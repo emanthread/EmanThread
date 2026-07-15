@@ -380,6 +380,7 @@ export async function getAdminOrders(options: {
     total,
     page,
     limit,
+    totalPages: Math.ceil(total / limit),
   };
 }
 

@@ -25,7 +25,39 @@ const GoogleOneTap = dynamic(
 )
 
 
+import { useState, useEffect } from 'react'
+
 export function ClientWidgets() {
+  const [shouldMount, setShouldMount] = useState(false)
+
+  useEffect(() => {
+    // Delay loading heavy third-party-like widgets until 3s after initial paint.
+    // This dramatically improves Time to Interactive (TTI) for the main page content.
+    const timer = setTimeout(() => setShouldMount(true), 3000)
+    
+    // Also mount immediately if user interacts (scrolls, clicks, moves mouse)
+    const handleInteraction = () => {
+      setShouldMount(true)
+      clearTimeout(timer)
+      window.removeEventListener('scroll', handleInteraction)
+      window.removeEventListener('mousemove', handleInteraction)
+      window.removeEventListener('touchstart', handleInteraction)
+    }
+
+    window.addEventListener('scroll', handleInteraction, { passive: true })
+    window.addEventListener('mousemove', handleInteraction, { passive: true })
+    window.addEventListener('touchstart', handleInteraction, { passive: true })
+
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('scroll', handleInteraction)
+      window.removeEventListener('mousemove', handleInteraction)
+      window.removeEventListener('touchstart', handleInteraction)
+    }
+  }, [])
+
+  if (!shouldMount) return null
+
   return (
     <>
       <WhatsAppButton />

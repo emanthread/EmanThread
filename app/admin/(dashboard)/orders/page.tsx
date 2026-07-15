@@ -69,7 +69,7 @@ const paymentMethodLabels = {
 };
 
 export default function AdminOrdersPage() {
-  const { orders, deleteOrder, updateOrderStatus, loadOrders, notificationLogs, loadNotificationLogs } = useAdminStore();
+  const { orders, ordersTotal, ordersPage, ordersTotalPages, deleteOrder, updateOrderStatus, loadOrders, notificationLogs, loadNotificationLogs } = useAdminStore();
 
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -84,14 +84,20 @@ export default function AdminOrdersPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [newStatus, setNewStatus] = useState<OrderStatus>("pending");
 
+  const [page, setPage] = useState(1);
+
   useEffect(() => {
-    loadOrders(statusFilter);
+    const timeout = setTimeout(() => {
+      loadOrders(statusFilter, page, 20, searchQuery);
+    }, 400);
+    return () => clearTimeout(timeout);
+  }, [loadOrders, statusFilter, page, searchQuery]);
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const search = params.get("search");
-    if (search) {
-      setSearchQuery(search);
-    }
-  }, [loadOrders, statusFilter]);
+    if (search) setSearchQuery(search);
+  }, []);
 
   const filteredOrders = orders.filter((order) => {
     const matchesSearch =
@@ -523,6 +529,31 @@ export default function AdminOrdersPage() {
               </tbody>
             </table>
           </div>
+          {ordersTotalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <p className="text-sm text-muted-foreground">
+                Showing page {ordersPage} of {ordersTotalPages} ({ordersTotal} total orders)
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={ordersPage <= 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(ordersTotalPages, p + 1))}
+                  disabled={ordersPage >= ordersTotalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
 
           {filteredOrders.length === 0 && (
             <div className="text-center py-12">

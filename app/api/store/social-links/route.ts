@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-export const dynamic = "force-dynamic";
+// Social links almost never change — cache for 1 hour
+export const revalidate = 3600;
 
 const socialKeys = [
   "instagram_url",

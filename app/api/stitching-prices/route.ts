@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-export const dynamic = "force-dynamic";
+// Stitching prices change infrequently — cache for 15 min
+export const revalidate = 900;
 
 export async function GET() {
   try {

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-export const dynamic = "force-dynamic";
+// Promo banner changes only when admin updates it — cache for 5 min
+export const revalidate = 300;
 
 const DEFAULT_PROMO_BANNER = {
   image: "/images/fabrics/promo_1776582682565.png",

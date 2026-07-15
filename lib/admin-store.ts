@@ -192,6 +192,9 @@ export interface Customer {
 
 interface AdminState {
   orders: Order[];
+  ordersTotal: number;
+  ordersPage: number;
+  ordersTotalPages: number;
   products: AdminProduct[];
   productsTotal: number;
   productsPage: number;
@@ -209,7 +212,7 @@ interface AdminState {
   sidebarOpen: boolean;
   
   // Loaders
-  loadOrders: (status?: string) => Promise<void>;
+  loadOrders: (status?: string, page?: number, limit?: number, search?: string) => Promise<void>;
   loadProducts: (page?: number, limit?: number, search?: string, category?: string, stock?: string) => Promise<void>;
   loadCustomers: () => Promise<void>;
   loadStats: () => Promise<void>;
@@ -271,6 +274,9 @@ export const useAdminStore = create<AdminState>()(
   persist(
     (set, get) => ({
       orders: [],
+      ordersTotal: 0,
+      ordersPage: 1,
+      ordersTotalPages: 0,
       products: [],
       productsTotal: 0,
       productsPage: 1,
@@ -287,16 +293,23 @@ export const useAdminStore = create<AdminState>()(
       shippingZones: [],
       sidebarOpen: true,
 
-      loadOrders: async (status?: string) => {
+      loadOrders: async (status = "all", page = 1, limit = 50, search = "") => {
         try {
           const url = new URL("/api/admin/orders", window.location.origin);
-          if (status && status !== "all") {
-            url.searchParams.set("status", status);
-          }
+          if (status && status !== "all") url.searchParams.set("status", status);
+          url.searchParams.set("page", page.toString());
+          url.searchParams.set("limit", limit.toString());
+          if (search) url.searchParams.set("search", search);
+
           const res = await fetch(url.toString());
           if (!res.ok) return;
           const data = await res.json();
-          set({ orders: data.orders || [] });
+          set({ 
+            orders: data.orders || [],
+            ordersTotal: data.total || 0,
+            ordersPage: data.page || 1,
+            ordersTotalPages: data.totalPages || 0
+          });
         } catch (err) {
           console.error("Failed to load orders:", err);
         }
