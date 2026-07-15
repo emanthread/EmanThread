@@ -48,7 +48,9 @@ export async function validateCsrf(request: Request): Promise<void> {
   const referer = request.headers.get("referer");
 
   const url = new URL(request.url);
-  const siteOrigin = `${url.protocol}//${url.host}`;
+  const protocol = request.headers.get("x-forwarded-proto") || url.protocol.replace(":", "");
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || url.host;
+  const siteOrigin = `${protocol}://${host}`;
 
   const isSameOrigin =
     (origin != null && origin === siteOrigin) ||
