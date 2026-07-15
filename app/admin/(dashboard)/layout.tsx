@@ -91,6 +91,46 @@ const bottomNavItems = [
   { href: "/admin/settings", icon: Settings, label: "Settings" },
 ];
 
+// Shared nav link renderer
+const NavLink = ({
+  item,
+  collapsed = false,
+  pathname,
+  onClick,
+}: {
+  item: (typeof navItems)[0];
+  collapsed?: boolean;
+  pathname: string;
+  onClick?: () => void;
+}) => {
+  const isActive =
+    pathname === item.href ||
+    (item.href !== "/admin" && pathname.startsWith(item.href));
+
+  return (
+    <Link
+      href={item.href}
+      onClick={onClick}
+      aria-current={isActive ? "page" : undefined}
+      className={cn(
+        "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group min-h-[44px]",
+        collapsed ? "justify-center" : "",
+        isActive
+          ? "bg-primary text-primary-foreground"
+          : "hover:bg-muted text-muted-foreground hover:text-foreground"
+      )}
+    >
+      <item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+      {!collapsed && (
+        <span className="flex-1 text-sm font-medium">{item.label}</span>
+      )}
+      {collapsed && (
+        <span className="sr-only">{item.label}</span>
+      )}
+    </Link>
+  );
+};
+
 export default function AdminLayout({
   children,
 }: {
@@ -248,43 +288,7 @@ export default function AdminLayout({
           return last.replace(/-/g, " ");
         })() ?? "Admin";
 
-  // Shared nav link renderer
-  const NavLink = ({
-    item,
-    collapsed = false,
-    onClick,
-  }: {
-    item: (typeof navItems)[0];
-    collapsed?: boolean;
-    onClick?: () => void;
-  }) => {
-    const isActive =
-      pathname === item.href ||
-      (item.href !== "/admin" && pathname.startsWith(item.href));
 
-    return (
-      <Link
-        href={item.href}
-        onClick={onClick}
-        aria-current={isActive ? "page" : undefined}
-        className={cn(
-          "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group min-h-[44px]",
-          collapsed ? "justify-center" : "",
-          isActive
-            ? "bg-primary text-primary-foreground"
-            : "hover:bg-muted text-muted-foreground hover:text-foreground"
-        )}
-      >
-        <item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-        {!collapsed && (
-          <span className="flex-1 text-sm font-medium">{item.label}</span>
-        )}
-        {collapsed && (
-          <span className="sr-only">{item.label}</span>
-        )}
-      </Link>
-    );
-  };
 
   return (
     <div
@@ -341,7 +345,7 @@ export default function AdminLayout({
         <div className="flex-1 overflow-y-auto overscroll-y-none min-h-0">
           <nav className="p-3 space-y-1" aria-label="Main navigation">
             {visibleNavItems.map((item) => (
-              <NavLink key={item.href} item={item} collapsed={!sidebarOpen} />
+              <NavLink key={item.href} item={item} collapsed={!sidebarOpen} pathname={pathname} />
             ))}
           </nav>
         </div>
@@ -375,6 +379,7 @@ export default function AdminLayout({
                 <NavLink
                   key={item.href}
                   item={item}
+                  pathname={pathname}
                   onClick={() => setMobileDrawerOpen(false)}
                 />
               ))}
