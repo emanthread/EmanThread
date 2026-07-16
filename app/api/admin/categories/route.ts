@@ -34,6 +34,7 @@ export const GET = withLoggedAdminHandler(async () => {
       description: c.description || "",
       image: c.image || "",
       productCount: c._count.products,
+      isActive: true, // Category doesn't have isActive, default to true
     }))
   );
 });

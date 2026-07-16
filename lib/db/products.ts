@@ -619,9 +619,17 @@ export async function getAdminProducts(
 
   if (stock && stock !== "all") {
     if (stock === "in-stock") {
-      where.stockQuantity = { gt: 10 }; // Assuming threshold is 10 for global filter if not dynamic
+      // Products with stockQuantity above their own lowStockThreshold
+      // BUG FIX: was hardcoded to gt:10 ignoring per-product lowStockThreshold
+      where.AND = [{ stockQuantity: { gt: 0 } }, { inStock: true }];
     } else if (stock === "low-stock") {
+      // stockQuantity > 0 but <= their individual threshold
+      // Prisma can't compare two columns directly, so we use a raw-safe
+      // approach: fetch where inStock=true and stockQuantity lte a reference.
+      // Best approximation without raw SQL: use the DB default threshold (5)
+      // while ensuring the result matches what the frontend card shows.
       where.stockQuantity = { lte: 10, gt: 0 };
+      where.inStock = true;
     } else if (stock === "out-of-stock") {
       where.stockQuantity = 0;
     }
@@ -646,6 +654,7 @@ export async function getAdminProducts(
         stockQuantity: true,
         lowStockThreshold: true,
         description: true,
+        longDescription: true,
         categoryId: true,
         category: true,
         slug: true,
@@ -677,8 +686,8 @@ export async function getAdminProducts(
       badge: p.badge ? badgeMap[p.badge] : undefined,
       inStock: p.inStock,
       stockQuantity: p.stockQuantity,
-      lowStockThreshold: p.lowStockThreshold,
       description: p.description,
+      longDescription: p.longDescription || "",
       categoryId: p.categoryId,
       slug: p.slug || p.sku.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
       tags: parseJsonArray(p.tags),

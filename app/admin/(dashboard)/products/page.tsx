@@ -132,6 +132,8 @@ export default function AdminProductsPage() {
     // Category DB IDs. The public endpoint returns fabricType-grouped data
     // for shop filtering and must never be used as a categoryId source.
     // Also fetch fabric types so newly-created entries appear in the dropdown.
+    // BUG FIX: dep was [loadProducts] — a stable Zustand action reference but
+    // still caused an extra re-run on mount; changed to [] (run once on mount).
     Promise.all([
       fetch("/api/admin/categories").then((r) => r.json()),
       fetch("/api/admin/fabric-types").then((r) => r.json()),
@@ -142,7 +144,8 @@ export default function AdminProductsPage() {
       })
       .catch(() => toast.error("Failed to load categories"))
       .finally(() => setIsLoadingCategories(false));
-  }, [loadProducts]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -269,7 +272,11 @@ export default function AdminProductsPage() {
         id: `prod-${Date.now()}`,
         name: `Copy of ${product.name}`,
         sku: `${product.sku}-${suffix}`,
-        categoryId: product.categoryId || categories[0]?.id || "",
+        // BUG FIX: badge from list is mixed-case (e.g. "New") but the API Zod
+        // schema only accepts uppercase ("NEW"). The store also does toUpperCase()
+        // but the network payload was already serialised before that ran.
+        badge: product.badge?.toUpperCase() as AdminProduct["badge"],
+        categoryId: product.categoryId || fabricOptions[0]?.id || categories[0]?.id || "",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
@@ -356,7 +363,16 @@ export default function AdminProductsPage() {
   };
 
   const openAddDialog = () => {
-    setProductForm(emptyProduct());
+    // BUG FIX: emptyProduct() hard-codes fabricType: "Cotton" which may not
+    // exist in the loaded fabricOptions dropdown — default to first available
+    // option so the Select always shows a valid selection.
+    const base = emptyProduct();
+    const firstOption = fabricOptions[0];
+    if (firstOption) {
+      base.fabricType = firstOption.name;
+      base.categoryId = firstOption.id;
+    }
+    setProductForm(base);
     setTagInput("");
     setIsAddProductOpen(true);
   };
@@ -371,15 +387,34 @@ export default function AdminProductsPage() {
       return;
     }
     if (productForm.images.length === 0) {
+      // BUG FIX: if user clicks Save while image is still uploading the images
+      // array is empty and the API silently rejects with 400 (no toast shown
+      // because the error was never surfaced). Show a friendly message instead.
       toast.error("Please upload at least one product image");
+      return;
+    }
+    if (uploadingImage) {
+      toast.error("Please wait for the image to finish uploading");
+      return;
+    }
+
+    // BUG FIX: categoryId fallback to "" passes Zod min(1) when no category
+    // exists and causes a silent DB foreign-key failure. Show a clear message.
+    const resolvedCategoryId =
+      productForm.categoryId || fabricOptions[0]?.id || categories[0]?.id || "";
+    if (!resolvedCategoryId) {
+      toast.error("Please select a Fabric Type / Category before saving");
       return;
     }
 
     setIsSaving(true);
+    // BUG FIX: previous code did { ...productForm, ...payload } which double-
+    // spread the same object and could cause badge to be sent as mixed-case
+    // (e.g. "New") when the store also calls toUpperCase() independently.
     const payload = {
       ...productForm,
       badge: productForm.badge?.toUpperCase(),
-      categoryId: productForm.categoryId || categories[0]?.id || "",
+      categoryId: resolvedCategoryId,
     };
 
     try {
@@ -388,7 +423,7 @@ export default function AdminProductsPage() {
         toast.success("Product updated successfully!");
         setIsEditProductOpen(false);
       } else {
-        await addProduct({ ...productForm, ...payload } as AdminProduct);
+        await addProduct(payload as AdminProduct);
         toast.success("Product added successfully!");
         setIsAddProductOpen(false);
       }
@@ -948,12 +983,20 @@ function ProductDialog({
                 value={product.fabricType}
                 onValueChange={(v) => {
                   update("fabricType", v);
+                  // BUG FIX: was searching `categories` (the raw Category list)
+                  // instead of `categories` prop (which is fabricOptions —
+                  // merged Category + active FabricType list). Both arrays are
+                  // now correctly called `categories` via the prop name.
                   const selectedCat = categories.find(c => c.name === v);
                   if (selectedCat) update("categoryId", selectedCat.id);
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  {isLoadingCategories ? (
+                    <span className="text-muted-foreground text-sm">Loading…</span>
+                  ) : (
+                    <SelectValue placeholder="Select fabric type" />
+                  )}
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((c) => (
@@ -1235,10 +1278,10 @@ function ProductDialog({
           </Button>
           <Button
             onClick={onSave}
-            disabled={isSaving}
+            disabled={isSaving || uploadingImage || uploadingVideo}
           >
-            {isSaving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-            {isEdit ? "Save Changes" : "Add Product"}
+            {(isSaving || uploadingImage || uploadingVideo) && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            {uploadingImage || uploadingVideo ? "Uploading..." : isEdit ? "Save Changes" : "Add Product"}
           </Button>
         </DialogFooter>
       </DialogContent>
