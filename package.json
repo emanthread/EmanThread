@@ -13,9 +13,6 @@
     "db:migrate-safe": "node -e \"require('child_process').execSync('npx prisma migrate deploy',{stdio:'inherit',env:{...process.env}})\" 2>&1; echo '⚠️  To backup first run: npm run db:backup'",
     "db:backup": "node -e \"const d=new Date();const ts=d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)+'_'+('0'+d.getHours()).slice(-2)+('0'+d.getMinutes()).slice(-2)+('0'+d.getSeconds()).slice(-2);const{execSync}=require('child_process');execSync('pg_dump '+process.env.DATABASE_URL+'>backup_'+ts+'.sql',{stdio:'inherit'})\""
   },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
     "@hookform/resolvers": "^3.9.1",
@@ -86,7 +83,6 @@
   "devDependencies": {
     "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4.2.0",
-    "@types/bcryptjs": "^3.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22",
     "@types/react": "^19",
