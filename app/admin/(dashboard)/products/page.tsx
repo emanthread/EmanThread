@@ -179,29 +179,6 @@ export default function AdminProductsPage() {
   };
 
 
-  // Merge Category names + active FabricType names, deduplicated by lowercase name.
-  // Categories come first so their IDs are preserved for categoryId assignment.
-  // Active FabricType entries that don't already exist in categories are appended.
-  const fabricOptions = useMemo(() => {
-    const seen = new Set<string>();
-    const merged: { id: string; name: string }[] = [];
-    for (const c of categories) {
-      const key = c.name.toLowerCase();
-      if (!seen.has(key)) {
-        seen.add(key);
-        merged.push({ id: c.id, name: c.name });
-      }
-    }
-    for (const ft of fabricTypes) {
-      const key = ft.name.toLowerCase();
-      if (ft.isActive && !seen.has(key)) {
-        seen.add(key);
-        merged.push({ id: ft.id, name: ft.name });
-      }
-    }
-    return merged;
-  }, [categories, fabricTypes]);
-
   // Server-side filtered products are stored directly in `products`.
   const filteredProducts = products;
 
@@ -276,7 +253,7 @@ export default function AdminProductsPage() {
         // schema only accepts uppercase ("NEW"). The store also does toUpperCase()
         // but the network payload was already serialised before that ran.
         badge: product.badge?.toUpperCase() as AdminProduct["badge"],
-        categoryId: product.categoryId || fabricOptions[0]?.id || categories[0]?.id || "",
+        categoryId: product.categoryId || categories[0]?.id || "",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
@@ -363,14 +340,15 @@ export default function AdminProductsPage() {
   };
 
   const openAddDialog = () => {
-    // BUG FIX: emptyProduct() hard-codes fabricType: "Cotton" which may not
-    // exist in the loaded fabricOptions dropdown — default to first available
-    // option so the Select always shows a valid selection.
     const base = emptyProduct();
-    const firstOption = fabricOptions[0];
-    if (firstOption) {
-      base.fabricType = firstOption.name;
-      base.categoryId = firstOption.id;
+    if (categories.length > 0) {
+      base.categoryId = categories[0].id;
+    }
+    const activeFabrics = fabricTypes.filter(f => f.isActive);
+    if (activeFabrics.length > 0) {
+      base.fabricType = activeFabrics[0].name;
+    } else if (fabricTypes.length > 0) {
+      base.fabricType = fabricTypes[0].name;
     }
     setProductForm(base);
     setTagInput("");
@@ -398,12 +376,13 @@ export default function AdminProductsPage() {
       return;
     }
 
-    // BUG FIX: categoryId fallback to "" passes Zod min(1) when no category
-    // exists and causes a silent DB foreign-key failure. Show a clear message.
-    const resolvedCategoryId =
-      productForm.categoryId || fabricOptions[0]?.id || categories[0]?.id || "";
+    const resolvedCategoryId = productForm.categoryId || categories[0]?.id || "";
     if (!resolvedCategoryId) {
-      toast.error("Please select a Fabric Type / Category before saving");
+      toast.error("Please select a Category before saving");
+      return;
+    }
+    if (!productForm.fabricType.trim()) {
+      toast.error("Please select a Fabric Type before saving");
       return;
     }
 
@@ -848,7 +827,8 @@ export default function AdminProductsPage() {
         isEdit={isEditProductOpen}
         product={productForm}
         setProduct={setProductForm}
-        categories={fabricOptions}
+        categories={categories}
+        fabricTypes={fabricTypes}
         isLoadingCategories={isLoadingCategories}
         uploadingImage={uploadingImage}
         uploadingVideo={uploadingVideo}
@@ -875,6 +855,7 @@ interface ProductDialogProps {
   product: AdminProduct;
   setProduct: (p: AdminProduct | ((prev: AdminProduct) => AdminProduct)) => void;
   categories: { id: string; name: string }[];
+  fabricTypes: { id: string; name: string; isActive: boolean }[];
   isLoadingCategories: boolean;
   uploadingImage: boolean;
   uploadingVideo: boolean;
@@ -896,6 +877,7 @@ function ProductDialog({
   product,
   setProduct,
   categories,
+  fabricTypes,
   isLoadingCategories,
   uploadingImage,
   uploadingVideo,
@@ -978,18 +960,32 @@ function ProductDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
+              <Label>Category *</Label>
+              <Select
+                value={product.categoryId}
+                onValueChange={(v) => update("categoryId", v)}
+              >
+                <SelectTrigger>
+                  {isLoadingCategories ? (
+                    <span className="text-muted-foreground text-sm">Loading…</span>
+                  ) : (
+                    <SelectValue placeholder="Select category" />
+                  )}
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label>Fabric Type *</Label>
               <Select
                 value={product.fabricType}
-                onValueChange={(v) => {
-                  update("fabricType", v);
-                  // BUG FIX: was searching `categories` (the raw Category list)
-                  // instead of `categories` prop (which is fabricOptions —
-                  // merged Category + active FabricType list). Both arrays are
-                  // now correctly called `categories` via the prop name.
-                  const selectedCat = categories.find(c => c.name === v);
-                  if (selectedCat) update("categoryId", selectedCat.id);
-                }}
+                onValueChange={(v) => update("fabricType", v)}
               >
                 <SelectTrigger>
                   {isLoadingCategories ? (
@@ -999,14 +995,17 @@ function ProductDialog({
                   )}
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((c) => (
-                    <SelectItem key={c.id} value={c.name}>
-                      {c.name}
+                  {fabricTypes.filter(ft => ft.isActive).map((ft) => (
+                    <SelectItem key={ft.id} value={ft.name}>
+                      {ft.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Badge</Label>
               <Select

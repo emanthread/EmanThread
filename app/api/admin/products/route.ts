@@ -4,6 +4,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { getAdminProducts, createAdminProduct, createAuditLog } from "@/lib/db-queries";
 import { withLoggedAdminHandler } from "@/lib/logger";
+import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
@@ -72,17 +73,23 @@ export const POST = withLoggedAdminHandler(async (req: Request) => {
     );
   }
 
-  const product = await createAdminProduct(result.data);
+  try {
+    const product = await createAdminProduct(result.data);
 
-  // Audit log — reuse session obtained above, no extra auth() call needed.
-  void createAuditLog({
-    userId: session.user.id,
-    userEmail: session.user.email || undefined,
-    action: "PRODUCT_CREATED",
-    entity: "Product",
-    entityId: product.id,
-    newValue: { name: product.name, sku: product.sku, price: product.price },
-  });
+    // Audit log — reuse session obtained above, no extra auth() call needed.
+    void createAuditLog({
+      userId: session.user.id,
+      userEmail: session.user.email || undefined,
+      action: "PRODUCT_CREATED",
+      entity: "Product",
+      entityId: product.id,
+      newValue: { name: product.name, sku: product.sku, price: product.price },
+    });
 
-  return NextResponse.json(product, { status: 201 });
+    return NextResponse.json(product, { status: 201 });
+  } catch (error) {
+    console.error("Create product error:", error);
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
+  }
 });
