@@ -353,16 +353,15 @@ export async function getAdminAnalyticsDetail(
   };
 }
 
+// Returns only the 4 aggregate metrics unique to analytics (revenue, orders, customers, reviews).
+// Pending orders / return requests / low stock are owned by getAdminAlertCounts — no duplication.
+// Recent orders are fetched on-demand via getAdminRecentOrders — not dragged in on every poll.
 export async function getAdminAnalytics() {
   const [
     revenueAgg,
     ordersCount,
     customersCount,
-    pendingOrdersCount,
-    pendingReturnRequestsCount,
-    recentOrders,
     reviewStats,
-    lowStockCount,
   ] = await Promise.all([
     prisma.order.aggregate({
       _sum: { grandTotal: true },
@@ -370,43 +369,10 @@ export async function getAdminAnalytics() {
     }),
     prisma.order.count(),
     prisma.user.count(),
-    prisma.order.count({ where: { status: "PENDING" } }),
-    prisma.returnRequest.count({ where: { status: "PENDING" } }),
-    prisma.order.findMany({
-      take: 5,
-      orderBy: { createdAt: "desc" },
-      // Strict select — only fetch fields rendered in the dashboard Recent Orders table
-      select: {
-        id: true,
-        orderNumber: true,
-        grandTotal: true,
-        status: true,
-        createdAt: true,
-        user: { select: { name: true, email: true } },
-        items: {
-          take: 3, // Dashboard shows at most 2 item thumbnails + overflow count
-          select: {
-            productId: true,
-            quantity: true,
-            priceAtTimeOfPurchase: true,
-            product: { select: { name: true, images: true, sku: true } },
-          },
-        },
-      },
-    }),
     prisma.productReview.aggregate({
       _avg: { rating: true },
       _count: { id: true },
       where: { isVisible: true, deletedAt: null },
-    }),
-    // Previously a serial await AFTER Promise.all — now runs in parallel
-    prisma.product.count({
-      where: {
-        AND: [
-          { stockQuantity: { lte: 5 } },
-          { stockQuantity: { gt: 0 } },
-        ],
-      },
     }),
   ]);
 
@@ -424,37 +390,89 @@ export async function getAdminAnalytics() {
     customersChange: 0,
     averageOrderValue: avgOrderValue,
     aovChange: 0,
-    pendingOrders: pendingOrdersCount,
-    lowStockItems: lowStockCount,
-    returnRequests: pendingReturnRequestsCount,
     totalReviews,
     averageRating,
-    recentOrders: recentOrders.map((order) => ({
-      id: order.id,
-      orderNumber: order.orderNumber,
-      customerName: order.user?.name || "Guest",
-      customerEmail: order.user?.email || "",
-      items: order.items.map((item) => ({
-        productId: item.productId,
-        productName: item.product?.name || "Unknown Product",
-        productImage: item.product?.images
-          ? parseProductImages(item.product.images)[0] || "/placeholder.jpg"
-          : "/placeholder.jpg",
-        quantity: item.quantity,
-        price: Number(item.priceAtTimeOfPurchase),
-        sku: item.product?.sku || "N/A",
-      })),
-      total: Number(order.grandTotal),
-      status: order.status.toLowerCase() as
-        | "pending"
-        | "processing"
-        | "shipped"
-        | "delivered"
-        | "cancelled"
-        | "returned",
-      createdAt: order.createdAt.toISOString(),
-    })),
   };
+}
+
+// Separate on-demand fetch for the dashboard Recent Orders table.
+// Strict select — only fields actually rendered in the UI.
+export async function getAdminRecentOrders() {
+  const recentOrders = await prisma.order.findMany({
+    take: 5,
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      orderNumber: true,
+      grandTotal: true,
+      status: true,
+      createdAt: true,
+      user: { select: { name: true, email: true } },
+      items: {
+        take: 3, // Dashboard shows at most 2 thumbnails + overflow count
+        select: {
+          productId: true,
+          quantity: true,
+          priceAtTimeOfPurchase: true,
+          product: { select: { name: true, images: true, sku: true } },
+        },
+      },
+    },
+  });
+
+  return recentOrders.map((order) => ({
+    id: order.id,
+    orderNumber: order.orderNumber,
+    customerName: order.user?.name || "Guest",
+    customerEmail: order.user?.email || "",
+    items: order.items.map((item) => ({
+      productId: item.productId,
+      productName: item.product?.name || "Unknown Product",
+      productImage: item.product?.images
+        ? parseProductImages(item.product.images)[0] || "/placeholder.jpg"
+        : "/placeholder.jpg",
+      quantity: item.quantity,
+      price: Number(item.priceAtTimeOfPurchase),
+      sku: item.product?.sku || "N/A",
+    })),
+    total: Number(order.grandTotal),
+    status: order.status.toLowerCase() as
+      | "pending"
+      | "processing"
+      | "shipped"
+      | "delivered"
+      | "cancelled"
+      | "returned",
+    createdAt: order.createdAt.toISOString(),
+  }));
+}
+
+// Separate on-demand fetch for the dashboard Low Stock Alert card.
+// Only pulls the fields the card renders — no full product payload.
+// Uses a raw where clause comparing stockQuantity <= lowStockThreshold at DB level.
+export async function getAdminLowStockProducts() {
+  // Prisma doesn't support column-to-column comparisons in where, so we use $queryRaw
+  // for the core filter but keep it simple: just fetch all inStock products with
+  // stockQuantity <= lowStockThreshold (both are indexed integer columns).
+  const products = await prisma.$queryRaw<
+    { id: string; name: string; sku: string; images: string; stockQuantity: number; lowStockThreshold: number }[]
+  >`
+    SELECT id, name, sku, images, "stockQuantity", "lowStockThreshold"
+    FROM "Product"
+    WHERE "inStock" = true
+      AND "stockQuantity" <= "lowStockThreshold"
+    ORDER BY "stockQuantity" ASC
+    LIMIT 20
+  `;
+
+  return products.map((p) => ({
+    id: p.id,
+    name: p.name,
+    sku: p.sku,
+    images: parseProductImages(p.images),
+    stockQuantity: Number(p.stockQuantity),
+    lowStockThreshold: Number(p.lowStockThreshold),
+  }));
 }
 
 export async function getAdminAlertCounts() {

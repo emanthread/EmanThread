@@ -54,6 +54,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuthStore } from "@/lib/auth-store";
 import { useAlertDismissals } from "@/hooks/use-alert-dismissals";
 import { useAdminStore } from "@/lib/admin-store";
+import type { AlertCounts } from "@/lib/admin-store";
 import { useAdminPushNotifications } from "@/hooks/use-admin-push-notifications";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
@@ -139,24 +140,12 @@ export default function AdminLayout({
   const router = useRouter();
   const pathname = usePathname();
   const { user, isAuthenticated, logout } = useAuthStore();
-  const { sidebarOpen, setSidebarOpen, toggleSidebar } = useAdminStore();
+  const { sidebarOpen, setSidebarOpen, toggleSidebar, alertCounts, loadAlerts } = useAdminStore();
 
   // Mobile drawer state — separate from desktop sidebar state
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
-  // Alert counts state + visibility-aware polling
-  const [alertCounts, setAlertCounts] = useState<any>({
-    newOrders: 0,
-    newOrdersLatest: null,
-    pendingReturns: 0,
-    pendingReturnsLatest: null,
-    lowStockProducts: 0,
-    lowStockLatest: null,
-    backlogOrders: 0,
-    backlogOrdersLatest: null,
-    total: 0,
-  });
-
+  // displayAlerts is UI-only: applies dismissal filtering on top of the raw alertCounts from store.
   const [displayAlerts, setDisplayAlerts] = useState({
     newOrders: 0,
     pendingReturns: 0,
@@ -167,7 +156,7 @@ export default function AdminLayout({
 
   const { getDismissedAt, dismissAlert } = useAlertDismissals();
 
-  const updateDisplayAlerts = useCallback((counts: any) => {
+  const updateDisplayAlerts = useCallback((counts: AlertCounts) => {
     const lastNewOrders = getDismissedAt("clear_newOrders");
     const lastPendingReturns = getDismissedAt("clear_pendingReturns");
     const lastLowStock = getDismissedAt("clear_lowStock");
@@ -190,16 +179,11 @@ export default function AdminLayout({
   const fetchAlerts = useCallback(async () => {
     // Don't poll when tab is hidden — saves mobile battery/data
     if (document.visibilityState === "hidden") return;
-    try {
-      const res = await fetch("/api/admin/alerts");
-      if (!res.ok) return;
-      const data = await res.json();
-      setAlertCounts(data);
-      updateDisplayAlerts(data);
-    } catch (err) {
-      console.error("Failed to load alerts:", err);
-    }
-  }, [updateDisplayAlerts]);
+    await loadAlerts();
+    // Read the freshest alertCounts from the store to recompute display badges.
+    // useAdminStore.getState() gives us the post-mutation snapshot.
+    updateDisplayAlerts(useAdminStore.getState().alertCounts);
+  }, [loadAlerts, updateDisplayAlerts]);
 
   const clearAlert = (storageKey: string, latestAt: string | null) => {
     if (latestAt) {

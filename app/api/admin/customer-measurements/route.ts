@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
   const values: (string | number)[] = []
   let paramIdx = 1
 
-  if (search) {
+  if (search && search.length >= 3) {
     conditions.push(`("phone" ILIKE $${paramIdx} OR "customer_name" ILIKE $${paramIdx + 1})`)
     values.push(`%${search}%`, `%${search}%`)
     paramIdx += 2
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
 
   const [records, countResult] = await Promise.all([
     prisma.$queryRawUnsafe<any[]>(
-      `SELECT * FROM "customer_measurements" WHERE ${whereClause} ORDER BY "created_at" DESC LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+      `SELECT "id", "phone", "customer_name", "garment_type", "gender", "created_at", "updated_at" FROM "customer_measurements" WHERE ${whereClause} ORDER BY "created_at" DESC LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
       ...values, limit, skip
     ),
     prisma.$queryRawUnsafe<{ count: bigint }[]>(

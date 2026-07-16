@@ -120,11 +120,22 @@ interface DashboardStats {
   customersChange: number;
   averageOrderValue: number;
   aovChange: number;
-  pendingOrders: number;
-  lowStockItems: number;
-  returnRequests: number;
+  // Note: pendingOrders / lowStockItems / returnRequests have moved to AlertCounts
+  // and are sourced from /api/admin/alerts (single source of truth).
   totalReviews: number;
   averageRating: number;
+}
+
+export interface AlertCounts {
+  newOrders: number;
+  newOrdersLatest: string | null;
+  pendingReturns: number;
+  pendingReturnsLatest: string | null;
+  lowStockProducts: number;
+  lowStockLatest: string | null;
+  backlogOrders: number;
+  backlogOrdersLatest: string | null;
+  total: number;
 }
 
 export interface RevenueDataPoint {
@@ -205,17 +216,29 @@ interface AdminState {
   notificationLogs: NotificationLogEntry[];
   stats: DashboardStats;
   statsError: string | null; // A4.5
+  // Alert counts — single source of truth sourced from /api/admin/alerts
+  alertCounts: AlertCounts;
+  // Recent orders for the dashboard table — fetched on-demand, not bundled in analytics poll
+  recentOrders: RecentOrderRow[];
+  recentOrdersLoading: boolean;
+  // Low stock products for the dashboard card — fetched on-demand, not from loadProducts()
+  lowStockProducts: LowStockProduct[];
   revenueOverview: RevenueDataPoint[];
   topProducts: TopProduct[];
   returnRequests: ReturnRequest[];
   shippingZones: ShippingZone[];
   sidebarOpen: boolean;
-  
+
   // Loaders
   loadOrders: (status?: string, page?: number, limit?: number, search?: string) => Promise<void>;
   loadProducts: (page?: number, limit?: number, search?: string, category?: string, stock?: string, signal?: AbortSignal) => Promise<void>;
   loadCustomers: () => Promise<void>;
   loadStats: () => Promise<void>;
+  /** Fetches alert counts from /api/admin/alerts — shared between layout & dashboard */
+  loadAlerts: () => Promise<void>;
+  loadRecentOrders: () => Promise<void>;
+  /** Fetches low-stock products for the dashboard card — works on fresh visit, no dependency on loadProducts() */
+  loadLowStockProducts: () => Promise<void>;
   loadDiscounts: () => Promise<void>;
   loadNotificationLogs: (orderId: string) => Promise<void>;
   loadRevenueOverview: (timeRange: string) => Promise<void>;
@@ -263,14 +286,52 @@ const defaultStats: DashboardStats = {
   customersChange: 0,
   averageOrderValue: 0,
   aovChange: 0,
-  pendingOrders: 0,
-  lowStockItems: 0,
-  returnRequests: 0,
   totalReviews: 0,
   averageRating: 0,
 };
 
-export const useAdminStore = create<AdminState>()(
+const defaultAlertCounts: AlertCounts = {
+  newOrders: 0,
+  newOrdersLatest: null,
+  pendingReturns: 0,
+  pendingReturnsLatest: null,
+  lowStockProducts: 0,
+  lowStockLatest: null,
+  backlogOrders: 0,
+  backlogOrdersLatest: null,
+  total: 0,
+};
+
+// Typed alias for recent orders row (matches getAdminRecentOrders return element)
+export interface RecentOrderRow {
+  id: string;
+  orderNumber: string;
+  customerName: string;
+  customerEmail: string;
+  items: {
+    productId: string;
+    productName: string;
+    productImage: string;
+    quantity: number;
+    price: number;
+    sku: string;
+  }[];
+  total: number;
+  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled" | "returned";
+  createdAt: string;
+}
+
+// Typed alias for low stock product row (matches getAdminLowStockProducts return element)
+export interface LowStockProduct {
+  id: string;
+  name: string;
+  sku: string;
+  images: string[];
+  stockQuantity: number;
+  lowStockThreshold: number;
+}
+
+export const useAdminStore = create<AdminState>()(  
   persist(
     (set, get) => ({
       orders: [],
@@ -287,6 +348,10 @@ export const useAdminStore = create<AdminState>()(
       notificationLogs: [],
       stats: defaultStats,
       statsError: null, // A4.5
+      alertCounts: defaultAlertCounts,
+      recentOrders: [] as RecentOrderRow[],
+      recentOrdersLoading: false,
+      lowStockProducts: [] as LowStockProduct[],
       revenueOverview: [],
       topProducts: [],
       returnRequests: [],
@@ -358,6 +423,7 @@ export const useAdminStore = create<AdminState>()(
           const data = await res.json();
           set({
             stats: {
+              // Analytics-only metrics (pending counts removed — they live in alertCounts)
               totalRevenue: data.totalRevenue ?? 0,
               revenueChange: data.revenueChange ?? 0,
               totalOrders: data.totalOrders ?? 0,
@@ -366,9 +432,6 @@ export const useAdminStore = create<AdminState>()(
               customersChange: data.customersChange ?? 0,
               averageOrderValue: data.averageOrderValue ?? 0,
               aovChange: data.aovChange ?? 0,
-              pendingOrders: data.pendingOrders ?? 0,
-              lowStockItems: data.lowStockItems ?? 0,
-              returnRequests: data.returnRequests ?? 0,
               totalReviews: data.totalReviews ?? 0,
               averageRating: data.averageRating ?? 0,
             },
@@ -377,6 +440,44 @@ export const useAdminStore = create<AdminState>()(
         } catch (err) {
           console.error("Failed to load stats:", err);
           set({ statsError: "Failed to load data" }); // A4.5
+        }
+      },
+
+      loadAlerts: async () => {
+        // Don't poll when tab is hidden — saves mobile battery/data
+        if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+        try {
+          const res = await fetch("/api/admin/alerts");
+          if (!res.ok) return;
+          const data = await res.json();
+          set({ alertCounts: data });
+        } catch (err) {
+          console.error("Failed to load alerts:", err);
+        }
+      },
+
+      loadRecentOrders: async () => {
+        set({ recentOrdersLoading: true });
+        try {
+          const res = await fetch("/api/admin/analytics/recent-orders");
+          if (!res.ok) return;
+          const data = await res.json();
+          set({ recentOrders: data || [] });
+        } catch (err) {
+          console.error("Failed to load recent orders:", err);
+        } finally {
+          set({ recentOrdersLoading: false });
+        }
+      },
+
+      loadLowStockProducts: async () => {
+        try {
+          const res = await fetch("/api/admin/analytics/low-stock");
+          if (!res.ok) return;
+          const data = await res.json();
+          set({ lowStockProducts: data || [] });
+        } catch (err) {
+          console.error("Failed to load low stock products:", err);
         }
       },
 

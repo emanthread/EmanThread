@@ -282,7 +282,7 @@ export async function verifyManualPayment(
   const submission = await prisma.manualPaymentSubmission.findUnique({
     where: { id: submissionId },
     include: {
-      order: { include: { items: { include: { product: true } } } },
+      order: { include: { items: { include: { product: { select: { name: true, images: true, sku: true } } } } } },
     },
   });
   if (!submission) throw new Error('Submission not found');

@@ -87,7 +87,7 @@ export async function createReturnRequest(data: CreateReturnRequestInput) {
     // Verify order exists and is delivered
     const order = await tx.order.findUnique({
       where: { id: data.orderId },
-      include: { items: { include: { product: true } } },
+      include: { items: { include: { product: { select: { name: true, images: true, sku: true } } } } },
     });
     if (!order) {
       throw new Error("Order not found");
@@ -199,7 +199,7 @@ export async function getReturnRequestById(id: string) {
   const request = await prisma.returnRequest.findUnique({
     where: { id },
     include: {
-      order: { include: { items: { include: { product: true } } } },
+      order: { include: { items: { include: { product: { select: { name: true, images: true, sku: true } } } } } },
       user: true,
       items: true,
     },

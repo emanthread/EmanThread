@@ -49,13 +49,15 @@ export default function AdminDashboard() {
   const {
     stats,
     statsError,
-    orders,
     products,
     revenueOverview,
     topProducts,
+    alertCounts,
+    recentOrders,
+    lowStockProducts,
     loadStats,
-    loadOrders,
-    loadProducts,
+    loadRecentOrders,
+    loadLowStockProducts,
     loadRevenueOverview,
     loadTopProducts,
   } = useAdminStore();
@@ -67,7 +69,9 @@ export default function AdminDashboard() {
   useEffect(() => {
     loadStats();
     loadTopProducts();
-  }, [loadStats, loadTopProducts]);
+    loadRecentOrders();
+    loadLowStockProducts();
+  }, [loadStats, loadTopProducts, loadRecentOrders, loadLowStockProducts]);
 
   useEffect(() => {
     if (timeRange !== "custom") {
@@ -80,11 +84,13 @@ export default function AdminDashboard() {
     loadRevenueOverview("7d"); // fall back to 7d for the chart since revenue API doesn't support custom dates
   }, [loadRevenueOverview]);
 
-  // Real-time dashboard polling (Gap 6)
+  // Real-time dashboard: alert counts are refreshed by layout.tsx's 30s polling loop.
+  // Analytics (revenue/orders/customers) polled separately every 5 minutes — no race condition
+  // since alert counts no longer come from /api/admin/analytics.
   useEffect(() => {
     const interval = setInterval(() => {
       loadStats();
-    }, 120000);
+    }, 300000); // 5-minute refresh — analytics are slow-moving (revenue/customers/reviews)
     return () => clearInterval(interval);
   }, [loadStats]);
 
@@ -185,7 +191,8 @@ export default function AdminDashboard() {
       type: "orders",
       icon: Clock,
       title: "Pending Orders",
-      count: stats.pendingOrders,
+      // Backlog orders (pending >24h) from alerts — single source of truth
+      count: alertCounts.backlogOrders,
       color: "text-yellow-600",
       bgColor: "bg-yellow-100",
       href: "/admin/orders?status=pending",
@@ -203,7 +210,8 @@ export default function AdminDashboard() {
       type: "stock",
       icon: AlertTriangle,
       title: "Low Stock Items",
-      count: stats.lowStockItems,
+      // Low stock count from alerts — single source of truth
+      count: alertCounts.lowStockProducts,
       color: "text-red-600",
       bgColor: "bg-red-100",
       href: "/admin/products?filter=low-stock",
@@ -212,7 +220,8 @@ export default function AdminDashboard() {
       type: "returns",
       icon: RefreshCw,
       title: "Return Requests",
-      count: stats.returnRequests,
+      // Pending returns from alerts — single source of truth
+      count: alertCounts.pendingReturns,
       color: "text-orange-600",
       bgColor: "bg-orange-100",
       href: "/admin/returns",
@@ -510,7 +519,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {orders.slice(0, 5).map((order) => (
+                {recentOrders.slice(0, 5).map((order) => (
                   <tr key={order.id} className="border-b last:border-0 hover:bg-muted/50">
                     <td className="py-3 px-2">
                       <Link
@@ -587,10 +596,13 @@ export default function AdminDashboard() {
           </Button>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {products
-              .filter((p) => p.stockQuantity <= p.lowStockThreshold)
-              .map((product) => (
+          {lowStockProducts.length === 0 ? (
+            <div className="text-center py-6 text-muted-foreground text-sm">
+              No low stock items 🎉
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {lowStockProducts.map((product) => (
                 <div key={product.id} className="flex items-center gap-4">
                   <div className="relative h-12 w-12 rounded overflow-hidden bg-muted">
                     <Image
@@ -615,7 +627,8 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               ))}
-          </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -125,7 +125,7 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
           })),
         },
       },
-      include: { items: { include: { product: true } } },
+      include: { items: { include: { product: { select: { name: true, images: true, sku: true } } } } },
     });
 
     // Deduct stock for each product (skip when awaiting manual payment verification)
@@ -178,7 +178,7 @@ export async function getOrdersByUser(userId: string) {
     include: {
       items: {
         include: {
-          product: true,
+          product: { select: { name: true, images: true, sku: true } },
         },
       },
       itemMeasurements: true,
@@ -227,7 +227,7 @@ export async function getOrderById(id: string) {
     include: {
       items: {
         include: {
-          product: true,
+          product: { select: { name: true, images: true, sku: true } },
         },
       },
     },
@@ -389,7 +389,7 @@ export async function updateOrderStatus(id: string, status: string) {
     const updated = await tx.order.update({
       where: { id },
       data: { status: status as OrderStatus },
-      include: { items: { include: { product: true } }, user: true },
+      include: { items: { include: { product: { select: { name: true, images: true, sku: true } } } }, user: true },
     });
 
     // Restore stock when cancelling an order
