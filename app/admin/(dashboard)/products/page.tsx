@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useDebounce } from "@/hooks/use-debounce";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -158,15 +159,16 @@ export default function AdminProductsPage() {
   const [productToDelete, setProductToDelete] = useState<AdminProduct | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [tagInput, setTagInput] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  // Replace manual setTimeout boilerplate with shared hook (same 500ms delay).
+  // The hook already exists and is used correctly in customers/page.tsx.
+  const debouncedSearch = useDebounce(searchQuery, 500);
 
   useEffect(() => {
-    const handler = setTimeout(() => setDebouncedSearch(searchQuery), 500);
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
-
-  useEffect(() => {
-    loadProducts(1, 50, debouncedSearch, categoryFilter, stockFilter);
+    const controller = new AbortController();
+    loadProducts(1, 50, debouncedSearch, categoryFilter, stockFilter, controller.signal);
+    // Abort the in-flight request if filters change before it resolves,
+    // preventing stale responses from overwriting newer data.
+    return () => controller.abort();
   }, [loadProducts, debouncedSearch, categoryFilter, stockFilter]);
 
   const handlePageChange = (newPage: number) => {
@@ -360,11 +362,23 @@ export default function AdminProductsPage() {
   };
 
   const handleSaveProduct = async () => {
+    if (!productForm.name.trim()) {
+      toast.error("Product Name is required");
+      return;
+    }
+    if (!productForm.sku.trim()) {
+      toast.error("Product Code (SKU) is required");
+      return;
+    }
+    if (productForm.images.length === 0) {
+      toast.error("Please upload at least one product image");
+      return;
+    }
+
     setIsSaving(true);
     const payload = {
       ...productForm,
       badge: productForm.badge?.toUpperCase(),
-      images: productForm.images.length > 0 ? productForm.images : ["/placeholder.jpg"],
       categoryId: productForm.categoryId || categories[0]?.id || "",
     };
 
@@ -1221,7 +1235,7 @@ function ProductDialog({
           </Button>
           <Button
             onClick={onSave}
-            disabled={isSaving || !product.name || !product.sku || product.images.length === 0}
+            disabled={isSaving}
           >
             {isSaving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             {isEdit ? "Save Changes" : "Add Product"}

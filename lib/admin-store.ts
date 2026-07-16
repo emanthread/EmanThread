@@ -213,7 +213,7 @@ interface AdminState {
   
   // Loaders
   loadOrders: (status?: string, page?: number, limit?: number, search?: string) => Promise<void>;
-  loadProducts: (page?: number, limit?: number, search?: string, category?: string, stock?: string) => Promise<void>;
+  loadProducts: (page?: number, limit?: number, search?: string, category?: string, stock?: string, signal?: AbortSignal) => Promise<void>;
   loadCustomers: () => Promise<void>;
   loadStats: () => Promise<void>;
   loadDiscounts: () => Promise<void>;
@@ -315,7 +315,7 @@ export const useAdminStore = create<AdminState>()(
         }
       },
 
-      loadProducts: async (page = 1, limit = 50, search = "", category = "", stock = "") => {
+      loadProducts: async (page = 1, limit = 50, search = "", category = "", stock = "", signal?: AbortSignal) => {
         try {
           const url = new URL("/api/admin/products", window.location.origin);
           url.searchParams.set("page", page.toString());
@@ -324,7 +324,7 @@ export const useAdminStore = create<AdminState>()(
           if (category && category !== "all") url.searchParams.set("category", category);
           if (stock && stock !== "all") url.searchParams.set("stock", stock);
 
-          const res = await fetch(url.toString());
+          const res = await fetch(url.toString(), { signal });
           if (!res.ok) return;
           const data = await res.json();
           set({ 
@@ -334,6 +334,8 @@ export const useAdminStore = create<AdminState>()(
             productsTotalPages: data.totalPages || 0
           });
         } catch (err) {
+          // Silently ignore intentional aborts (AbortController fired on filter change)
+          if (err instanceof DOMException && err.name === "AbortError") return;
           console.error("Failed to load products:", err);
         }
       },
