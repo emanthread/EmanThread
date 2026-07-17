@@ -11,6 +11,85 @@ const badgeMap: Record<string, Product["badge"]> = {
   FEATURED: "Featured",
 };
 
+function canonicalCategoryValue(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[_-]+/g, " ")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function titleCaseWords(value: string): string {
+  return value
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function addFabricTypeVariants(values: Set<string>, value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return;
+
+  const spaced = trimmed.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  const title = titleCaseWords(spaced);
+  const upperSnake = spaced.replace(/\s+/g, "_").toUpperCase();
+
+  values.add(trimmed);
+  values.add(spaced);
+  values.add(title);
+  values.add(upperSnake);
+
+  if (/\band\b/i.test(spaced)) {
+    values.add(spaced.replace(/\band\b/gi, "&"));
+    values.add(titleCaseWords(spaced.replace(/\band\b/gi, "&")));
+  }
+
+  const canonical = canonicalCategoryValue(spaced);
+  if (canonical === "washwear") {
+    values.add("Wash & Wear");
+    values.add("Wash And Wear");
+    values.add("WASH_AND_WEAR");
+  } else if (canonical === "woolblend") {
+    values.add("Wool Blend");
+    values.add("WOOL_BLEND");
+  }
+}
+
+async function resolveCategoryFabricTypes(categoryParam: string): Promise<string[]> {
+  const tokens = categoryParam
+    .split(",")
+    .map((token) => token.trim())
+    .filter(Boolean);
+
+  if (tokens.length === 0) return [];
+
+  const categories = await prisma.category.findMany({
+    select: { name: true },
+  });
+
+  const categoryNamesByCanonical = new Map(
+    categories.map((category) => [
+      canonicalCategoryValue(category.name),
+      category.name,
+    ])
+  );
+
+  const values = new Set<string>();
+  for (const token of tokens) {
+    const decoded = decodeURIComponent(token);
+    const matchedName = categoryNamesByCanonical.get(canonicalCategoryValue(decoded));
+
+    addFabricTypeVariants(values, decoded);
+    if (matchedName) {
+      addFabricTypeVariants(values, matchedName);
+    }
+  }
+
+  return Array.from(values);
+}
+
 function transformProduct(p: any): Product {
   // Compute review stats if reviews relation was included
   let rating: number | undefined;
@@ -153,11 +232,11 @@ export async function getProductVariations(name: string): Promise<Product[]> {
 async function _getFilteredProducts(filter: ProductFilterInput) {
   const where: any = {};
   if (filter.category) {
-    const cats = filter.category.split(",");
+    const cats = await resolveCategoryFabricTypes(filter.category);
     if (cats.length > 1) {
       where.fabricType = { in: cats, mode: "insensitive" };
-    } else {
-      where.fabricType = { equals: filter.category, mode: "insensitive" };
+    } else if (cats.length === 1) {
+      where.fabricType = { equals: cats[0], mode: "insensitive" };
     }
   }
   if (filter.minPrice !== undefined || filter.maxPrice !== undefined) {

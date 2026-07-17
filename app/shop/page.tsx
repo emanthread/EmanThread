@@ -28,15 +28,19 @@ const breadcrumbJsonLd = {
 
 export const revalidate = 300;
 
-export default async function ShopPage({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined } }) {
+type ShopSearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
+
+export default async function ShopPage({ searchParams }: { searchParams: ShopSearchParams }) {
+  const params = await searchParams;
+
   // Parse initial filters from URL (we only need these to determine the first 20 products)
-  const category = typeof searchParams.category === "string" ? searchParams.category : undefined;
-  const minPrice = typeof searchParams.minPrice === "string" ? Number(searchParams.minPrice) : undefined;
-  const maxPrice = typeof searchParams.maxPrice === "string" ? Number(searchParams.maxPrice) : undefined;
-  const sort = typeof searchParams.sort === "string" ? (searchParams.sort as any) : undefined;
-  const search = typeof searchParams.search === "string" ? searchParams.search : undefined;
-  const color = typeof searchParams.color === "string" ? searchParams.color : undefined;
-  const season = typeof searchParams.season === "string" ? searchParams.season : undefined;
+  const category = typeof params.category === "string" ? params.category : undefined;
+  const minPrice = typeof params.minPrice === "string" ? Number(params.minPrice) : undefined;
+  const maxPrice = typeof params.maxPrice === "string" ? Number(params.maxPrice) : undefined;
+  const sort = typeof params.sort === "string" ? (params.sort as any) : undefined;
+  const search = typeof params.search === "string" ? params.search : undefined;
+  const color = typeof params.color === "string" ? params.color : undefined;
+  const season = typeof params.season === "string" ? params.season : undefined;
 
   // Fetch initial data in parallel on the server
   const [data, categories, colors] = await Promise.all([

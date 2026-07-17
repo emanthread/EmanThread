@@ -104,7 +104,7 @@ function nextWithCsrfCookie(req: NextRequest): NextResponse {
 // ── Middleware ───────────────────────────────────────────────────
 // Uses NextAuth v5 auth() wrapper for edge-compatible session access.
 // Auth checks run server-side before any client JS loads.
-export default auth((req) => {
+export const proxy = auth((req) => {
   const { nextUrl, auth: session } = req;
   const pathname = nextUrl.pathname;
 
