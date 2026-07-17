@@ -5,7 +5,6 @@
 import { auth } from "@/auth";
 import { checkRateLimit, getRateLimitFor, type RateLimitConfig } from "./rate-limiter";
 import { getClientIp } from "./api-logger";
-import { validateCsrf } from "./csrf";
 
 export interface LogEntry {
   ts: string;
@@ -57,7 +56,7 @@ function applyRateLimit(req: Request, config: RateLimitConfig): boolean {
 }
 
 // ── Wrapper for admin API routes ─────────────────────────────────
-// Logs every request with user ID from session. Applies admin rate limiting.
+// Logs every request with user ID. Proxy centrally enforces admin security.
 // Usage: export const GET = withLoggedAdminHandler(async (req) => { ... })
 export function withLoggedAdminHandler<T extends Request>(
   handler: (req: T, ...args: any[]) => Promise<Response>
@@ -72,25 +71,6 @@ export function withLoggedAdminHandler<T extends Request>(
       userId = session?.user?.id;
     } catch {
       // Session lookup failed — proceed without userId
-    }
-
-    // Apply rate limiting for admin routes (60 req/min)
-    const config = getRateLimitFor("admin");
-    if (!applyRateLimit(req, config)) {
-      return Response.json(
-        { error: "Too many requests. Please try again later." },
-        { status: 429, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    // CSRF protection for mutation methods
-    try {
-      await validateCsrf(req);
-    } catch {
-      return Response.json(
-        { error: "Forbidden: invalid CSRF token" },
-        { status: 403, headers: { "Content-Type": "application/json" } }
-      );
     }
 
     try {

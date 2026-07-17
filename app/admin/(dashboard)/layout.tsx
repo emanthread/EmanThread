@@ -58,7 +58,7 @@ import type { AlertCounts } from "@/lib/admin-store";
 import { useAdminPushNotifications } from "@/hooks/use-admin-push-notifications";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
-import { isStaffRole, hasPermission, Permission, type RoleValue } from "@/lib/permissions";
+import { hasPermission, Permission, type RoleValue } from "@/lib/permissions";
 
 const navItems = [
   { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
@@ -139,7 +139,7 @@ export default function AdminLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isAuthenticated, logout } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const { sidebarOpen, setSidebarOpen, toggleSidebar, alertCounts, loadAlerts } = useAdminStore();
 
   // Mobile drawer state — separate from desktop sidebar state
@@ -193,7 +193,7 @@ export default function AdminLayout({
   };
 
   useEffect(() => {
-    fetchAlerts();
+    const initialTimer = setTimeout(fetchAlerts, 1500);
     const interval = setInterval(fetchAlerts, 30000);
 
     // Pause polling when tab becomes hidden, resume when visible
@@ -203,6 +203,7 @@ export default function AdminLayout({
     document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
+      clearTimeout(initialTimer);
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
@@ -221,28 +222,11 @@ export default function AdminLayout({
     router.push("/");
   };
 
-  const [hasMounted, setHasMounted] = useState(false);
-  useEffect(() => {
-    setHasMounted(true);
-  }, []);
-
-  if (!hasMounted) return null;
-
-  // Server-side auth is handled by middleware.ts — this is a lightweight client fallback
-  if (!isAuthenticated || !isStaffRole(user?.role ?? "")) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <div className="text-center">
-          <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
+  // The proxy and every admin API enforce access; JWT hydration fills user details.
   const userPerms = user?.permissions ? JSON.stringify(user.permissions) : undefined;
   const userRole = (user?.role ?? "") as RoleValue;
   const visibleNavItems = navItems.filter((item) => {
+    if (!user) return true;
     if (item.href === "/admin") return true;
     return (
       hasPermission(userRole, Permission.VIEW_ORDERS, userPerms) ||
@@ -524,11 +508,11 @@ export default function AdminLayout({
               <Button
                 variant="ghost"
                 className="gap-2 px-2 shrink-0"
-                aria-label={`User menu for ${user?.name}`}
+                aria-label={`User menu for ${user?.name || "Admin"}`}
               >
                 <Avatar className="h-8 w-8">
                   <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                    {user?.name
+                    {(user?.name || "Admin")
                       .split(" ")
                       .map((n) => n[0])
                       .join("")
@@ -536,14 +520,14 @@ export default function AdminLayout({
                   </AvatarFallback>
                 </Avatar>
                 <span className="text-sm font-medium hidden md:inline">
-                  {user?.name}
+                  {user?.name || "Admin"}
                 </span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
                 <div className="flex flex-col">
-                  <span>{user?.name}</span>
+                  <span>{user?.name || "Admin"}</span>
                   <span className="text-xs font-normal text-muted-foreground">
                     {user?.email}
                   </span>

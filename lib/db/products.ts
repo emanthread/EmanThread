@@ -635,8 +635,8 @@ export async function getAdminProducts(
     }
   }
 
-  const [products, total] = await Promise.all([
-    prisma.product.findMany({
+  // Limit each admin list request to one active DB operation at a time.
+  const products = await prisma.product.findMany({
       where,
       select: {
         id: true,
@@ -656,7 +656,6 @@ export async function getAdminProducts(
         description: true,
         longDescription: true,
         categoryId: true,
-        category: true,
         slug: true,
         tags: true,
         metaTitle: true,
@@ -667,9 +666,8 @@ export async function getAdminProducts(
       orderBy: { createdAt: "desc" },
       skip,
       take: pageSize,
-    }),
-    prisma.product.count({ where }),
-  ]);
+    });
+  const total = await prisma.product.count({ where });
 
   return {
     products: products.map((p) => ({
@@ -721,6 +719,8 @@ export async function createAdminProduct(data: any) {
       tags: JSON.stringify(data.tags || []),
       badge: data.badge,
       inStock: data.inStock ?? true,
+      stockQuantity: data.stockQuantity ?? 0,
+      lowStockThreshold: data.lowStockThreshold ?? 5,
       metaTitle: data.metaTitle,
       metaDescription: data.metaDescription,
       categoryId: data.categoryId,
@@ -743,6 +743,7 @@ export async function createAdminProduct(data: any) {
     inStock: product.inStock,
     stockQuantity: product.stockQuantity,
     lowStockThreshold: product.lowStockThreshold,
+    categoryId: product.categoryId,
     description: product.description,
     longDescription: product.longDescription || "",
     slug: product.slug || product.sku.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
@@ -798,6 +799,7 @@ export async function updateAdminProduct(id: string, data: any) {
     inStock: product.inStock,
     stockQuantity: product.stockQuantity,
     lowStockThreshold: product.lowStockThreshold,
+    categoryId: product.categoryId,
     description: product.description,
     longDescription: product.longDescription || "",
     slug: product.slug || product.sku.toLowerCase().replace(/[^a-z0-9]+/g, "-"),

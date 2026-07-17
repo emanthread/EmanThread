@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useDebounce } from "@/hooks/use-debounce";
 import Link from "next/link";
 import Image from "next/image";
@@ -62,6 +62,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAdminStore, type AdminProduct } from "@/lib/admin-store";
+import { adminFetch } from "@/lib/admin-fetch";
 import { formatPrice } from "@/lib/data";
 import { cn, getProductImage } from "@/lib/utils";
 
@@ -92,6 +93,13 @@ const PREDEFINED_TAGS = [
   "Budget",
 ];
 
+type ProductFormErrors = Partial<Record<keyof AdminProduct, string>>;
+
+function ProductFieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return <p className="text-xs text-destructive" role="alert">{message}</p>;
+}
+
 function emptyProduct(): AdminProduct {
   return {
     id: "",
@@ -100,7 +108,7 @@ function emptyProduct(): AdminProduct {
     slug: "",
     price: 0,
     originalPrice: undefined,
-    fabricType: "Cotton",
+    fabricType: "",
     color: "",
     colorHex: "#000000",
     images: [],
@@ -128,23 +136,41 @@ export default function AdminProductsPage() {
 
   useEffect(() => {
     setIsLoadingCategories(true);
+    const controller = new AbortController();
     // Use /api/admin/categories (not /api/categories) so we always get real
     // Category DB IDs. The public endpoint returns fabricType-grouped data
     // for shop filtering and must never be used as a categoryId source.
     // Also fetch fabric types so newly-created entries appear in the dropdown.
     // BUG FIX: dep was [loadProducts] — a stable Zustand action reference but
     // still caused an extra re-run on mount; changed to [] (run once on mount).
-    Promise.all([
-      fetch("/api/admin/categories").then((r) => r.json()),
-      fetch("/api/admin/fabric-types").then((r) => r.json()),
-    ])
-      .then(([catData, ftData]) => {
-        setCategories(catData || []);
-        setFabricTypes(Array.isArray(ftData) ? ftData : []);
-      })
-      .catch(() => toast.error("Failed to load categories"))
-      .finally(() => setIsLoadingCategories(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    const loadOptions = async () => {
+      try {
+        const fabricResponse = await adminFetch("/api/admin/fabric-types?active=true", {
+          signal: controller.signal,
+        });
+        const fabricData = await fabricResponse.json().catch(() => null);
+        if (!fabricResponse.ok || !Array.isArray(fabricData)) {
+          throw new Error(fabricData?.error || "Failed to load fabric types");
+        }
+        setFabricTypes(fabricData);
+
+        const categoryResponse = await adminFetch("/api/admin/categories", {
+          signal: controller.signal,
+        });
+        const categoryData = await categoryResponse.json().catch(() => null);
+        if (!categoryResponse.ok || !Array.isArray(categoryData)) {
+          throw new Error(categoryData?.error || "Failed to load categories");
+        }
+        setCategories(categoryData);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        toast.error(error instanceof Error ? error.message : "Failed to load product options");
+      } finally {
+        setIsLoadingCategories(false);
+      }
+    };
+    void loadOptions();
+    return () => controller.abort();
   }, []);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -153,6 +179,7 @@ export default function AdminProductsPage() {
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [editStockProduct, setEditStockProduct] = useState<string | null>(null);
   const [newStockValue, setNewStockValue] = useState<number>(0);
+  const [isUpdatingStock, setIsUpdatingStock] = useState(false);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [isEditProductOpen, setIsEditProductOpen] = useState(false);
   const [productForm, setProductForm] = useState<AdminProduct>(emptyProduct());
@@ -162,6 +189,7 @@ export default function AdminProductsPage() {
   const [productToDelete, setProductToDelete] = useState<AdminProduct | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [tagInput, setTagInput] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<ProductFormErrors>({});
   // Replace manual setTimeout boilerplate with shared hook (same 500ms delay).
   // The hook already exists and is used correctly in customers/page.tsx.
   const debouncedSearch = useDebounce(searchQuery, 500);
@@ -200,6 +228,11 @@ export default function AdminProductsPage() {
 
   const handleUpdateStock = async () => {
     if (!editStockProduct) return;
+    if (!Number.isInteger(newStockValue) || newStockValue < 0) {
+      toast.error("Stock quantity must be a whole number of 0 or more");
+      return;
+    }
+    setIsUpdatingStock(true);
     try {
       await updateProductStock(editStockProduct, newStockValue);
       toast.success("Stock updated successfully");
@@ -207,12 +240,29 @@ export default function AdminProductsPage() {
       setNewStockValue(0);
     } catch (err: any) {
       toast.error(err.message || "Failed to update stock");
+    } finally {
+      setIsUpdatingStock(false);
     }
   };
 
-  const handleBulkStockUpdate = (nextStock: number) => {
-    selectedProducts.forEach((productId) => updateProductStock(productId, nextStock));
+  const handleBulkStockUpdate = async (nextStock: number) => {
+    const productIds = [...selectedProducts];
+    let failures = 0;
+
+    for (const productId of productIds) {
+      try {
+        await updateProductStock(productId, nextStock);
+      } catch {
+        failures += 1;
+      }
+    }
+
     setSelectedProducts([]);
+    if (failures > 0) {
+      toast.error(`${failures} stock update${failures === 1 ? "" : "s"} failed`);
+    } else if (productIds.length > 0) {
+      toast.success("Stock updated successfully");
+    }
   };
 
   const handleDeleteProduct = async () => {
@@ -227,15 +277,21 @@ export default function AdminProductsPage() {
       await loadProducts(productsPage, 50, debouncedSearch, categoryFilter, stockFilter);
       // Same as above — use admin endpoint for real Category DB IDs.
       // Also refresh fabric types so newly-created entries appear immediately.
-      const [catRes, ftRes] = await Promise.all([
-        fetch("/api/admin/categories"),
-        fetch("/api/admin/fabric-types"),
-      ]);
-      const [catData, ftData] = await Promise.all([catRes.json(), ftRes.json()]);
-      if (catData) setCategories(catData);
-      if (Array.isArray(ftData)) setFabricTypes(ftData);
-    } catch {
-      // Silently fail — individual handlers show toasts if needed
+      const ftRes = await adminFetch("/api/admin/fabric-types?active=true");
+      const ftData = await ftRes.json().catch(() => null);
+      if (!ftRes.ok || !Array.isArray(ftData)) {
+        throw new Error(ftData?.error || "Failed to load fabric types");
+      }
+      setFabricTypes(ftData);
+
+      const catRes = await adminFetch("/api/admin/categories");
+      const catData = await catRes.json().catch(() => null);
+      if (!catRes.ok || !Array.isArray(catData)) {
+        throw new Error(catData?.error || "Failed to load categories");
+      }
+      setCategories(catData);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to refresh products");
     } finally {
       setIsRefreshing(false);
     }
@@ -281,6 +337,12 @@ export default function AdminProductsPage() {
         ...prev,
         images: [...prev.images, data.url],
       }));
+      setFieldErrors((current) => {
+        if (!current.images) return current;
+        const next = { ...current };
+        delete next.images;
+        return next;
+      });
       toast.success("Image uploaded");
     } catch (err: any) {
       console.error("Image upload error:", err);
@@ -335,6 +397,7 @@ export default function AdminProductsPage() {
   };
 
   const openEditDialog = (product: AdminProduct) => {
+    setFieldErrors({});
     setProductForm({ ...product });
     setIsEditProductOpen(true);
   };
@@ -344,47 +407,48 @@ export default function AdminProductsPage() {
     if (categories.length > 0) {
       base.categoryId = categories[0].id;
     }
-    const activeFabrics = fabricTypes.filter(f => f.isActive);
-    if (activeFabrics.length > 0) {
-      base.fabricType = activeFabrics[0].name;
-    } else if (fabricTypes.length > 0) {
+    if (fabricTypes.length > 0) {
       base.fabricType = fabricTypes[0].name;
     }
+    setFieldErrors({});
     setProductForm(base);
     setTagInput("");
     setIsAddProductOpen(true);
   };
 
   const handleSaveProduct = async () => {
-    if (!productForm.name.trim()) {
-      toast.error("Product Name is required");
-      return;
-    }
-    if (!productForm.sku.trim()) {
-      toast.error("Product Code (SKU) is required");
-      return;
-    }
-    if (productForm.images.length === 0) {
-      // BUG FIX: if user clicks Save while image is still uploading the images
-      // array is empty and the API silently rejects with 400 (no toast shown
-      // because the error was never surfaced). Show a friendly message instead.
-      toast.error("Please upload at least one product image");
-      return;
-    }
     if (uploadingImage) {
       toast.error("Please wait for the image to finish uploading");
       return;
     }
 
     const resolvedCategoryId = productForm.categoryId || categories[0]?.id || "";
-    if (!resolvedCategoryId) {
-      toast.error("Please select a Category before saving");
+    const errors: ProductFormErrors = {};
+    if (!productForm.name.trim()) errors.name = "Product name is required";
+    if (!productForm.sku.trim()) errors.sku = "Product code (SKU) is required";
+    if (!Number.isFinite(productForm.price) || productForm.price <= 0) {
+      errors.price = "Price must be greater than 0";
+    }
+    if (productForm.originalPrice !== undefined && productForm.originalPrice <= 0) {
+      errors.originalPrice = "Original price must be greater than 0";
+    }
+    if (!resolvedCategoryId) errors.categoryId = "Please select a category";
+    if (!productForm.fabricType.trim()) errors.fabricType = "Please select a fabric type";
+    if (!productForm.color.trim()) errors.color = "Color name is required";
+    if (!/^#[0-9a-f]{6}$/i.test(productForm.colorHex)) {
+      errors.colorHex = "Enter a valid 6-digit color hex value";
+    }
+    if (!productForm.description.trim()) errors.description = "Short description is required";
+    if (productForm.images.length === 0) errors.images = "Upload at least one product image";
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      const firstField = Object.keys(errors)[0] as keyof AdminProduct;
+      document.getElementById(firstField)?.focus();
+      toast.error(errors[firstField] || "Please complete the required fields");
       return;
     }
-    if (!productForm.fabricType.trim()) {
-      toast.error("Please select a Fabric Type before saving");
-      return;
-    }
+    setFieldErrors({});
 
     setIsSaving(true);
     // BUG FIX: previous code did { ...productForm, ...payload } which double-
@@ -520,11 +584,11 @@ export default function AdminProductsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="cotton">Cotton</SelectItem>
-                <SelectItem value="wash-wear">Wash & Wear</SelectItem>
-                <SelectItem value="boski">Boski</SelectItem>
-                <SelectItem value="wool-blend">Wool Blend</SelectItem>
-                <SelectItem value="khaddar">Khaddar</SelectItem>
+                {fabricTypes.map((fabricType) => (
+                  <SelectItem key={fabricType.id} value={fabricType.name}>
+                    {fabricType.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Select value={stockFilter} onValueChange={setStockFilter}>
@@ -774,16 +838,20 @@ export default function AdminProductsPage() {
               id="stock"
               type="number"
               min="0"
+              step="1"
               value={newStockValue}
               onChange={(e) => setNewStockValue(parseInt(e.target.value) || 0)}
               className="mt-2"
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditStockProduct(null)}>
+            <Button variant="outline" onClick={() => setEditStockProduct(null)} disabled={isUpdatingStock}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateStock}>Update Stock</Button>
+            <Button onClick={handleUpdateStock} disabled={isUpdatingStock}>
+              {isUpdatingStock && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Update Stock
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -822,6 +890,7 @@ export default function AdminProductsPage() {
           if (!open) {
             setIsAddProductOpen(false);
             setIsEditProductOpen(false);
+            setFieldErrors({});
           }
         }}
         isEdit={isEditProductOpen}
@@ -841,6 +910,15 @@ export default function AdminProductsPage() {
         onRemoveTag={handleRemoveTag}
         onSave={handleSaveProduct}
         isSaving={isSaving}
+        fieldErrors={fieldErrors}
+        clearFieldError={(field) => {
+          setFieldErrors((current) => {
+            if (!current[field]) return current;
+            const next = { ...current };
+            delete next[field];
+            return next;
+          });
+        }}
       />
     </div>
   );
@@ -868,6 +946,8 @@ interface ProductDialogProps {
   onRemoveTag: (tag: string) => void;
   onSave: () => void;
   isSaving: boolean;
+  fieldErrors: ProductFormErrors;
+  clearFieldError: (field: keyof AdminProduct) => void;
 }
 
 function ProductDialog({
@@ -890,8 +970,11 @@ function ProductDialog({
   onRemoveTag,
   onSave,
   isSaving,
+  fieldErrors,
+  clearFieldError,
 }: ProductDialogProps) {
   const update = (field: keyof AdminProduct, value: any) => {
+    clearFieldError(field);
     setProduct((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -918,7 +1001,9 @@ function ProductDialog({
                 id="name"
                 value={product.name}
                 onChange={(e) => update("name", e.target.value)}
+                aria-invalid={!!fieldErrors.name}
               />
+              <ProductFieldError message={fieldErrors.name} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="sku">Code *</Label>
@@ -926,7 +1011,9 @@ function ProductDialog({
                 id="sku"
                 value={product.sku}
                 onChange={(e) => update("sku", e.target.value)}
+                aria-invalid={!!fieldErrors.sku}
               />
+              <ProductFieldError message={fieldErrors.sku} />
             </div>
           </div>
 
@@ -939,7 +1026,9 @@ function ProductDialog({
                 min="0"
                 value={product.price}
                 onChange={(e) => update("price", parseFloat(e.target.value) || 0)}
+                aria-invalid={!!fieldErrors.price}
               />
+              <ProductFieldError message={fieldErrors.price} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="originalPrice">Original Price (PKR)</Label>
@@ -954,7 +1043,9 @@ function ProductDialog({
                     e.target.value ? parseFloat(e.target.value) : undefined
                   )
                 }
+                aria-invalid={!!fieldErrors.originalPrice}
               />
+              <ProductFieldError message={fieldErrors.originalPrice} />
             </div>
           </div>
 
@@ -965,7 +1056,7 @@ function ProductDialog({
                 value={product.categoryId}
                 onValueChange={(v) => update("categoryId", v)}
               >
-                <SelectTrigger>
+                <SelectTrigger id="categoryId" aria-invalid={!!fieldErrors.categoryId}>
                   {isLoadingCategories ? (
                     <span className="text-muted-foreground text-sm">Loading…</span>
                   ) : (
@@ -980,6 +1071,7 @@ function ProductDialog({
                   ))}
                 </SelectContent>
               </Select>
+              <ProductFieldError message={fieldErrors.categoryId} />
             </div>
             <div className="space-y-2">
               <Label>Fabric Type *</Label>
@@ -987,7 +1079,7 @@ function ProductDialog({
                 value={product.fabricType}
                 onValueChange={(v) => update("fabricType", v)}
               >
-                <SelectTrigger>
+                <SelectTrigger id="fabricType" aria-invalid={!!fieldErrors.fabricType}>
                   {isLoadingCategories ? (
                     <span className="text-muted-foreground text-sm">Loading…</span>
                   ) : (
@@ -995,13 +1087,14 @@ function ProductDialog({
                   )}
                 </SelectTrigger>
                 <SelectContent>
-                  {fabricTypes.filter(ft => ft.isActive).map((ft) => (
+                  {fabricTypes.map((ft) => (
                     <SelectItem key={ft.id} value={ft.name}>
                       {ft.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <ProductFieldError message={fieldErrors.fabricType} />
             </div>
           </div>
 
@@ -1035,7 +1128,9 @@ function ProductDialog({
                 value={product.color}
                 onChange={(e) => update("color", e.target.value)}
                 placeholder="e.g. Royal Blue"
+                aria-invalid={!!fieldErrors.color}
               />
+              <ProductFieldError message={fieldErrors.color} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="colorHex">Color Hex *</Label>
@@ -1045,6 +1140,7 @@ function ProductDialog({
                   value={product.colorHex}
                   onChange={(e) => update("colorHex", e.target.value)}
                   placeholder="#000000"
+                  aria-invalid={!!fieldErrors.colorHex}
                 />
                 <input
                   type="color"
@@ -1053,6 +1149,7 @@ function ProductDialog({
                   className="h-10 w-10 rounded border p-0.5 cursor-pointer"
                 />
               </div>
+              <ProductFieldError message={fieldErrors.colorHex} />
             </div>
           </div>
 
@@ -1062,7 +1159,9 @@ function ProductDialog({
               id="description"
               value={product.description}
               onChange={(e) => update("description", e.target.value)}
+              aria-invalid={!!fieldErrors.description}
             />
+            <ProductFieldError message={fieldErrors.description} />
           </div>
 
           <div className="space-y-2">
@@ -1076,7 +1175,7 @@ function ProductDialog({
           </div>
 
           {/* Images */}
-          <div className="space-y-2">
+          <div className="space-y-2" id="images" tabIndex={-1}>
             <Label>Product Images</Label>
             <div className="flex flex-wrap gap-3">
               {product.images.map((img, i) => (
@@ -1139,6 +1238,7 @@ function ProductDialog({
                 </>
               )}
             </div>
+            <ProductFieldError message={fieldErrors.images} />
           </div>
 
           {/* Video */}

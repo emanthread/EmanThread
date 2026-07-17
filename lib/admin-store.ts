@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { toast } from "sonner";
+import { adminFetch, adminResponseError } from "@/lib/admin-fetch";
 
 export type OrderStatus = "pending" | "processing" | "shipped" | "delivered" | "cancelled" | "returned";
 export type PaymentStatus = "pending" | "paid" | "refunded" | "failed";
@@ -256,9 +257,9 @@ interface AdminState {
   updatePaymentStatus: (orderId: string, status: PaymentStatus) => Promise<void>;
   
   deleteProduct: (productId: string) => Promise<void>;
-  updateProduct: (productId: string, data: Partial<AdminProduct>) => Promise<void>;
-  updateProductStock: (productId: string, quantity: number) => Promise<void>;
-  addProduct: (product: AdminProduct) => Promise<void>;
+  updateProduct: (productId: string, data: Partial<AdminProduct>) => Promise<AdminProduct>;
+  updateProductStock: (productId: string, quantity: number) => Promise<AdminProduct>;
+  addProduct: (product: AdminProduct) => Promise<AdminProduct>;
   
   addDiscount: (discount: Omit<Discount, "id" | "usageCount">) => Promise<void>;
   updateDiscount: (discountId: string, data: Partial<Discount>) => Promise<void>;
@@ -366,8 +367,8 @@ export const useAdminStore = create<AdminState>()(
           url.searchParams.set("limit", limit.toString());
           if (search) url.searchParams.set("search", search);
 
-          const res = await fetch(url.toString());
-          if (!res.ok) return;
+          const res = await adminFetch(url.toString());
+          if (!res.ok) throw await adminResponseError(res, "Failed to load orders");
           const data = await res.json();
           set({ 
             orders: data.orders || [],
@@ -377,6 +378,9 @@ export const useAdminStore = create<AdminState>()(
           });
         } catch (err) {
           console.error("Failed to load orders:", err);
+          toast.error(err instanceof Error ? err.message : "Failed to load orders", {
+            id: "admin-orders-load",
+          });
         }
       },
 
@@ -389,8 +393,11 @@ export const useAdminStore = create<AdminState>()(
           if (category && category !== "all") url.searchParams.set("category", category);
           if (stock && stock !== "all") url.searchParams.set("stock", stock);
 
-          const res = await fetch(url.toString(), { signal });
-          if (!res.ok) return;
+          const res = await adminFetch(url.toString(), { signal });
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => null);
+            throw new Error(errorData?.error || "Failed to load products");
+          }
           const data = await res.json();
           set({ 
             products: data.products || [],
@@ -402,23 +409,27 @@ export const useAdminStore = create<AdminState>()(
           // Silently ignore intentional aborts (AbortController fired on filter change)
           if (err instanceof DOMException && err.name === "AbortError") return;
           console.error("Failed to load products:", err);
+          toast.error(err instanceof Error ? err.message : "Failed to load products");
         }
       },
 
       loadCustomers: async () => {
         try {
-          const res = await fetch("/api/admin/customers");
-          if (!res.ok) return;
+          const res = await adminFetch("/api/admin/customers");
+          if (!res.ok) throw await adminResponseError(res, "Failed to load customers");
           const data = await res.json();
           set({ customers: data || [] });
         } catch (err) {
           console.error("Failed to load customers:", err);
+          toast.error(err instanceof Error ? err.message : "Failed to load customers", {
+            id: "admin-customers-load",
+          });
         }
       },
 
       loadStats: async () => {
         try {
-          const res = await fetch("/api/admin/analytics");
+          const res = await adminFetch("/api/admin/analytics");
           if (!res.ok) { set({ statsError: "Failed to load data" }); return; } // A4.5
           const data = await res.json();
           set({
@@ -447,8 +458,8 @@ export const useAdminStore = create<AdminState>()(
         // Don't poll when tab is hidden — saves mobile battery/data
         if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
         try {
-          const res = await fetch("/api/admin/alerts");
-          if (!res.ok) return;
+          const res = await adminFetch("/api/admin/alerts");
+          if (!res.ok) throw await adminResponseError(res, "Failed to load alerts");
           const data = await res.json();
           set({ alertCounts: data });
         } catch (err) {
@@ -459,12 +470,15 @@ export const useAdminStore = create<AdminState>()(
       loadRecentOrders: async () => {
         set({ recentOrdersLoading: true });
         try {
-          const res = await fetch("/api/admin/analytics/recent-orders");
-          if (!res.ok) return;
+          const res = await adminFetch("/api/admin/analytics/recent-orders");
+          if (!res.ok) throw await adminResponseError(res, "Failed to load recent orders");
           const data = await res.json();
           set({ recentOrders: data || [] });
         } catch (err) {
           console.error("Failed to load recent orders:", err);
+          toast.error(err instanceof Error ? err.message : "Failed to load dashboard data", {
+            id: "admin-dashboard-load",
+          });
         } finally {
           set({ recentOrdersLoading: false });
         }
@@ -472,78 +486,99 @@ export const useAdminStore = create<AdminState>()(
 
       loadLowStockProducts: async () => {
         try {
-          const res = await fetch("/api/admin/analytics/low-stock");
-          if (!res.ok) return;
+          const res = await adminFetch("/api/admin/analytics/low-stock");
+          if (!res.ok) throw await adminResponseError(res, "Failed to load low stock products");
           const data = await res.json();
           set({ lowStockProducts: data || [] });
         } catch (err) {
           console.error("Failed to load low stock products:", err);
+          toast.error(err instanceof Error ? err.message : "Failed to load dashboard data", {
+            id: "admin-dashboard-load",
+          });
         }
       },
 
       loadDiscounts: async () => {
         try {
-          const res = await fetch("/api/admin/discounts");
-          if (!res.ok) return;
+          const res = await adminFetch("/api/admin/discounts");
+          if (!res.ok) throw await adminResponseError(res, "Failed to load discounts");
           const data = await res.json();
           set({ discounts: data || [] });
         } catch (err) {
           console.error("Failed to load discounts:", err);
+          toast.error(err instanceof Error ? err.message : "Failed to load discounts", {
+            id: "admin-discounts-load",
+          });
         }
       },
 
       loadNotificationLogs: async (orderId) => {
         try {
-          const res = await fetch(`/api/notifications/logs/${orderId}`);
-          if (!res.ok) return;
+          const res = await adminFetch(`/api/notifications/logs/${orderId}`);
+          if (!res.ok) throw await adminResponseError(res, "Failed to load notification logs");
           const data = await res.json();
           set({ notificationLogs: data.logs || [] });
         } catch (err) {
           console.error("Failed to load notification logs:", err);
+          toast.error(err instanceof Error ? err.message : "Failed to load notification logs", {
+            id: "admin-notification-logs-load",
+          });
         }
       },
 
       loadRevenueOverview: async (timeRange) => {
         try {
-          const res = await fetch(`/api/admin/analytics/revenue?timeRange=${timeRange}`);
-          if (!res.ok) return;
+          const res = await adminFetch(`/api/admin/analytics/revenue?timeRange=${timeRange}`);
+          if (!res.ok) throw await adminResponseError(res, "Failed to load revenue overview");
           const data = await res.json();
           set({ revenueOverview: data || [] });
         } catch (err) {
           console.error("Failed to load revenue overview:", err);
+          toast.error(err instanceof Error ? err.message : "Failed to load dashboard data", {
+            id: "admin-dashboard-load",
+          });
         }
       },
 
       loadTopProducts: async () => {
         try {
-          const res = await fetch("/api/admin/analytics/top-products");
-          if (!res.ok) return;
+          const res = await adminFetch("/api/admin/analytics/top-products");
+          if (!res.ok) throw await adminResponseError(res, "Failed to load top products");
           const data = await res.json();
           set({ topProducts: data || [] });
         } catch (err) {
           console.error("Failed to load top products:", err);
+          toast.error(err instanceof Error ? err.message : "Failed to load dashboard data", {
+            id: "admin-dashboard-load",
+          });
         }
       },
 
       loadReturnRequests: async () => {
         try {
-          const res = await fetch("/api/admin/returns");
-          if (!res.ok) return;
+          const res = await adminFetch("/api/admin/returns");
+          if (!res.ok) throw await adminResponseError(res, "Failed to load return requests");
           const data = await res.json();
           set({ returnRequests: data.returnRequests || [] });
         } catch (err) {
           console.error("Failed to load return requests:", err);
+          toast.error(err instanceof Error ? err.message : "Failed to load return requests", {
+            id: "admin-returns-load",
+          });
         }
       },
 
       loadShippingZones: async () => {
         try {
-          const res = await fetch("/api/admin/shipping/zones");
-          if (!res.ok) return;
+          const res = await adminFetch("/api/admin/shipping/zones");
+          if (!res.ok) throw await adminResponseError(res, "Failed to load shipping zones");
           const data = await res.json();
           set({ shippingZones: data.zones || [] });
         } catch (err) {
           console.error("Failed to load shipping zones:", err);
+          toast.error(err instanceof Error ? err.message : "Failed to load shipping zones", {
+            id: "admin-shipping-load",
+          });
         }
       },
 
@@ -556,7 +591,7 @@ export const useAdminStore = create<AdminState>()(
           customers: state.customers.filter((c) => c.id !== customerId),
         }));
         try {
-          const res = await fetch(`/api/admin/customers/${customerId}`, {
+          const res = await adminFetch(`/api/admin/customers/${customerId}`, {
             method: "DELETE",
           });
           if (!res.ok) throw new Error("Failed to delete customer");
@@ -575,7 +610,7 @@ export const useAdminStore = create<AdminState>()(
           orders: state.orders.filter((o) => o.id !== orderId),
         }));
         try {
-          const res = await fetch(`/api/admin/orders/${orderId}`, {
+          const res = await adminFetch(`/api/admin/orders/${orderId}`, {
             method: "DELETE",
           });
           if (!res.ok) throw new Error("Failed to delete order");
@@ -596,7 +631,7 @@ export const useAdminStore = create<AdminState>()(
           ),
         }));
         try {
-          const res = await fetch(`/api/admin/orders/${orderId}/status`, {
+          const res = await adminFetch(`/api/admin/orders/${orderId}/status`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ status: status.toUpperCase() }),
@@ -619,7 +654,7 @@ export const useAdminStore = create<AdminState>()(
           ),
         }));
         try {
-          const res = await fetch(`/api/admin/orders/${orderId}/payment-status`, {
+          const res = await adminFetch(`/api/admin/orders/${orderId}/payment-status`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ paymentStatus: status }),
@@ -634,7 +669,7 @@ export const useAdminStore = create<AdminState>()(
 
       deleteProduct: async (productId) => {
         try {
-          const res = await fetch(`/api/admin/products/${productId}`, {
+          const res = await adminFetch(`/api/admin/products/${productId}`, {
             method: "DELETE",
           });
           if (!res.ok) {
@@ -656,7 +691,7 @@ export const useAdminStore = create<AdminState>()(
 
       updateProduct: async (productId, data) => {
         try {
-          const res = await fetch(`/api/admin/products/${productId}`, {
+          const res = await adminFetch(`/api/admin/products/${productId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(data),
@@ -665,7 +700,13 @@ export const useAdminStore = create<AdminState>()(
             const errData = await res.json().catch(() => ({}));
             throw new Error(errData.error || "Failed to update product");
           }
-          await get().loadProducts();
+          const updated = (await res.json()) as AdminProduct;
+          set((state) => ({
+            products: state.products.map((product) =>
+              product.id === productId ? updated : product
+            ),
+          }));
+          return updated;
         } catch (err) {
           console.error("Update product error:", err);
           throw err;
@@ -674,32 +715,38 @@ export const useAdminStore = create<AdminState>()(
 
       updateProductStock: async (productId, quantity) => {
         try {
-          const res = await fetch(`/api/admin/products/${productId}`, {
+          const res = await adminFetch(`/api/admin/products/${productId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ stockQuantity: quantity, inStock: quantity > 0 }),
           });
-          if (!res.ok) throw new Error("Failed to update stock");
+          const data = await res.json().catch(() => null);
+          if (!res.ok) {
+            throw new Error(data?.error || "Failed to update stock");
+          }
+          const updated = data as AdminProduct;
           set((state) => ({
             products: state.products.map((product) =>
               product.id === productId
                 ? {
                     ...product,
-                    stockQuantity: quantity,
-                    inStock: quantity > 0,
-                    updatedAt: new Date().toISOString(),
+                    stockQuantity: updated.stockQuantity,
+                    inStock: updated.inStock,
+                    updatedAt: updated.updatedAt,
                   }
                 : product
             ),
           }));
+          return updated;
         } catch (err) {
           console.error("Update stock error:", err);
+          throw err;
         }
       },
 
       addProduct: async (product) => {
         try {
-          const res = await fetch("/api/admin/products", {
+          const res = await adminFetch("/api/admin/products", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -712,7 +759,12 @@ export const useAdminStore = create<AdminState>()(
             const errData = await res.json().catch(() => ({}));
             throw new Error(errData.error || "Failed to create product");
           }
-          await get().loadProducts();
+          const created = (await res.json()) as AdminProduct;
+          set((state) => ({
+            products: [created, ...state.products],
+            productsTotal: state.productsTotal + 1,
+          }));
+          return created;
         } catch (err) {
           console.error("Add product error:", err);
           throw err;
@@ -721,7 +773,7 @@ export const useAdminStore = create<AdminState>()(
 
       addDiscount: async (discount) => {
         try {
-          const res = await fetch("/api/admin/discounts", {
+          const res = await adminFetch("/api/admin/discounts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(discount),
@@ -748,7 +800,7 @@ export const useAdminStore = create<AdminState>()(
           ),
         }));
         try {
-          const res = await fetch(`/api/admin/discounts/${discountId}`, {
+          const res = await adminFetch(`/api/admin/discounts/${discountId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(data),
@@ -767,7 +819,7 @@ export const useAdminStore = create<AdminState>()(
           discounts: state.discounts.filter((d) => d.id !== discountId),
         }));
         try {
-          const res = await fetch(`/api/admin/discounts/${discountId}`, {
+          const res = await adminFetch(`/api/admin/discounts/${discountId}`, {
             method: "DELETE",
           });
           if (!res.ok) throw new Error("Failed to delete discount");
@@ -788,7 +840,7 @@ export const useAdminStore = create<AdminState>()(
           ),
         }));
         try {
-          const res = await fetch(`/api/admin/returns/${requestId}/status`, {
+          const res = await adminFetch(`/api/admin/returns/${requestId}/status`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ status: status.toUpperCase(), refundAmount }),
@@ -811,7 +863,7 @@ export const useAdminStore = create<AdminState>()(
           if (data.notes !== undefined) payload.notes = data.notes;
           if (data.refundAmount !== undefined) payload.refundAmount = data.refundAmount;
 
-          const res = await fetch(`/api/admin/returns/${requestId}`, {
+          const res = await adminFetch(`/api/admin/returns/${requestId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -829,7 +881,7 @@ export const useAdminStore = create<AdminState>()(
           returnRequests: state.returnRequests.filter((req) => req.id !== requestId),
         }));
         try {
-          const res = await fetch(`/api/admin/returns/${requestId}`, {
+          const res = await adminFetch(`/api/admin/returns/${requestId}`, {
             method: "DELETE",
           });
           if (!res.ok) throw new Error("Failed to delete return request");
@@ -843,7 +895,7 @@ export const useAdminStore = create<AdminState>()(
 
       addShippingZone: async (zone) => {
         try {
-          const res = await fetch("/api/admin/shipping/zones", {
+          const res = await adminFetch("/api/admin/shipping/zones", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(zone),
@@ -858,7 +910,7 @@ export const useAdminStore = create<AdminState>()(
 
       updateShippingZone: async (zoneId, data) => {
         try {
-          const res = await fetch(`/api/admin/shipping/zones/${zoneId}`, {
+          const res = await adminFetch(`/api/admin/shipping/zones/${zoneId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(data),
@@ -872,7 +924,7 @@ export const useAdminStore = create<AdminState>()(
 
       deleteShippingZone: async (zoneId) => {
         try {
-          const res = await fetch(`/api/admin/shipping/zones/${zoneId}`, {
+          const res = await adminFetch(`/api/admin/shipping/zones/${zoneId}`, {
             method: "DELETE",
           });
           if (!res.ok) throw new Error("Failed to delete shipping zone");

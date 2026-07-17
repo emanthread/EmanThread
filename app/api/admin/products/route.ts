@@ -24,6 +24,8 @@ const createProductSchema = z.object({
   tags: z.array(z.string()).optional(),
   badge: z.enum(["NEW", "TRENDING", "HOT", "LIMITED", "FEATURED"]).optional(),
   inStock: z.boolean().default(true),
+  stockQuantity: z.number().int().min(0).default(0),
+  lowStockThreshold: z.number().int().min(1).default(5),
   metaTitle: z.string().optional(),
   metaDescription: z.string().optional(),
   categoryId: z.string().min(1, "Category is required"),

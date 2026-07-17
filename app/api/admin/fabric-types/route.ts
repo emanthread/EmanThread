@@ -21,13 +21,18 @@ async function checkAdmin() {
   return true;
 }
 
-export const GET = withLoggedAdminHandler(async () => {
+export const GET = withLoggedAdminHandler(async (req: Request) => {
   if (!(await checkAdmin())) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const activeOnly = new URL(req.url).searchParams.get("active") === "true";
   const fabricTypes = await prisma.fabricType.findMany({
+    where: activeOnly ? { isActive: true } : undefined,
     orderBy: { name: "asc" },
+    ...(activeOnly
+      ? { select: { id: true, name: true, isActive: true } }
+      : {}),
   });
   return NextResponse.json(fabricTypes);
 });

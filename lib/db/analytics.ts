@@ -357,36 +357,36 @@ export async function getAdminAnalyticsDetail(
 // Pending orders / return requests / low stock are owned by getAdminAlertCounts — no duplication.
 // Recent orders are fetched on-demand via getAdminRecentOrders — not dragged in on every poll.
 export async function getAdminAnalytics() {
-  const [
-    revenueAgg,
-    ordersCount,
-    customersCount,
-    reviewStats,
-  ] = await Promise.all([
-    prisma.order.aggregate({
-      _sum: { grandTotal: true },
-      _avg: { grandTotal: true },
-    }),
-    prisma.order.count(),
-    prisma.user.count(),
-    prisma.productReview.aggregate({
-      _avg: { rating: true },
-      _count: { id: true },
-      where: { isVisible: true, deletedAt: null },
-    }),
-  ]);
+  type AnalyticsRow = {
+    totalRevenue: unknown;
+    averageOrderValue: unknown;
+    totalOrders: bigint;
+    totalCustomers: bigint;
+    totalReviews: bigint;
+    averageRating: unknown;
+  };
 
-  const totalRevenue = Number(revenueAgg._sum.grandTotal || 0);
-  const avgOrderValue = Number(revenueAgg._avg.grandTotal || 0);
-  const totalReviews = reviewStats._count.id || 0;
-  const averageRating = Number(reviewStats._avg.rating?.toFixed(1) || 0);
+  const [row] = await prisma.$queryRaw<AnalyticsRow[]>`
+    SELECT
+      (SELECT COALESCE(SUM("grandTotal"), 0) FROM "Order") AS "totalRevenue",
+      (SELECT COALESCE(AVG("grandTotal"), 0) FROM "Order") AS "averageOrderValue",
+      (SELECT COUNT(*) FROM "Order") AS "totalOrders",
+      (SELECT COUNT(*) FROM "User") AS "totalCustomers",
+      (SELECT COUNT(*) FROM "ProductReview" WHERE "isVisible" = true AND "deletedAt" IS NULL) AS "totalReviews",
+      (SELECT COALESCE(AVG("rating"), 0) FROM "ProductReview" WHERE "isVisible" = true AND "deletedAt" IS NULL) AS "averageRating"
+  `;
+
+  const totalRevenue = Number(row?.totalRevenue ?? 0);
+  const avgOrderValue = Number(row?.averageOrderValue ?? 0);
+  const totalReviews = Number(row?.totalReviews ?? 0);
+  const averageRating = Number(Number(row?.averageRating ?? 0).toFixed(1));
 
   return {
     totalRevenue,
     revenueChange: 0,
-    totalOrders: ordersCount,
+    totalOrders: Number(row?.totalOrders ?? 0),
     ordersChange: 0,
-    totalCustomers: customersCount,
+    totalCustomers: Number(row?.totalCustomers ?? 0),
     customersChange: 0,
     averageOrderValue: avgOrderValue,
     aovChange: 0,
@@ -479,59 +479,43 @@ export async function getAdminAlertCounts() {
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
 
-  const [
-    newOrdersAgg,
-    pendingReturnsAgg,
-    lowStockAgg,
-    backlogOrdersAgg,
-  ] = await Promise.all([
-    prisma.order.aggregate({
-      _count: { id: true },
-      _max: { createdAt: true },
-      where: { createdAt: { gte: oneHourAgo } },
-    }),
-    prisma.returnRequest.aggregate({
-      _count: { id: true },
-      _max: { createdAt: true },
-      where: { status: "PENDING" },
-    }),
-    prisma.product.aggregate({
-      _count: { id: true },
-      _max: { updatedAt: true },
-      where: {
-        AND: [{ inStock: true }, { stockQuantity: { lte: 5 } }],
-      },
-    }),
-    prisma.order.aggregate({
-      _count: { id: true },
-      _max: { createdAt: true },
-      where: {
-        AND: [
-          { status: "PENDING" },
-          { createdAt: { lte: twentyFourHoursAgo } },
-        ],
-      },
-    }),
-  ]);
+  type AlertRow = {
+    newOrders: bigint;
+    newOrdersLatest: Date | null;
+    pendingReturns: bigint;
+    pendingReturnsLatest: Date | null;
+    lowStockProducts: bigint;
+    lowStockLatest: Date | null;
+    backlogOrders: bigint;
+    backlogOrdersLatest: Date | null;
+  };
 
-  const newOrders = newOrdersAgg._count.id;
-  const pendingReturns = pendingReturnsAgg._count.id;
-  const lowStockProducts = lowStockAgg._count.id;
-  const backlogOrders = backlogOrdersAgg._count.id;
+  const [row] = await prisma.$queryRaw<AlertRow[]>`
+    SELECT
+      (SELECT COUNT(*) FROM "Order" WHERE "createdAt" >= ${oneHourAgo}) AS "newOrders",
+      (SELECT MAX("createdAt") FROM "Order" WHERE "createdAt" >= ${oneHourAgo}) AS "newOrdersLatest",
+      (SELECT COUNT(*) FROM "ReturnRequest" WHERE "status" = 'PENDING') AS "pendingReturns",
+      (SELECT MAX("createdAt") FROM "ReturnRequest" WHERE "status" = 'PENDING') AS "pendingReturnsLatest",
+      (SELECT COUNT(*) FROM "Product" WHERE "inStock" = true AND "stockQuantity" <= 5) AS "lowStockProducts",
+      (SELECT MAX("updatedAt") FROM "Product" WHERE "inStock" = true AND "stockQuantity" <= 5) AS "lowStockLatest",
+      (SELECT COUNT(*) FROM "Order" WHERE "status" = 'PENDING' AND "createdAt" <= ${twentyFourHoursAgo}) AS "backlogOrders",
+      (SELECT MAX("createdAt") FROM "Order" WHERE "status" = 'PENDING' AND "createdAt" <= ${twentyFourHoursAgo}) AS "backlogOrdersLatest"
+  `;
+
+  const newOrders = Number(row?.newOrders ?? 0);
+  const pendingReturns = Number(row?.pendingReturns ?? 0);
+  const lowStockProducts = Number(row?.lowStockProducts ?? 0);
+  const backlogOrders = Number(row?.backlogOrders ?? 0);
 
   return {
     newOrders,
-    newOrdersLatest:
-      newOrdersAgg._max.createdAt?.toISOString() || null,
+    newOrdersLatest: row?.newOrdersLatest?.toISOString() || null,
     pendingReturns,
-    pendingReturnsLatest:
-      pendingReturnsAgg._max.createdAt?.toISOString() || null,
+    pendingReturnsLatest: row?.pendingReturnsLatest?.toISOString() || null,
     lowStockProducts,
-    lowStockLatest:
-      lowStockAgg._max.updatedAt?.toISOString() || null,
+    lowStockLatest: row?.lowStockLatest?.toISOString() || null,
     backlogOrders,
-    backlogOrdersLatest:
-      backlogOrdersAgg._max.createdAt?.toISOString() || null,
+    backlogOrdersLatest: row?.backlogOrdersLatest?.toISOString() || null,
     total: newOrders + pendingReturns + lowStockProducts + backlogOrders,
   };
 }

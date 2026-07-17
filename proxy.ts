@@ -2,10 +2,13 @@ import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { isStaffRole } from "@/lib/permissions";
+import { canAccessAdminApi, hasValidAdminCsrf } from "@/lib/admin-api-security";
+import { getClientIp } from "@/lib/client-ip";
 
 // ── Rate limiting config by route pattern ────────────────────────
 // Applied to API routes only. Limits are per-IP per-window.
 const RATE_LIMITS: Record<string, { limit: number; windowMs: number }> = {
+  "/api/admin": { limit: 400, windowMs: 60_000 },
   "/api/auth/register": { limit: 5, windowMs: 60_000 },
   "/api/auth/callback/credentials": { limit: 10, windowMs: 60_000 },
   "/api/auth/forgot-password": { limit: 3, windowMs: 60_000 },
@@ -36,14 +39,6 @@ function getStore(): Map<string, RateLimitBucket> {
     g.__middlewareRateLimitStore = new Map();
   }
   return g.__middlewareRateLimitStore;
-}
-
-function getClientIp(req: NextRequest): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
-  const realIp = req.headers.get("x-real-ip");
-  if (realIp) return realIp;
-  return "unknown";
 }
 
 function checkRateLimit(
@@ -86,40 +81,44 @@ const PUBLIC_API_ROUTES = [
   "/api/payments/callback",
 ];
 
-// ── Middleware ───────────────────────────────────────────────────
-// Uses NextAuth v5 auth() wrapper for edge-compatible session access.
-// Auth checks run server-side before any client JS loads.
-export default auth((req) => {
-  const { nextUrl, auth: session, cookies } = req;
-  const pathname = nextUrl.pathname;
+function nextWithCsrfCookie(req: NextRequest): NextResponse {
+  const response = NextResponse.next();
+  const pathname = req.nextUrl.pathname;
 
-  // ── Set CSRF token cookie if not present (only on page navigations, not API calls) ──
   if (!pathname.startsWith("/api/") && !pathname.startsWith("/_next/")) {
-    const csrfCookie = cookies.get("csrf-token");
+    const csrfCookie = req.cookies.get("csrf-token");
     if (!csrfCookie) {
-      const token = crypto.randomUUID();
-      const response = NextResponse.next();
-      response.cookies.set("csrf-token", token, {
+      response.cookies.set("csrf-token", crypto.randomUUID(), {
         httpOnly: false,
         secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
         path: "/",
         maxAge: 60 * 60 * 24,
       });
-      return response;
     }
   }
 
+  return response;
+}
+
+// ── Middleware ───────────────────────────────────────────────────
+// Uses NextAuth v5 auth() wrapper for edge-compatible session access.
+// Auth checks run server-side before any client JS loads.
+export default auth((req) => {
+  const { nextUrl, auth: session } = req;
+  const pathname = nextUrl.pathname;
+
+  // ── Set CSRF token cookie if not present (only on page navigations, not API calls) ──
   // ── 0. Allow public routes ──────────────────────────────────
   if (PUBLIC_ROUTES.some((r) => pathname === r || pathname.startsWith(`${r}/`))) {
-    return NextResponse.next();
+    return nextWithCsrfCookie(req);
   }
   if (PUBLIC_API_ROUTES.some((r) => pathname.startsWith(r))) {
-    return NextResponse.next();
+    return nextWithCsrfCookie(req);
   }
   // Static assets
   if (/^\/(_next|images|favicon|robots|sitemap|icon|apple-icon|logo)/.test(pathname)) {
-    return NextResponse.next();
+    return nextWithCsrfCookie(req);
   }
 
   // ── 1. Rate limiting for API routes ──────────────────────────
@@ -129,9 +128,9 @@ export default auth((req) => {
     );
 
     if (rateLimitEntry) {
-      const [, config] = rateLimitEntry;
+      const [pattern, config] = rateLimitEntry;
       const ip = getClientIp(req);
-      const key = `${ip}:${pathname}`;
+      const key = `${ip}:${pattern}`;
       const result = checkRateLimit(key, config.limit, config.windowMs);
 
       if (!result.allowed) {
@@ -147,7 +146,7 @@ export default auth((req) => {
 
     // Allow guest checkout order POST, payment callbacks, order tracking GET
     if (pathname.startsWith("/api/orders") && (req.method === "GET" || req.method === "POST")) {
-      return NextResponse.next();
+      return nextWithCsrfCookie(req);
     }
 
     // Protected API routes
@@ -156,37 +155,56 @@ export default auth((req) => {
       if (!session) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
-      return NextResponse.next();
+      return nextWithCsrfCookie(req);
     }
   }
 
   // ── 2. Auth protection for /admin/* and /account/* ───────────
-  const isLoggedIn = !!session;
+  const isLoggedIn = !!session?.user?.id;
   const userRole = session?.user?.role;
   const isStaff = userRole ? isStaffRole(userRole) : false;
 
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
+    const isAdminApi = pathname.startsWith("/api/admin");
     // Allow access to the admin login page itself without auth
     if (pathname === "/admin/login") {
-      return NextResponse.next();
+      return nextWithCsrfCookie(req);
     }
     if (!isLoggedIn) {
+      if (isAdminApi) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
       return NextResponse.redirect(new URL("/admin/login", nextUrl));
     }
     if (!isStaff) {
+      if (isAdminApi) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
       return NextResponse.redirect(new URL("/", nextUrl));
     }
-    return NextResponse.next();
+    if (isAdminApi) {
+      const permissions = session?.user?.permissions as string[] | undefined;
+      if (!canAccessAdminApi(pathname, req.method, userRole || "", permissions)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      if (!hasValidAdminCsrf(req, req.cookies.get("csrf-token")?.value)) {
+        return NextResponse.json(
+          { error: "Forbidden: invalid CSRF token" },
+          { status: 403 }
+        );
+      }
+    }
+    return nextWithCsrfCookie(req);
   }
 
   if (pathname.startsWith("/account")) {
     if (!isLoggedIn) {
       return NextResponse.redirect(new URL("/login", nextUrl));
     }
-    return NextResponse.next();
+    return nextWithCsrfCookie(req);
   }
 
-  return NextResponse.next();
+  return nextWithCsrfCookie(req);
 });
 
 // ── Matcher config ───────────────────────────────────────────────

@@ -67,10 +67,11 @@ export default function AdminDashboard() {
   const [toDate, setToDate] = useState("");
 
   useEffect(() => {
-    loadStats();
-    loadTopProducts();
-    loadRecentOrders();
-    loadLowStockProducts();
+    const loadDashboard = async () => {
+      await Promise.all([loadStats(), loadRecentOrders()]);
+      await Promise.all([loadTopProducts(), loadLowStockProducts()]);
+    };
+    void loadDashboard();
   }, [loadStats, loadTopProducts, loadRecentOrders, loadLowStockProducts]);
 
   useEffect(() => {
