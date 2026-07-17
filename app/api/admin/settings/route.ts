@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { getStoreConfig, setStoreConfig, createAuditLog } from "@/lib/db-queries";
 import { withLoggedAdminHandler } from "@/lib/logger";
 import { sanitizeDbError } from '@/lib/utils/errors';
+import { requireAdminApiAccess } from "@/lib/admin-route-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -45,19 +45,10 @@ const storeConfigSchema = z.object({
   meezanAccountName: z.string().optional(),
 });
 
-async function checkAdmin() {
-  const session = await auth();
-  if (!session?.user || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role ?? "")) {
-    return false;
-  }
-  return true;
-}
-
-export const GET = withLoggedAdminHandler(async () => {
+export const GET = withLoggedAdminHandler(async (req: Request) => {
   try {
-    if (!(await checkAdmin())) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const access = await requireAdminApiAccess(req);
+    if (!access.ok) return access.response;
 
     const config = await getStoreConfig();
     return NextResponse.json(config);
@@ -70,9 +61,9 @@ export const GET = withLoggedAdminHandler(async () => {
 
 export const PUT = withLoggedAdminHandler(async (req: Request) => {
   try {
-    if (!(await checkAdmin())) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const access = await requireAdminApiAccess(req);
+    if (!access.ok) return access.response;
+    const session = access.session;
 
     const body = await req.json();
     const result = storeConfigSchema.safeParse(body);
@@ -88,16 +79,13 @@ export const PUT = withLoggedAdminHandler(async (req: Request) => {
     const updated = await getStoreConfig();
 
     // Audit log
-    const auditSession = await auth();
-    if (auditSession?.user) {
-      void createAuditLog({
-        userId: auditSession.user.id,
-        userEmail: auditSession.user.email || undefined,
-        action: "SETTINGS_CHANGED",
-        entity: "StoreConfig",
-        newValue: result.data,
-      });
-    }
+    void createAuditLog({
+      userId: session.user.id,
+      userEmail: session.user.email || undefined,
+      action: "SETTINGS_CHANGED",
+      entity: "StoreConfig",
+      newValue: result.data,
+    });
 
     return NextResponse.json(updated);
   } catch (error) {

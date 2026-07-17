@@ -1,11 +1,10 @@
-import { isAdminRole } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { getAdminProducts, createAdminProduct, createAuditLog } from "@/lib/db-queries";
 import { withLoggedAdminHandler } from "@/lib/logger";
 import { sanitizeDbError } from '@/lib/utils/errors';
 import { adminLimitParam, adminPageParam } from "@/lib/admin-pagination";
+import { requireAdminApiAccess } from "@/lib/admin-route-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -32,21 +31,10 @@ const createProductSchema = z.object({
   categoryId: z.string().min(1, "Category is required"),
 });
 
-// Returns the session if the user is an admin, null otherwise.
-// Reusing the return value avoids additional auth() calls within the same request.
-async function checkAdmin() {
-  const session = await auth();
-  if (!session?.user || !isAdminRole(session.user.role)) {
-    return null;
-  }
-  return session;
-}
-
 export const GET = withLoggedAdminHandler(async (req: Request) => {
   // Single auth() call — session verified once, not twice.
-  if (!(await checkAdmin())) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const access = await requireAdminApiAccess(req);
+  if (!access.ok) return access.response;
 
   const { searchParams } = new URL(req.url);
   const page = adminPageParam(searchParams.get('page'));
@@ -61,10 +49,9 @@ export const GET = withLoggedAdminHandler(async (req: Request) => {
 
 export const POST = withLoggedAdminHandler(async (req: Request) => {
   // Obtain session once — reused for both the auth gate and the audit log.
-  const session = await checkAdmin();
-  if (!session) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const access = await requireAdminApiAccess(req);
+  if (!access.ok) return access.response;
+  const session = access.session;
 
   const body = await req.json();
   const result = createProductSchema.safeParse(body);

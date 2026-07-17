@@ -85,15 +85,10 @@ export function resolvePermissions(
   if (customPermissions && customPermissions !== "[]") {
     try {
       const custom: string[] = Array.isArray(customPermissions) ? customPermissions : JSON.parse(customPermissions);
-      // Merge: custom overrides can both add and remove
-      // If the array is explicit, use it as the full set
       if (custom.length > 0) {
-        // For simplicity: custom array acts as additive override on top of role
-        for (const p of custom) {
-          if (!base.includes(p as PermissionValue)) {
-            base.push(p as PermissionValue);
-          }
-        }
+        return custom.filter((p): p is PermissionValue =>
+          Object.values(Permission).includes(p as PermissionValue)
+        );
       }
     } catch {
       // Ignore invalid JSON

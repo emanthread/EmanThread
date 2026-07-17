@@ -1,16 +1,13 @@
-import { isAdminRole } from "@/lib/permissions";
 import { NextResponse, after } from 'next/server'
-import { auth } from '@/auth'
 import { getPendingPaymentQueue, autoExpirePendingPayments } from '@/lib/db-queries'
 import { adminLimitParam, adminPageParam } from '@/lib/admin-pagination'
+import { requireAdminApiAccess } from '@/lib/admin-route-guard'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
-  const session = await auth()
-  if (!session || !isAdminRole(session.user.role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const access = await requireAdminApiAccess(request)
+  if (!access.ok) return access.response
 
   // Piggyback auto-expiry check safely using after()
   after(async () => {

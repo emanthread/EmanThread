@@ -254,6 +254,9 @@ export default function AdminLayout({
     if (!required) return hasPermission(userRole, Permission.MANAGE_SETTINGS, userPerms);
     return hasAnyPermission(userRole, required, userPerms);
   });
+  const visibleBottomNavItems = bottomNavItems.filter((item) =>
+    visibleNavItems.some((visibleItem) => visibleItem.href === item.href)
+  );
 
   const pageTitle =
     pathname === "/admin"
@@ -574,7 +577,7 @@ export default function AdminLayout({
         aria-label="Mobile bottom navigation"
       >
         <div className="flex items-center justify-around h-14">
-          {bottomNavItems.map((item) => {
+          {visibleBottomNavItems.map((item) => {
             const isActive =
               pathname === item.href ||
               (item.href !== "/admin" && pathname.startsWith(item.href));

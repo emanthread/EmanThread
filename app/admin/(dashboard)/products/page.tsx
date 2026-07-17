@@ -300,6 +300,10 @@ export default function AdminProductsPage() {
   const handleDuplicateProduct = async (product: AdminProduct) => {
     try {
       const suffix = Date.now().toString(36).toUpperCase().slice(-6);
+      if (!product.categoryId) {
+        toast.error("Product must have a category before it can be duplicated");
+        return;
+      }
       await addProduct({
         ...product,
         id: `prod-${Date.now()}`,
@@ -309,7 +313,7 @@ export default function AdminProductsPage() {
         // schema only accepts uppercase ("NEW"). The store also does toUpperCase()
         // but the network payload was already serialised before that ran.
         badge: product.badge?.toUpperCase() as AdminProduct["badge"],
-        categoryId: product.categoryId || categories[0]?.id || "",
+        categoryId: product.categoryId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
@@ -404,12 +408,6 @@ export default function AdminProductsPage() {
 
   const openAddDialog = () => {
     const base = emptyProduct();
-    if (categories.length > 0) {
-      base.categoryId = categories[0].id;
-    }
-    if (fabricTypes.length > 0) {
-      base.fabricType = fabricTypes[0].name;
-    }
     setFieldErrors({});
     setProductForm(base);
     setTagInput("");
@@ -422,7 +420,7 @@ export default function AdminProductsPage() {
       return;
     }
 
-    const resolvedCategoryId = productForm.categoryId || categories[0]?.id || "";
+    const resolvedCategoryId = productForm.categoryId || "";
     const errors: ProductFormErrors = {};
     if (!productForm.name.trim()) errors.name = "Product name is required";
     if (!productForm.sku.trim()) errors.sku = "Product code (SKU) is required";

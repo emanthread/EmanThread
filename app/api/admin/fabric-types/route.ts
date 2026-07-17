@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { isAdminRole } from "@/lib/permissions";
 import { withLoggedAdminHandler } from "@/lib/logger";
+import { requireAdminApiAccess } from "@/lib/admin-route-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -13,18 +12,9 @@ const createFabricTypeSchema = z.object({
   description: z.string().optional(),
 });
 
-async function checkAdmin() {
-  const session = await auth();
-  if (!session?.user || !isAdminRole(session.user.role)) {
-    return false;
-  }
-  return true;
-}
-
 export const GET = withLoggedAdminHandler(async (req: Request) => {
-  if (!(await checkAdmin())) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const access = await requireAdminApiAccess(req);
+  if (!access.ok) return access.response;
 
   const activeOnly = new URL(req.url).searchParams.get("active") === "true";
   const fabricTypes = await prisma.fabricType.findMany({
@@ -38,9 +28,8 @@ export const GET = withLoggedAdminHandler(async (req: Request) => {
 });
 
 export const POST = withLoggedAdminHandler(async (req: Request) => {
-  if (!(await checkAdmin())) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const access = await requireAdminApiAccess(req);
+  if (!access.ok) return access.response;
 
   const body = await req.json();
   const result = createFabricTypeSchema.safeParse(body);

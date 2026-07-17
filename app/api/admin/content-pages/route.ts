@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { isAdminRole } from "@/lib/permissions"; // C5
 import sanitizeHtml from "sanitize-html"; // A3.4
+import { requireAdminApiAccess } from "@/lib/admin-route-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -46,13 +45,8 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (!isAdminRole(session.user.role)) { // FIXED: C5
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const access = await requireAdminApiAccess(request);
+    if (!access.ok) return access.response;
 
     const body = await request.json();
     const { key, content } = updateSchema.parse(body);

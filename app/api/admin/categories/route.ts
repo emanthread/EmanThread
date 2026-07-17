@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import { auth } from "@/auth";
-import { isAdminRole } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { withLoggedAdminHandler } from "@/lib/logger";
+import { requireAdminApiAccess } from "@/lib/admin-route-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -40,11 +39,9 @@ function serializeCategory(category: {
  * This remains separate from public /api/categories, which returns
  * fabricType-grouped data for shop sidebar filters.
  */
-export const GET = withLoggedAdminHandler(async () => {
-  const session = await auth();
-  if (!session?.user || !isAdminRole(session.user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+export const GET = withLoggedAdminHandler(async (req: Request) => {
+  const access = await requireAdminApiAccess(req);
+  if (!access.ok) return access.response;
 
   const categories = await prisma.category.findMany({
     include: { _count: { select: { products: true } } },
@@ -55,10 +52,8 @@ export const GET = withLoggedAdminHandler(async () => {
 });
 
 export const POST = withLoggedAdminHandler(async (req: Request) => {
-  const session = await auth();
-  if (!session?.user || !isAdminRole(session.user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const access = await requireAdminApiAccess(req);
+  if (!access.ok) return access.response;
 
   const body = await req.json().catch(() => null);
   const result = categorySchema.safeParse(body);

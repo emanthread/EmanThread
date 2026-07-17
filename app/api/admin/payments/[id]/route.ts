@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/auth'
-import { isAdminRole } from '@/lib/permissions'
 import { deleteManualPayment } from '@/lib/db-queries'
 import { sanitizeDbError } from '@/lib/utils/errors'
+import { requireAdminApiAccess } from '@/lib/admin-route-guard'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,10 +10,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user || !isAdminRole(session.user.role)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const access = await requireAdminApiAccess(request)
+    if (!access.ok) return access.response
+    const session = access.session
 
     const { id } = await params
     await deleteManualPayment(id, session.user.id, session.user.email || '')

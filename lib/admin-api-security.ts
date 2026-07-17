@@ -1,7 +1,7 @@
 import {
   hasAnyPermission,
-  isAdminRole,
   Permission,
+  Role,
   type PermissionValue,
 } from "@/lib/permissions";
 
@@ -114,7 +114,7 @@ export function canAccessAdminApi(
   role: string,
   customPermissions?: string[] | string | null
 ): boolean {
-  if (isAdminRole(role)) return true;
+  if (role.toUpperCase() === Role.SUPER_ADMIN) return true;
 
   const policy = ADMIN_API_POLICIES.find(({ prefix }) =>
     pathname === prefix || pathname.startsWith(`${prefix}/`)

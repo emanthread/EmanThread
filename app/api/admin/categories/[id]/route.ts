@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { isAdminRole } from "@/lib/permissions";
 import { withLoggedAdminHandler } from "@/lib/logger";
+import { requireAdminApiAccess } from "@/lib/admin-route-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -31,18 +30,12 @@ function serializeCategory(category: {
   };
 }
 
-async function checkAdmin() {
-  const session = await auth();
-  return Boolean(session?.user && isAdminRole(session.user.role));
-}
-
 export const PUT = withLoggedAdminHandler(async (
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) => {
-  if (!(await checkAdmin())) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const access = await requireAdminApiAccess(req);
+  if (!access.ok) return access.response;
 
   const { id } = await params;
   const body = await req.json().catch(() => null);
@@ -100,9 +93,8 @@ export const DELETE = withLoggedAdminHandler(async (
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) => {
-  if (!(await checkAdmin())) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const access = await requireAdminApiAccess(req);
+  if (!access.ok) return access.response;
 
   const { id } = await params;
   const category = await prisma.category.findUnique({

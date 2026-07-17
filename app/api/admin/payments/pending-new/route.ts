@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/auth'
 import { prisma } from '@/lib/db'
+import { requireAdminApiAccess } from '@/lib/admin-route-guard'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,14 +11,12 @@ export const dynamic = 'force-dynamic'
  * created after the given timestamp. Used by the admin push notification hook
  * to detect new submissions since last check.
  *
- * Guarded: requires ADMIN or SUPER_ADMIN role.
+ * Guarded by the centralized admin API permission policy.
  */
 export async function GET(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user || !['ADMIN', 'SUPER_ADMIN'].includes(session.user.role ?? '')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const access = await requireAdminApiAccess(request)
+    if (!access.ok) return access.response
 
     const { searchParams } = new URL(request.url)
     const sinceParam = searchParams.get('since')

@@ -36,12 +36,8 @@ export const DELETE = withLoggedAdminHandler(async (
       return NextResponse.json({ error: "Customer not found" }, { status: 404 });
     }
 
-    if (user.email === 'emanthread@gmail.com') {
-      return NextResponse.json({ error: 'Primary admin account cannot be deleted' }, { status: 403 });
-    }
-
-    if (user.role === 'ADMIN') {
-      return NextResponse.json({ error: 'Admin users cannot be deleted' }, { status: 403 });
+    if (user.role !== 'CUSTOMER') {
+      return NextResponse.json({ error: 'Only customer accounts can be deleted from this page' }, { status: 403 });
     }
 
     // Nullify userId on orders to preserve order history

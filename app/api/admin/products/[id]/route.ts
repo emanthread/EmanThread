@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { isAdminRole } from "@/lib/permissions";
 import { updateAdminProduct, createAuditLog } from "@/lib/db-queries";
 import { withLoggedAdminHandler } from "@/lib/logger";
 import { sanitizeDbError } from '@/lib/utils/errors';
 import { parseProductImages, parseJsonArray } from "@/lib/utils/parse-images";
+import { requireAdminApiAccess } from "@/lib/admin-route-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -41,24 +40,13 @@ const badgeMap: Record<string, string> = {
   FEATURED: "Featured",
 };
 
-// Returns the session if the user is an admin, null otherwise.
-// Reusing the return value avoids additional auth() calls within the same request.
-async function checkAdmin() {
-  const session = await auth();
-  if (!session?.user || !isAdminRole(session.user.role)) {
-    return null;
-  }
-  return session;
-}
-
 export const GET = withLoggedAdminHandler(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) => {
   try {
-    if (!(await checkAdmin())) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const access = await requireAdminApiAccess(request);
+    if (!access.ok) return access.response;
 
     const { id } = await params;
 
@@ -134,10 +122,9 @@ export const PUT = withLoggedAdminHandler(async (
 ) => {
   try {
     // Obtain session once — reused for both the auth gate and the audit log.
-    const session = await checkAdmin();
-    if (!session) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const access = await requireAdminApiAccess(req);
+    if (!access.ok) return access.response;
+    const session = access.session;
 
     const { id } = await params;
     const body = await req.json();
@@ -185,10 +172,9 @@ export const DELETE = withLoggedAdminHandler(async (
 ) => {
   try {
     // Obtain session once — reused for both the auth gate and the audit log.
-    const session = await checkAdmin();
-    if (!session) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const access = await requireAdminApiAccess(req);
+    if (!access.ok) return access.response;
+    const session = access.session;
 
     const { id } = await params;
 
@@ -198,19 +184,13 @@ export const DELETE = withLoggedAdminHandler(async (
       select: { name: true, sku: true },
     });
 
-    try {
-      await prisma.product.delete({
-        where: { id },
-      });
-    } catch (e: any) {
-      if (e.code === "P2003") {
-        return NextResponse.json(
-          { error: "Cannot delete product because it has existing orders. Please edit the product and mark it as 'Out of Stock' instead." },
-          { status: 400 }
-        );
-      }
-      throw e;
-    }
+    await prisma.product.update({
+      where: { id },
+      data: {
+        inStock: false,
+        stockQuantity: 0,
+      },
+    });
 
     // Audit log — reuse session obtained above, no extra auth() call needed.
     if (session.user) {
@@ -221,7 +201,7 @@ export const DELETE = withLoggedAdminHandler(async (
         entity: "Product",
         entityId: id,
         oldValue: product ? { name: product.name, sku: product.sku } : undefined,
-        newValue: { deleted: true },
+        newValue: { hidden: true, inStock: false, stockQuantity: 0 },
       });
     }
 

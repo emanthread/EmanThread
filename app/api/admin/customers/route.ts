@@ -1,18 +1,15 @@
-import { isAdminRole } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { getAdminCustomers } from "@/lib/db-queries";
 import { withLoggedAdminHandler } from "@/lib/logger";
 import { sanitizeDbError } from '@/lib/utils/errors';
+import { requireAdminApiAccess } from "@/lib/admin-route-guard";
 
 export const dynamic = "force-dynamic";
 
 export const GET = withLoggedAdminHandler(async (req: NextRequest) => {
   try {
-    const session = await auth();
-    if (!session?.user || !isAdminRole(session.user.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const access = await requireAdminApiAccess(req);
+    if (!access.ok) return access.response;
 
     // Support server-side pagination and search
     const { searchParams } = new URL(req.url);
@@ -32,13 +29,9 @@ export const GET = withLoggedAdminHandler(async (req: NextRequest) => {
 
 export const POST = withLoggedAdminHandler(async (req: NextRequest) => {
   try {
-    const session = await auth();
-    // Assuming MANAGE_CUSTOMERS permission checks logic... Since no granular permissions are defined in this snippet, using isAdminRole.
-    // However, the prompt mentioned: hasPermission(role, "MANAGE_CUSTOMERS").
-    // Let's import hasPermission and check it.
-    if (!session?.user || !isAdminRole(session.user.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const access = await requireAdminApiAccess(req);
+    if (!access.ok) return access.response;
+    const session = access.session;
     const { hasPermission } = await import("@/lib/permissions");
     if (!hasPermission(session.user.role, "MANAGE_CUSTOMERS", session.user.permissions)) {
        return NextResponse.json({ error: "Forbidden" }, { status: 403 });

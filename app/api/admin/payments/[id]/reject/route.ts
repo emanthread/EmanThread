@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { auth } from '@/auth'
-import { isAdminRole } from '@/lib/permissions' // A3.3
 import { rejectManualPayment } from '@/lib/db-queries'
 import { triggerNotification } from '@/lib/notifications'
 import { prisma } from '@/lib/db'
 import { sanitizeDbError } from '@/lib/utils/errors'
+import { requireAdminApiAccess } from '@/lib/admin-route-guard'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,10 +17,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user || !isAdminRole(session.user.role)) { // FIXED: A3.3
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const access = await requireAdminApiAccess(request)
+    if (!access.ok) return access.response
+    const session = access.session
 
     const { id } = await params
     const body = await request.json()

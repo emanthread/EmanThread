@@ -413,8 +413,12 @@ export async function updateOrderStatus(id: string, status: string) {
 
     if (!updated) throw new Error("Order not found");
 
-    // Restore stock when cancelling an order
-    if (status === "CANCELLED") {
+    // Manual bank-transfer orders do not deduct stock until payment is verified.
+    // Cancelling them before verification must not add inventory that was never removed.
+    const shouldRestoreStock =
+      status === "CANCELLED" && updated.paymentStatus !== "PENDING_VERIFICATION";
+
+    if (shouldRestoreStock) {
       for (const item of updated.items) {
         await tx.product.update({
           where: { id: item.productId },

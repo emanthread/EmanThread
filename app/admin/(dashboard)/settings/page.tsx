@@ -1175,19 +1175,24 @@ export default function AdminSettingsPage() {
                   onClick={async () => {
                     setSavingContent(true);
                     try {
-                      // Run in parallel instead of sequentially
-                      await Promise.all(
-                        Object.entries(contentPages).map(([key, content]) =>
-                          fetch("/api/admin/content-pages", {
-                            method: "PUT",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ key, content }),
-                          })
-                        )
-                      );
+                      for (const [key, content] of Object.entries(contentPages)) {
+                        const response = await fetch("/api/admin/content-pages", {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ key, content }),
+                        });
+                        const result = await response.json().catch(() => null);
+                        if (!response.ok) {
+                          throw new Error(result?.error || `Failed to save ${key}`);
+                        }
+                      }
                       toast({ title: "Content saved", description: "All pages have been updated." });
-                    } catch {
-                      toast({ title: "Error", description: "Failed to save content", variant: "destructive" });
+                    } catch (error) {
+                      toast({
+                        title: "Error",
+                        description: error instanceof Error ? error.message : "Failed to save content",
+                        variant: "destructive",
+                      });
                     } finally {
                       setSavingContent(false);
                     }
