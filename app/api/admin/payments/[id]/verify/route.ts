@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { isAdminRole } from '@/lib/permissions' // A3.3
-import { prisma } from '@/lib/db' // A5.1
 import { verifyManualPayment } from '@/lib/db-queries'
 import { triggerNotification } from '@/lib/notifications'
 import { sanitizeDbError } from '@/lib/utils/errors'
@@ -19,12 +18,6 @@ export async function POST(
     }
 
     const { id } = await params
-
-    // A5.1: Prevent duplicate verification
-    const existing = await prisma.manualPaymentSubmission.findUnique({ where: { id } });
-    if (existing?.status !== 'PENDING') {
-      return NextResponse.json({ error: 'Already processed' }, { status: 409 });
-    }
 
     const result = await verifyManualPayment(id, session.user.id, session.user.email || '')
 

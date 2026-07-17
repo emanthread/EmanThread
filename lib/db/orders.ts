@@ -386,11 +386,32 @@ export async function getAdminOrders(options: {
 
 export async function updateOrderStatus(id: string, status: string) {
   const order = await prisma.$transaction(async (tx) => {
-    const updated = await tx.order.update({
+    let updated;
+
+    if (status === "CANCELLED") {
+      const claimed = await tx.order.updateMany({
+        where: { id, status: { not: "CANCELLED" } },
+        data: { status: status as OrderStatus },
+      });
+
+      if (claimed.count === 0) {
+        const existing = await tx.order.findUnique({ where: { id }, select: { id: true } });
+        if (!existing) throw new Error("Order not found");
+        throw new Error("Order already cancelled");
+      }
+    } else {
+      await tx.order.update({
+        where: { id },
+        data: { status: status as OrderStatus },
+      });
+    }
+
+    updated = await tx.order.findUnique({
       where: { id },
-      data: { status: status as OrderStatus },
       include: { items: { include: { product: { select: { name: true, images: true, sku: true } } } }, user: true },
     });
+
+    if (!updated) throw new Error("Order not found");
 
     // Restore stock when cancelling an order
     if (status === "CANCELLED") {

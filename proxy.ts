@@ -113,9 +113,6 @@ export default auth((req) => {
   if (PUBLIC_ROUTES.some((r) => pathname === r || pathname.startsWith(`${r}/`))) {
     return nextWithCsrfCookie(req);
   }
-  if (PUBLIC_API_ROUTES.some((r) => pathname.startsWith(r))) {
-    return nextWithCsrfCookie(req);
-  }
   // Static assets
   if (/^\/(_next|images|favicon|robots|sitemap|icon|apple-icon|logo)/.test(pathname)) {
     return nextWithCsrfCookie(req);
@@ -142,6 +139,10 @@ export default auth((req) => {
           }
         );
       }
+    }
+
+    if (PUBLIC_API_ROUTES.some((r) => pathname.startsWith(r))) {
+      return nextWithCsrfCookie(req);
     }
 
     // Allow guest checkout order POST, payment callbacks, order tracking GET

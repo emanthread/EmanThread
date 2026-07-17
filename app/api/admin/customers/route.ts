@@ -102,6 +102,16 @@ export const POST = withLoggedAdminHandler(async (req: NextRequest) => {
     const emailResult = await sendPasswordResetEmail(email, token);
     if (!emailResult.success) {
       console.error("[admin/customers] Failed to send password reset email:", emailResult.error);
+      await prisma.passwordResetToken.deleteMany({
+        where: { userId: newUser.id },
+      });
+      await prisma.user.delete({
+        where: { id: newUser.id },
+      });
+      return NextResponse.json(
+        { error: "Customer was not created because the password setup email could not be sent." },
+        { status: 502 }
+      );
     }
 
     // Log the creation

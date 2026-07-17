@@ -209,7 +209,7 @@ export default function AdminCustomersPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create customer");
       
-      toast.success("Customer created successfully. A password setup email has been sent.");
+      toast.success(data.message || "Customer created successfully. A password setup email has been sent.");
       setAddCustomerOpen(false);
       setAddForm({ name: "", email: "", phone: "", city: "" });
       fetchCustomers(1, debouncedSearch, statusFilter);

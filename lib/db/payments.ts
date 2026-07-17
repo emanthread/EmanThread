@@ -279,40 +279,68 @@ export async function verifyManualPayment(
   adminId: string,
   adminEmail: string
 ) {
-  const submission = await prisma.manualPaymentSubmission.findUnique({
-    where: { id: submissionId },
-    include: {
-      order: { include: { items: { include: { product: { select: { name: true, images: true, sku: true } } } } } },
-    },
-  });
-  if (!submission) throw new Error('Submission not found');
-  if (submission.status !== 'PENDING') throw new Error('Already processed');
-
   return prisma.$transaction(async (tx) => {
-    // 1. Mark submission as verified
-    await tx.manualPaymentSubmission.update({
-      where: { id: submissionId },
+    const claimed = await tx.manualPaymentSubmission.updateMany({
+      where: { id: submissionId, status: 'PENDING' },
       data: { status: 'VERIFIED', verifiedBy: adminId, verifiedAt: new Date() },
     });
 
-    // 2. Update order payment status to PAID
-    await tx.order.update({
-      where: { id: submission.orderId },
+    if (claimed.count === 0) {
+      const existing = await tx.manualPaymentSubmission.findUnique({
+        where: { id: submissionId },
+        select: { id: true, status: true },
+      });
+      if (!existing) throw new Error('Submission not found');
+      throw new Error('Already processed');
+    }
+
+    const submission = await tx.manualPaymentSubmission.findUnique({
+      where: { id: submissionId },
+      include: {
+        order: {
+          include: {
+            items: {
+              include: {
+                product: { select: { name: true, images: true, sku: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!submission) throw new Error('Submission not found');
+
+    const orderUpdate = await tx.order.updateMany({
+      where: {
+        id: submission.orderId,
+        paymentStatus: { not: 'PAID' },
+        status: { not: 'CANCELLED' },
+      },
       data: {
         paymentStatus: 'PAID',
         status: 'PROCESSING',
       },
     });
+    if (orderUpdate.count === 0) {
+      throw new Error('Order is already paid or cancelled');
+    }
 
-    // 3. Deduct stock NOW (not at order creation)
     for (const item of submission.order.items) {
-      const deducted = await tx.product.update({
-        where: { id: item.productId },
+      const deducted = await tx.product.updateMany({
+        where: {
+          id: item.productId,
+          stockQuantity: { gte: item.quantity },
+        },
         data: { stockQuantity: { decrement: item.quantity } },
+      });
+      if (deducted.count === 0) {
+        throw new Error(`Insufficient stock for product ${item.productId}`);
+      }
+      const product = await tx.product.findUnique({
+        where: { id: item.productId },
         select: { stockQuantity: true },
       });
-      // BUG FIX: Mark as out of stock if quantity drops to 0 or below
-      if (deducted.stockQuantity <= 0) {
+      if (product && product.stockQuantity <= 0) {
         await tx.product.update({
           where: { id: item.productId },
           data: { inStock: false },
@@ -346,15 +374,9 @@ export async function rejectManualPayment(
   adminEmail: string,
   reason: string
 ) {
-  const submission = await prisma.manualPaymentSubmission.findUnique({
-    where: { id: submissionId },
-  });
-  if (!submission) throw new Error('Submission not found');
-  if (submission.status !== 'PENDING') throw new Error('Already processed');
-
   return prisma.$transaction(async (tx) => {
-    await tx.manualPaymentSubmission.update({
-      where: { id: submissionId },
+    const claimed = await tx.manualPaymentSubmission.updateMany({
+      where: { id: submissionId, status: 'PENDING' },
       data: {
         status: 'REJECTED',
         verifiedBy: adminId,
@@ -362,6 +384,19 @@ export async function rejectManualPayment(
         rejectionReason: reason,
       },
     });
+    if (claimed.count === 0) {
+      const existing = await tx.manualPaymentSubmission.findUnique({
+        where: { id: submissionId },
+        select: { id: true },
+      });
+      if (!existing) throw new Error('Submission not found');
+      throw new Error('Already processed');
+    }
+
+    const submission = await tx.manualPaymentSubmission.findUnique({
+      where: { id: submissionId },
+    });
+    if (!submission) throw new Error('Submission not found');
 
     await tx.order.update({
       where: { id: submission.orderId },

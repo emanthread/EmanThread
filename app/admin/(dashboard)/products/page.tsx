@@ -440,6 +440,12 @@ export default function AdminProductsPage() {
     }
     if (!productForm.description.trim()) errors.description = "Short description is required";
     if (productForm.images.length === 0) errors.images = "Upload at least one product image";
+    if (!Number.isInteger(productForm.stockQuantity) || productForm.stockQuantity < 0) {
+      errors.stockQuantity = "Stock quantity must be a whole number of 0 or more";
+    }
+    if (!Number.isInteger(productForm.lowStockThreshold) || productForm.lowStockThreshold < 1) {
+      errors.lowStockThreshold = "Low stock alert must be a whole number of 1 or more";
+    }
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
@@ -1117,6 +1123,35 @@ function ProductDialog({
                   <SelectItem value="Featured">Featured</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="stockQuantity">Stock Quantity *</Label>
+              <Input
+                id="stockQuantity"
+                type="number"
+                min="0"
+                step="1"
+                value={product.stockQuantity}
+                onChange={(e) => update("stockQuantity", Number.parseInt(e.target.value || "0", 10))}
+                aria-invalid={!!fieldErrors.stockQuantity}
+              />
+              <ProductFieldError message={fieldErrors.stockQuantity} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lowStockThreshold">Low Stock Alert *</Label>
+              <Input
+                id="lowStockThreshold"
+                type="number"
+                min="1"
+                step="1"
+                value={product.lowStockThreshold}
+                onChange={(e) => update("lowStockThreshold", Number.parseInt(e.target.value || "0", 10))}
+                aria-invalid={!!fieldErrors.lowStockThreshold}
+              />
+              <ProductFieldError message={fieldErrors.lowStockThreshold} />
             </div>
           </div>
 

@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { getAdminProducts, createAdminProduct, createAuditLog } from "@/lib/db-queries";
 import { withLoggedAdminHandler } from "@/lib/logger";
 import { sanitizeDbError } from '@/lib/utils/errors';
+import { adminLimitParam, adminPageParam } from "@/lib/admin-pagination";
 
 export const dynamic = "force-dynamic";
 
@@ -48,8 +49,8 @@ export const GET = withLoggedAdminHandler(async (req: Request) => {
   }
 
   const { searchParams } = new URL(req.url);
-  const page = parseInt(searchParams.get('page') || '1');
-  const limit = parseInt(searchParams.get('limit') || '50');
+  const page = adminPageParam(searchParams.get('page'));
+  const limit = adminLimitParam(searchParams.get('limit'), 50);
   const search = searchParams.get('search') || undefined;
   const category = searchParams.get('category') || undefined;
   const stock = searchParams.get('stock') || undefined;

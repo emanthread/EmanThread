@@ -2,6 +2,7 @@ import { isAdminRole } from "@/lib/permissions";
 import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { getAllPaymentSubmissions } from '@/lib/db-queries'
+import { adminLimitParam, adminPageParam } from '@/lib/admin-pagination'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,8 +13,8 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url)
-  const page = parseInt(url.searchParams.get('page') || '1')
-  const limit = parseInt(url.searchParams.get('limit') || '20')
+  const page = adminPageParam(url.searchParams.get('page'))
+  const limit = adminLimitParam(url.searchParams.get('limit'), 20)
   const status = url.searchParams.get('status') as 'PENDING' | 'VERIFIED' | 'REJECTED' | null || undefined
   const flagged = url.searchParams.get('flagged') === 'true' ? true : url.searchParams.get('flagged') === 'false' ? false : undefined
 

@@ -641,6 +641,7 @@ export const useAdminStore = create<AdminState>()(
           console.error("Update order status error:", err);
           // Revert by re-fetching
           await get().loadOrders();
+          throw err;
         }
       },
 
@@ -664,6 +665,7 @@ export const useAdminStore = create<AdminState>()(
           console.error("Update payment status error:", err);
           // Revert by re-fetching
           await get().loadOrders();
+          throw err;
         }
       },
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/db'
+import { adminLimitParam, adminPageParam } from '@/lib/admin-pagination'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,8 +20,8 @@ export async function GET(req: NextRequest) {
   const phone  = searchParams.get('phone')?.trim()  || ''
   const name   = searchParams.get('name')?.trim()   || ''
   const search = searchParams.get('search')?.trim()  || ''
-  const page   = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
-  const limit  = Math.min(100, parseInt(searchParams.get('limit') || '20', 10))
+  const page   = adminPageParam(searchParams.get('page'))
+  const limit  = adminLimitParam(searchParams.get('limit'), 20)
   const skip   = (page - 1) * limit
 
   // Build WHERE clause for raw query

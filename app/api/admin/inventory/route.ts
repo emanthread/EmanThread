@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { getAdminProductsWithStock } from "@/lib/db-queries";
 import { withLoggedAdminHandler } from "@/lib/logger";
 import { sanitizeDbError } from '@/lib/utils/errors';
+import { adminLimitParam, adminPageParam } from "@/lib/admin-pagination";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +16,8 @@ export const GET = withLoggedAdminHandler(async (req: Request) => {
 
   try {
     const { searchParams } = new URL(req.url);
-    const page = parseInt(searchParams.get("page") || "1", 10);
-    const limit = parseInt(searchParams.get("limit") || "50", 10);
+    const page = adminPageParam(searchParams.get("page"));
+    const limit = adminLimitParam(searchParams.get("limit"), 50);
 
     const result = await getAdminProductsWithStock({ page, limit });
     return NextResponse.json(result);

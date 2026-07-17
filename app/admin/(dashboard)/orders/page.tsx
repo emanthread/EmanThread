@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { toast } from "sonner";
 import {
   Search,
   MoreHorizontal,
@@ -125,9 +126,14 @@ export default function AdminOrdersPage() {
     }
   };
 
-  const handleUpdateStatus = () => {
+  const handleUpdateStatus = async () => {
     if (selectedOrder) {
-      updateOrderStatus(selectedOrder, newStatus);
+      try {
+        await updateOrderStatus(selectedOrder, newStatus);
+        toast.success("Order status updated");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to update order status");
+      }
     }
     setIsStatusDialogOpen(false);
     setSelectedOrder(null);
@@ -161,9 +167,21 @@ export default function AdminOrdersPage() {
     }
   };
 
-  const handleBulkStatusUpdate = (status: OrderStatus) => {
-    selectedOrders.forEach((orderId) => updateOrderStatus(orderId, status));
+  const handleBulkStatusUpdate = async (status: OrderStatus) => {
+    let failed = 0;
+    for (const orderId of selectedOrders) {
+      try {
+        await updateOrderStatus(orderId, status);
+      } catch {
+        failed += 1;
+      }
+    }
     setSelectedOrders([]);
+    if (failed > 0) {
+      toast.error(`${failed} order${failed === 1 ? "" : "s"} failed to update`);
+    } else if (selectedOrders.length > 0) {
+      toast.success("Orders updated");
+    }
   };
 
   const orderCounts = useMemo(() => ({

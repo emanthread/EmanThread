@@ -58,7 +58,7 @@ import type { AlertCounts } from "@/lib/admin-store";
 import { useAdminPushNotifications } from "@/hooks/use-admin-push-notifications";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
-import { hasPermission, Permission, type RoleValue } from "@/lib/permissions";
+import { hasAnyPermission, hasPermission, Permission, type PermissionValue, type RoleValue } from "@/lib/permissions";
 
 const navItems = [
   { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
@@ -82,6 +82,28 @@ const navItems = [
   { href: "/admin/reviews", icon: MessageSquare, label: "Reviews" },
   { href: "/admin/settings", icon: Settings, label: "Settings" },
 ];
+
+const navPermissions: Record<string, PermissionValue[]> = {
+  "/admin/orders": [Permission.VIEW_ORDERS],
+  "/admin/products": [Permission.VIEW_PRODUCTS],
+  "/admin/customers": [Permission.VIEW_CUSTOMERS],
+  "/admin/discounts": [Permission.MANAGE_DISCOUNTS],
+  "/admin/returns": [Permission.MANAGE_RETURNS],
+  "/admin/payment-verification": [Permission.MANAGE_ORDERS],
+  "/admin/measurements": [Permission.VIEW_CUSTOMERS],
+  "/admin/stitching-calendar": [Permission.MANAGE_SETTINGS],
+  "/admin/audit-logs": [Permission.VIEW_AUDIT_LOGS],
+  "/admin/newsletter": [Permission.MANAGE_NEWSLETTER],
+  "/admin/media-library": [Permission.VIEW_PRODUCTS],
+  "/admin/monitoring": [Permission.VIEW_ANALYTICS],
+  "/admin/analytics": [Permission.VIEW_ANALYTICS],
+  "/admin/shipping": [Permission.MANAGE_SHIPPING],
+  "/admin/hero-slides": [Permission.MANAGE_PRODUCTS],
+  "/admin/featured-categories": [Permission.MANAGE_PRODUCTS],
+  "/admin/fabric-types": [Permission.MANAGE_PRODUCTS],
+  "/admin/reviews": [Permission.VIEW_PRODUCTS],
+  "/admin/settings": [Permission.MANAGE_SETTINGS],
+};
 
 // Primary bottom nav items (most-used 5 + More)
 const bottomNavItems = [
@@ -228,17 +250,9 @@ export default function AdminLayout({
   const visibleNavItems = navItems.filter((item) => {
     if (!user) return true;
     if (item.href === "/admin") return true;
-    return (
-      hasPermission(userRole, Permission.VIEW_ORDERS, userPerms) ||
-      hasPermission(userRole, Permission.VIEW_PRODUCTS, userPerms) ||
-      hasPermission(userRole, Permission.VIEW_CUSTOMERS, userPerms) ||
-      hasPermission(userRole, Permission.VIEW_ANALYTICS, userPerms) ||
-      hasPermission(userRole, Permission.MANAGE_DISCOUNTS, userPerms) ||
-      hasPermission(userRole, Permission.MANAGE_RETURNS, userPerms) ||
-      hasPermission(userRole, Permission.VIEW_AUDIT_LOGS, userPerms) ||
-      hasPermission(userRole, Permission.MANAGE_NEWSLETTER, userPerms) ||
-      hasPermission(userRole, Permission.MANAGE_SETTINGS, userPerms)
-    );
+    const required = navPermissions[item.href];
+    if (!required) return hasPermission(userRole, Permission.MANAGE_SETTINGS, userPerms);
+    return hasAnyPermission(userRole, required, userPerms);
   });
 
   const pageTitle =

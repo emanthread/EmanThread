@@ -27,6 +27,18 @@ export function sanitizeDbError(error: unknown): { message: string; status: numb
   }
   if (error instanceof Error) {
     // Check for known operational errors
+    if (error.message === 'Already processed') {
+      return { message: error.message, status: 409 };
+    }
+    if (error.message === 'Order already cancelled') {
+      return { message: error.message, status: 409 };
+    }
+    if (error.message.includes('Insufficient stock')) {
+      return { message: error.message, status: 409 };
+    }
+    if (error.message.includes('already paid') || error.message.includes('cancelled')) {
+      return { message: error.message, status: 409 };
+    }
     if (error.message === 'Discount usage limit reached') {
       return { message: error.message, status: 400 };
     }

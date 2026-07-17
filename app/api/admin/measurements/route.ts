@@ -3,6 +3,7 @@ import { auth } from '@/auth'
 import { prisma } from '@/lib/db'
 import { withLoggedAdminHandler } from '@/lib/logger'
 import { adminProfileFilter } from '@/lib/db-queries'
+import { adminLimitParam, adminPageParam } from '@/lib/admin-pagination'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,8 +13,8 @@ export const GET = withLoggedAdminHandler(async (req: Request) => {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
   const { searchParams } = new URL(req.url)
-  const page = parseInt(searchParams.get('page') || '1', 10)
-  const limit = parseInt(searchParams.get('limit') || '20', 10)
+  const page = adminPageParam(searchParams.get('page'))
+  const limit = adminLimitParam(searchParams.get('limit'), 20)
   const garmentType = searchParams.get('garmentType') || undefined
   const search = searchParams.get('search') || undefined
   const status = searchParams.get('status') || undefined

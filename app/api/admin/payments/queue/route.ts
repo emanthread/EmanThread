@@ -2,6 +2,7 @@ import { isAdminRole } from "@/lib/permissions";
 import { NextResponse, after } from 'next/server'
 import { auth } from '@/auth'
 import { getPendingPaymentQueue, autoExpirePendingPayments } from '@/lib/db-queries'
+import { adminLimitParam, adminPageParam } from '@/lib/admin-pagination'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,8 +22,8 @@ export async function GET(request: Request) {
   })
 
   const url = new URL(request.url)
-  const page = parseInt(url.searchParams.get('page') || '1')
-  const limit = parseInt(url.searchParams.get('limit') || '20')
+  const page = adminPageParam(url.searchParams.get('page'))
+  const limit = adminLimitParam(url.searchParams.get('limit'), 20)
 
   const result = await getPendingPaymentQueue(page, limit)
   return NextResponse.json(result)

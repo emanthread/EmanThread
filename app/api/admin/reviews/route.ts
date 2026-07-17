@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { isAdminRole } from "@/lib/permissions"; // C4
+import { adminLimitParam, adminPageParam } from "@/lib/admin-pagination";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +17,8 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const page = adminPageParam(searchParams.get("page"));
+    const limit = adminLimitParam(searchParams.get("limit"), 20);
     const search = searchParams.get("search") || "";
     const productId = searchParams.get("productId") || "";
 

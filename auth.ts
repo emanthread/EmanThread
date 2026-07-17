@@ -35,6 +35,23 @@ async function upsertGoogleUser(email: string, name: string) {
   return user;
 }
 
+function normalizePermissions(value: unknown): string[] | undefined {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === "string");
+  }
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed)
+        ? parsed.filter((item): item is string => typeof item === "string")
+        : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     GoogleProvider({
@@ -83,7 +100,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             email: user.email,
             role: user.role,
             isVerified: user.isVerified,
-            permissions: (user.permissions as string[]) ?? undefined,
+            permissions: normalizePermissions(user.permissions),
             tokenVersion: user.tokenVersion,
           };
         } catch (err) {
@@ -172,7 +189,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           role: user.role,
           isVerified: user.isVerified,
-          permissions: (user.permissions as string[]) ?? undefined,
+          permissions: normalizePermissions(user.permissions),
           tokenVersion: user.tokenVersion,
         };
       },
@@ -215,7 +232,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             token.role = dbUser.role;
             token.isVerified = dbUser.isVerified;
             token.tokenVersion = dbUser.tokenVersion;
-            token.permissions = (dbUser.permissions as string[]) ?? undefined;
+            token.permissions = normalizePermissions(dbUser.permissions);
           }
         } catch (err) {
           console.error("Failed to fetch user for JWT enrichment:", err);

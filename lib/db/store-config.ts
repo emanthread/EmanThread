@@ -227,14 +227,14 @@ export async function setStoreConfig(data: StoreConfigInput) {
   if (data.meezanAccountNumber !== undefined) entries.push(["meezanAccountNumber", data.meezanAccountNumber]);
   if (data.meezanIban !== undefined) entries.push(["meezanIban", data.meezanIban]);
   if (data.meezanAccountName !== undefined) entries.push(["meezanAccountName", data.meezanAccountName]);
-  await Promise.all(
-    entries.map(([key, value]) =>
-      prisma.storeConfig.upsert({
+  await prisma.$transaction(async (tx) => {
+    for (const [key, value] of entries) {
+      await tx.storeConfig.upsert({
         where: { key },
         update: { value },
         create: { key, value },
-      })
-    )
-  );
+      });
+    }
+  });
   revalidatePath("/", "layout");
 }

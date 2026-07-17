@@ -533,8 +533,8 @@ export async function getAdminCustomers({
 } = {}) {
   const skip = (page - 1) * limit;
 
-  // Build where clause for server-side search + status filter
-  const where: Prisma.UserWhereInput = {};
+  // Customers list must not expose staff/admin accounts.
+  const where: Prisma.UserWhereInput = { role: "CUSTOMER" };
   if (search) {
     where.OR = [
       { name: { contains: search, mode: "insensitive" } },
