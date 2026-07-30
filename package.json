@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test:e2e": "playwright test",
+    "test:navigation": "playwright test --config=playwright.navigation.config.ts",
     "postinstall": "prisma generate --schema=prisma/schema.prisma",
     "db:seed": "tsx prisma/seed.ts",
     "db:migrate-safe": "node -e \"require('child_process').execSync('npx prisma migrate deploy',{stdio:'inherit',env:{...process.env}})\" 2>&1; echo '⚠️  To backup first run: npm run db:backup'",

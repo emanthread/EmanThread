@@ -42,6 +42,11 @@ const ADMIN_API_POLICIES: AdminApiPolicy[] = [
     write: [Permission.MANAGE_PRODUCTS],
   },
   {
+    prefix: "/api/admin/catalog",
+    read: [Permission.MANAGE_PRODUCTS],
+    write: [Permission.MANAGE_PRODUCTS],
+  },
+  {
     prefix: "/api/admin/inventory",
     read: [Permission.VIEW_PRODUCTS],
     write: [Permission.MANAGE_PRODUCTS],

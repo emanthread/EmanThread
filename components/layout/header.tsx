@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import { 
   Menu, 
@@ -15,7 +15,8 @@ import {
   Settings,
   Package,
   Heart,
-  LayoutDashboard
+  LayoutDashboard,
+  Ruler
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,7 +33,12 @@ import { useAuthStore } from "@/lib/auth-store";
 import { SearchModal } from "@/components/search/search-modal";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
+import { FEATURE_FLAGS } from "@/lib/feature-flags";
+import { catalogUtilityLinks } from "@/lib/navigation/catalog-menu";
+import { CatalogHeaderMenu } from "./catalog-header-menu";
+import { CatalogMobileMenu } from "./catalog-mobile-menu";
 import { StitchingNoticeBanner } from "./stitching-notice-banner";
+import catalogStyles from "./catalog-header-menu.module.css";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -51,7 +57,7 @@ const categories = [
   { href: "/shop?category=khaddar", label: "Khaddar", description: "Traditional excellence" },
 ];
 
-export function Header() {
+function LegacyHeader() {
   const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -467,5 +473,341 @@ export function Header() {
         </div>
       </div>
     </>
+  );
+}
+
+function CatalogHeaderV1() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+  const { getTotalItems, openCart } = useCartStore();
+  const { getTotalItems: getWishlistTotal } = useWishlistStore();
+  const { user, isAuthenticated, logout } = useAuthStore();
+  const totalItems = mounted ? getTotalItems() : 0;
+  const wishlistItems = mounted ? getWishlistTotal() : 0;
+  const utilityLinks = catalogUtilityLinks
+    .filter(
+      (link) =>
+        link.visibility === "visible" &&
+        link.status === "active",
+    )
+    .sort((a, b) => a.order - b.order);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 24);
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Hero mode: homepage + not scrolled → transparent navbar overlapping hero
+  const isHeroMode = pathname === "/" && !isScrolled;
+
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+
+    const updateHeaderHeight = () => {
+      document.documentElement.style.setProperty(
+        "--catalog-header-height",
+        `${Math.ceil(header.getBoundingClientRect().height)}px`,
+      );
+    };
+
+    updateHeaderHeight();
+    const observer = new ResizeObserver(updateHeaderHeight);
+    observer.observe(header);
+
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty(
+        "--catalog-header-height",
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setIsSearchOpen(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/");
+  };
+
+  const accountMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={isAuthenticated ? "Account menu" : "Account and utilities"}
+        >
+          <User className="h-5 w-5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-60">
+        {isAuthenticated && user ? (
+          <>
+            <DropdownMenuLabel>
+              <div className="flex flex-col">
+                <span>{user.name}</span>
+                <span className="text-xs font-normal text-muted-foreground">
+                  {user.email}
+                </span>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {user.role === "admin" ? (
+              <>
+                <DropdownMenuItem asChild>
+                  <Link href="/admin" className="cursor-pointer">
+                    <LayoutDashboard className="mr-2 h-4 w-4" />
+                    Admin Dashboard
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            ) : null}
+            <DropdownMenuItem asChild>
+              <Link href="/account" className="cursor-pointer">
+                <User className="mr-2 h-4 w-4" />
+                My Profile
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/account/orders" className="cursor-pointer">
+                <Package className="mr-2 h-4 w-4" />
+                My Orders
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/account/settings" className="cursor-pointer">
+                <Settings className="mr-2 h-4 w-4" />
+                Settings
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        ) : (
+          <>
+            <DropdownMenuItem asChild>
+              <Link href="/login" className="cursor-pointer">
+                <User className="mr-2 h-4 w-4" />
+                Login / Register
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
+
+        {utilityLinks.map((link) => (
+          <DropdownMenuItem key={link.id} asChild>
+            <Link href={link.href} className="cursor-pointer">
+              {link.id === "stitching" ? (
+                <Ruler className="mr-2 h-4 w-4" />
+              ) : (
+                <ShoppingBag className="mr-2 h-4 w-4" />
+              )}
+              {link.label}
+            </Link>
+          </DropdownMenuItem>
+        ))}
+
+        {isAuthenticated && user ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => void handleLogout()}
+              className="cursor-pointer text-red-600 focus:text-red-600"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Logout
+            </DropdownMenuItem>
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+  const desktopUtilities = (
+    <>
+      <Link
+        href="/account/measurements"
+        className="hidden lg:inline-flex items-center text-xs font-medium tracking-widest uppercase px-2 py-1 hover:text-foreground/70 transition-colors"
+        aria-label="Stitching services"
+      >
+        Stitching
+      </Link>
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label="Search"
+        onClick={() => setIsSearchOpen(true)}
+      >
+        <Search className="h-5 w-5" />
+      </Button>
+      <ThemeToggle />
+      <Button
+        variant="ghost"
+        size="icon"
+        className="relative"
+        aria-label={
+          wishlistItems > 0
+            ? `Wishlist, ${wishlistItems} items`
+            : "Wishlist"
+        }
+        asChild
+      >
+        <Link href="/wishlist">
+          <Heart className="h-5 w-5" />
+          {wishlistItems > 0 ? (
+            <span className={catalogStyles.mobileCount}>
+              {wishlistItems}
+            </span>
+          ) : null}
+        </Link>
+      </Button>
+      {accountMenu}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="relative"
+        aria-label={totalItems > 0 ? `Bag, ${totalItems} items` : "Bag"}
+        onClick={openCart}
+      >
+        <ShoppingBag className="h-5 w-5" />
+        {totalItems > 0 ? (
+          <span className={catalogStyles.mobileCount}>{totalItems}</span>
+        ) : null}
+      </Button>
+    </>
+  );
+
+  return (
+    <>
+      <header ref={headerRef} className={cn(catalogStyles.catalogHeader, isHeroMode && catalogStyles.heroMode)}>
+        <StitchingNoticeBanner />
+        <div
+          className={cn(
+            catalogStyles.solidSurface,
+            isScrolled && catalogStyles.scrolled,
+            isHeroMode && catalogStyles.heroMode,
+          )}
+        >
+          <CatalogHeaderMenu
+            mark={
+              <Link 
+                href="/" 
+                aria-label="Eman Thread home"
+                onClick={(e) => {
+                  if (pathname === "/") {
+                    e.preventDefault();
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }
+                }}
+              >
+                Eman Thread
+              </Link>
+            }
+            utilities={desktopUtilities}
+            linksEnabled={FEATURE_FLAGS.CATALOG_PAGES_V1}
+          />
+
+          <div className={cn(catalogStyles.mobileBar, isHeroMode && catalogStyles.heroMode)}>
+            <div className={catalogStyles.mobileBarLeft}>
+              <CatalogMobileMenu
+                isAuthenticated={isAuthenticated}
+                linksEnabled={FEATURE_FLAGS.CATALOG_PAGES_V1}
+                user={user}
+                utilityLinks={utilityLinks}
+                wishlistCount={wishlistItems}
+                onSearch={() => setIsSearchOpen(true)}
+                onLogout={handleLogout}
+              />
+            </div>
+            <Link
+              href="/"
+              className={catalogStyles.mark}
+              aria-label="Eman Thread home"
+              onClick={(e) => {
+                if (pathname === "/") {
+                  e.preventDefault();
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+              }}
+            >
+              Eman Thread
+            </Link>
+            <div className={catalogStyles.mobileBarRight}>
+              <button
+                type="button"
+                className={catalogStyles.mobileIconButton}
+                aria-label="Search"
+                onClick={() => setIsSearchOpen(true)}
+              >
+                <Search aria-hidden="true" size={19} />
+              </button>
+              <ThemeToggle className={catalogStyles.mobileIconButton} />
+              <button
+                type="button"
+                className={`${catalogStyles.mobileIconButton} relative`}
+                aria-label={
+                  totalItems > 0 ? `Bag, ${totalItems} items` : "Bag"
+                }
+                onClick={openCart}
+              >
+                <ShoppingBag aria-hidden="true" size={20} />
+                {totalItems > 0 ? (
+                  <span className={catalogStyles.mobileCount}>
+                    {totalItems}
+                  </span>
+                ) : null}
+              </button>
+            </div>
+          </div>
+        </div>
+        <span aria-live="polite" aria-atomic="true" className="sr-only">
+          {mounted && totalItems > 0
+            ? `Cart: ${totalItems} items`
+            : "Cart is empty"}
+        </span>
+      </header>
+      {pathname === "/" ? (
+        <div
+          className={catalogStyles.homeHeaderSpacer}
+          style={isHeroMode ? { height: 0 } : undefined}
+          aria-hidden="true"
+        />
+      ) : null}
+
+      <SearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+      />
+    </>
+  );
+}
+
+export function Header() {
+  return FEATURE_FLAGS.CATALOG_HEADER_V1 ? (
+    <CatalogHeaderV1 />
+  ) : (
+    <LegacyHeader />
   );
 }

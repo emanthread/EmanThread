@@ -59,11 +59,15 @@ import { useAdminPushNotifications } from "@/hooks/use-admin-push-notifications"
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 import { hasAnyPermission, hasPermission, Permission, type PermissionValue, type RoleValue } from "@/lib/permissions";
+import { FEATURE_FLAGS } from "@/lib/feature-flags";
 
 const navItems = [
   { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/admin/orders", icon: ShoppingCart, label: "Orders" },
   { href: "/admin/products", icon: Package, label: "Products" },
+  ...(FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1
+    ? [{ href: "/admin/catalog", icon: Layers, label: "Catalog Assignment" }]
+    : []),
   { href: "/admin/customers", icon: Users, label: "Customers" },
   { href: "/admin/discounts", icon: Tag, label: "Discounts" },
   { href: "/admin/returns", icon: BarChart3, label: "Returns" },
@@ -86,6 +90,7 @@ const navItems = [
 const navPermissions: Record<string, PermissionValue[]> = {
   "/admin/orders": [Permission.VIEW_ORDERS],
   "/admin/products": [Permission.VIEW_PRODUCTS],
+  "/admin/catalog": [Permission.MANAGE_PRODUCTS],
   "/admin/customers": [Permission.VIEW_CUSTOMERS],
   "/admin/discounts": [Permission.MANAGE_DISCOUNTS],
   "/admin/returns": [Permission.MANAGE_RETURNS],

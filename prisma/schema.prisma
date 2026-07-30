@@ -100,11 +100,59 @@ model Product {
   orderItems        OrderItem[]
   reviews           ProductReview[]
   category          Category    @relation(fields: [categoryId], references: [id])
+  catalogAssignments ProductCatalogAssignment[]
 
   @@index([categoryId])
   @@index([groupId])
   @@index([inStock, stockQuantity])
   @@index([fabricType])
+}
+
+model CatalogNode {
+  id                String                     @id @default(cuid())
+  parentId          String?
+  nodeType          String
+  label             String
+  slug              String
+  path              String                     @unique
+  description       String?
+  bannerImage       String?
+  bannerAlt         String?
+  featuredContent   Json?
+  seoTitle          String?
+  seoDescription    String?
+  canonicalOverride String?
+  indexable         Boolean                    @default(false)
+  displayOrder      Int                        @default(0)
+  isActive          Boolean                    @default(false)
+  isVisible         Boolean                    @default(false)
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  parent            CatalogNode?               @relation("CatalogNodeTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children          CatalogNode[]              @relation("CatalogNodeTree")
+  assignments       ProductCatalogAssignment[]
+
+  @@index([parentId])
+  @@index([parentId, displayOrder])
+  @@index([nodeType, displayOrder])
+  @@index([isActive, isVisible])
+}
+
+model ProductCatalogAssignment {
+  id            String      @id @default(cuid())
+  productId     String
+  catalogNodeId String
+  isFeatured    Boolean     @default(false)
+  displayOrder  Int?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  product       Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  catalogNode   CatalogNode @relation(fields: [catalogNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, catalogNodeId])
+  @@index([productId])
+  @@index([catalogNodeId])
+  @@index([catalogNodeId, isFeatured, displayOrder])
 }
 
 model ProductReview {
