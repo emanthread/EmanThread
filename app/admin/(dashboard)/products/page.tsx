@@ -64,7 +64,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAdminStore, type AdminProduct } from "@/lib/admin-store";
 import { adminFetch } from "@/lib/admin-fetch";
 import { formatPrice } from "@/lib/data";
+import { FEATURE_FLAGS } from "@/lib/feature-flags";
 import { cn, getProductImage } from "@/lib/utils";
+import {
+  ProductCatalogAssignmentSection,
+  serializeCatalogAssignments,
+  type CatalogAssignmentDraft,
+} from "@/components/admin/product-catalog-assignment-section";
 
 const badgeColors = {
   New: "bg-emerald-100 text-emerald-700",
@@ -129,6 +135,7 @@ function emptyProduct(): AdminProduct {
 
 export default function AdminProductsPage() {
   const { products, productsTotal, productsPage, productsTotalPages, updateProductStock, addProduct, updateProduct, loadProducts, deleteProduct } = useAdminStore();
+  const catalogAssignmentsEnabled = FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1;
 
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
@@ -190,6 +197,12 @@ export default function AdminProductsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const [fieldErrors, setFieldErrors] = useState<ProductFormErrors>({});
+  // Catalog assignment state is intentionally outside AdminProduct so the
+  // legacy Product request body and API contract remain unchanged.
+  const [catalogAssignments, setCatalogAssignments] = useState<CatalogAssignmentDraft[]>([]);
+  const [catalogAssignmentsLoading, setCatalogAssignmentsLoading] = useState(false);
+  const [catalogAssignmentLoadError, setCatalogAssignmentLoadError] = useState<string | null>(null);
+  const [catalogAssignmentSaveError, setCatalogAssignmentSaveError] = useState<string | null>(null);
   // Replace manual setTimeout boilerplate with shared hook (same 500ms delay).
   // The hook already exists and is used correctly in customers/page.tsx.
   const debouncedSearch = useDebounce(searchQuery, 500);
@@ -402,6 +415,10 @@ export default function AdminProductsPage() {
 
   const openEditDialog = (product: AdminProduct) => {
     setFieldErrors({});
+    setCatalogAssignments([]);
+    setCatalogAssignmentLoadError(null);
+    setCatalogAssignmentSaveError(null);
+    setCatalogAssignmentsLoading(catalogAssignmentsEnabled);
     setProductForm({ ...product });
     setIsEditProductOpen(true);
   };
@@ -409,6 +426,10 @@ export default function AdminProductsPage() {
   const openAddDialog = () => {
     const base = emptyProduct();
     setFieldErrors({});
+    setCatalogAssignments([]);
+    setCatalogAssignmentLoadError(null);
+    setCatalogAssignmentSaveError(null);
+    setCatalogAssignmentsLoading(false);
     setProductForm(base);
     setTagInput("");
     setIsAddProductOpen(true);
@@ -418,6 +439,27 @@ export default function AdminProductsPage() {
     if (uploadingImage) {
       toast.error("Please wait for the image to finish uploading");
       return;
+    }
+
+    if (
+      catalogAssignmentsEnabled &&
+      isEditProductOpen &&
+      (catalogAssignmentsLoading || catalogAssignmentLoadError)
+    ) {
+      toast.error(
+        catalogAssignmentLoadError || "Wait for existing catalog assignments to load before saving"
+      );
+      return;
+    }
+
+    let serializedCatalogAssignments;
+    if (catalogAssignmentsEnabled) {
+      try {
+        serializedCatalogAssignments = serializeCatalogAssignments(catalogAssignments);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Invalid catalog assignments");
+        return;
+      }
     }
 
     const resolvedCategoryId = productForm.categoryId || "";
@@ -464,22 +506,65 @@ export default function AdminProductsPage() {
       categoryId: resolvedCategoryId,
     };
 
+    const wasEditing = isEditProductOpen;
+    let savedProduct: AdminProduct;
     try {
-      if (isEditProductOpen) {
-        await updateProduct(productForm.id, payload);
-        toast.success("Product updated successfully!");
-        setIsEditProductOpen(false);
-      } else {
-        await addProduct(payload as AdminProduct);
-        toast.success("Product added successfully!");
-        setIsAddProductOpen(false);
-      }
-      setProductForm(emptyProduct());
+      // Keep the established Product save operation exactly first. Catalog
+      // assignment data is not included in this legacy payload.
+      savedProduct = wasEditing
+        ? await updateProduct(productForm.id, payload)
+        : await addProduct(payload as AdminProduct);
     } catch (err: any) {
       toast.error(err.message || "Failed to save product");
-    } finally {
       setIsSaving(false);
+      return;
     }
+
+    toast.success(wasEditing ? "Product updated successfully!" : "Product added successfully!");
+
+    if (catalogAssignmentsEnabled) {
+      try {
+        const response = await adminFetch(
+          `/api/admin/catalog/assignments/product/${savedProduct.id}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ assignments: serializedCatalogAssignments || [] }),
+          }
+        );
+        const result = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(result?.error || "Failed to save catalog assignments");
+        }
+        setCatalogAssignmentSaveError(null);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to save catalog assignments";
+        setCatalogAssignmentSaveError(message);
+        toast.error("Product was saved, but catalog assignments were not. Correct the issue and retry.");
+
+        // A failed post-create assignment save must never result in a second
+        // Product POST (and therefore cannot duplicate the SKU). Keep the
+        // dialog open as an edit/retry session for the saved Product.
+        if (!wasEditing) {
+          setProductForm(savedProduct);
+          setIsAddProductOpen(false);
+          setIsEditProductOpen(true);
+        }
+        setIsSaving(false);
+        return;
+      }
+    }
+
+    if (wasEditing) {
+      setIsEditProductOpen(false);
+    } else {
+      setIsAddProductOpen(false);
+    }
+    setProductForm(emptyProduct());
+    setCatalogAssignments([]);
+    setCatalogAssignmentLoadError(null);
+    setCatalogAssignmentSaveError(null);
+    setIsSaving(false);
   };
 
   const handleExportProducts = () => {
@@ -914,6 +999,13 @@ export default function AdminProductsPage() {
         onRemoveTag={handleRemoveTag}
         onSave={handleSaveProduct}
         isSaving={isSaving}
+        catalogAssignmentsEnabled={catalogAssignmentsEnabled}
+        catalogAssignments={catalogAssignments}
+        setCatalogAssignments={setCatalogAssignments}
+        catalogAssignmentsLoading={catalogAssignmentsLoading}
+        setCatalogAssignmentsLoading={setCatalogAssignmentsLoading}
+        setCatalogAssignmentLoadError={setCatalogAssignmentLoadError}
+        catalogAssignmentSaveError={catalogAssignmentSaveError}
         fieldErrors={fieldErrors}
         clearFieldError={(field) => {
           setFieldErrors((current) => {
@@ -950,6 +1042,13 @@ interface ProductDialogProps {
   onRemoveTag: (tag: string) => void;
   onSave: () => void;
   isSaving: boolean;
+  catalogAssignmentsEnabled: boolean;
+  catalogAssignments: CatalogAssignmentDraft[];
+  setCatalogAssignments: (assignments: CatalogAssignmentDraft[]) => void;
+  catalogAssignmentsLoading: boolean;
+  setCatalogAssignmentsLoading: (loading: boolean) => void;
+  setCatalogAssignmentLoadError: (error: string | null) => void;
+  catalogAssignmentSaveError: string | null;
   fieldErrors: ProductFormErrors;
   clearFieldError: (field: keyof AdminProduct) => void;
 }
@@ -974,6 +1073,13 @@ function ProductDialog({
   onRemoveTag,
   onSave,
   isSaving,
+  catalogAssignmentsEnabled,
+  catalogAssignments,
+  setCatalogAssignments,
+  catalogAssignmentsLoading,
+  setCatalogAssignmentsLoading,
+  setCatalogAssignmentLoadError,
+  catalogAssignmentSaveError,
   fieldErrors,
   clearFieldError,
 }: ProductDialogProps) {
@@ -1402,6 +1508,17 @@ function ProductDialog({
               rows={2}
             />
           </div>
+
+          {catalogAssignmentsEnabled && (
+            <ProductCatalogAssignmentSection
+              productId={isEdit ? product.id || undefined : undefined}
+              assignments={catalogAssignments}
+              onChange={setCatalogAssignments}
+              onLoadingChange={setCatalogAssignmentsLoading}
+              onLoadError={setCatalogAssignmentLoadError}
+              saveError={catalogAssignmentSaveError}
+            />
+          )}
         </div>
 
         <DialogFooter>
@@ -1410,7 +1527,7 @@ function ProductDialog({
           </Button>
           <Button
             onClick={onSave}
-            disabled={isSaving || uploadingImage || uploadingVideo}
+            disabled={isSaving || uploadingImage || uploadingVideo || (isEdit && catalogAssignmentsLoading)}
           >
             {(isSaving || uploadingImage || uploadingVideo) && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             {uploadingImage || uploadingVideo ? "Uploading..." : isEdit ? "Save Changes" : "Add Product"}

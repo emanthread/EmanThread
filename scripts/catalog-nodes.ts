@@ -27,8 +27,10 @@ const CREATE_DEFAULTS = {
   isVisible: false,
   indexable: false,
 } as const;
-const TRANSACTION_MAX_WAIT_MS = 5_000;
-const TRANSACTION_TIMEOUT_MS = 30_000;
+const TRANSACTION_MAX_WAIT_MS = 15_000;
+// Interactive transactions require a persistent direct connection (not a pooler).
+// 120 s gives ample headroom for 142 sequential upserts over a remote DB.
+const TRANSACTION_TIMEOUT_MS = 120_000;
 
 /**
  * Department roots are deliberately explicit. Never derive these paths from
@@ -862,7 +864,13 @@ async function runBootstrapMode(
   requireDatabaseUrl();
   requireApplyAcknowledgements(options);
 
-  const prisma = new PrismaClient({ log: ["error"] });
+  // Interactive transactions require a real persistent connection.
+  // PgBouncer (pooler) does not support them, so we always prefer DIRECT_URL.
+  const bootstrapUrl = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+  const prisma = new PrismaClient({
+    log: ["error"],
+    datasources: { db: { url: bootstrapUrl } },
+  });
   try {
     const plan = await createBootstrapPlan(prisma, entries);
     const currentDatabasePlanReviewHash = databasePlanReviewHash(
@@ -929,7 +937,11 @@ async function runValidationMode(
   requireDatabaseUrl();
   requireDisposableAcknowledgements(options);
 
-  const prisma = new PrismaClient({ log: ["error"] });
+  const validateUrl = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+  const prisma = new PrismaClient({
+    log: ["error"],
+    datasources: { db: { url: validateUrl } },
+  });
   try {
     const databaseNodes = await prisma.catalogNode.findMany({
       select: {

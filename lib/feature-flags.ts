@@ -4,9 +4,9 @@
 export const FEATURE_FLAGS = {
   // Approved catalog rollout — keep each layer independently reversible.
   // These stay disabled until catalog content, assignments, and routes are approved.
-  CATALOG_HEADER_V1: true,  // LOCAL QA — disable before production deploy
-  CATALOG_PAGES_V1: false,
-  CATALOG_ADMIN_ASSIGNMENTS_V1: false,
+  CATALOG_HEADER_V1: true,
+  CATALOG_PAGES_V1: true,
+  CATALOG_ADMIN_ASSIGNMENTS_V1: true,
 
   // When true: shows only Nayapay + Meezan Bank, hides gateway integrations
   MANUAL_PAYMENT_MODE: true,
