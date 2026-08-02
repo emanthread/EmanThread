@@ -18,4 +18,5 @@ prisma/prisma/
 
 # Database backups
 backup_*.sql
+backup_*.dump
 *.sql.bak
