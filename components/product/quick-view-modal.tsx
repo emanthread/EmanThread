@@ -1,20 +1,48 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { X, Plus, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ProductOptionPicker } from "@/components/product/product-option-picker";
 import { useCartStore } from "@/lib/cart-store";
-import { formatPrice, type Product } from "@/lib/data";
-import { cn } from "@/lib/utils";
+import { formatPrice, type Product, type ProductVariant } from "@/lib/data";
+import {
+  getActiveVariants,
+  getVariantUnitPrice,
+  hasUnavailableRequiredSelection,
+  isProductAvailableForPurchase,
+  isVariantAvailable,
+  productOptionForVariant,
+  requiresVariantSelectionForPurchase,
+} from "@/lib/commerce";
+import { cn, getProductImage } from "@/lib/utils";
 
 interface QuickViewModalProps {
   product: Product;
   isOpen: boolean;
   onClose: () => void;
 }
+
+type CartSelection = {
+  variant: {
+    id: string;
+    label: string;
+    sku?: string;
+    priceAdjustment: number;
+  };
+  selectedOptions: Array<{ label: string; value: string }>;
+  unitPrice: number;
+};
+
+type AddItemWithSelection = (
+  item: Product,
+  itemQuantity?: number,
+  stitchingOptions?: { price: number; profileId: string; profileName: string },
+  selection?: CartSelection
+) => void;
 
 export function QuickViewModal({
   product,
@@ -24,10 +52,52 @@ export function QuickViewModal({
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [justAdded, setJustAdded] = useState(false);
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+  const [optionError, setOptionError] = useState(false);
   const { addItem } = useCartStore();
 
+  const images = product.images.length > 0 ? product.images : [getProductImage(product.images)];
+  const activeVariants = getActiveVariants(product);
+  const selectedVariant = activeVariants.find((variant) => variant.id === selectedVariantId) ?? null;
+  const selectionRequired = requiresVariantSelectionForPurchase(product);
+  const hasOptions = Boolean(product.commerce && (activeVariants.length > 0 || selectionRequired));
+  const requiredSelectionUnavailable = hasUnavailableRequiredSelection(product);
+  const productAvailable = isProductAvailableForPurchase(product);
+  const displayedPrice = getVariantUnitPrice(product, selectedVariant);
+  const displayedOriginalPrice = product.originalPrice
+    ? product.originalPrice + (selectedVariant?.priceAdjustment ?? 0)
+    : undefined;
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setQuantity(1);
+    setSelectedImage(0);
+    setSelectedVariantId(null);
+    setOptionError(false);
+  }, [isOpen, product.id]);
+
   const handleAddToCart = () => {
-    addItem(product, quantity);
+    if (!productAvailable) return;
+
+    if (selectionRequired && (!selectedVariant || !isVariantAvailable(selectedVariant))) {
+      setOptionError(true);
+      return;
+    }
+
+    const selection: CartSelection | undefined = selectedVariant
+      ? {
+          variant: {
+            id: selectedVariant.id,
+            label: selectedVariant.label,
+            sku: selectedVariant.sku,
+            priceAdjustment: selectedVariant.priceAdjustment,
+          },
+          selectedOptions: [productOptionForVariant(product, selectedVariant)],
+          unitPrice: displayedPrice,
+        }
+      : undefined;
+
+    (addItem as AddItemWithSelection)(product, quantity, undefined, selection);
     setJustAdded(true);
     setQuantity(1);
     setTimeout(() => {
@@ -69,7 +139,7 @@ export function QuickViewModal({
         {/* Image Section */}
         <div className="relative w-full md:w-1/2 aspect-[4/5] md:aspect-auto bg-secondary rounded-t-2xl md:rounded-l-2xl md:rounded-tr-none overflow-hidden">
           <Image
-            src={product.images[selectedImage]}
+            src={images[selectedImage]}
             alt={product.name}
             fill
             className="object-cover"
@@ -87,9 +157,9 @@ export function QuickViewModal({
           )}
 
           {/* Thumbnail Navigation */}
-          {product.images.length > 1 && (
+          {images.length > 1 && (
             <div className="absolute bottom-4 left-4 right-4 flex gap-2 justify-center">
-              {product.images.map((image, index) => (
+              {images.map((image, index) => (
                 <button
                   key={index}
                   onClick={() => setSelectedImage(index)}
@@ -125,11 +195,11 @@ export function QuickViewModal({
 
             <div className="flex items-center gap-3 mt-4">
               <span className="text-2xl font-bold">
-                {formatPrice(product.price)}
+                {formatPrice(displayedPrice)}
               </span>
-              {product.originalPrice && (
+              {displayedOriginalPrice && (
                 <span className="text-lg text-muted-foreground line-through">
-                  {formatPrice(product.originalPrice)}
+                  {formatPrice(displayedOriginalPrice)}
                 </span>
               )}
             </div>
@@ -146,6 +216,19 @@ export function QuickViewModal({
                 style={{ backgroundColor: product.colorHex }}
               />
             </div>
+
+            {hasOptions && (
+              <ProductOptionPicker
+                product={product}
+                selectedVariantId={selectedVariantId}
+                onSelect={(variant: ProductVariant) => {
+                  setSelectedVariantId(variant.id);
+                  setOptionError(false);
+                }}
+                invalid={optionError}
+                className="mt-6"
+              />
+            )}
 
             {/* Quantity */}
             <div className="mt-6">
@@ -171,8 +254,12 @@ export function QuickViewModal({
 
           {/* Actions */}
           <div className="mt-6 space-y-3">
-            <Button size="lg" className="w-full" onClick={handleAddToCart}>
-              Add to Cart - {formatPrice(product.price * quantity)}
+            <Button size="lg" className="w-full" onClick={handleAddToCart} disabled={!productAvailable}>
+              {requiredSelectionUnavailable
+                ? "Option Unavailable"
+                : productAvailable
+                  ? `Add to Cart - ${formatPrice(displayedPrice * quantity)}`
+                  : "Out of Stock"}
             </Button>
             {/* Screen-reader announcement when item is added to cart */}
             {justAdded && (

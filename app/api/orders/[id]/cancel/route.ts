@@ -8,6 +8,7 @@ import { sendAdminOrderCancelledAlert } from "@/lib/notifications/admin-alerts";
 import { sanitizeDbError } from "@/lib/utils/errors";
 import { createAuditLog } from "@/lib/db-queries";
 import { withGuard } from "@/lib/api-guards";
+import { FEATURE_FLAGS } from "@/lib/feature-flags";
 export const dynamic = "force-dynamic";
 
 const cancelOrderSchema = z.object({
@@ -68,6 +69,22 @@ export const PATCH = withGuard(
       );
     }
 
+    // Option configurations are in an additive table and must never be read
+    // on an un-migrated deployment. Legacy order lines intentionally keep the
+    // current product-stock restoration path below.
+    const variantByOrderItemId = new Map<string, string>();
+    if (FEATURE_FLAGS.COMMERCE_PROFILE_V1 && order.items.length > 0) {
+      const configurations = await prisma.orderItemConfiguration.findMany({
+        where: { orderItemId: { in: order.items.map((item) => item.id) } },
+        select: { orderItemId: true, productVariantId: true },
+      });
+      for (const configuration of configurations) {
+        if (configuration.productVariantId) {
+          variantByOrderItemId.set(configuration.orderItemId, configuration.productVariantId);
+        }
+      }
+    }
+
     // 4. Perform the update and stock restoration in a transaction
     const updatedOrder = await prisma.$transaction(async (tx) => {
       const updated = await tx.order.update({
@@ -80,6 +97,22 @@ export const PATCH = withGuard(
 
       // Restore stock
       for (const item of order.items) {
+        const variantId = variantByOrderItemId.get(item.id);
+        if (variantId) {
+          // Manual-payment orders have not deducted variant stock yet. Keep
+          // the existing legacy cancellation behavior for old product lines.
+          if (order.paymentStatus !== "PENDING_VERIFICATION") {
+            await tx.productVariant.updateMany({
+              where: { id: variantId },
+              data: {
+                stockQuantity: { increment: item.quantity },
+                inStock: true,
+              },
+            });
+          }
+          continue;
+        }
+
         await tx.product.update({
           where: { id: item.productId },
           data: {

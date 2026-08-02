@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { revalidateTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { updateAdminProduct, createAuditLog } from "@/lib/db-queries";
 import { withLoggedAdminHandler } from "@/lib/logger";
 import { sanitizeDbError } from '@/lib/utils/errors';
-import { parseProductImages, parseJsonArray } from "@/lib/utils/parse-images";
+import { parseProductImages } from "@/lib/utils/parse-images";
 import { requireAdminApiAccess } from "@/lib/admin-route-guard";
+import { archiveProductTags, visibleProductTags } from "@/lib/product-archive";
 
 export const dynamic = "force-dynamic";
 
@@ -103,7 +105,7 @@ export const GET = withLoggedAdminHandler(async (
       longDescription: p.longDescription || "",
       categoryId: p.categoryId,
       slug: p.slug || p.sku.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-      tags: parseJsonArray(p.tags),
+      tags: visibleProductTags(p.tags),
       metaTitle: p.metaTitle || undefined,
       metaDescription: p.metaDescription || undefined,
       createdAt: p.createdAt.toISOString(),
@@ -181,16 +183,28 @@ export const DELETE = withLoggedAdminHandler(async (
     // Get product name for audit
     const product = await prisma.product.findUnique({
       where: { id },
-      select: { name: true, sku: true },
+      select: { name: true, sku: true, tags: true },
     });
+
+    if (!product) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    }
 
     await prisma.product.update({
       where: { id },
       data: {
         inStock: false,
         stockQuantity: 0,
+        tags: archiveProductTags(product.tags),
       },
     });
+
+    // The public/admin lists are cached independently. Invalidate their
+    // shared product and category data so an archived listing cannot reappear
+    // after a refresh while its cache is still warm.
+    revalidateTag("products", { expire: 0 });
+    revalidateTag("categories", { expire: 0 });
+    revalidateTag("featured-categories", { expire: 0 });
 
     // Audit log — reuse session obtained above, no extra auth() call needed.
     if (session.user) {
@@ -200,8 +214,8 @@ export const DELETE = withLoggedAdminHandler(async (
         action: "PRODUCT_DELETED",
         entity: "Product",
         entityId: id,
-        oldValue: product ? { name: product.name, sku: product.sku } : undefined,
-        newValue: { hidden: true, inStock: false, stockQuantity: 0 },
+        oldValue: { name: product.name, sku: product.sku },
+        newValue: { archived: true, inStock: false, stockQuantity: 0 },
       });
     }
 

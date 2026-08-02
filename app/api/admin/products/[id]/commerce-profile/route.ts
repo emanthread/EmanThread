@@ -1,0 +1,312 @@
+import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
+import { z } from "zod";
+import type { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/db";
+import { createAuditLog } from "@/lib/db-queries";
+import { FEATURE_FLAGS } from "@/lib/feature-flags";
+import { withLoggedAdminHandler } from "@/lib/logger";
+import { requireAdminApiAccess } from "@/lib/admin-route-guard";
+import { productKindRequiresSelection } from "@/lib/commerce";
+import { sanitizeDbError } from "@/lib/utils/errors";
+
+export const dynamic = "force-dynamic";
+
+const productKindSchema = z.enum([
+  "UNSTITCHED_FABRIC",
+  "READY_TO_WEAR",
+  "FRAGRANCE",
+  "BEAUTY",
+  "TEENS",
+  "GIFT",
+  "GIFT_BOX",
+  "ACCESSORY",
+]);
+
+const detailSchema = z.object({
+  label: z.string().trim().min(1).max(80),
+  value: z.string().trim().min(1).max(500),
+});
+
+const variantSchema = z.object({
+  id: z.string().min(1).optional(),
+  optionKey: z.string().trim().min(1).max(80),
+  label: z.string().trim().min(1).max(120),
+  sku: z.string().trim().max(120).optional(),
+  priceAdjustment: z.number().min(-1_000_000).max(1_000_000),
+  stockQuantity: z.number().int().min(0).max(10_000_000),
+  inStock: z.boolean(),
+  isActive: z.boolean(),
+});
+
+const commerceProfileSchema = z
+  .object({
+    productKind: productKindSchema,
+    stitchingEligible: z.boolean(),
+    requiresSelection: z.boolean(),
+    optionLabel: z.string().trim().max(60).optional(),
+    sizeGuideUrl: z.string().trim().max(2048).optional(),
+    details: z.array(detailSchema).max(12),
+    variants: z.array(variantSchema).max(50),
+  })
+  .superRefine((profile, context) => {
+    const requiresSelection =
+      productKindRequiresSelection(profile.productKind) || profile.requiresSelection;
+    if (requiresSelection && profile.variants.length === 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["variants"],
+        message: productKindRequiresSelection(profile.productKind)
+          ? "Ready-to-wear and teens merchandise needs at least one size or option"
+          : "Add at least one option before requiring a customer selection",
+      });
+    }
+
+    if (
+      profile.sizeGuideUrl &&
+      !profile.sizeGuideUrl.startsWith("/") &&
+      !/^https?:\/\//i.test(profile.sizeGuideUrl)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["sizeGuideUrl"],
+        message: "Size guide URL must begin with /, http://, or https://",
+      });
+    }
+
+    const optionKeys = new Set<string>();
+    const skus = new Set<string>();
+    profile.variants.forEach((variant, index) => {
+      const key = variant.optionKey.toLocaleLowerCase();
+      if (optionKeys.has(key)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["variants", index, "optionKey"],
+          message: "Each option key must be unique",
+        });
+      }
+      optionKeys.add(key);
+
+      const sku = variant.sku?.trim().toLocaleLowerCase();
+      if (sku && skus.has(sku)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["variants", index, "sku"],
+          message: "Each variant SKU must be unique",
+        });
+      }
+      if (sku) skus.add(sku);
+    });
+  });
+
+type CommerceProfileWithVariants = Prisma.ProductCommerceProfileGetPayload<{
+  include: { variants: true };
+}>;
+
+function serializeProfile(profile: CommerceProfileWithVariants | null) {
+  if (!profile) return null;
+
+  return {
+    productKind: profile.productKind,
+    stitchingEligible: profile.stitchingEligible,
+    requiresSelection: profile.requiresSelection,
+    optionLabel: profile.optionLabel || undefined,
+    sizeGuideUrl: profile.sizeGuideUrl || undefined,
+    details: Array.isArray(profile.details) ? profile.details : [],
+    variants: profile.variants.map((variant) => ({
+      id: variant.id,
+      optionKey: variant.optionKey,
+      label: variant.label,
+      sku: variant.sku || undefined,
+      priceAdjustment: Number(variant.priceAdjustment),
+      stockQuantity: variant.stockQuantity,
+      inStock: variant.inStock,
+      isActive: variant.isActive,
+    })),
+  };
+}
+
+function commerceUnavailable() {
+  return NextResponse.json(
+    {
+      error:
+        "Commerce profiles are disabled until the additive catalog rollout is approved.",
+    },
+    { status: 404 }
+  );
+}
+
+export const GET = withLoggedAdminHandler(async (
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) => {
+  try {
+    const access = await requireAdminApiAccess(request);
+    if (!access.ok) return access.response;
+    if (!FEATURE_FLAGS.COMMERCE_PROFILE_V1) return commerceUnavailable();
+
+    const { id: productId } = await params;
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: {
+        commerceProfile: {
+          include: { variants: { orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }] } },
+        },
+      },
+    });
+
+    if (!product) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ profile: serializeProfile(product.commerceProfile) });
+  } catch (error) {
+    console.error("Get commerce profile error:", error);
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
+  }
+});
+
+export const PUT = withLoggedAdminHandler(async (
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) => {
+  try {
+    const access = await requireAdminApiAccess(request);
+    if (!access.ok) return access.response;
+    if (!FEATURE_FLAGS.COMMERCE_PROFILE_V1) return commerceUnavailable();
+
+    const { id: productId } = await params;
+    const parsed = commerceProfileSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.errors[0]?.message || "Invalid profile" }, { status: 400 });
+    }
+
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: {
+        id: true,
+        commerceProfile: { include: { variants: true } },
+      },
+    });
+    if (!product) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    }
+
+    const existingVariantIds = new Set(
+      product.commerceProfile?.variants.map((variant) => variant.id) || []
+    );
+    const unknownVariant = parsed.data.variants.find(
+      (variant) => variant.id && !existingVariantIds.has(variant.id)
+    );
+    if (unknownVariant) {
+      return NextResponse.json(
+        { error: "One of the options no longer belongs to this product. Reload and try again." },
+        { status: 409 }
+      );
+    }
+
+    // Tailoring is a fabric-only workflow. Normalize this on the server so a
+    // crafted admin request cannot enable stitching for readywear, fragrance,
+    // beauty, teens, gifts, or accessories.
+    const data = {
+      ...parsed.data,
+      // Client input must never downgrade ready-to-wear or teens into a
+      // generic product line. This keeps the persisted API contract aligned
+      // with the storefront even for handcrafted admin requests.
+      requiresSelection:
+        productKindRequiresSelection(parsed.data.productKind) || parsed.data.requiresSelection,
+      stitchingEligible:
+        parsed.data.productKind === "UNSTITCHED_FABRIC"
+          ? parsed.data.stitchingEligible
+          : false,
+    };
+    const savedProfile = await prisma.$transaction(async (tx) => {
+      const profile = await tx.productCommerceProfile.upsert({
+        where: { productId },
+        create: {
+          productId,
+          productKind: data.productKind,
+          stitchingEligible: data.stitchingEligible,
+          requiresSelection: data.requiresSelection,
+          optionLabel: data.optionLabel?.trim() || null,
+          sizeGuideUrl: data.sizeGuideUrl?.trim() || null,
+          details: data.details,
+        },
+        update: {
+          productKind: data.productKind,
+          stitchingEligible: data.stitchingEligible,
+          requiresSelection: data.requiresSelection,
+          optionLabel: data.optionLabel?.trim() || null,
+          sizeGuideUrl: data.sizeGuideUrl?.trim() || null,
+          details: data.details,
+        },
+      });
+
+      const retainedVariantIds = data.variants.flatMap((variant) =>
+        variant.id ? [variant.id] : []
+      );
+      // Removed options are archived instead of deleted. Their SKU is cleared
+      // because historic order snapshots already retain it and a replacement
+      // option may legitimately need the same SKU.
+      await tx.productVariant.updateMany({
+        where: {
+          commerceProfileId: profile.id,
+          ...(retainedVariantIds.length ? { id: { notIn: retainedVariantIds } } : {}),
+        },
+        data: { isActive: false, inStock: false, sku: null },
+      });
+
+      for (const [displayOrder, variant] of data.variants.entries()) {
+        const variantData = {
+          optionKey: variant.optionKey.trim(),
+          label: variant.label.trim(),
+          sku: variant.sku?.trim() || null,
+          priceAdjustment: variant.priceAdjustment,
+          stockQuantity: variant.stockQuantity,
+          inStock: variant.inStock,
+          isActive: variant.isActive,
+          displayOrder,
+        };
+
+        if (variant.id) {
+          await tx.productVariant.update({
+            where: { id: variant.id },
+            data: variantData,
+          });
+        } else {
+          await tx.productVariant.create({
+            data: { commerceProfileId: profile.id, ...variantData },
+          });
+        }
+      }
+
+      return tx.productCommerceProfile.findUniqueOrThrow({
+        where: { id: profile.id },
+        include: { variants: { orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }] } },
+      });
+    });
+
+    // Product query helpers cache transformed public cards. Refresh that cache
+    // after the additive profile changes so option/size data is not delayed.
+    revalidateTag("products", { expire: 0 });
+
+    if (access.session.user) {
+      void createAuditLog({
+        userId: access.session.user.id,
+        userEmail: access.session.user.email || undefined,
+        action: "PRODUCT_UPDATED",
+        entity: "ProductCommerceProfile",
+        entityId: savedProfile.id,
+        oldValue: serializeProfile(product.commerceProfile) || undefined,
+        newValue: serializeProfile(savedProfile) || undefined,
+      });
+    }
+
+    return NextResponse.json({ profile: serializeProfile(savedProfile) });
+  } catch (error) {
+    console.error("Save commerce profile error:", error);
+    const { message, status } = sanitizeDbError(error);
+    return NextResponse.json({ error: message }, { status });
+  }
+});

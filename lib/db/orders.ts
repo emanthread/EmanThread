@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { parseProductImages } from "@/lib/utils/parse-images";
+import { FEATURE_FLAGS } from "@/lib/feature-flags";
 import type { Prisma, OrderStatus, PaymentMethod } from "@prisma/client";
 
 // ── Interfaces ──────────────────────────────────────────────────
@@ -8,6 +9,9 @@ export interface OrderItemInput {
   productId: string;
   quantity: number;
   price: number;
+  /** Optional additive product-option ID. Legacy fabric orders omit this. */
+  variantId?: string;
+  selectedOptions?: Array<{ label: string; value: string }>;
 }
 
 export interface ShippingAddressInput {
@@ -32,7 +36,14 @@ export interface CreateOrderInput {
   couponCode?: string;
   grandTotal: number;
   stitchingFee?: number;
-  stitchingItems?: Array<{ productId: string; fabricType: string; stitchingPrice: number }>;
+  stitchingItems?: Array<{
+    productId: string;
+    fabricType: string;
+    priceKey: string;
+    stitchingPrice: number;
+    adminMeasurement?: Record<string, unknown>;
+    stitchingVariantName?: string;
+  }>;
   stitchingDeliveryDate?: Date;
 }
 
@@ -52,6 +63,47 @@ function generateOrderNumber(): string {
   const year = new Date().getFullYear();
   const random = Math.floor(100000 + Math.random() * 900000);
   return `ET-${year}-${random}`;
+}
+
+type ResolvedVariant = {
+  id: string;
+  sku: string | null;
+  label: string;
+  optionLabel: string | null;
+};
+
+type OrderItemOptionSnapshot = {
+  productVariantId: string | null;
+  variantSku: string | null;
+  variantLabel: string | null;
+  selectedOptions: unknown;
+};
+
+/**
+ * Read option history only after the additive table exists. Keeping this in a
+ * small guarded helper makes all existing order history routes safe to deploy
+ * before the migration is applied.
+ */
+async function getOptionSnapshotsByOrderItemId(orderItemIds: string[]) {
+  const snapshots = new Map<string, OrderItemOptionSnapshot>();
+  if (!FEATURE_FLAGS.COMMERCE_PROFILE_V1 || orderItemIds.length === 0) {
+    return snapshots;
+  }
+
+  const configurations = await prisma.orderItemConfiguration.findMany({
+    where: { orderItemId: { in: orderItemIds } },
+    select: {
+      orderItemId: true,
+      productVariantId: true,
+      variantSku: true,
+      variantLabel: true,
+      selectedOptions: true,
+    },
+  });
+  for (const configuration of configurations) {
+    snapshots.set(configuration.orderItemId, configuration);
+  }
+  return snapshots;
 }
 
 // ── Order CRUD ─────────────────────────────────────────────────
@@ -86,17 +138,110 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
       }
     }
 
-    // Verify stock availability for each item
-    for (const item of data.items) {
+    // Resolve and validate each line inside the same transaction that creates
+    // the order. Products without a variant follow the exact legacy stock path.
+    const resolvedVariants: Array<ResolvedVariant | null> = [];
+    const variantQuantityById = new Map<string, number>();
+    const commerceProfileByProductId = new Map<string, { requiresSelection: boolean }>();
+
+    // This is intentionally gated before it references the additive table.
+    // A profile's required option is a server-side rule, not just a UI hint.
+    if (FEATURE_FLAGS.COMMERCE_PROFILE_V1) {
+      const profiles = await tx.productCommerceProfile.findMany({
+        where: { productId: { in: data.items.map((item) => item.productId) } },
+        select: { productId: true, requiresSelection: true },
+      });
+      for (const profile of profiles) {
+        commerceProfileByProductId.set(profile.productId, profile);
+      }
+    }
+
+    for (const [index, item] of data.items.entries()) {
       const product = await tx.product.findUnique({
         where: { id: item.productId },
-        select: { stockQuantity: true, name: true },
+        select: { stockQuantity: true, name: true, price: true },
       });
       if (!product) {
         throw new Error(`Product not found: ${item.productId}`);
       }
+
+      if (item.variantId) {
+        if (!FEATURE_FLAGS.COMMERCE_PROFILE_V1) {
+          throw new Error("Product options are not available yet");
+        }
+
+        const variant = await tx.productVariant.findUnique({
+          where: { id: item.variantId },
+          select: {
+            id: true,
+            sku: true,
+            label: true,
+            priceAdjustment: true,
+            stockQuantity: true,
+            inStock: true,
+            isActive: true,
+            commerceProfile: {
+              select: {
+                productId: true,
+                optionLabel: true,
+              },
+            },
+          },
+        });
+
+        if (!variant || variant.commerceProfile.productId !== item.productId) {
+          throw new Error(`Selected option is not available for ${product.name}`);
+        }
+        if (!variant.isActive || !variant.inStock) {
+          throw new Error(`Selected option is out of stock for ${product.name}`);
+        }
+
+        const expectedPrice = Number(product.price) + Number(variant.priceAdjustment);
+        if (Math.abs(expectedPrice - item.price) > 0.01) {
+          throw new Error(`Price mismatch for product ${product.name}`);
+        }
+
+        const totalVariantQuantity = (variantQuantityById.get(variant.id) ?? 0) + item.quantity;
+        if (variant.stockQuantity < totalVariantQuantity) {
+          throw new Error(`Insufficient stock for selected option of ${product.name}. Available: ${variant.stockQuantity}`);
+        }
+        variantQuantityById.set(variant.id, totalVariantQuantity);
+        resolvedVariants[index] = {
+          id: variant.id,
+          sku: variant.sku,
+          label: variant.label,
+          optionLabel: variant.commerceProfile.optionLabel,
+        };
+        continue;
+      }
+
+      if (commerceProfileByProductId.get(item.productId)?.requiresSelection) {
+        throw new Error(`Please choose an option for ${product.name}`);
+      }
+
       if (product.stockQuantity < item.quantity) {
         throw new Error(`Insufficient stock for ${product.name}. Available: ${product.stockQuantity}`);
+      }
+      resolvedVariants[index] = null;
+    }
+
+    // New profiles can explicitly disable tailoring. This lookup is entirely
+    // behind the flag so pre-migration production never touches new tables.
+    if (FEATURE_FLAGS.COMMERCE_PROFILE_V1 && data.stitchingItems?.length) {
+      const profiles = await tx.productCommerceProfile.findMany({
+        where: { productId: { in: data.stitchingItems.map((item) => item.productId) } },
+        select: { productId: true, productKind: true, stitchingEligible: true },
+      });
+      const disallowedIds = new Set(
+        profiles
+          .filter(
+            (profile) =>
+              profile.productKind !== "UNSTITCHED_FABRIC" || !profile.stitchingEligible,
+          )
+          .map((profile) => profile.productId),
+      );
+      if (data.stitchingItems.some((item) => disallowedIds.has(item.productId))) {
+        throw new Error("Stitching is not available for one or more selected products");
       }
     }
 
@@ -117,21 +262,82 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
         stitchingFee: data.stitchingFee ?? 0,
         stitchingDeliveryDate: data.stitchingDeliveryDate ?? null,
         stitchingSnapshots: data.stitchingItems ? JSON.parse(JSON.stringify(data.stitchingItems)) : null,
-        items: {
-          create: data.items.map((item) => ({
+      },
+    });
+
+    // Create each line explicitly so its immutable option snapshot is tied to
+    // the exact OrderItem even when a product appears in more than one line.
+    const createdItems = await Promise.all(
+      data.items.map((item) =>
+        tx.orderItem.create({
+          data: {
+            orderId: created.id,
             productId: item.productId,
             quantity: item.quantity,
             priceAtTimeOfPurchase: item.price,
-          })),
-        },
-      },
-      include: { items: { include: { product: { select: { name: true, images: true, sku: true } } } } },
-    });
+          },
+        }),
+      ),
+    );
+
+    if (FEATURE_FLAGS.COMMERCE_PROFILE_V1) {
+      await Promise.all(
+        createdItems.flatMap((orderItem, index) => {
+          const variant = resolvedVariants[index];
+          if (!variant) return [];
+          // The server, not browser storage, determines the option snapshot.
+          const selectedOptions = [
+            {
+              label: variant.optionLabel?.trim() || "Option",
+              value: variant.label,
+            },
+          ];
+          return tx.orderItemConfiguration.create({
+            data: {
+              orderItemId: orderItem.id,
+              productVariantId: variant.id,
+              variantSku: variant.sku,
+              variantLabel: variant.label,
+              selectedOptions: JSON.parse(JSON.stringify(selectedOptions)) as Prisma.InputJsonValue,
+            },
+          });
+        }),
+      );
+    }
 
     // Deduct stock for each product (skip when awaiting manual payment verification)
     // Also marks product as out of stock if stock reaches 0
     if (!skipStockDeduction) {
-      for (const item of data.items) {
+      for (const [index, item] of data.items.entries()) {
+        const variant = resolvedVariants[index];
+        if (variant) {
+          const deducted = await tx.productVariant.updateMany({
+            where: {
+              id: variant.id,
+              isActive: true,
+              inStock: true,
+              stockQuantity: { gte: item.quantity },
+            },
+            data: { stockQuantity: { decrement: item.quantity } },
+          });
+          if (deducted.count === 0) {
+            throw new Error(`Insufficient stock for selected option ${variant.label}`);
+          }
+          const updatedVariant = await tx.productVariant.findUnique({
+            where: { id: variant.id },
+            select: { stockQuantity: true },
+          });
+          if (updatedVariant && updatedVariant.stockQuantity <= 0) {
+            await tx.productVariant.update({
+              where: { id: variant.id },
+              data: { inStock: false },
+            });
+          }
+          // Variant inventory deliberately does not mutate the legacy Product
+          // quantity. This keeps existing listings and stock reports intact.
+          continue;
+        }
+
         const deducted = await tx.product.updateMany({
           where: {
             id: item.productId,
@@ -185,6 +391,9 @@ export async function getOrdersByUser(userId: string) {
     },
     orderBy: { createdAt: "desc" },
   });
+  const optionSnapshots = await getOptionSnapshotsByOrderItemId(
+    orders.flatMap((order) => order.items.map((item) => item.id)),
+  );
 
   return orders.map((order) => ({
     id: order.id,
@@ -203,15 +412,21 @@ export async function getOrdersByUser(userId: string) {
     total: Number(order.grandTotal),
     paymentMethod: order.paymentMethod,
     notes: order.notes || null,
-    items: order.items.map((item) => ({
-      id: item.id,
-      name: item.product?.name || "Unknown Product",
-      image: item.product?.images
-        ? parseProductImages(item.product.images)[0] || "/placeholder.jpg"
-        : "/placeholder.jpg",
-      quantity: item.quantity,
-      price: Number(item.priceAtTimeOfPurchase),
-    })),
+    items: order.items.map((item) => {
+      const optionSnapshot = optionSnapshots.get(item.id);
+      return {
+        id: item.id,
+        name: item.product?.name || "Unknown Product",
+        image: item.product?.images
+          ? parseProductImages(item.product.images)[0] || "/placeholder.jpg"
+          : "/placeholder.jpg",
+        quantity: item.quantity,
+        price: Number(item.priceAtTimeOfPurchase),
+        ...(optionSnapshot?.variantLabel ? { variantLabel: optionSnapshot.variantLabel } : {}),
+        ...(optionSnapshot?.variantSku ? { variantSku: optionSnapshot.variantSku } : {}),
+        ...(optionSnapshot?.selectedOptions ? { selectedOptions: optionSnapshot.selectedOptions } : {}),
+      };
+    }),
     measurements: (order.itemMeasurements || []).map((m) => ({
       id: m.id,
       productId: m.productId,
@@ -234,6 +449,7 @@ export async function getOrderById(id: string) {
   });
 
   if (!order) return null;
+  const optionSnapshots = await getOptionSnapshotsByOrderItemId(order.items.map((item) => item.id));
 
   return {
     id: order.id,
@@ -248,15 +464,21 @@ export async function getOrderById(id: string) {
     total: Number(order.grandTotal),
     paymentMethod: order.paymentMethod,
     notes: order.notes || null,
-    items: order.items.map((item) => ({
-      id: item.id,
-      name: item.product?.name || "Unknown Product",
-      image: item.product?.images
-        ? parseProductImages(item.product.images)[0] || "/placeholder.jpg"
-        : "/placeholder.jpg",
-      quantity: item.quantity,
-      price: Number(item.priceAtTimeOfPurchase),
-    })),
+    items: order.items.map((item) => {
+      const optionSnapshot = optionSnapshots.get(item.id);
+      return {
+        id: item.id,
+        name: item.product?.name || "Unknown Product",
+        image: item.product?.images
+          ? parseProductImages(item.product.images)[0] || "/placeholder.jpg"
+          : "/placeholder.jpg",
+        quantity: item.quantity,
+        price: Number(item.priceAtTimeOfPurchase),
+        ...(optionSnapshot?.variantLabel ? { variantLabel: optionSnapshot.variantLabel } : {}),
+        ...(optionSnapshot?.variantSku ? { variantSku: optionSnapshot.variantSku } : {}),
+        ...(optionSnapshot?.selectedOptions ? { selectedOptions: optionSnapshot.selectedOptions } : {}),
+      };
+    }),
   };
 }
 
@@ -306,6 +528,7 @@ export async function getAdminOrders(options: {
         user: { select: { id: true, name: true, email: true, phone: true } },
         items: {
           select: {
+            id: true,
             productId: true,
             quantity: true,
             priceAtTimeOfPurchase: true,
@@ -319,6 +542,9 @@ export async function getAdminOrders(options: {
     }),
     prisma.order.count({ where }),
   ]);
+  const optionSnapshots = await getOptionSnapshotsByOrderItemId(
+    orders.flatMap((order) => order.items.map((item) => item.id)),
+  );
 
   return {
     orders: orders.map((order) => ({
@@ -340,16 +566,21 @@ export async function getAdminOrders(options: {
             postalCode: (order.shippingAddress as ShippingAddressJson).postalCode || "",
           }
         : { address: "", city: "", province: "", postalCode: "" },
-      items: order.items.map((item) => ({
-        productId: item.productId,
-        productName: item.product?.name || "Unknown Product",
-        productImage: item.product?.images
-          ? parseProductImages(item.product.images)[0] || "/placeholder.jpg"
-          : "/placeholder.jpg",
-        quantity: item.quantity,
-        price: Number(item.priceAtTimeOfPurchase),
-        sku: item.product?.sku || "N/A",
-      })),
+      items: order.items.map((item) => {
+        const optionSnapshot = optionSnapshots.get(item.id);
+        return {
+          productId: item.productId,
+          productName: item.product?.name || "Unknown Product",
+          productImage: item.product?.images
+            ? parseProductImages(item.product.images)[0] || "/placeholder.jpg"
+            : "/placeholder.jpg",
+          quantity: item.quantity,
+          price: Number(item.priceAtTimeOfPurchase),
+          sku: optionSnapshot?.variantSku || item.product?.sku || "N/A",
+          ...(optionSnapshot?.variantLabel ? { variantLabel: optionSnapshot.variantLabel } : {}),
+          ...(optionSnapshot?.selectedOptions ? { selectedOptions: optionSnapshot.selectedOptions } : {}),
+        };
+      }),
       subtotal: Number(order.subtotal),
       shippingCost: Number(order.shippingCost),
       stitchingFee: Number(order.stitchingFee),
@@ -419,7 +650,34 @@ export async function updateOrderStatus(id: string, status: string) {
       status === "CANCELLED" && updated.paymentStatus !== "PENDING_VERIFICATION";
 
     if (shouldRestoreStock) {
+      const variantByOrderItemId = new Map<string, string>();
+      if (FEATURE_FLAGS.COMMERCE_PROFILE_V1 && updated.items.length > 0) {
+        const configurations = await tx.orderItemConfiguration.findMany({
+          where: { orderItemId: { in: updated.items.map((item) => item.id) } },
+          select: { orderItemId: true, productVariantId: true },
+        });
+        for (const configuration of configurations) {
+          if (configuration.productVariantId) {
+            variantByOrderItemId.set(configuration.orderItemId, configuration.productVariantId);
+          }
+        }
+      }
+
       for (const item of updated.items) {
+        const variantId = variantByOrderItemId.get(item.id);
+        if (variantId) {
+          // Historical configurations intentionally have no FK, so a retired
+          // variant simply cannot be restocked rather than breaking cancel.
+          await tx.productVariant.updateMany({
+            where: { id: variantId },
+            data: {
+              stockQuantity: { increment: item.quantity },
+              inStock: true,
+            },
+          });
+          continue;
+        }
+
         await tx.product.update({
           where: { id: item.productId },
           data: {

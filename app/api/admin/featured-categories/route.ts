@@ -3,8 +3,17 @@ import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { withLoggedAdminHandler } from "@/lib/logger";
 import { auth } from "@/auth";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 export const dynamic = "force-dynamic";
+
+const FEATURED_CATEGORIES_V2_KEY = "featured_categories_v2";
+const FEATURED_CATEGORIES_LEGACY_KEY = "featured_categories";
+const DEFAULT_SECTION_COPY = {
+  eyebrow: "Our Collections",
+  title: "Shop by Category",
+  description: "Explore a curated selection for every style, occasion, and discovery.",
+};
 
 async function checkAdmin() {
   const session = await auth();
@@ -17,15 +26,62 @@ async function checkAdmin() {
   return true;
 }
 
+const optionalText = (fallback = "") =>
+  z.preprocess(
+    (value) => (value == null ? undefined : value),
+    z.coerce.string().optional().default(fallback)
+  );
+
 const featuredCategorySchema = z.object({
-  id: z.coerce.string().optional().default(""),
-  name: z.coerce.string().optional().default(""),
-  description: z.coerce.string().nullable().optional().default(""),
-  image: z.coerce.string().optional().default(""),
+  id: optionalText(),
+  name: optionalText(),
+  description: optionalText(),
+  image: optionalText(),
   productCount: z.coerce.number().optional().default(0),
+  href: optionalText()
+    .refine(
+      (value) => !value || (value.startsWith("/") && !value.startsWith("//")),
+      "Destination must be a site-relative path, such as /women or /shop?category=readywear"
+    ),
 });
 
 const arraySchema = z.array(featuredCategorySchema);
+const sectionSchema = z.object({
+  eyebrow: optionalText(DEFAULT_SECTION_COPY.eyebrow),
+  title: optionalText(DEFAULT_SECTION_COPY.title),
+  description: optionalText(DEFAULT_SECTION_COPY.description),
+  categories: arraySchema,
+});
+
+function parseSection(value: string) {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    const record =
+      parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : null;
+    const normalized = record
+      ? {
+          ...record,
+          categories: record.categories ?? record.cards,
+        }
+      : parsed;
+    const result = sectionSchema.safeParse(normalized);
+    return result.success && result.data.categories.length > 0 ? result.data : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseLegacyCategories(value: string) {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    const result = arraySchema.safeParse(parsed);
+    return result.success ? result.data : [];
+  } catch {
+    return [];
+  }
+}
 
 export const GET = withLoggedAdminHandler(async () => {
   try {
@@ -33,20 +89,24 @@ export const GET = withLoggedAdminHandler(async () => {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const row = await prisma.storeConfig.findUnique({
-      where: { key: "featured_categories" },
+    const v2Row = await prisma.storeConfig.findUnique({
+      where: { key: FEATURED_CATEGORIES_V2_KEY },
     });
-
-    if (!row) {
-      return NextResponse.json({ categories: [] });
+    const v2 = v2Row ? parseSection(v2Row.value) : null;
+    if (v2) {
+      return NextResponse.json({ ...v2, source: "v2" });
     }
 
-    try {
-      const categories = JSON.parse(row.value);
-      return NextResponse.json({ categories });
-    } catch {
-      return NextResponse.json({ categories: [] });
-    }
+    const legacyRow = await prisma.storeConfig.findUnique({
+      where: { key: FEATURED_CATEGORIES_LEGACY_KEY },
+    });
+    const categories = legacyRow ? parseLegacyCategories(legacyRow.value) : [];
+
+    return NextResponse.json({
+      ...DEFAULT_SECTION_COPY,
+      categories,
+      source: categories.length > 0 ? "legacy" : "default",
+    });
   } catch (error) {
     console.error("Get featured categories error:", error);
     return NextResponse.json({ error: "Failed to fetch featured categories" }, { status: 500 });
@@ -60,20 +120,29 @@ export const PUT = withLoggedAdminHandler(async (req: Request) => {
     }
 
     const body = await req.json();
-    const { categories } = body;
-
-    const parsedCategories = arraySchema.parse(categories || []);
+    const parsedSection = sectionSchema.parse({
+      eyebrow: body.eyebrow,
+      title: body.title,
+      description: body.description,
+      categories: body.categories || [],
+    });
 
     await prisma.storeConfig.upsert({
-      where: { key: "featured_categories" },
-      update: { value: JSON.stringify(parsedCategories) },
+      where: { key: FEATURED_CATEGORIES_V2_KEY },
+      update: { value: JSON.stringify(parsedSection) },
       create: {
-        key: "featured_categories",
-        value: JSON.stringify(parsedCategories),
+        key: FEATURED_CATEGORIES_V2_KEY,
+        value: JSON.stringify(parsedSection),
       },
     });
 
-    return NextResponse.json({ success: true });
+    // The home page is ISR-cached and the helpers share these cache tags.
+    revalidateTag("featured-categories", "max");
+    revalidateTag("categories", "max");
+    revalidatePath("/", "page");
+    revalidatePath("/shop", "page");
+
+    return NextResponse.json({ success: true, ...parsedSection, source: "v2" });
   } catch (error) {
     console.error("Update featured categories error:", error);
     return NextResponse.json(

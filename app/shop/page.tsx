@@ -1,5 +1,8 @@
 import { Suspense } from "react";
 import { getFilteredProducts, getAllCategories, getDistinctColors } from "@/lib/db-queries";
+import { getCatalogPageData, type CatalogSort } from "@/lib/db/catalog";
+import { getActiveShopCatalogOptions } from "@/lib/db/shop-catalog-options";
+import { isShopCatalogPath } from "@/lib/shop-catalog-options";
 import { ShopContent } from "./shop-client";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://emaanthreads.com";
@@ -41,10 +44,62 @@ export default async function ShopPage({ searchParams }: { searchParams: ShopSea
   const search = typeof params.search === "string" ? params.search : undefined;
   const color = typeof params.color === "string" ? params.color : undefined;
   const season = typeof params.season === "string" ? params.season : undefined;
+  const requestedCatalogPath =
+    typeof params.catalogPath === "string" && isShopCatalogPath(params.catalogPath)
+      ? params.catalogPath
+      : undefined;
 
-  // Fetch initial data in parallel on the server
-  const [data, categories, colors] = await Promise.all([
-    getFilteredProducts({
+  // Load the existing filters/options first. The legacy /shop query remains
+  // the default; an explicit catalogPath switches only that request to the
+  // additive assignment table.
+  const [categories, colors, catalogOptions] = await Promise.all([
+    getAllCategories(),
+    getDistinctColors(),
+    getActiveShopCatalogOptions(),
+  ]);
+
+  // Do not let an allow-listed-but-unpublished static path opt a shopper out
+  // of the legacy listing. The client receives this same confirmed list.
+  const confirmedCatalogPath =
+    requestedCatalogPath &&
+    catalogOptions.some((option) => option.path === requestedCatalogPath)
+      ? requestedCatalogPath
+      : undefined;
+
+  // Pass raw values through to the catalog helper. It uses the same legacy
+  // alias-to-fabricType resolver as /shop (for example, "wash-wear").
+  const categoryIds = (category || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .slice(0, 25);
+
+  const catalogSort: CatalogSort =
+    sort === "newest" ||
+    sort === "trending" ||
+    sort === "price-asc" ||
+    sort === "price-desc" ||
+    sort === "name-asc"
+      ? sort
+      : "featured";
+
+  const catalogData = confirmedCatalogPath
+    ? await getCatalogPageData(confirmedCatalogPath, {
+        categoryIds,
+        minPrice,
+        maxPrice,
+        sort: catalogSort,
+        search,
+        color,
+        season,
+        page: 1,
+        pageSize: 20,
+      })
+    : null;
+
+  const data =
+    catalogData ||
+    (await getFilteredProducts({
       category,
       minPrice,
       maxPrice,
@@ -53,11 +108,8 @@ export default async function ShopPage({ searchParams }: { searchParams: ShopSea
       color,
       season,
       page: 1,
-      limit: 20
-    }),
-    getAllCategories(),
-    getDistinctColors(),
-  ]);
+      limit: 20,
+    }));
 
   return (
     <>
@@ -71,6 +123,15 @@ export default async function ShopPage({ searchParams }: { searchParams: ShopSea
           initialCategories={categories}
           initialColors={colors}
           initialSeasons={SEASONS}
+          catalogOptions={
+            catalogData || !confirmedCatalogPath
+              ? catalogOptions
+              : catalogOptions.filter(
+                  (option) => option.path !== confirmedCatalogPath
+                )
+          }
+          initialCatalogPath={catalogData ? confirmedCatalogPath : undefined}
+          initialHasMore={catalogData ? catalogData.hasNextPage : data.products.length === 20}
         />
       </Suspense>
     </>

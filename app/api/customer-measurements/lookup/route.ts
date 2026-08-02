@@ -1,21 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/auth'
 import { prisma } from '@/lib/db'
+import { isAdminRole } from '@/lib/permissions'
 
 export const dynamic = 'force-dynamic'
+
+function normalizePhone(value: string | null | undefined) {
+  const digits = (value ?? '').replace(/\D/g, '')
+  if (digits.length === 14 && digits.startsWith('0092')) return `0${digits.slice(4)}`
+  if (digits.length === 12 && digits.startsWith('92')) return `0${digits.slice(2)}`
+  if (digits.length === 10 && digits.startsWith('3')) return `0${digits}`
+  return digits
+}
 
 /**
  * GET /api/customer-measurements/lookup?phone=XXXX
  *
- * Public endpoint — no auth required.
- * Returns all admin-stored measurement records for the given phone number.
+ * Authenticated endpoint. Customers can retrieve only records matching the
+ * phone saved on their own account; admins may search by phone.
  * Only safe fields are exposed (no admin notes, no internal metadata).
  */
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
-  const phone = searchParams.get('phone')?.trim()
+  const session = await auth()
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
-  if (!phone || phone.length < 7) {
+  const { searchParams } = new URL(req.url)
+  const phone = searchParams.get('phone')?.trim() ?? ''
+  const normalizedPhone = normalizePhone(phone)
+
+  if (!normalizedPhone || normalizedPhone.length < 7) {
     return NextResponse.json({ records: [] })
+  }
+
+  if (!isAdminRole(session.user.role ?? '')) {
+    const account = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { phone: true },
+    })
+    const accountPhone = normalizePhone(account?.phone)
+
+    if (!accountPhone || accountPhone !== normalizedPhone) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
   }
 
   // Exact phone match (not partial — prevents fishing for all customers)

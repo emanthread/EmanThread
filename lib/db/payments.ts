@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { FEATURE_FLAGS } from "@/lib/feature-flags";
 
 // ── Payment Transaction helpers ───────────────────────────────────
 
@@ -310,6 +311,22 @@ export async function verifyManualPayment(
     });
     if (!submission) throw new Error('Submission not found');
 
+    // Only query option snapshots after the additive commerce migration has
+    // explicitly been enabled. Old manual-payment orders stay byte-for-byte on
+    // the Product stock path below.
+    const variantByOrderItemId = new Map<string, string>();
+    if (FEATURE_FLAGS.COMMERCE_PROFILE_V1 && submission.order.items.length > 0) {
+      const configurations = await tx.orderItemConfiguration.findMany({
+        where: { orderItemId: { in: submission.order.items.map((item) => item.id) } },
+        select: { orderItemId: true, productVariantId: true },
+      });
+      for (const configuration of configurations) {
+        if (configuration.productVariantId) {
+          variantByOrderItemId.set(configuration.orderItemId, configuration.productVariantId);
+        }
+      }
+    }
+
     const orderUpdate = await tx.order.updateMany({
       where: {
         id: submission.orderId,
@@ -326,6 +343,31 @@ export async function verifyManualPayment(
     }
 
     for (const item of submission.order.items) {
+      const variantId = variantByOrderItemId.get(item.id);
+      if (variantId) {
+        const deducted = await tx.productVariant.updateMany({
+          where: {
+            id: variantId,
+            stockQuantity: { gte: item.quantity },
+          },
+          data: { stockQuantity: { decrement: item.quantity } },
+        });
+        if (deducted.count === 0) {
+          throw new Error(`Insufficient stock for selected option ${variantId}`);
+        }
+        const variant = await tx.productVariant.findUnique({
+          where: { id: variantId },
+          select: { stockQuantity: true },
+        });
+        if (variant && variant.stockQuantity <= 0) {
+          await tx.productVariant.update({
+            where: { id: variantId },
+            data: { inStock: false },
+          });
+        }
+        continue;
+      }
+
       const deducted = await tx.product.updateMany({
         where: {
           id: item.productId,

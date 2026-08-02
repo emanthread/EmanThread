@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound, useRouter } from "next/navigation";
@@ -8,6 +8,7 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { CartDrawer } from "@/components/cart/cart-drawer";
 import { ProductCard } from "@/components/product/product-card";
+import { ProductOptionPicker } from "@/components/product/product-option-picker";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -21,12 +22,22 @@ import { getProductImage } from "@/lib/utils";
 import { useCartStore } from "@/lib/cart-store";
 import { useWishlistStore } from "@/lib/wishlist-store";
 import { useAuthStore } from "@/lib/auth-store";
-import { formatPrice, type Product } from "@/lib/data";
+import { formatPrice, type Product, type ProductVariant } from "@/lib/data";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Ruler } from "lucide-react";
 import { DEFAULT_STITCHING_FEE } from "@/lib/feature-flags";
+import {
+  getActiveVariants,
+  getVariantUnitPrice,
+  hasUnavailableRequiredSelection,
+  isProductAvailableForPurchase,
+  isProductStitchingEligible,
+  isVariantAvailable,
+  productOptionForVariant,
+  requiresVariantSelectionForPurchase,
+} from "@/lib/commerce";
 import { cn } from "@/lib/utils";
-import { buildWhatsAppUrl, fetchWhatsAppNumber, normalizeWhatsAppNumber } from "@/lib/whatsapp-utils";
+import { buildWhatsAppUrl, fetchWhatsAppNumber } from "@/lib/whatsapp-utils";
 import { ProductFlashSaleBadge } from "@/app/components/flash-sale-banner";
 import {
   Plus,
@@ -35,8 +46,8 @@ import {
   Truck,
   RotateCcw,
   Shield,
+  ChevronLeft,
   ChevronRight,
-  MessageCircle,
   Play,
 } from "lucide-react";
 
@@ -46,6 +57,24 @@ interface ProductPageClientProps {
   frequentlyBought: Product[];
   youMayAlsoLike: Product[];
 }
+
+type CartSelection = {
+  variant: {
+    id: string;
+    label: string;
+    sku?: string;
+    priceAdjustment: number;
+  };
+  selectedOptions: Array<{ label: string; value: string }>;
+  unitPrice: number;
+};
+
+type AddItemWithSelection = (
+  item: Product,
+  itemQuantity?: number,
+  stitchingOptions?: { price: number; profileId: string; profileName: string },
+  selection?: CartSelection
+) => void;
 
 export default function ProductPageClient({
   product,
@@ -165,16 +194,44 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
   const [selectedMeasurement, setSelectedMeasurement] = useState("none");
   const [stitchingPriceMap, setStitchingPriceMap] = useState<Record<string, number>>({});
   const [measurementProfiles, setMeasurementProfiles] = useState<Array<{ id: string; profileName: string; garmentType: string }>>([]);
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+  const [isOptionPickerOpen, setIsOptionPickerOpen] = useState(false);
+  const [optionError, setOptionError] = useState(false);
+  const touchStartX = useRef<number | null>(null);
   const router = useRouter();
   const { addItem } = useCartStore();
-  const { toggleItem, isInWishlist } = useWishlistStore();
+  const { toggleItem, isInWishlist, isIdentityResolved } = useWishlistStore();
   const { isAuthenticated } = useAuthStore();
+  const productImages = product.images.length > 0 ? product.images : [getProductImage(product.images)];
+  const activeVariants = getActiveVariants(product);
+  const selectedVariant = activeVariants.find((variant) => variant.id === selectedVariantId) ?? null;
+  const hasOptions = Boolean(product.commerce && (activeVariants.length > 0 || product.commerce.requiresSelection));
+  const selectionRequired = requiresVariantSelectionForPurchase(product);
+  const requiredSelectionUnavailable = hasUnavailableRequiredSelection(product);
+  const productAvailable = isProductAvailableForPurchase(product);
+  const displayedPrice = getVariantUnitPrice(product, selectedVariant);
+  const displayedOriginalPrice = product.originalPrice
+    ? product.originalPrice + (selectedVariant?.priceAdjustment ?? 0)
+    : undefined;
+  // Missing metadata deliberately preserves the existing fabric behaviour.
+  const supportsStitching = isProductStitchingEligible(product);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const inWishlist = mounted && isInWishlist(product.id);
+  useEffect(() => {
+    setSelectedImage(0);
+    setIsVideoSelected(false);
+    setIsZoomed(false);
+    setSelectedVariantId(null);
+    setIsOptionPickerOpen(false);
+    setOptionError(false);
+    setSelectedMeasurement("none");
+  }, [product.id]);
+
+  const wishlistReady = mounted && isIdentityResolved;
+  const inWishlist = wishlistReady && isInWishlist(product.id);
 
   useEffect(() => {
     let cancelled = false;
@@ -186,8 +243,14 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
 
 
 
-  // Fetch stitching prices & measurement profiles on mount
+  // Fetch stitching data only for products that still offer fabric stitching.
   useEffect(() => {
+    if (!supportsStitching) {
+      setMeasurementProfiles([]);
+      setStitchingPriceMap({});
+      return;
+    }
+
     fetch("/api/stitching-prices")
       .then((r) => r.json())
       .then((data) => {
@@ -210,42 +273,59 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
         })
         .catch(() => {});
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, supportsStitching]);
 
   // Get stitching price for this product's fabric type
   const productStitchingPrice = stitchingPriceMap[(product.fabricType || "").toLowerCase()] ?? DEFAULT_STITCHING_FEE;
-  const hasStitchingSelected = selectedMeasurement !== "none" && selectedMeasurement !== "";
+  const hasStitchingSelected = supportsStitching && selectedMeasurement !== "none" && selectedMeasurement !== "";
 
   // Get the selected profile name
   const selectedProfileName = hasStitchingSelected
     ? (measurementProfiles.find((p) => p.id === selectedMeasurement)?.profileName ?? "Stitching Required")
     : "";
 
-  const handleAddToCart = () => {
-    if (hasStitchingSelected) {
-      addItem(product, quantity, {
-        price: productStitchingPrice,
-        profileId: selectedMeasurement,
-        profileName: selectedProfileName,
-      });
-    } else {
-      addItem(product, quantity);
+  const addConfiguredItem = () => {
+    if (!productAvailable) return false;
+
+    if (selectionRequired && (!selectedVariant || !isVariantAvailable(selectedVariant))) {
+      setIsOptionPickerOpen(true);
+      setOptionError(true);
+      return false;
     }
+
+    const selection: CartSelection | undefined = selectedVariant
+      ? {
+          variant: {
+            id: selectedVariant.id,
+            label: selectedVariant.label,
+            sku: selectedVariant.sku,
+            priceAdjustment: selectedVariant.priceAdjustment,
+          },
+          selectedOptions: [productOptionForVariant(product, selectedVariant)],
+          unitPrice: displayedPrice,
+        }
+      : undefined;
+    const stitchingOptions = hasStitchingSelected
+      ? {
+          price: productStitchingPrice,
+          profileId: selectedMeasurement,
+          profileName: selectedProfileName,
+        }
+      : undefined;
+
+    (addItem as AddItemWithSelection)(product, quantity, stitchingOptions, selection);
     setQuantity(1);
+    return true;
+  };
+
+  const handleAddToCart = () => {
+    addConfiguredItem();
   };
 
   const handleBuyNow = () => {
-    if (hasStitchingSelected) {
-      addItem(product, quantity, {
-        price: productStitchingPrice,
-        profileId: selectedMeasurement,
-        profileName: selectedProfileName,
-      });
-    } else {
-      addItem(product, quantity);
+    if (addConfiguredItem()) {
+      router.push("/checkout");
     }
-    setQuantity(1);
-    router.push('/checkout');
   };
 
   const handleWhatsAppShare = async () => {
@@ -269,6 +349,30 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
     setZoomPosition({ x, y });
   };
 
+  const showGalleryImage = (direction: -1 | 1) => {
+    setSelectedImage((current) => (
+      (current + direction + productImages.length) % productImages.length
+    ));
+    setIsVideoSelected(false);
+    setIsZoomed(false);
+  };
+
+  const handleGalleryPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "touch" && !isVideoSelected && !(event.target as HTMLElement).closest("button")) {
+      touchStartX.current = event.clientX;
+    }
+  };
+
+  const handleGalleryPointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== "touch" || touchStartX.current === null) return;
+
+    const distance = event.clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(distance) < 36 || productImages.length < 2) return;
+
+    showGalleryImage(distance > 0 ? -1 : 1);
+  };
+
   const badgeVariants: Record<string, string> = {
     New: "bg-emerald-600 text-white",
     Trending: "bg-accent text-accent-foreground",
@@ -282,10 +386,15 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
       {/* Image Gallery */}
       <div className="space-y-4">
         <div
-          className="relative aspect-[2/3] bg-secondary overflow-hidden rounded-2xl shadow-lg cursor-zoom-in"
+          className="group relative aspect-[2/3] touch-pan-y bg-secondary overflow-hidden rounded-2xl shadow-lg cursor-zoom-in"
           onMouseEnter={() => !isVideoSelected && setIsZoomed(true)}
           onMouseLeave={() => setIsZoomed(false)}
           onMouseMove={handleMouseMove}
+          onPointerDown={handleGalleryPointerDown}
+          onPointerUp={handleGalleryPointerEnd}
+          onPointerCancel={() => {
+            touchStartX.current = null;
+          }}
         >
           {isVideoSelected && product.videoUrl ? (
             <video
@@ -296,7 +405,7 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
             />
           ) : (
             <Image
-              src={product.images[selectedImage]}
+              src={productImages[selectedImage]}
               alt={product.name}
               fill
               priority
@@ -322,10 +431,41 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
               {product.badge}
             </Badge>
           )}
+          {productImages.length > 1 && (
+            <>
+              <button
+                type="button"
+                aria-label="Show previous product image"
+                className="absolute left-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-background/90 p-2 text-foreground opacity-100 shadow-sm backdrop-blur-sm transition hover:bg-background lg:opacity-0 lg:group-hover:opacity-100"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  showGalleryImage(-1);
+                }}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                aria-label="Show next product image"
+                className="absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-background/90 p-2 text-foreground opacity-100 shadow-sm backdrop-blur-sm transition hover:bg-background lg:opacity-0 lg:group-hover:opacity-100"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  showGalleryImage(1);
+                }}
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+              <span className="sr-only" aria-live="polite">
+                Image {selectedImage + 1} of {productImages.length}
+              </span>
+            </>
+          )}
         </div>
 
         <div className="flex gap-3">
-          {product.images.map((image, index) => (
+          {productImages.map((image, index) => (
             <button
               key={index}
               onClick={() => {
@@ -391,14 +531,14 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
           </h1>
           <ProductDetailFlashSale />
           <div className="flex items-center gap-3">
-            <span className="text-3xl font-bold">{formatPrice(product.price)}</span>
-            {product.originalPrice && (
+            <span className="text-3xl font-bold">{formatPrice(displayedPrice)}</span>
+            {displayedOriginalPrice && (
               <>
                 <span className="text-xl text-muted-foreground line-through">
-                  {formatPrice(product.originalPrice)}
+                  {formatPrice(displayedOriginalPrice)}
                 </span>
                 <Badge variant="secondary" className="text-emerald-600">
-                  {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% Off
+                  {Math.round(((displayedOriginalPrice - displayedPrice) / displayedOriginalPrice) * 100)}% Off
                 </Badge>
               </>
             )}
@@ -435,8 +575,53 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
               )}
             </div>
           </div>
+          {hasOptions && (
+            <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
+              {requiredSelectionUnavailable ? (
+                <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
+                  No {product.commerce?.optionLabel?.trim() || "options"} are available right now. This item cannot be ordered until one is restocked.
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex w-full items-center justify-between gap-3 text-left text-sm font-semibold",
+                      optionError && "text-destructive"
+                    )}
+                    aria-expanded={isOptionPickerOpen}
+                    onClick={() => {
+                      setIsOptionPickerOpen((open) => !open);
+                      setOptionError(false);
+                    }}
+                  >
+                    <span>
+                      {selectedVariant
+                        ? `${product.commerce?.optionLabel?.trim() || "Option"}: ${selectedVariant.label}`
+                        : `Choose ${product.commerce?.optionLabel?.trim() || "option"}${selectionRequired ? " *" : ""}`}
+                    </span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {isOptionPickerOpen ? "Close" : "Select"}
+                    </span>
+                  </button>
+                  {isOptionPickerOpen && (
+                    <ProductOptionPicker
+                      product={product}
+                      selectedVariantId={selectedVariantId}
+                      onSelect={(variant: ProductVariant) => {
+                        setSelectedVariantId(variant.id);
+                        setOptionError(false);
+                      }}
+                      invalid={optionError}
+                      className="mt-3 animate-in fade-in slide-in-from-top-1 duration-200"
+                    />
+                  )}
+                </>
+              )}
+            </div>
+          )}
           {/* Stitching Service Selector */}
-          <div className="bg-secondary/30 rounded-lg border border-border/60 p-4 space-y-3">
+          {supportsStitching && <div className="bg-secondary/30 rounded-lg border border-border/60 p-4 space-y-3">
             <div className="flex items-center gap-2">
               <Ruler className="h-5 w-5 text-accent" />
               <span className="font-semibold text-sm">Stitching Service</span>
@@ -514,7 +699,7 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
                 </p>
               </div>
             )}
-          </div>
+          </div>}
 
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex items-center border border-border rounded">
@@ -535,16 +720,22 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
                 <Plus className="h-4 w-4" />
               </button>
             </div>
-            <Button size="lg" className="flex-1" onClick={handleAddToCart}>
+            <Button size="lg" className="flex-1" onClick={handleAddToCart} disabled={!productAvailable}>
               <Plus className="h-4 w-4 mr-2" />
-              Add to Cart
+              {requiredSelectionUnavailable ? "Option Unavailable" : productAvailable ? "Add to Cart" : "Out of Stock"}
             </Button>
-            <Button size="lg" variant="secondary" className="flex-1" onClick={handleBuyNow}>
-              Buy Now - {formatPrice(product.price * quantity)}
+            <Button size="lg" variant="secondary" className="flex-1" onClick={handleBuyNow} disabled={!productAvailable}>
+              Buy Now - {formatPrice(displayedPrice * quantity)}
             </Button>
           </div>
           <div className="flex gap-4">
-            <Button variant="outline" className="flex-1" onClick={() => toggleItem(product)}>
+            <Button
+              variant="outline"
+              className={cn("flex-1", !wishlistReady && "invisible")}
+              disabled={!wishlistReady}
+              aria-hidden={!wishlistReady}
+              onClick={() => toggleItem(product)}
+            >
               <Heart className={cn("h-4 w-4 mr-2", inWishlist && "fill-red-500 text-red-500")} />
               {inWishlist ? "Saved to Wishlist" : "Add to Wishlist"}
             </Button>

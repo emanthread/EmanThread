@@ -68,6 +68,9 @@ interface Order {
     image: string;
     quantity: number;
     price: number;
+    variantLabel?: string;
+    variantSku?: string;
+    selectedOptions?: Array<{ label: string; value: string }>;
   }[];
   measurements?: OrderMeasurement[];
 }
@@ -316,6 +319,11 @@ export default function OrdersPage() {
                                 {variantName && (
                                   <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 font-medium bg-amber-50 dark:bg-amber-950/30 inline-block px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-900/50">
                                     ✨ {variantName} {variantPrice ? `(+${formatPrice(variantPrice)})` : ""}
+                                  </p>
+                                )}
+                                {item.selectedOptions && item.selectedOptions.length > 0 && (
+                                  <p className="text-xs text-blue-700 dark:text-blue-300 mt-1 font-medium bg-blue-50 dark:bg-blue-950/30 inline-block px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-900/50">
+                                    {item.selectedOptions.map((option) => `${option.label}: ${option.value}`).join(", ")}
                                   </p>
                                 )}
                               </div>

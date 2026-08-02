@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/db";
 import type { Product, Category } from "@/lib/data";
-import { parseProductImages, parseJsonArray } from "@/lib/utils/parse-images";
+import type { ProductCommerceProfile } from "@/lib/data";
+import { normalizeCommerceDetails } from "@/lib/commerce";
+import { FEATURE_FLAGS } from "@/lib/feature-flags";
+import { parseProductImages } from "@/lib/utils/parse-images";
 import { unstable_cache } from "next/cache";
+import { ARCHIVED_PRODUCT_TAG, visibleProductTags } from "@/lib/product-archive";
 
 const badgeMap: Record<string, Product["badge"]> = {
   NEW: "New",
@@ -57,7 +61,7 @@ function addFabricTypeVariants(values: Set<string>, value: string) {
   }
 }
 
-async function resolveCategoryFabricTypes(categoryParam: string): Promise<string[]> {
+export async function resolveCategoryFabricTypes(categoryParam: string): Promise<string[]> {
   const tokens = categoryParam
     .split(",")
     .map((token) => token.trim())
@@ -90,7 +94,51 @@ async function resolveCategoryFabricTypes(categoryParam: string): Promise<string
   return Array.from(values);
 }
 
-function transformProduct(p: any): Product {
+function mapCommerceProfile(profile: any): ProductCommerceProfile {
+  return {
+    productKind: profile.productKind,
+    stitchingEligible: profile.stitchingEligible,
+    requiresSelection: profile.requiresSelection,
+    optionLabel: profile.optionLabel || undefined,
+    sizeGuideUrl: profile.sizeGuideUrl || undefined,
+    details: normalizeCommerceDetails(profile.details),
+    variants: (profile.variants || []).map((variant: any) => ({
+      id: variant.id,
+      optionKey: variant.optionKey,
+      label: variant.label,
+      sku: variant.sku || undefined,
+      priceAdjustment: Number(variant.priceAdjustment),
+      stockQuantity: variant.stockQuantity,
+      inStock: variant.inStock,
+      isActive: variant.isActive,
+    })),
+  };
+}
+
+export async function getCommerceProfilesByProductId(productIds: string[]) {
+  const profilesByProductId = new Map<string, ProductCommerceProfile>();
+  if (!FEATURE_FLAGS.COMMERCE_PROFILE_V1 || productIds.length === 0) {
+    return profilesByProductId;
+  }
+
+  const profiles = await prisma.productCommerceProfile.findMany({
+    where: { productId: { in: productIds } },
+    include: {
+      variants: {
+        where: { isActive: true },
+        orderBy: [{ displayOrder: "asc" }, { label: "asc" }],
+      },
+    },
+  });
+
+  for (const profile of profiles) {
+    profilesByProductId.set(profile.productId, mapCommerceProfile(profile));
+  }
+
+  return profilesByProductId;
+}
+
+function transformProduct(p: any, commerce?: ProductCommerceProfile): Product {
   // Compute review stats if reviews relation was included
   let rating: number | undefined;
   let reviewCount: number = 0;
@@ -117,7 +165,7 @@ function transformProduct(p: any): Product {
     images: parseProductImages(p.images),
     imageLabels: parseProductImages(p.imageLabels),
     videoUrl: p.videoUrl || undefined,
-    tags: parseJsonArray(p.tags),
+    tags: visibleProductTags(p.tags),
     badge: p.badge ? badgeMap[p.badge] : undefined,
     inStock: p.inStock,
     stockQuantity: p.stockQuantity,
@@ -127,7 +175,18 @@ function transformProduct(p: any): Product {
     metaDescription: p.metaDescription || undefined,
     rating,
     reviewCount,
+    commerce,
   };
+}
+
+async function transformProductList(rows: any[]): Promise<Product[]> {
+  const profilesByProductId = await getCommerceProfilesByProductId(rows.map((row) => row.id));
+  return rows.map((row) => transformProduct(row, profilesByProductId.get(row.id)));
+}
+
+async function transformSingleProduct(row: any): Promise<Product> {
+  const profilesByProductId = await getCommerceProfilesByProductId([row.id]);
+  return transformProduct(row, profilesByProductId.get(row.id));
 }
 
 export interface ProductFilterInput {
@@ -157,6 +216,7 @@ export interface RecommendationResult {
 
 async function _getAllProducts(limit?: number): Promise<Product[]> {
   const products = await prisma.product.findMany({
+    where: { NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } } },
     include: {
       category: true,
       reviews: {
@@ -166,7 +226,7 @@ async function _getAllProducts(limit?: number): Promise<Product[]> {
     orderBy: { createdAt: "desc" },
     ...(limit ? { take: limit } : {}),
   });
-  return products.map(transformProduct);
+  return transformProductList(products);
 }
 
 // Cached: 2-min TTL, tag "products" for admin-triggered revalidation
@@ -177,8 +237,8 @@ export const getAllProducts = unstable_cache(
 );
 
 async function _getProductById(id: string): Promise<Product | null> {
-  const product = await prisma.product.findUnique({
-    where: { id },
+  const product = await prisma.product.findFirst({
+    where: { id, NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } } },
     include: {
       category: true,
       reviews: {
@@ -186,7 +246,7 @@ async function _getProductById(id: string): Promise<Product | null> {
       },
     },
   });
-  return product ? transformProduct(product) : null;
+  return product ? transformSingleProduct(product) : null;
 }
 
 // Cached: 5-min TTL, invalidated when admin updates/creates a product
@@ -197,8 +257,8 @@ export const getProductById = unstable_cache(
 );
 
 async function _getProductBySlug(slug: string): Promise<Product | null> {
-  const product = await prisma.product.findUnique({
-    where: { slug },
+  const product = await prisma.product.findFirst({
+    where: { slug, NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } } },
     include: {
       category: true,
       reviews: {
@@ -206,7 +266,7 @@ async function _getProductBySlug(slug: string): Promise<Product | null> {
       },
     },
   });
-  return product ? transformProduct(product) : null;
+  return product ? transformSingleProduct(product) : null;
 }
 
 // Cached: 5-min TTL, same tag as getProductById
@@ -218,7 +278,7 @@ export const getProductBySlug = unstable_cache(
 
 export async function getProductVariations(name: string): Promise<Product[]> {
   const products = await prisma.product.findMany({
-    where: { name },
+    where: { name, NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } } },
     include: {
       category: true,
       reviews: {
@@ -226,11 +286,11 @@ export async function getProductVariations(name: string): Promise<Product[]> {
       },
     },
   });
-  return products.map(transformProduct);
+  return transformProductList(products);
 }
 
 async function _getFilteredProducts(filter: ProductFilterInput) {
-  const where: any = {};
+  const where: any = { NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } } };
   if (filter.category) {
     const cats = await resolveCategoryFabricTypes(filter.category);
     if (cats.length > 1) {
@@ -411,7 +471,7 @@ async function _getFilteredProducts(filter: ProductFilterInput) {
   ]);
 
   return {
-    products: products.map(transformProduct),
+    products: await transformProductList(products),
     total,
     page,
     limit,
@@ -431,6 +491,7 @@ export const getFilteredProducts = (filter: ProductFilterInput) =>
 
 async function _getDistinctColors(): Promise<string[]> {
   const products = await prisma.product.findMany({
+    where: { NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } } },
     distinct: ["color"],
     select: { color: true },
   });
@@ -475,7 +536,10 @@ export async function getFrequentlyBoughtTogether(
 
   const relatedIds = cooccurrences.map((c) => c.productId);
   const products = await prisma.product.findMany({
-    where: { id: { in: relatedIds } },
+    where: {
+      id: { in: relatedIds },
+      NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } },
+    },
     include: {
       category: true,
       reviews: { select: { rating: true, isVisible: true, deletedAt: true } },
@@ -487,7 +551,7 @@ export async function getFrequentlyBoughtTogether(
     .map((id) => productMap.get(id))
     .filter((p): p is NonNullable<typeof p> => p !== undefined);
 
-  return orderedProducts.map(transformProduct);
+  return transformProductList(orderedProducts);
 }
 
 export const getProductRecommendations = unstable_cache(
@@ -518,8 +582,11 @@ export async function getRelatedProducts(
   productId: string,
   limit: number = 4
 ): Promise<Product[]> {
-  const source = await prisma.product.findUnique({
-    where: { id: productId },
+  const source = await prisma.product.findFirst({
+    where: {
+      id: productId,
+      NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } },
+    },
   });
   if (!source) return [];
 
@@ -534,6 +601,7 @@ export async function getRelatedProducts(
         lte: sourcePrice * 1.3,
       },
       inStock: true,
+      NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } },
     },
     orderBy: [
       { orderItems: { _count: "desc" } },
@@ -554,6 +622,7 @@ export async function getRelatedProducts(
         id: { notIn: Array.from(existingIds) },
         fabricType: source.fabricType,
         inStock: true,
+        NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } },
       },
       orderBy: [
         { orderItems: { _count: "desc" } },
@@ -568,7 +637,7 @@ export async function getRelatedProducts(
     related = [...related, ...backfill];
   }
 
-  return related.map(transformProduct);
+  return transformProductList(related);
 }
 
 async function _getAllCategories(): Promise<Category[]> {
@@ -580,6 +649,7 @@ async function _getAllCategories(): Promise<Category[]> {
 
   // Get real product counts grouped by fabricType (case-sensitive as stored).
   const fabricGroups = await prisma.product.groupBy({
+    where: { NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } } },
     by: ["fabricType"],
     _count: { fabricType: true },
   });
@@ -622,54 +692,170 @@ export const getAllCategories = unstable_cache(
   { revalidate: 600, tags: ["categories"] }
 );
 
-async function _getFeaturedCategories(): Promise<Category[]> {
-  // Call the raw function directly (not the cached wrapper) to avoid double-caching
+export interface FeaturedCategory extends Category {
+  /** An optional internal destination set by the admin. */
+  href?: string;
+}
+
+export interface FeaturedCategoriesSection {
+  eyebrow: string;
+  title: string;
+  description: string;
+  categories: FeaturedCategory[];
+}
+
+const FEATURED_CATEGORIES_V2_KEY = "featured_categories_v2";
+const FEATURED_CATEGORIES_LEGACY_KEY = "featured_categories";
+const DEFAULT_FEATURED_SECTION_COPY = {
+  eyebrow: "Our Collections",
+  title: "Shop by Category",
+  description: "Explore a curated selection for every style, occasion, and discovery.",
+} as const;
+
+function normalizeFeaturedCategory(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function readString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function readNumber(value: unknown): number {
+  const numberValue = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numberValue) ? numberValue : 0;
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function resolveFeaturedCategories(
+  storedCategories: unknown[],
+  allCategories: Category[]
+): FeaturedCategory[] {
+  return storedCategories.flatMap((storedCategory) => {
+    if (!isObject(storedCategory)) return [];
+
+    const id = readString(storedCategory.id);
+    const name = readString(storedCategory.name);
+    const description = readString(storedCategory.description);
+    const image = readString(storedCategory.image);
+    const href = readString(storedCategory.href);
+
+    // Match by exact id first, then by normalized name so "Wash And Wear"
+    // correctly resolves to the "Wash & Wear" category from allCategories.
+    const dbMatch = allCategories.find(
+      (category) =>
+        (id && category.id.toLowerCase() === id.toLowerCase()) ||
+        (name && normalizeFeaturedCategory(category.name) === normalizeFeaturedCategory(name))
+    );
+
+    // Keep the configured id when no database category matches. This lets a
+    // legacy card continue to link to /shop?category=<id>, while cards with a
+    // custom href can point to a new catalog route.
+    const resolvedId = dbMatch?.id || id || name;
+    if (!resolvedId) return [];
+
+    return [{
+      id: resolvedId,
+      name: name || dbMatch?.name || resolvedId,
+      description,
+      image: image || dbMatch?.image || "/placeholder.jpg",
+      productCount: dbMatch?.productCount ?? readNumber(storedCategory.productCount),
+      ...(href ? { href } : {}),
+    }];
+  });
+}
+
+function parseFeaturedSectionV2(value: string): {
+  eyebrow: string;
+  title: string;
+  description: string;
+  categories: unknown[];
+} | null {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!isObject(parsed)) return null;
+
+    // `categories` is the canonical v2 field. Accept `cards` too so a manual
+    // StoreConfig edit never makes the home section disappear.
+    const storedCategories = Array.isArray(parsed.categories)
+      ? parsed.categories
+      : Array.isArray(parsed.cards)
+        ? parsed.cards
+        : null;
+    if (!storedCategories?.length) return null;
+
+    return {
+      eyebrow: readString(parsed.eyebrow) || DEFAULT_FEATURED_SECTION_COPY.eyebrow,
+      title: readString(parsed.title) || DEFAULT_FEATURED_SECTION_COPY.title,
+      description:
+        readString(parsed.description) || DEFAULT_FEATURED_SECTION_COPY.description,
+      categories: storedCategories,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function parseLegacyFeaturedCategories(value: string): unknown[] | null {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+async function _getFeaturedCategoriesSection(): Promise<FeaturedCategoriesSection> {
+  // Call the raw function directly (not the cached wrapper) to avoid double-caching.
   const allCategories = await _getAllCategories();
 
-  // Normalize: strip all non-alphanumeric chars and lowercase.
-  // e.g. "Wash And Wear " -> "washandwear", "Wash & Wear" -> "washandwear"
-  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
-
   try {
-    const row = await prisma.storeConfig.findUnique({
-      where: { key: "featured_categories" }
+    // v2 adds editable section copy and per-card destinations without modifying
+    // the live legacy StoreConfig value or requiring a database migration.
+    const v2Row = await prisma.storeConfig.findUnique({
+      where: { key: FEATURED_CATEGORIES_V2_KEY },
     });
+    const v2 = v2Row ? parseFeaturedSectionV2(v2Row.value) : null;
+    if (v2) {
+      const categories = resolveFeaturedCategories(v2.categories, allCategories);
+      if (categories.length > 0) return { ...v2, categories };
+    }
 
-    if (row) {
-      const parsed = JSON.parse(row.value);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((fc: any) => {
-          // Match by exact id first, then by normalized name so "Wash And Wear"
-          // correctly resolves to the "Wash & Wear" category from allCategories.
-          const dbMatch = allCategories.find(c =>
-            (fc.id && c.id.toLowerCase() === fc.id.toLowerCase()) ||
-            normalize(c.name) === normalize(fc.name)
-          );
-          return {
-            // Use the real category id (= fabricType name) from DB so filtering works.
-            id: dbMatch?.id ?? fc.name ?? fc.id,
-            name: fc.name,
-            description: fc.description || "",
-            image: fc.image || dbMatch?.image || "/placeholder.jpg",
-            productCount: dbMatch?.productCount ?? fc.productCount ?? 0,
-          };
-        });
+    // Existing installations store only an array at featured_categories. Keep
+    // it fully supported and retain its id -> /shop?category behavior.
+    const legacyRow = await prisma.storeConfig.findUnique({
+      where: { key: FEATURED_CATEGORIES_LEGACY_KEY },
+    });
+    const legacyCategories = legacyRow
+      ? parseLegacyFeaturedCategories(legacyRow.value)
+      : null;
+    if (legacyCategories) {
+      const categories = resolveFeaturedCategories(legacyCategories, allCategories);
+      if (categories.length > 0) {
+        return { ...DEFAULT_FEATURED_SECTION_COPY, categories };
       }
     }
   } catch (error) {
     console.error("Error fetching featured categories from StoreConfig:", error);
   }
 
-  // Fallback to the regular categories if no StoreConfig is set
-  return allCategories;
+  // Fallback to the regular categories if no StoreConfig is set.
+  return { ...DEFAULT_FEATURED_SECTION_COPY, categories: allCategories };
 }
 
-// Cached: 10-min TTL. Featured categories are admin-configured and rarely change.
-export const getFeaturedCategories = unstable_cache(
-  _getFeaturedCategories,
-  ["featured-categories"],
-  { revalidate: 600, tags: ["categories"] }
+// Cached: 10-min TTL. Both tags are invalidated after admin updates.
+export const getFeaturedCategoriesSection = unstable_cache(
+  _getFeaturedCategoriesSection,
+  ["featured-categories-section"],
+  { revalidate: 600, tags: ["categories", "featured-categories"] }
 );
+
+// Backward-compatible helper for any callers that only need the card list.
+export async function getFeaturedCategories(): Promise<FeaturedCategory[]> {
+  return (await getFeaturedCategoriesSection()).categories;
+}
 
 // ── Admin helpers ────────────────────────────────────────────────
 
@@ -684,7 +870,7 @@ export async function getAdminProducts(
   const pageSize = limit ?? 50;
   const skip = (currentPage - 1) * pageSize;
 
-  const where: any = {};
+  const where: any = { NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } } };
   if (search) {
     where.OR = [
       { name: { contains: search, mode: "insensitive" } },
@@ -767,7 +953,7 @@ export async function getAdminProducts(
       longDescription: p.longDescription || "",
       categoryId: p.categoryId,
       slug: p.slug || p.sku.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-      tags: parseJsonArray(p.tags),
+      tags: visibleProductTags(p.tags),
       metaTitle: p.metaTitle || undefined,
       metaDescription: p.metaDescription || undefined,
       createdAt: p.createdAt.toISOString(),
@@ -826,7 +1012,7 @@ export async function createAdminProduct(data: any) {
     description: product.description,
     longDescription: product.longDescription || "",
     slug: product.slug || product.sku.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-    tags: parseJsonArray(product.tags),
+    tags: visibleProductTags(product.tags),
     metaTitle: product.metaTitle || undefined,
     metaDescription: product.metaDescription || undefined,
     createdAt: product.createdAt.toISOString(),
@@ -882,7 +1068,7 @@ export async function updateAdminProduct(id: string, data: any) {
     description: product.description,
     longDescription: product.longDescription || "",
     slug: product.slug || product.sku.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-    tags: parseJsonArray(product.tags),
+    tags: visibleProductTags(product.tags),
     metaTitle: product.metaTitle || undefined,
     metaDescription: product.metaDescription || undefined,
     createdAt: product.createdAt.toISOString(),
@@ -894,6 +1080,7 @@ export async function getLowStockProducts(threshold?: number) {
   const products = await prisma.product.findMany({
     where: {
       AND: [
+        { NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } } },
         { stockQuantity: { lte: threshold ?? 5 } },
         { stockQuantity: { gt: 0 } },
       ],
@@ -920,7 +1107,7 @@ export async function getLowStockProducts(threshold?: number) {
     description: p.description,
     longDescription: p.longDescription || "",
     slug: p.slug || p.sku.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-    tags: parseJsonArray(p.tags),
+    tags: visibleProductTags(p.tags),
     metaTitle: p.metaTitle || undefined,
     metaDescription: p.metaDescription || undefined,
     createdAt: p.createdAt.toISOString(),
@@ -935,6 +1122,7 @@ export async function getAdminProductsWithStock(
 
   const [products, total] = await prisma.$transaction([
     prisma.product.findMany({
+      where: { NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } } },
       // Strict select — category is not used in the return shape; removed the join
       select: {
         id: true,
@@ -964,7 +1152,9 @@ export async function getAdminProductsWithStock(
       skip,
       take: limit,
     }),
-    prisma.product.count(),
+    prisma.product.count({
+      where: { NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } } },
+    }),
   ]);
 
   return {
@@ -986,7 +1176,7 @@ export async function getAdminProductsWithStock(
       description: p.description,
       longDescription: p.longDescription || "",
       slug: p.slug || p.sku.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-      tags: parseJsonArray(p.tags),
+      tags: visibleProductTags(p.tags),
       metaTitle: p.metaTitle || undefined,
       metaDescription: p.metaDescription || undefined,
       createdAt: p.createdAt.toISOString(),

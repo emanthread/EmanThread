@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
@@ -9,6 +10,91 @@ export const catalogRecordIdSchema = z
   .trim()
   .min(1, "ID is required")
   .max(128, "ID is too long");
+
+const catalogNodeSlugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export const catalogNodeSlugSchema = z
+  .string()
+  .trim()
+  .min(1, "Slug is required")
+  .max(80, "Slug must be 80 characters or fewer")
+  .transform((value) => value.toLowerCase())
+  .refine(
+    (value) => catalogNodeSlugPattern.test(value),
+    "Slug may use lowercase letters, numbers, and single hyphens only"
+  );
+
+export const catalogNodeTypeSchema = z
+  .string()
+  .trim()
+  .min(1, "Kind is required")
+  // Kind is a display/organization field, not part of a route. Keep it
+  // permissive and preserve its stored casing so older taxonomy records can
+  // still be edited safely.
+  .max(48, "Kind must be 48 characters or fewer");
+
+export const catalogNodeLabelSchema = z
+  .string()
+  .trim()
+  .min(1, "Name is required")
+  .max(120, "Name must be 120 characters or fewer");
+
+const catalogNodeMutableFields = {
+  parentId: catalogRecordIdSchema.nullable(),
+  nodeType: catalogNodeTypeSchema,
+  label: catalogNodeLabelSchema,
+  slug: catalogNodeSlugSchema,
+  displayOrder: z.number().int().min(0).max(1_000_000),
+  isActive: z.boolean(),
+  isVisible: z.boolean(),
+};
+
+export const createCatalogNodeSchema = z
+  .object(catalogNodeMutableFields)
+  .strict()
+  .refine(
+    (value) => !value.isVisible || value.isActive,
+    "A visible catalog path must also be active"
+  );
+
+export const updateCatalogNodeSchema = z
+  .object({
+    parentId: catalogNodeMutableFields.parentId.optional(),
+    nodeType: catalogNodeMutableFields.nodeType.optional(),
+    label: catalogNodeMutableFields.label.optional(),
+    slug: catalogNodeMutableFields.slug.optional(),
+    displayOrder: catalogNodeMutableFields.displayOrder.optional(),
+    isActive: catalogNodeMutableFields.isActive.optional(),
+    isVisible: catalogNodeMutableFields.isVisible.optional(),
+  })
+  .strict()
+  .refine(
+    (value) => Object.keys(value).length > 0,
+    "Provide at least one catalog field to update"
+  );
+
+/**
+ * Catalog paths are derived from their parent and slug. Keeping this in one
+ * place prevents a form edit from creating an arbitrary route that is not a
+ * real taxonomy path.
+ */
+export function buildCatalogNodePath(
+  parentPath: string | null,
+  slug: string
+): string {
+  const prefix = parentPath ? parentPath.replace(/\/+$/, "") : "";
+  return `${prefix}/${slug}`;
+}
+
+export class CatalogNodeMutationError extends Error {
+  constructor(
+    message: string,
+    readonly status: 400 | 404 | 409
+  ) {
+    super(message);
+    this.name = "CatalogNodeMutationError";
+  }
+}
 
 export async function requireCatalogAdminApi(request: Request) {
   if (!FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1) {
@@ -22,8 +108,24 @@ export async function requireCatalogAdminApi(request: Request) {
 }
 
 export function catalogApiError(error: unknown, context: string) {
+  if (error instanceof CatalogNodeMutationError) {
+    return NextResponse.json({ error: error.message }, { status: error.status });
+  }
+
+  if (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2034"
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Catalog data changed at the same time. Refresh and try the action again.",
+      },
+      { status: 409 }
+    );
+  }
+
   console.error(`[catalog-admin] ${context}:`, error);
   const { message, status } = sanitizeDbError(error);
   return NextResponse.json({ error: message }, { status });
 }
-

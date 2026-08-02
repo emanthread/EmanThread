@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getStoreConfig } from "@/lib/db/store-config";
-import { getDeliveryEstimate } from "@/lib/db/stitching-schedule";
+import { formatDatePKT, getDeliveryEstimate } from "@/lib/db/stitching-schedule";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +39,7 @@ export async function GET() {
 
     return NextResponse.json(
       {
-        deliveryDate: deliveryDate.toISOString().slice(0, 10), // "2026-07-19"
+        deliveryDate: formatDatePKT(deliveryDate), // "2026-07-19"
         formatted: formatDeliveryDate(deliveryDate),           // "Saturday, 19 July 2026"
         leadDays,
         threshold,
@@ -61,7 +61,7 @@ export async function GET() {
     const fallback = new Date();
     fallback.setDate(fallback.getDate() + leadDays);
     return NextResponse.json({
-      deliveryDate: fallback.toISOString().slice(0, 10),
+      deliveryDate: formatDatePKT(fallback),
       formatted: formatDeliveryDate(fallback),
       leadDays,
       threshold: 12,

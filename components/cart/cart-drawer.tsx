@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { X, Plus, Minus, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useCartStore } from "@/lib/cart-store";
+import { getCartItemUnitPrice, isCartItemAvailable, useCartStore } from "@/lib/cart-store";
 import { formatPrice } from "@/lib/data";
 import { getProductImage } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -18,7 +18,7 @@ export function CartDrawer() {
     useCartStore();
   const totalPrice = getTotalPrice();
   const stitchingTotal = getStitchingTotal();
-  const outOfStockItems = items.filter((item) => !item.product.inStock || (item.product.stockQuantity !== undefined && item.product.stockQuantity <= 0));
+  const outOfStockItems = items.filter((item) => !isCartItemAvailable(item));
   const hasOutOfStock = outOfStockItems.length > 0;
 
   useEffect(() => {
@@ -75,7 +75,7 @@ export function CartDrawer() {
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {items.map((item) => (
                 <div
-                  key={`cart-${item.product.id}`}
+                  key={`cart-${item.lineId}`}
                   className="flex gap-4 pb-6 border-b border-border last:border-0"
                 >
                   <div className="relative w-24 h-32 bg-secondary rounded overflow-hidden shrink-0">
@@ -90,7 +90,7 @@ export function CartDrawer() {
                     <h3 className="font-medium text-sm leading-tight line-clamp-2">
                       {item.product.name}
                     </h3>
-                    {(!item.product.inStock || (item.product.stockQuantity !== undefined && item.product.stockQuantity <= 0)) && (
+                    {!isCartItemAvailable(item) && (
                       <span className="inline-block text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 mt-1">
                         Out of Stock
                       </span>
@@ -98,6 +98,11 @@ export function CartDrawer() {
                     <p className="text-sm text-muted-foreground mt-1">
                       {item.product.fabricType}
                     </p>
+                    {item.selectedOptions?.map((option) => (
+                      <p key={`${item.lineId}-${option.label}`} className="text-xs text-muted-foreground mt-1">
+                        {option.label}: {option.value}
+                      </p>
+                    ))}
                     {item.stitchingProfileName && item.stitchingProfileId !== "none" && (
                       <p className="text-xs text-amber-600 mt-1">
                         ✂ {item.stitchingProfileName}{" "}
@@ -105,14 +110,14 @@ export function CartDrawer() {
                       </p>
                     )}
                     <p className="text-sm font-semibold mt-2">
-                      {formatPrice(item.product.price)}
+                      {formatPrice(getCartItemUnitPrice(item))}
                     </p>
 
                     <div className="flex items-center justify-between mt-3">
                       <div className="flex items-center border border-border rounded">
                         <button
                           onClick={() =>
-                            updateQuantity(item.product.id, item.quantity - 1)
+                            updateQuantity(item.lineId, item.quantity - 1)
                           }
                           className="p-2 hover:bg-secondary transition-colors"
                         >
@@ -123,7 +128,7 @@ export function CartDrawer() {
                         </span>
                         <button
                           onClick={() =>
-                            updateQuantity(item.product.id, item.quantity + 1)
+                            updateQuantity(item.lineId, item.quantity + 1)
                           }
                           className="p-2 hover:bg-secondary transition-colors"
                         >
@@ -131,7 +136,7 @@ export function CartDrawer() {
                         </button>
                       </div>
                       <button
-                        onClick={() => removeItem(item.product.id)}
+                        onClick={() => removeItem(item.lineId)}
                         className="text-sm text-muted-foreground hover:text-destructive transition-colors"
                       >
                         Remove

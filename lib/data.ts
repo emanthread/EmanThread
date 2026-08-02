@@ -1,5 +1,45 @@
 export type Badge = "New" | "Trending" | "Hot" | "Limited" | "Featured";
 
+/**
+ * Optional, additive merchandise metadata. Products with no commerce profile
+ * deliberately retain the legacy unstitched-fabric experience.
+ */
+export type ProductKind =
+  | "UNSTITCHED_FABRIC"
+  | "READY_TO_WEAR"
+  | "FRAGRANCE"
+  | "BEAUTY"
+  | "TEENS"
+  | "GIFT"
+  | "GIFT_BOX"
+  | "ACCESSORY";
+
+export interface ProductCommerceDetail {
+  label: string;
+  value: string;
+}
+
+export interface ProductVariant {
+  id: string;
+  optionKey: string;
+  label: string;
+  sku?: string;
+  priceAdjustment: number;
+  stockQuantity: number;
+  inStock: boolean;
+  isActive: boolean;
+}
+
+export interface ProductCommerceProfile {
+  productKind: ProductKind;
+  stitchingEligible: boolean;
+  requiresSelection: boolean;
+  optionLabel?: string;
+  sizeGuideUrl?: string;
+  details: ProductCommerceDetail[];
+  variants: ProductVariant[];
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -24,6 +64,7 @@ export interface Product {
   metaDescription?: string;
   rating?: number;
   reviewCount?: number;
+  commerce?: ProductCommerceProfile;
 }
 
 export interface Category {
@@ -32,6 +73,7 @@ export interface Category {
   description: string;
   image: string;
   productCount: number;
+  href?: string;
 }
 
 export const categories: Category[] = [

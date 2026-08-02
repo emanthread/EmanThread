@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPrice } from "@/lib/data";
+import { FEATURE_FLAGS } from "@/lib/feature-flags";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,35 @@ async function getOrderStatus(orderIdentifier: string) {
     });
   }
 
-  return order;
+  if (!order) return null;
+
+  const optionByOrderItemId = new Map<
+    string,
+    { variantLabel: string | null; selectedOptions: unknown }
+  >();
+  if (FEATURE_FLAGS.COMMERCE_PROFILE_V1 && order.items.length > 0) {
+    const configurations = await prisma.orderItemConfiguration.findMany({
+      where: { orderItemId: { in: order.items.map((item) => item.id) } },
+      select: { orderItemId: true, variantLabel: true, selectedOptions: true },
+    });
+    for (const configuration of configurations) {
+      optionByOrderItemId.set(configuration.orderItemId, configuration);
+    }
+  }
+
+  return { order, optionByOrderItemId };
+}
+
+function formatSelectedOptions(value: unknown): string | null {
+  if (!Array.isArray(value)) return null;
+  const options = value.flatMap((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+    const option = item as { label?: unknown; value?: unknown };
+    return typeof option.label === "string" && typeof option.value === "string"
+      ? [`${option.label}: ${option.value}`]
+      : [];
+  });
+  return options.length > 0 ? options.join(", ") : null;
 }
 
 function getStatusBadge(status: string) {
@@ -53,9 +82,11 @@ function getStatusBadge(status: string) {
 
 export default async function OrderStatusPage({ params }: PageProps) {
   const { orderId } = await params;
-  const order = await getOrderStatus(orderId);
+  const orderStatus = await getOrderStatus(orderId);
 
-  if (!order) notFound();
+  if (!orderStatus) notFound();
+
+  const { order, optionByOrderItemId } = orderStatus;
 
   const paymentStatusBadge = getStatusBadge(order.paymentStatus);
   const orderStatusBadge = getStatusBadge(order.status);
@@ -211,7 +242,8 @@ export default async function OrderStatusPage({ params }: PageProps) {
               const itemMeasurement = order.itemMeasurements?.find((m) => m.productId === item.productId);
               const measurementData = itemMeasurement?.measurementSnapshot as Record<string, any> | null;
               const variantName = measurementData?.stitchingVariantName;
-              const variantPrice = measurementData?.stitchingPrice;
+              const optionSnapshot = optionByOrderItemId.get(item.id);
+              const selectedOptions = formatSelectedOptions(optionSnapshot?.selectedOptions);
               
               return (
                 <div key={item.id} className="flex justify-between text-sm">
@@ -220,6 +252,11 @@ export default async function OrderStatusPage({ params }: PageProps) {
                     {variantName && (
                       <span className="text-xs text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded w-fit mt-1 border border-amber-200">
                         ✨ {variantName}
+                      </span>
+                    )}
+                    {(selectedOptions || optionSnapshot?.variantLabel) && (
+                      <span className="text-xs text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded w-fit mt-1 border border-blue-200">
+                        {selectedOptions || `Option: ${optionSnapshot?.variantLabel}`}
                       </span>
                     )}
                   </div>

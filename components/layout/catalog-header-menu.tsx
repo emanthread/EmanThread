@@ -62,6 +62,11 @@ export function CatalogHeaderMenu({
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [isMegaPanelOpen, setIsMegaPanelOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // A mouse click leaves its trigger focused, so focus alone cannot tell us
+  // whether the panel should remain open after the pointer leaves. Start in
+  // keyboard mode to keep focus-driven navigation safe by default.
+  const interactionModeRef = useRef<"keyboard" | "pointer">("keyboard");
   const departmentRefs = useRef(new Map<string, HTMLButtonElement>());
   const sectionRefs = useRef(new Map<string, HTMLButtonElement>());
 
@@ -87,12 +92,43 @@ export function CatalogHeaderMenu({
     [activeDepartmentId],
   );
 
+  const cancelScheduledClose = useCallback(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }, []);
+
+  const schedulePointerClose = useCallback(() => {
+    cancelScheduledClose();
+    // A small delay lets the pointer cross the gap between a section label and
+    // its panel, while still closing naturally as soon as the user leaves the
+    // catalog area. Keyboard users retain the panel while focus is within it.
+    closeTimerRef.current = setTimeout(() => {
+      closeTimerRef.current = null;
+      const hasKeyboardFocus =
+        interactionModeRef.current === "keyboard" &&
+        rootRef.current?.matches(":focus-within");
+      if (!hasKeyboardFocus) {
+        closeMegaPanel(false);
+      }
+    }, 140);
+  }, [cancelScheduledClose, closeMegaPanel]);
+
+  useEffect(
+    () => () => {
+      cancelScheduledClose();
+    },
+    [cancelScheduledClose],
+  );
+
   useEffect(() => {
     closeMegaPanel(false);
   }, [pathname, closeMegaPanel]);
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
+      interactionModeRef.current = "pointer";
       if (
         isMegaPanelOpen &&
         rootRef.current &&
@@ -103,6 +139,7 @@ export function CatalogHeaderMenu({
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      interactionModeRef.current = "keyboard";
       if (event.key === "Escape" && isMegaPanelOpen) {
         event.preventDefault();
         closeMegaPanel(true);
@@ -121,6 +158,14 @@ export function CatalogHeaderMenu({
     setActiveDepartmentId(department.id);
     setActiveSectionId(null);
     setIsMegaPanelOpen(false);
+    // On the homepage the hero listens for this small UI event and swaps to
+    // the department's media. The header itself keeps its established menu
+    // behavior and does not navigate or change catalog state.
+    window.dispatchEvent(
+      new CustomEvent("eman-thread:hero-department", {
+        detail: { department: department.id },
+      })
+    );
   };
 
   const openSection = (section: MenuSection) => {
@@ -174,7 +219,12 @@ export function CatalogHeaderMenu({
       : [];
 
   return (
-    <div ref={rootRef} className={styles.desktopShell}>
+    <div
+      ref={rootRef}
+      className={styles.desktopShell}
+      onPointerEnter={cancelScheduledClose}
+      onPointerLeave={schedulePointerClose}
+    >
       <div className={styles.primaryRow}>
         <nav
           className={styles.departmentNav}
@@ -248,7 +298,10 @@ export function CatalogHeaderMenu({
                 isMegaPanelOpen && activeSection?.id === section.id
               }
               aria-controls="catalog-mega-panel"
-              onPointerEnter={() => openSection(section)}
+              onPointerEnter={() => {
+                interactionModeRef.current = "pointer";
+                openSection(section);
+              }}
               onFocus={() => openSection(section)}
               onClick={() => openSection(section)}
             >

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getStoreConfig } from "@/lib/db/store-config";
-import { getDeliveryEstimate, getMonthCapacityMap } from "@/lib/db/stitching-schedule";
+import {
+  formatDatePKT,
+  getDeliveryEstimate,
+  getMonthCapacityMap,
+} from "@/lib/db/stitching-schedule";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +43,7 @@ export async function GET(req: Request) {
 
     // Get earliest allowed date (queue-based)
     const earliestDateObj = await getDeliveryEstimate(leadDays, threshold);
-    const earliestDate = earliestDateObj.toISOString().slice(0, 10);
+    const earliestDate = formatDatePKT(earliestDateObj);
 
     // Get per-day capacity map for the requested month
     const capacityMap = await getMonthCapacityMap(month, threshold);

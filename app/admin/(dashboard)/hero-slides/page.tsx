@@ -7,17 +7,20 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2, Save, Plus, Trash2, GripVertical, ExternalLink, Upload, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-
-interface HeroSlide {
-  image: string;
-  title: string;
-  subtitle: string;
-  description: string;
-  cta: string;
-  link: string;
-}
+import type {
+  HeroDepartment,
+  HeroMediaType,
+  HeroSlide,
+} from "@/lib/db/store-config";
 
 interface PromoStat {
   value: string;
@@ -34,12 +37,22 @@ interface PromoBanner {
   link: string;
 }
 
+const HERO_DEPARTMENTS: { value: HeroDepartment; label: string }[] = [
+  { value: "all", label: "All departments (fallback)" },
+  { value: "women", label: "Women" },
+  { value: "men", label: "Men" },
+  { value: "fragrance-beauty", label: "Fragrance & Beauty" },
+  { value: "teens", label: "Teens" },
+];
+
 function ImageUploader({
   currentImage,
   onImageChange,
+  label = "Image",
 }: {
   currentImage: string;
   onImageChange: (url: string) => void;
+  label?: string;
 }) {
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -68,7 +81,7 @@ function ImageUploader({
 
   return (
     <div className="space-y-2">
-      <Label>Image</Label>
+      <Label>{label}</Label>
       <div className="relative h-40 rounded-lg overflow-hidden bg-muted">
         {currentImage ? (
           <Image
@@ -129,6 +142,109 @@ function ImageUploader({
   );
 }
 
+function VideoUploader({
+  currentVideo,
+  onVideoChange,
+  poster,
+}: {
+  currentVideo: string;
+  onVideoChange: (url: string) => void;
+  poster?: string;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("resourceType", "video");
+
+    try {
+      const res = await fetch("/api/admin/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+      onVideoChange(data.url);
+      toast({ title: "Success", description: "Video uploaded" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Video upload failed", variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label>Hero video</Label>
+      <div className="relative h-40 rounded-lg overflow-hidden bg-muted">
+        {currentVideo ? (
+          <video
+            src={currentVideo}
+            poster={poster}
+            controls
+            muted
+            playsInline
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+            No video selected
+          </div>
+        )}
+        {uploading && (
+          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-white" />
+          </div>
+        )}
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="video/mp4,video/webm,video/quicktime"
+        className="hidden"
+        onChange={handleUpload}
+      />
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+        >
+          {uploading ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Upload className="h-4 w-4 mr-2" />
+          )}
+          Upload Video
+        </Button>
+        <Input
+          value={currentVideo}
+          onChange={(e) => onVideoChange(e.target.value)}
+          placeholder="Or paste video URL..."
+          className="flex-1 font-mono text-xs"
+        />
+        <Button
+          variant="outline"
+          size="icon"
+          title="Open in new tab"
+          onClick={() => window.open(currentVideo, "_blank")}
+          disabled={!currentVideo}
+        >
+          <ExternalLink className="h-4 w-4" />
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        MP4, WebM, or MOV up to 50 MB. Videos autoplay muted on the storefront.
+      </p>
+    </div>
+  );
+}
+
 function SlideEditor({
   slide,
   index,
@@ -140,9 +256,11 @@ function SlideEditor({
   onChange: (index: number, slide: HeroSlide) => void;
   onRemove: (index: number) => void;
 }) {
-  const update = (field: keyof HeroSlide, value: string) => {
+  const update = <K extends keyof HeroSlide>(field: K, value: HeroSlide[K]) => {
     onChange(index, { ...slide, [field]: value });
   };
+  const department = slide.department ?? "all";
+  const mediaType = slide.mediaType ?? "image";
 
   return (
     <Card className="relative">
@@ -161,16 +279,67 @@ function SlideEditor({
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
-        <ImageUploader
-          currentImage={slide.image}
-          onImageChange={(url) => update("image", url)}
-        />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Show this slide for</Label>
+            <Select
+              value={department}
+              onValueChange={(value) => update("department", value as HeroDepartment)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {HERO_DEPARTMENTS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Media type</Label>
+            <Select
+              value={mediaType}
+              onValueChange={(value) => update("mediaType", value as HeroMediaType)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="image">Image</SelectItem>
+                <SelectItem value="video">Video</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {mediaType === "video" ? (
+          <>
+            <VideoUploader
+              currentVideo={slide.videoUrl ?? ""}
+              onVideoChange={(url) => update("videoUrl", url)}
+              poster={slide.poster || slide.image}
+            />
+            <ImageUploader
+              label="Poster image (optional)"
+              currentImage={slide.poster ?? ""}
+              onImageChange={(url) => update("poster", url)}
+            />
+          </>
+        ) : (
+          <ImageUploader
+            currentImage={slide.image ?? ""}
+            onImageChange={(url) => update("image", url)}
+          />
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Title</Label>
             <Input
-              value={slide.title}
+              value={slide.title ?? ""}
               onChange={(e) => update("title", e.target.value)}
               placeholder="The Art of Fine Fabric"
             />
@@ -178,7 +347,7 @@ function SlideEditor({
           <div className="space-y-2">
             <Label>Subtitle</Label>
             <Input
-              value={slide.subtitle}
+              value={slide.subtitle ?? ""}
               onChange={(e) => update("subtitle", e.target.value)}
               placeholder="Summer Collection 2026"
             />
@@ -188,7 +357,7 @@ function SlideEditor({
         <div className="space-y-2">
           <Label>Description</Label>
           <Textarea
-            value={slide.description}
+            value={slide.description ?? ""}
             onChange={(e) => update("description", e.target.value)}
             placeholder="Discover our curated selection..."
             rows={2}
@@ -199,7 +368,7 @@ function SlideEditor({
           <div className="space-y-2">
             <Label>CTA Text</Label>
             <Input
-              value={slide.cta}
+              value={slide.cta ?? ""}
               onChange={(e) => update("cta", e.target.value)}
               placeholder="Shop Collection"
             />
@@ -207,7 +376,7 @@ function SlideEditor({
           <div className="space-y-2">
             <Label>CTA Link</Label>
             <Input
-              value={slide.link}
+              value={slide.link ?? ""}
               onChange={(e) => update("link", e.target.value)}
               placeholder="/shop"
             />
@@ -405,6 +574,9 @@ export default function HeroSlidesPage() {
     setSlides((prev) => [
       ...prev,
       {
+        id: `hero-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+        department: "all",
+        mediaType: "image",
         image: "",
         title: "New Slide",
         subtitle: "Subtitle",
@@ -479,7 +651,7 @@ export default function HeroSlidesPage() {
       <div className="space-y-4">
         {slides.map((slide, index) => (
           <SlideEditor
-            key={index}
+            key={`${slide.id ?? "legacy"}-${index}`}
             slide={slide}
             index={index}
             onChange={handleSlideChange}
@@ -508,6 +680,9 @@ export default function HeroSlidesPage() {
           <p className="font-medium mb-1">Tips:</p>
           <ul className="list-disc list-inside space-y-1">
             <li>Click <strong>Upload Image</strong> to upload a new image from your computer</li>
+            <li>Use a department slide when the hero should change for Women, Men, Fragrance &amp; Beauty, or Teens</li>
+            <li>Use <strong>All departments</strong> slides as the fallback when a department has no dedicated slide</li>
+            <li>Videos support MP4, WebM, and MOV uploads up to 50 MB; add an optional poster image for the first frame</li>
             <li>Or paste an existing image path in the text field</li>
             <li>Hero slide optimal size: 1920x1080px (16:9 ratio)</li>
             <li>Dark overlay is automatically applied on hero slides for text readability</li>

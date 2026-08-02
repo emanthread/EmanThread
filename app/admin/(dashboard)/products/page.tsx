@@ -71,6 +71,12 @@ import {
   serializeCatalogAssignments,
   type CatalogAssignmentDraft,
 } from "@/components/admin/product-catalog-assignment-section";
+import {
+  ProductCommerceProfileSection,
+  emptyCommerceProfileDraft,
+  serializeCommerceProfile,
+  type CommerceProfileDraft,
+} from "@/components/admin/product-commerce-profile-section";
 
 const badgeColors = {
   New: "bg-emerald-100 text-emerald-700",
@@ -136,6 +142,7 @@ function emptyProduct(): AdminProduct {
 export default function AdminProductsPage() {
   const { products, productsTotal, productsPage, productsTotalPages, updateProductStock, addProduct, updateProduct, loadProducts, deleteProduct } = useAdminStore();
   const catalogAssignmentsEnabled = FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1;
+  const commerceProfileEnabled = FEATURE_FLAGS.COMMERCE_PROFILE_V1;
 
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
@@ -203,6 +210,12 @@ export default function AdminProductsPage() {
   const [catalogAssignmentsLoading, setCatalogAssignmentsLoading] = useState(false);
   const [catalogAssignmentLoadError, setCatalogAssignmentLoadError] = useState<string | null>(null);
   const [catalogAssignmentSaveError, setCatalogAssignmentSaveError] = useState<string | null>(null);
+  // This is deliberately separate from AdminProduct. Saving merchandise
+  // settings never changes the established Product API payload or columns.
+  const [commerceProfile, setCommerceProfile] = useState<CommerceProfileDraft>(emptyCommerceProfileDraft());
+  const [commerceProfileLoading, setCommerceProfileLoading] = useState(false);
+  const [commerceProfileLoadError, setCommerceProfileLoadError] = useState<string | null>(null);
+  const [commerceProfileSaveError, setCommerceProfileSaveError] = useState<string | null>(null);
   // Replace manual setTimeout boilerplate with shared hook (same 500ms delay).
   // The hook already exists and is used correctly in customers/page.tsx.
   const debouncedSearch = useDebounce(searchQuery, 500);
@@ -419,6 +432,10 @@ export default function AdminProductsPage() {
     setCatalogAssignmentLoadError(null);
     setCatalogAssignmentSaveError(null);
     setCatalogAssignmentsLoading(catalogAssignmentsEnabled);
+    setCommerceProfile(emptyCommerceProfileDraft());
+    setCommerceProfileLoading(commerceProfileEnabled);
+    setCommerceProfileLoadError(null);
+    setCommerceProfileSaveError(null);
     setProductForm({ ...product });
     setIsEditProductOpen(true);
   };
@@ -430,6 +447,10 @@ export default function AdminProductsPage() {
     setCatalogAssignmentLoadError(null);
     setCatalogAssignmentSaveError(null);
     setCatalogAssignmentsLoading(false);
+    setCommerceProfile(emptyCommerceProfileDraft());
+    setCommerceProfileLoading(false);
+    setCommerceProfileLoadError(null);
+    setCommerceProfileSaveError(null);
     setProductForm(base);
     setTagInput("");
     setIsAddProductOpen(true);
@@ -452,12 +473,33 @@ export default function AdminProductsPage() {
       return;
     }
 
+    if (
+      commerceProfileEnabled &&
+      isEditProductOpen &&
+      (commerceProfileLoading || commerceProfileLoadError)
+    ) {
+      toast.error(
+        commerceProfileLoadError || "Wait for existing merchandise settings to load before saving"
+      );
+      return;
+    }
+
     let serializedCatalogAssignments;
     if (catalogAssignmentsEnabled) {
       try {
         serializedCatalogAssignments = serializeCatalogAssignments(catalogAssignments);
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Invalid catalog assignments");
+        return;
+      }
+    }
+
+    let serializedCommerceProfile;
+    if (commerceProfileEnabled) {
+      try {
+        serializedCommerceProfile = serializeCommerceProfile(commerceProfile);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Invalid merchandise settings");
         return;
       }
     }
@@ -555,6 +597,38 @@ export default function AdminProductsPage() {
       }
     }
 
+    if (commerceProfileEnabled) {
+      try {
+        const response = await adminFetch(
+          `/api/admin/products/${encodeURIComponent(savedProduct.id)}/commerce-profile`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(serializedCommerceProfile),
+          }
+        );
+        const result = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(result?.error || "Failed to save merchandise settings");
+        }
+        setCommerceProfileSaveError(null);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to save merchandise settings";
+        setCommerceProfileSaveError(message);
+        toast.error("Product was saved, but merchandise settings were not. Correct the issue and retry.");
+
+        // As with catalog assignments, never issue a second Product POST when
+        // an additive follow-up save failed for a newly-created product.
+        if (!wasEditing) {
+          setProductForm(savedProduct);
+          setIsAddProductOpen(false);
+          setIsEditProductOpen(true);
+        }
+        setIsSaving(false);
+        return;
+      }
+    }
+
     if (wasEditing) {
       setIsEditProductOpen(false);
     } else {
@@ -564,6 +638,9 @@ export default function AdminProductsPage() {
     setCatalogAssignments([]);
     setCatalogAssignmentLoadError(null);
     setCatalogAssignmentSaveError(null);
+    setCommerceProfile(emptyCommerceProfileDraft());
+    setCommerceProfileLoadError(null);
+    setCommerceProfileSaveError(null);
     setIsSaving(false);
   };
 
@@ -945,19 +1022,18 @@ export default function AdminProductsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Archive Confirmation Dialog */}
       <AlertDialog
         open={!!productToDelete}
         onOpenChange={(open) => { if (!open) setProductToDelete(null); }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Product</AlertDialogTitle>
+            <AlertDialogTitle>Archive Product</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete{" "}
-              <strong>{productToDelete?.name}</strong>? This action cannot be
-              undone. The product will be marked as out of stock and hidden
-              from the store.
+              Archive <strong>{productToDelete?.name}</strong>? It will be
+              removed from admin and customer product listings, while its
+              record and order history remain preserved.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -966,7 +1042,7 @@ export default function AdminProductsPage() {
               onClick={handleDeleteProduct}
               className="bg-red-600 hover:bg-red-700"
             >
-              Delete
+              Archive
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -980,6 +1056,8 @@ export default function AdminProductsPage() {
             setIsAddProductOpen(false);
             setIsEditProductOpen(false);
             setFieldErrors({});
+            setCommerceProfileLoadError(null);
+            setCommerceProfileSaveError(null);
           }
         }}
         isEdit={isEditProductOpen}
@@ -1006,6 +1084,13 @@ export default function AdminProductsPage() {
         setCatalogAssignmentsLoading={setCatalogAssignmentsLoading}
         setCatalogAssignmentLoadError={setCatalogAssignmentLoadError}
         catalogAssignmentSaveError={catalogAssignmentSaveError}
+        commerceProfileEnabled={commerceProfileEnabled}
+        commerceProfile={commerceProfile}
+        setCommerceProfile={setCommerceProfile}
+        commerceProfileLoading={commerceProfileLoading}
+        setCommerceProfileLoading={setCommerceProfileLoading}
+        setCommerceProfileLoadError={setCommerceProfileLoadError}
+        commerceProfileSaveError={commerceProfileSaveError}
         fieldErrors={fieldErrors}
         clearFieldError={(field) => {
           setFieldErrors((current) => {
@@ -1049,6 +1134,13 @@ interface ProductDialogProps {
   setCatalogAssignmentsLoading: (loading: boolean) => void;
   setCatalogAssignmentLoadError: (error: string | null) => void;
   catalogAssignmentSaveError: string | null;
+  commerceProfileEnabled: boolean;
+  commerceProfile: CommerceProfileDraft;
+  setCommerceProfile: (profile: CommerceProfileDraft) => void;
+  commerceProfileLoading: boolean;
+  setCommerceProfileLoading: (loading: boolean) => void;
+  setCommerceProfileLoadError: (error: string | null) => void;
+  commerceProfileSaveError: string | null;
   fieldErrors: ProductFormErrors;
   clearFieldError: (field: keyof AdminProduct) => void;
 }
@@ -1080,6 +1172,13 @@ function ProductDialog({
   setCatalogAssignmentsLoading,
   setCatalogAssignmentLoadError,
   catalogAssignmentSaveError,
+  commerceProfileEnabled,
+  commerceProfile,
+  setCommerceProfile,
+  commerceProfileLoading,
+  setCommerceProfileLoading,
+  setCommerceProfileLoadError,
+  commerceProfileSaveError,
   fieldErrors,
   clearFieldError,
 }: ProductDialogProps) {
@@ -1161,7 +1260,7 @@ function ProductDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Category *</Label>
+              <Label>Legacy Shop Category *</Label>
               <Select
                 value={product.categoryId}
                 onValueChange={(v) => update("categoryId", v)}
@@ -1170,7 +1269,7 @@ function ProductDialog({
                   {isLoadingCategories ? (
                     <span className="text-muted-foreground text-sm">Loading…</span>
                   ) : (
-                    <SelectValue placeholder="Select category" />
+                    <SelectValue placeholder="Select legacy category" />
                   )}
                 </SelectTrigger>
                 <SelectContent>
@@ -1184,7 +1283,7 @@ function ProductDialog({
               <ProductFieldError message={fieldErrors.categoryId} />
             </div>
             <div className="space-y-2">
-              <Label>Fabric Type *</Label>
+              <Label>Legacy Shop Type *</Label>
               <Select
                 value={product.fabricType}
                 onValueChange={(v) => update("fabricType", v)}
@@ -1193,7 +1292,7 @@ function ProductDialog({
                   {isLoadingCategories ? (
                     <span className="text-muted-foreground text-sm">Loading…</span>
                   ) : (
-                    <SelectValue placeholder="Select fabric type" />
+                    <SelectValue placeholder="Select legacy shop type" />
                   )}
                 </SelectTrigger>
                 <SelectContent>
@@ -1229,6 +1328,10 @@ function ProductDialog({
               </Select>
             </div>
           </div>
+
+          <p className="-mt-2 text-xs text-muted-foreground">
+            These existing fields continue to power the current /shop listing. Use the catalog and merchandise sections below for the new departments.
+          </p>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -1519,6 +1622,17 @@ function ProductDialog({
               saveError={catalogAssignmentSaveError}
             />
           )}
+
+          {commerceProfileEnabled && (
+            <ProductCommerceProfileSection
+              productId={isEdit ? product.id || undefined : undefined}
+              draft={commerceProfile}
+              onChange={setCommerceProfile}
+              onLoadingChange={setCommerceProfileLoading}
+              onLoadError={setCommerceProfileLoadError}
+              saveError={commerceProfileSaveError}
+            />
+          )}
         </div>
 
         <DialogFooter>
@@ -1527,7 +1641,12 @@ function ProductDialog({
           </Button>
           <Button
             onClick={onSave}
-            disabled={isSaving || uploadingImage || uploadingVideo || (isEdit && catalogAssignmentsLoading)}
+            disabled={
+              isSaving ||
+              uploadingImage ||
+              uploadingVideo ||
+              (isEdit && (catalogAssignmentsLoading || commerceProfileLoading))
+            }
           >
             {(isSaving || uploadingImage || uploadingVideo) && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             {uploadingImage || uploadingVideo ? "Uploading..." : isEdit ? "Save Changes" : "Add Product"}

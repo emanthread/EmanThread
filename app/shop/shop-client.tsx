@@ -6,7 +6,7 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { CartDrawer } from "@/components/cart/cart-drawer";
 import { ProductCard } from "@/components/product/product-card";
-import { type Product, type Category } from "@/lib/data";
+import { type Product } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,23 +22,42 @@ import { Label } from "@/components/ui/label";
 import { SlidersHorizontal, X, Grid3X3, LayoutGrid, Search, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FlashSaleBanner } from "@/app/components/flash-sale-banner";
+import type { ShopCatalogOption } from "@/lib/shop-catalog-options";
  
 interface ShopClientProps {
   initialProducts: Product[];
   initialCategories: any[];
   initialColors: string[];
   initialSeasons: string[];
+  catalogOptions: ShopCatalogOption[];
+  initialCatalogPath?: string;
+  initialHasMore?: boolean;
 }
 
 export function ShopContent({ 
   initialProducts, 
   initialCategories, 
   initialColors, 
-  initialSeasons 
+  initialSeasons,
+  catalogOptions,
+  initialCatalogPath,
+  initialHasMore,
 }: ShopClientProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const categoryParam = searchParams.get("category");
+  const catalogPathParam = searchParams.get("catalogPath");
+  const requestedCatalogPath =
+    catalogPathParam &&
+    catalogOptions.some((option) => option.path === catalogPathParam)
+    ? catalogPathParam
+    : "";
+  const initialMinPrice = Math.max(0, Number(searchParams.get("minPrice")) || 0);
+  const initialMaxPrice = Math.min(10000, Number(searchParams.get("maxPrice")) || 10000);
+  const initialSort = searchParams.get("sort") || "featured";
+  const initialSearch = searchParams.get("search") || "";
+  const initialColor = searchParams.get("color") || "";
+  const initialSeason = searchParams.get("season") || "";
 
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [categories] = useState(initialCategories);
@@ -47,19 +66,27 @@ export function ShopContent({
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(initialProducts.length === 20);
+  const [hasMore, setHasMore] = useState(
+    initialHasMore ?? initialProducts.length === 20
+  );
 
   const [showFilters, setShowFilters] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     categoryParam ? categoryParam.split(",") : []
   );
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000]);
-  const [sortBy, setSortBy] = useState("featured");
+  const [priceRange, setPriceRange] = useState<[number, number]>([
+    Math.min(initialMinPrice, initialMaxPrice),
+    Math.max(initialMinPrice, initialMaxPrice),
+  ]);
+  const [sortBy, setSortBy] = useState(initialSort);
   const [gridSize, setGridSize] = useState<"small" | "large">("small");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchInput, setSearchInput] = useState("");
-  const [selectedColor, setSelectedColor] = useState<string>("");
-  const [selectedSeason, setSelectedSeason] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
+  const [searchInput, setSearchInput] = useState(initialSearch);
+  const [selectedColor, setSelectedColor] = useState<string>(initialColor);
+  const [selectedSeason, setSelectedSeason] = useState<string>(initialSeason);
+  const [selectedCatalogPath, setSelectedCatalogPath] = useState(
+    initialCatalogPath || requestedCatalogPath
+  );
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // We skip fetching on the very first mount because we have initialProducts
@@ -68,6 +95,9 @@ export function ShopContent({
   // Build query string from filters
   const buildQueryString = useCallback((pageNum = 1) => {
     const params = new URLSearchParams();
+    if (selectedCatalogPath) {
+      params.set("catalogPath", selectedCatalogPath);
+    }
     if (selectedCategories.length > 0) {
       params.set("category", selectedCategories.join(","));
     }
@@ -80,7 +110,7 @@ export function ShopContent({
     params.set("page", String(pageNum));
     params.set("limit", "20");
     return params.toString();
-  }, [selectedCategories, priceRange, sortBy, searchQuery, selectedColor, selectedSeason]);
+  }, [selectedCatalogPath, selectedCategories, priceRange, sortBy, searchQuery, selectedColor, selectedSeason]);
 
   const fetchProducts = useCallback(async (pageNum = 1, append = false) => {
     if (append) setLoadingMore(true);
@@ -88,9 +118,21 @@ export function ShopContent({
 
     try {
       const qs = buildQueryString(pageNum);
-      const url = `/api/products?${qs}`;
+      const url = selectedCatalogPath
+        ? `/api/catalog/products?${qs}`
+        : `/api/products?${qs}`;
       const res = await fetch(url);
       const data = await res.json();
+      if (!res.ok) {
+        // A path can be unpublished after this page renders. Clear only the
+        // additive filter and let the established /api/products path reload
+        // instead of blanking the live legacy listing.
+        if ((res.status === 400 || res.status === 404) && selectedCatalogPath) {
+          setSelectedCatalogPath("");
+          return;
+        }
+        throw new Error(data?.error || "Failed to load products");
+      }
       
       const newProducts = Array.isArray(data) ? data : (data.products || []);
       
@@ -100,7 +142,11 @@ export function ShopContent({
         setProducts(newProducts);
       }
       
-      setHasMore(newProducts.length === 20);
+      setHasMore(
+        typeof data?.hasNextPage === "boolean"
+          ? data.hasNextPage
+          : newProducts.length === 20
+      );
       setPage(pageNum);
     } catch (e) {
       console.error("Failed to fetch products:", e);
@@ -109,7 +155,7 @@ export function ShopContent({
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [buildQueryString]);
+  }, [buildQueryString, selectedCatalogPath]);
 
   const normalizeSlug = useCallback((s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, ''), []);
 
@@ -142,6 +188,12 @@ export function ShopContent({
   }, [categoryParam, categories, normalizeSlug]);
 
   useEffect(() => {
+    setSelectedCatalogPath((current) =>
+      current === requestedCatalogPath ? current : requestedCatalogPath
+    );
+  }, [requestedCatalogPath]);
+
+  useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
@@ -154,6 +206,7 @@ export function ShopContent({
     searchQuery,
     selectedColor,
     selectedSeason,
+    selectedCatalogPath,
     fetchProducts
   ]);
 
@@ -165,7 +218,7 @@ export function ShopContent({
     params.delete('limit');
     const newUrl = params.toString() ? `/shop?${params.toString()}` : "/shop";
     router.replace(newUrl, { scroll: false });
-  }, [selectedCategories, priceRange, sortBy, searchQuery, selectedColor, selectedSeason, router, buildQueryString]);
+  }, [selectedCatalogPath, selectedCategories, priceRange, sortBy, searchQuery, selectedColor, selectedSeason, router, buildQueryString]);
 
   const toggleCategory = (categoryId: string) => {
     setSelectedCategories((prev) =>
@@ -183,6 +236,7 @@ export function ShopContent({
     setSearchInput("");
     setSelectedColor("");
     setSelectedSeason("");
+    setSelectedCatalogPath("");
   };
 
   const handleSearchChange = (value: string) => {
@@ -206,7 +260,8 @@ export function ShopContent({
     sortBy !== "featured" ||
     searchQuery.trim().length > 0 ||
     selectedColor !== "" ||
-    selectedSeason !== "";
+    selectedSeason !== "" ||
+    selectedCatalogPath !== "";
 
   return (
     <>
@@ -220,8 +275,8 @@ export function ShopContent({
               Shop Collection
             </h1>
             <p className="mt-4 text-muted-foreground text-center max-w-2xl mx-auto">
-              Explore our curated selection of premium men's unstitched fabrics,
-              crafted for the distinguished gentleman.
+              Explore existing fabric collections alongside women&apos;s wear,
+              fragrance, beauty, teens, and gifts. All familiar filters still work.
             </p>
           </div>
         </div>
@@ -240,9 +295,10 @@ export function ShopContent({
                   <span className="ml-2 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
                     {selectedCategories.length +
                       (priceRange[0] > 0 || priceRange[1] < 10000 ? 1 : 0) +
-                      (searchQuery ? 1 : 0) +
-                      (selectedColor ? 1 : 0) +
-                      (selectedSeason ? 1 : 0)}
+                       (searchQuery ? 1 : 0) +
+                       (selectedColor ? 1 : 0) +
+                       (selectedSeason ? 1 : 0) +
+                       (selectedCatalogPath ? 1 : 0)}
                   </span>
                 )}
               </Button>
@@ -317,6 +373,35 @@ export function ShopContent({
                     <X className="h-4 w-4 mr-2" />
                     Clear all filters
                   </Button>
+                )}
+
+                {catalogOptions.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold mb-4 text-sm uppercase tracking-wider">
+                      Department & Collection
+                    </h3>
+                    <Select
+                      value={selectedCatalogPath || "all"}
+                      onValueChange={(value) =>
+                        setSelectedCatalogPath(value === "all" ? "" : value)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="All departments" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All departments</SelectItem>
+                        {catalogOptions.map((option) => (
+                          <SelectItem key={option.path} value={option.path}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Select a new department or subcategory without replacing your familiar shop filters.
+                    </p>
+                  </div>
                 )}
 
                 <div>
@@ -464,6 +549,32 @@ export function ShopContent({
                       />
                     </div>
                   </div>
+
+                  {catalogOptions.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold mb-4 text-sm uppercase tracking-wider">
+                        Department & Collection
+                      </h3>
+                      <Select
+                        value={selectedCatalogPath || "all"}
+                        onValueChange={(value) =>
+                          setSelectedCatalogPath(value === "all" ? "" : value)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="All departments" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All departments</SelectItem>
+                          {catalogOptions.map((option) => (
+                            <SelectItem key={option.path} value={option.path}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
                   <div>
                     <h3 className="font-semibold mb-4 text-sm uppercase tracking-wider">

@@ -16,6 +16,8 @@ export interface OrderItem {
   quantity: number;
   price: number;
   sku: string;
+  variantLabel?: string;
+  selectedOptions?: Array<{ label: string; value: string }>;
 }
 
 export interface Order {
@@ -678,10 +680,10 @@ export const useAdminStore = create<AdminState>()(
             const errData = await res.json().catch(() => ({}));
             throw new Error(errData.error || "Failed to delete product");
           }
-          toast.success("Product deleted successfully");
-          // Remove immediately from local state — calling loadProducts() would bring
-          // the product back because getAdminProducts() has no inStock filter and
-          // the DELETE API only soft-deletes (sets inStock: false).
+          toast.success("Product archived successfully");
+          // Archive API keeps historical records, while the server list excludes
+          // archived products. Remove immediately so the current page is exact
+          // even before a later refresh.
           set((state) => ({
             products: state.products.filter((p) => p.id !== productId),
           }));

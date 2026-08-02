@@ -1,59 +1,237 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { HeroSlide } from "@/lib/db/store-config";
+import type {
+  HeroDepartment,
+  HeroSlide,
+} from "@/lib/db/store-config";
 
 interface HeroSectionProps {
   initialSlides: HeroSlide[];
 }
 
+const HERO_DEPARTMENTS: { id: HeroDepartment; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "women", label: "Women" },
+  { id: "men", label: "Men" },
+  { id: "fragrance-beauty", label: "Fragrance & Beauty" },
+  { id: "teens", label: "Teens" },
+];
+
+function getDepartmentSlides(
+  slides: HeroSlide[],
+  department: HeroDepartment
+) {
+  const sharedSlides = slides.filter(
+    (slide) => (slide.department ?? "all") === "all"
+  );
+
+  if (department === "all") {
+    return sharedSlides.length > 0 ? sharedSlides : slides;
+  }
+
+  const dedicatedSlides = slides.filter(
+    (slide) => slide.department === department
+  );
+
+  // A department without its own slide keeps using the shared hero set. This
+  // lets admins add categories gradually without ever leaving the hero blank.
+  return dedicatedSlides.length > 0
+    ? dedicatedSlides
+    : sharedSlides.length > 0
+      ? sharedSlides
+      : slides;
+}
+
+function HeroVideo({
+  slide,
+  isActive,
+}: {
+  slide: HeroSlide;
+  isActive: boolean;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (isActive) {
+      const playPromise = video.play();
+      if (playPromise) {
+        void playPromise.catch(() => undefined);
+      }
+    } else {
+      video.pause();
+    }
+  }, [isActive]);
+
+  if (!slide.videoUrl) return null;
+
+  return (
+    <video
+      ref={videoRef}
+      src={slide.videoUrl}
+      poster={slide.poster || slide.image || undefined}
+      autoPlay={isActive}
+      loop
+      muted
+      playsInline
+      preload={isActive ? "auto" : "metadata"}
+      aria-label={slide.title}
+      className="h-full w-full object-cover"
+    />
+  );
+}
+
 export function HeroSection({ initialSlides }: HeroSectionProps) {
+  const [activeDepartment, setActiveDepartment] =
+    useState<HeroDepartment>("all");
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const transitionTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Auto-advance slides — no client fetch needed, slides come from the server
-  useEffect(() => {
-    if (initialSlides.length <= 1) return;
-    const interval = setInterval(() => {
+  const slides = useMemo(
+    () => getDepartmentSlides(initialSlides, activeDepartment),
+    [activeDepartment, initialSlides]
+  );
+  const displayedSlideIndex = Math.min(
+    currentSlide,
+    Math.max(slides.length - 1, 0)
+  );
+  const slide = slides[displayedSlideIndex];
+
+  const clearTransition = useCallback(() => {
+    if (transitionTimeout.current) {
+      clearTimeout(transitionTimeout.current);
+      transitionTimeout.current = null;
+    }
+  }, []);
+
+  const transitionTo = useCallback(
+    (change: () => void, duration = 300) => {
+      clearTransition();
       setIsTransitioning(true);
-      setTimeout(() => {
-        setCurrentSlide((prev) => (prev + 1) % initialSlides.length);
+      transitionTimeout.current = setTimeout(() => {
+        change();
         setIsTransitioning(false);
-      }, 500);
-    }, 6000);
-    return () => clearInterval(interval);
-  }, [initialSlides.length]);
+        transitionTimeout.current = null;
+      }, duration);
+    },
+    [clearTransition]
+  );
 
-  const slide = initialSlides[currentSlide];
+  const selectDepartment = useCallback(
+    (department: HeroDepartment) => {
+      if (department === activeDepartment) return;
+      transitionTo(() => {
+        setActiveDepartment(department);
+        setCurrentSlide(0);
+      }, 250);
+    },
+    [activeDepartment, transitionTo]
+  );
+
+  useEffect(() => clearTransition, [clearTransition]);
+
+  // The header's four main-category buttons emit this local UI event when the
+  // visitor is already on the homepage. It keeps header navigation unchanged
+  // while making its category choice immediately visible in the hero too.
+  useEffect(() => {
+    const handleDepartmentChange = (event: Event) => {
+      const department = (event as CustomEvent<{ department?: unknown }>).detail
+        ?.department;
+      if (HERO_DEPARTMENTS.some((item) => item.id === department)) {
+        selectDepartment(department as HeroDepartment);
+      }
+    };
+
+    window.addEventListener("eman-thread:hero-department", handleDepartmentChange);
+    return () =>
+      window.removeEventListener("eman-thread:hero-department", handleDepartmentChange);
+  }, [selectDepartment]);
+
+  // Auto-advance within the selected department only.
+  useEffect(() => {
+    if (slides.length <= 1) return;
+
+    const interval = setInterval(() => {
+      transitionTo(
+        () => setCurrentSlide((previous) => (previous + 1) % slides.length),
+        500
+      );
+    }, 6000);
+
+    return () => clearInterval(interval);
+  }, [activeDepartment, slides.length, transitionTo]);
+
+  if (!slide) return null;
+
+  const selectSlide = (index: number) => {
+    if (index === displayedSlideIndex) return;
+    transitionTo(() => setCurrentSlide(index));
+  };
 
   return (
     <section className="relative h-[60vh] min-h-[450px] md:h-screen md:min-h-[700px] max-h-[900px] overflow-hidden">
-      {/* Background Images */}
-      {initialSlides.map((s, index) => (
-        <div
-          key={index}
-          className={cn(
-            "absolute inset-0 transition-opacity duration-1000",
-            currentSlide === index ? "opacity-100" : "opacity-0"
-          )}
-        >
-          <Image
-            src={s.image}
-            alt={s.title}
-            fill
-            priority={index === 0}
-            loading={index === 0 ? undefined : "lazy"}
-            sizes="100vw"
-            className="object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/55 to-black/20" />
+      {/* Background image or video */}
+      {slides.map((backgroundSlide, index) => {
+        const isActive = displayedSlideIndex === index;
+        const isVideo = backgroundSlide.mediaType === "video" && backgroundSlide.videoUrl;
+
+        return (
+          <div
+            key={`${backgroundSlide.id ?? "legacy"}-${index}`}
+            className={cn(
+              "absolute inset-0 transition-opacity duration-1000",
+              isActive ? "opacity-100" : "opacity-0"
+            )}
+          >
+            {isVideo ? (
+              <HeroVideo slide={backgroundSlide} isActive={isActive} />
+            ) : backgroundSlide.image ? (
+              <Image
+                src={backgroundSlide.image}
+                alt={backgroundSlide.title}
+                fill
+                priority={index === 0 && activeDepartment === "all"}
+                loading={index === 0 && activeDepartment === "all" ? undefined : "lazy"}
+                sizes="100vw"
+                className="object-cover"
+              />
+            ) : null}
+            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/55 to-black/20" />
+          </div>
+        );
+      })}
+
+      {/* This selector is intentionally local to the hero. Header navigation
+          and catalog routing continue to behave independently. */}
+      <div className="absolute inset-x-0 top-5 z-20">
+        <div className="mx-auto flex max-w-7xl flex-wrap gap-2 px-4 sm:px-6 lg:px-8">
+          {HERO_DEPARTMENTS.map((department) => (
+            <button
+              key={department.id}
+              type="button"
+              onClick={() => selectDepartment(department.id)}
+              aria-pressed={activeDepartment === department.id}
+              className={cn(
+                "rounded-full border px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] transition-colors sm:px-4",
+                activeDepartment === department.id
+                  ? "border-white bg-white text-foreground"
+                  : "border-white/45 bg-black/20 text-white hover:border-white hover:bg-black/35"
+              )}
+            >
+              {department.label}
+            </button>
+          ))}
         </div>
-      ))}
+      </div>
 
       {/* Content */}
       <div className="relative h-full mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex items-center">
@@ -97,21 +275,16 @@ export function HeroSection({ initialSlides }: HeroSectionProps) {
         </div>
       </div>
 
-      {/* Slide Indicators */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-3">
-        {initialSlides.map((_, index) => (
+      {/* Slide indicators */}
+      <div className="absolute bottom-8 left-1/2 z-20 -translate-x-1/2 flex gap-3">
+        {slides.map((_, index) => (
           <button
             key={index}
-            onClick={() => {
-              setIsTransitioning(true);
-              setTimeout(() => {
-                setCurrentSlide(index);
-                setIsTransitioning(false);
-              }, 300);
-            }}
+            type="button"
+            onClick={() => selectSlide(index)}
             className={cn(
               "h-2 rounded-full transition-all duration-300",
-              currentSlide === index
+              displayedSlideIndex === index
                 ? "w-8 bg-white"
                 : "w-2 bg-white/40 hover:bg-white/70"
             )}

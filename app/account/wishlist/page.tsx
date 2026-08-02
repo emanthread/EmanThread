@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, Heart, ShoppingCart, X } from "lucide-react";
+import { ArrowLeft, Heart, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getProductImage } from "@/lib/utils";
@@ -11,19 +11,21 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { CartDrawer } from "@/components/cart/cart-drawer";
 import { ProductCard } from "@/components/product/product-card";
+import { WishlistAddToCart, type WishlistProductResolution } from "@/components/product/wishlist-add-to-cart";
 import { useWishlistStore } from "@/lib/wishlist-store";
-import { useCartStore } from "@/lib/cart-store";
 import { useAuthStore } from "@/lib/auth-store";
 import { useRouter } from "next/navigation";
 import { formatPrice, type Product } from "@/lib/data";
+import { requiresVariantSelectionForPurchase } from "@/lib/commerce";
 
 export default function AccountWishlistPage() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
   const [mounted, setMounted] = useState(false);
   const { items, removeItem, clearWishlist } = useWishlistStore();
-  const { addItem } = useCartStore();
   const [products, setProducts] = useState<Product[]>([]);
+  const [resolvedProducts, setResolvedProducts] = useState<Record<string, Product>>({});
+  const [productResolution, setProductResolution] = useState<Record<string, WishlistProductResolution>>({});
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -35,9 +37,54 @@ export default function AccountWishlistPage() {
     setMounted(true);
     fetch("/api/products")
       .then((res) => res.json())
-      .then((data) => setProducts(Array.isArray(data) ? data : []))
+      .then((data) => setProducts(Array.isArray(data) ? data : Array.isArray(data?.products) ? data.products : []))
       .catch((err) => console.error(err));
   }, []);
+
+  useEffect(() => {
+    const productIds = Array.from(new Set(items.map((item) => item.id).filter(Boolean)));
+    if (productIds.length === 0) return;
+
+    let cancelled = false;
+    setProductResolution((current) => {
+      const next = { ...current };
+      productIds.forEach((id) => {
+        if (next[id] !== "ready") next[id] = "loading";
+      });
+      return next;
+    });
+
+    void Promise.all(
+      productIds.map(async (id) => {
+        try {
+          const response = await fetch(`/api/products/${encodeURIComponent(id)}`);
+          const data = await response.json().catch(() => null);
+          if (!response.ok || !data?.product) {
+            return { id, state: "unavailable" as const };
+          }
+          return { id, state: "ready" as const, product: data.product as Product };
+        } catch {
+          return { id, state: "unavailable" as const };
+        }
+      })
+    ).then((results) => {
+      if (cancelled) return;
+      setProductResolution((current) => ({
+        ...current,
+        ...Object.fromEntries(results.map((result) => [result.id, result.state])),
+      }));
+      setResolvedProducts((current) => ({
+        ...current,
+        ...Object.fromEntries(
+          results.flatMap((result) => result.product ? [[result.id, result.product]] : [])
+        ),
+      }));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [items]);
 
   if (!isAuthenticated || !mounted) return null;
 
@@ -99,8 +146,12 @@ export default function AccountWishlistPage() {
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {uniqueItems.map((product) => (
-                  <Card key={`wishlist-${product.id}`} className="overflow-hidden group">
+                {uniqueItems.map((savedProduct) => {
+                  const product = resolvedProducts[savedProduct.id] ?? savedProduct;
+                  const resolution = productResolution[savedProduct.id] ?? "loading";
+                  const requiresProductOption = resolution === "ready" && requiresVariantSelectionForPurchase(product);
+
+                  return <Card key={`wishlist-${product.id}`} className="overflow-hidden group">
                     <CardContent className="p-0">
                       <div className="flex gap-4 p-4">
                         <div className="relative h-24 w-20 shrink-0 rounded-md overflow-hidden bg-muted">
@@ -131,23 +182,25 @@ export default function AccountWishlistPage() {
                         </div>
                         <div className="flex flex-col gap-2 shrink-0">
                           <button
-                            onClick={() => removeItem(product.id)}
+                            onClick={() => removeItem(savedProduct.id)}
                             className="p-1.5 rounded-full hover:bg-muted transition-colors hover:text-red-600"
                             title="Remove from wishlist"
                           >
                             <X className="h-4 w-4" />
                           </button>
-                          <Button
-                            size="sm"
-                            onClick={() => addItem(product)}
-                          >
-                            <ShoppingCart className="h-3 w-3" />
-                          </Button>
+                          {!requiresProductOption && (
+                            <WishlistAddToCart product={product} resolution={resolution} iconOnly />
+                          )}
                         </div>
                       </div>
+                      {requiresProductOption && (
+                        <div className="border-t px-4 pb-4 pt-3">
+                          <WishlistAddToCart product={product} resolution={resolution} />
+                        </div>
+                      )}
                     </CardContent>
-                  </Card>
-                ))}
+                  </Card>;
+                })}
               </div>
 
               {/* Recommended Products */}

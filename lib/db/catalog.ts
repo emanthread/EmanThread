@@ -1,11 +1,13 @@
 import { cache } from "react";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { ARCHIVED_PRODUCT_TAG, visibleProductTags } from "@/lib/product-archive";
 import type { Product } from "@/lib/data";
+import { parseProductImages } from "@/lib/utils/parse-images";
 import {
-  parseJsonArray,
-  parseProductImages,
-} from "@/lib/utils/parse-images";
+  getCommerceProfilesByProductId,
+  resolveCategoryFabricTypes,
+} from "@/lib/db/products";
 
 export const CATALOG_PAGE_SIZE = 24;
 export const CATALOG_MAX_PAGE_SIZE = 48;
@@ -14,6 +16,7 @@ export const CATALOG_MAX_PAGE = 1_000;
 export const CATALOG_SORT_OPTIONS = [
   "featured",
   "newest",
+  "trending",
   "price-asc",
   "price-desc",
   "name-asc",
@@ -32,7 +35,11 @@ export interface CatalogQueryInput {
   sort?: CatalogSort;
   search?: string;
   fabricType?: string;
+  // Raw /shop category values. They are resolved through the established
+  // legacy alias/fabricType helper before filtering catalog assignments.
+  categoryIds?: string[];
   color?: string;
+  season?: string;
   minPrice?: number;
   maxPrice?: number;
   inStock?: boolean;
@@ -188,6 +195,16 @@ function normalizeQuery(input: CatalogQueryInput): CatalogPageData["query"] {
     input.maxPrice !== undefined && Number.isFinite(input.maxPrice)
       ? Math.max(0, input.maxPrice)
       : undefined;
+  const categoryIds = Array.isArray(input.categoryIds)
+    ? Array.from(
+        new Set(
+          input.categoryIds
+            .map((categoryId) => categoryId.trim())
+            .filter(Boolean)
+            .slice(0, 25)
+        )
+      )
+    : undefined;
 
   return {
     page,
@@ -195,7 +212,9 @@ function normalizeQuery(input: CatalogQueryInput): CatalogPageData["query"] {
     sort,
     search: input.search?.trim().slice(0, 100) || undefined,
     fabricType: input.fabricType?.trim().slice(0, 80) || undefined,
+    categoryIds: categoryIds?.length ? categoryIds : undefined,
     color: input.color?.trim().slice(0, 80) || undefined,
+    season: input.season?.trim().slice(0, 80) || undefined,
     minPrice,
     maxPrice,
     inStock: input.inStock,
@@ -221,7 +240,12 @@ export function parseCatalogSearchParams(
     sort,
     search: boundedText(params.q, 100),
     fabricType: boundedText(params.fabric, 80),
+    categoryIds: firstParam(params.category)
+      ?.split(",")
+      .map((categoryId) => categoryId.trim())
+      .filter(Boolean),
     color: boundedText(params.color, 80),
+    season: boundedText(params.season, 80),
     minPrice: finiteNumber(params.minPrice),
     maxPrice: finiteNumber(params.maxPrice),
     inStock:
@@ -417,7 +441,8 @@ export const resolveActiveCatalogNode = cache(
 );
 
 function productWhereForCatalog(
-  query: CatalogPageData["query"]
+  query: CatalogPageData["query"],
+  categoryFabricTypes: string[]
 ): Prisma.ProductWhereInput {
   const price: Prisma.DecimalFilter | undefined =
     query.minPrice !== undefined || query.maxPrice !== undefined
@@ -427,7 +452,26 @@ function productWhereForCatalog(
         }
       : undefined;
 
+  const fabricTypeFilters: Prisma.ProductWhereInput[] = [];
+  if (query.fabricType) {
+    fabricTypeFilters.push({
+      fabricType: {
+        equals: query.fabricType,
+        mode: "insensitive" as const,
+      },
+    });
+  }
+  if (categoryFabricTypes.length) {
+    fabricTypeFilters.push({
+      fabricType: {
+        in: categoryFabricTypes,
+        mode: "insensitive" as const,
+      },
+    });
+  }
+
   return {
+    NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } },
     ...(query.search
       ? {
           OR: [
@@ -452,19 +496,21 @@ function productWhereForCatalog(
           ],
         }
       : {}),
-    ...(query.fabricType
-      ? {
-          fabricType: {
-            equals: query.fabricType,
-            mode: "insensitive" as const,
-          },
-        }
-      : {}),
+    ...(fabricTypeFilters.length ? { AND: fabricTypeFilters } : {}),
     ...(query.color
       ? {
           color: {
             equals: query.color,
             mode: "insensitive" as const,
+          },
+        }
+      : {}),
+    ...(query.season
+      ? {
+          // Product tags are the legacy season source. This is only applied
+          // to an additive catalog path and does not alter /shop queries.
+          tags: {
+            contains: query.season,
           },
         }
       : {}),
@@ -482,6 +528,10 @@ function assignmentOrderBy(
   switch (sort) {
     case "newest":
       return [{ product: { createdAt: "desc" } }, stableIdOrder];
+    case "trending":
+      // Match the existing /shop behaviour for its Trending control while
+      // keeping the sort scoped to the chosen additive catalog assignment.
+      return [{ product: { badge: "desc" } }, stableIdOrder];
     case "price-asc":
       return [
         { product: { price: "asc" } },
@@ -508,7 +558,8 @@ function assignmentOrderBy(
 }
 
 function transformCatalogProduct(
-  assignment: CatalogAssignmentWithProduct
+  assignment: CatalogAssignmentWithProduct,
+  commerce?: Product["commerce"]
 ): Product {
   const product = assignment.product;
 
@@ -528,7 +579,7 @@ function transformCatalogProduct(
     images: parseProductImages(product.images),
     imageLabels: parseProductImages(product.imageLabels),
     videoUrl: product.videoUrl || undefined,
-    tags: parseJsonArray(product.tags),
+    tags: visibleProductTags(product.tags),
     badge: product.badge
       ? productBadgeMap[product.badge]
       : undefined,
@@ -538,6 +589,7 @@ function transformCatalogProduct(
     sku: product.sku,
     metaTitle: product.metaTitle || undefined,
     metaDescription: product.metaDescription || undefined,
+    commerce,
   };
 }
 
@@ -554,7 +606,12 @@ export async function getCatalogPageData(
   if (!node) return null;
 
   const query = normalizeQuery(input);
-  const productWhere = productWhereForCatalog(query);
+  // Keep catalog-path filtering identical to the longstanding /shop category
+  // behavior, including aliases such as "wash-wear" and "Wash And Wear".
+  const categoryFabricTypes = query.categoryIds?.length
+    ? await resolveCategoryFabricTypes(query.categoryIds.join(","))
+    : [];
+  const productWhere = productWhereForCatalog(query, categoryFabricTypes);
   const assignmentWhere: Prisma.ProductCatalogAssignmentWhereInput = {
     catalogNodeId: node.id,
     product: productWhere,
@@ -575,9 +632,18 @@ export async function getCatalogPageData(
 
   const totalPages = Math.ceil(total / query.pageSize);
 
+  const commerceByProductId = await getCommerceProfilesByProductId(
+    assignments.map((assignment) => assignment.productId)
+  );
+
   return {
     node,
-    products: assignments.map(transformCatalogProduct),
+    products: assignments.map((assignment) =>
+      transformCatalogProduct(
+        assignment,
+        commerceByProductId.get(assignment.productId)
+      )
+    ),
     query,
     total,
     totalPages,

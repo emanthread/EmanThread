@@ -4,9 +4,15 @@
 export const FEATURE_FLAGS = {
   // Approved catalog rollout — keep each layer independently reversible.
   // These stay disabled until catalog content, assignments, and routes are approved.
-  CATALOG_HEADER_V1: true,
-  CATALOG_PAGES_V1: true,
-  CATALOG_ADMIN_ASSIGNMENTS_V1: true,
+  CATALOG_HEADER_V1: process.env.NEXT_PUBLIC_CATALOG_HEADER_V1 === "true",
+  CATALOG_PAGES_V1: process.env.NEXT_PUBLIC_CATALOG_PAGES_V1 === "true",
+  CATALOG_ADMIN_ASSIGNMENTS_V1:
+    process.env.NEXT_PUBLIC_CATALOG_ADMIN_ASSIGNMENTS_V1 === "true",
+
+  // New merchandise profiles/variants are isolated in additive tables. Keep
+  // them disabled until the reviewed migration has run on a disposable clone
+  // and the production backup/rollout checklist is complete.
+  COMMERCE_PROFILE_V1: process.env.NEXT_PUBLIC_COMMERCE_PROFILE_V1 === "true",
 
   // When true: shows only Nayapay + Meezan Bank, hides gateway integrations
   MANUAL_PAYMENT_MODE: true,

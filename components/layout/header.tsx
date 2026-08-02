@@ -64,10 +64,14 @@ function LegacyHeader() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { getTotalItems, openCart } = useCartStore();
-  const { getTotalItems: getWishlistTotal } = useWishlistStore();
+  const {
+    getTotalItems: getWishlistTotal,
+    isIdentityResolved: isWishlistIdentityResolved,
+  } = useWishlistStore();
   const { user, isAuthenticated, logout } = useAuthStore();
   const totalItems = mounted ? getTotalItems() : 0;
-  const wishlistItems = mounted ? getWishlistTotal() : 0;
+  const wishlistReady = mounted && isWishlistIdentityResolved;
+  const wishlistItems = wishlistReady ? getWishlistTotal() : 0;
 
   useEffect(() => {
     setMounted(true);
@@ -234,7 +238,11 @@ function LegacyHeader() {
               <Button
                 variant="ghost"
                 size="icon"
-                className={cn("relative", !isScrolled && "text-white hover:bg-white/15")}
+                className={cn(
+                  "relative",
+                  !isScrolled && "text-white hover:bg-white/15",
+                  !wishlistReady && "invisible",
+                )}
                 asChild
               >
                 <Link href="/wishlist">
@@ -294,12 +302,14 @@ function LegacyHeader() {
                         My Orders
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/wishlist" className="cursor-pointer">
-                        <Heart className="h-4 w-4 mr-2" />
-                        Wishlist
-                      </Link>
-                    </DropdownMenuItem>
+                    {wishlistReady ? (
+                      <DropdownMenuItem asChild>
+                        <Link href="/wishlist" className="cursor-pointer">
+                          <Heart className="h-4 w-4 mr-2" />
+                          Wishlist
+                        </Link>
+                      </DropdownMenuItem>
+                    ) : null}
                     <DropdownMenuItem asChild>
                       <Link href="/account/settings" className="cursor-pointer">
                         <Settings className="h-4 w-4 mr-2" />
@@ -484,10 +494,14 @@ function CatalogHeaderV1() {
   const [mounted, setMounted] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
   const { getTotalItems, openCart } = useCartStore();
-  const { getTotalItems: getWishlistTotal } = useWishlistStore();
+  const {
+    getTotalItems: getWishlistTotal,
+    isIdentityResolved: isWishlistIdentityResolved,
+  } = useWishlistStore();
   const { user, isAuthenticated, logout } = useAuthStore();
   const totalItems = mounted ? getTotalItems() : 0;
-  const wishlistItems = mounted ? getWishlistTotal() : 0;
+  const wishlistReady = mounted && isWishlistIdentityResolved;
+  const wishlistItems = wishlistReady ? getWishlistTotal() : 0;
   const utilityLinks = catalogUtilityLinks
     .filter(
       (link) =>
@@ -666,7 +680,7 @@ function CatalogHeaderV1() {
       <Button
         variant="ghost"
         size="icon"
-        className="relative"
+        className={cn("relative", !wishlistReady && "invisible")}
         aria-label={
           wishlistItems > 0
             ? `Wishlist, ${wishlistItems} items`
@@ -737,6 +751,7 @@ function CatalogHeaderV1() {
                 user={user}
                 utilityLinks={utilityLinks}
                 wishlistCount={wishlistItems}
+                wishlistReady={wishlistReady}
                 onSearch={() => setIsSearchOpen(true)}
                 onLogout={handleLogout}
               />

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { unstable_cache, revalidateTag, revalidatePath } from "next/cache";
+import { unstable_cache, revalidatePath } from "next/cache";
 
 export interface StoreConfigInput {
   name?: string;
@@ -130,8 +130,29 @@ export const getStoreConfig = unstable_cache(
 
 // ── Hero Slides ──────────────────────────────────────────────────────────────
 
+export const HERO_DEPARTMENTS = [
+  "all",
+  "women",
+  "men",
+  "fragrance-beauty",
+  "teens",
+] as const;
+
+export type HeroDepartment = (typeof HERO_DEPARTMENTS)[number];
+export type HeroMediaType = "image" | "video";
+
+/**
+ * Hero slides are deliberately stored as JSON in StoreConfig so the live
+ * database does not need a schema migration. The media and department fields
+ * are optional to keep every existing image-only slide valid.
+ */
 export interface HeroSlide {
-  image: string;
+  id?: string;
+  department?: HeroDepartment;
+  mediaType?: HeroMediaType;
+  image?: string;
+  videoUrl?: string;
+  poster?: string;
   title: string;
   subtitle: string;
   description: string;
@@ -139,7 +160,7 @@ export interface HeroSlide {
   link: string;
 }
 
-const DEFAULT_HERO_SLIDES: HeroSlide[] = [
+export const DEFAULT_HERO_SLIDES: HeroSlide[] = [
   {
     image: "/images/fabrics/hero_fabric_summer_1780065728421.png",
     title: "The Art of Fine Fabric",
@@ -169,17 +190,130 @@ const DEFAULT_HERO_SLIDES: HeroSlide[] = [
   },
 ];
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function isHeroDepartment(value: unknown): value is HeroDepartment {
+  return typeof value === "string" && HERO_DEPARTMENTS.includes(value as HeroDepartment);
+}
+
+/**
+ * Converts old image-only slide JSON into the current shape without writing
+ * anything back to the database. Invalid persisted entries are ignored so a
+ * malformed slide cannot break the home page.
+ */
+export function normalizeHeroSlide(value: unknown): HeroSlide | null {
+  if (!isRecord(value)) return null;
+
+  const title = readString(value.title);
+  const subtitle = readString(value.subtitle);
+  const description = readString(value.description);
+  const cta = readString(value.cta);
+  const link = readString(value.link);
+  const image = readString(value.image);
+  const videoUrl = readString(value.videoUrl);
+  const poster = readString(value.poster);
+  const mediaType: HeroMediaType = value.mediaType === "video" ? "video" : "image";
+
+  if (!title || !subtitle || !description || !cta || !link) return null;
+  if (mediaType === "video" ? !videoUrl : !image) return null;
+
+  const id = readString(value.id);
+  const department = isHeroDepartment(value.department) ? value.department : "all";
+
+  return {
+    ...(id ? { id } : {}),
+    department,
+    mediaType,
+    ...(image ? { image } : {}),
+    ...(videoUrl ? { videoUrl } : {}),
+    ...(poster ? { poster } : {}),
+    title,
+    subtitle,
+    description,
+    cta,
+    link,
+  };
+}
+
+export function parseHeroSlides(value: unknown): HeroSlide[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(normalizeHeroSlide)
+    .filter((slide): slide is HeroSlide => slide !== null);
+}
+
+export function parseHeroSlidesJson(value?: string | null): HeroSlide[] {
+  if (!value) return [...DEFAULT_HERO_SLIDES];
+
+  try {
+    const slides = parseHeroSlides(JSON.parse(value));
+    return slides.length > 0 ? slides : [...DEFAULT_HERO_SLIDES];
+  } catch {
+    return [...DEFAULT_HERO_SLIDES];
+  }
+}
+
+/**
+ * Validation for admin writes. Unlike the read normalizer, this rejects an
+ * invalid new value instead of silently changing it, while still accepting
+ * legacy slides that omit department and mediaType.
+ */
+export function validateHeroSlides(value: unknown): {
+  slides?: HeroSlide[];
+  error?: string;
+} {
+  if (!Array.isArray(value) || value.length === 0) {
+    return { error: "At least one hero slide is required" };
+  }
+
+  const slides: HeroSlide[] = [];
+  for (let index = 0; index < value.length; index++) {
+    const slide = value[index];
+    if (!isRecord(slide)) {
+      return { error: `Slide ${index + 1} must be an object` };
+    }
+
+    if (slide.department !== undefined && !isHeroDepartment(slide.department)) {
+      return { error: `Slide ${index + 1} has an invalid department` };
+    }
+    if (
+      slide.mediaType !== undefined &&
+      slide.mediaType !== "image" &&
+      slide.mediaType !== "video"
+    ) {
+      return { error: `Slide ${index + 1} has an invalid media type` };
+    }
+    if (slide.id !== undefined && (typeof slide.id !== "string" || !slide.id.trim())) {
+      return { error: `Slide ${index + 1} has an invalid id` };
+    }
+
+    const normalized = normalizeHeroSlide(slide);
+    if (!normalized) {
+      const mediaType = slide.mediaType === "video" ? "video URL" : "image";
+      return {
+        error: `Slide ${index + 1} needs a ${mediaType} and all text and link fields`,
+      };
+    }
+    slides.push(normalized);
+  }
+
+  return { slides };
+}
+
 async function _getHeroSlides(): Promise<HeroSlide[]> {
   try {
     const row = await prisma.storeConfig.findUnique({
       where: { key: "hero_slides" },
     });
-    if (!row) return DEFAULT_HERO_SLIDES;
-    const parsed = JSON.parse(row.value);
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed as HeroSlide[];
-    return DEFAULT_HERO_SLIDES;
+    return parseHeroSlidesJson(row?.value);
   } catch {
-    return DEFAULT_HERO_SLIDES;
+    return [...DEFAULT_HERO_SLIDES];
   }
 }
 

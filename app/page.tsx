@@ -5,7 +5,7 @@ import { FlashSaleBanner } from "@/app/components/flash-sale-banner";
 import { HeroSection } from "@/components/home/hero-section";
 import { LuxuryHighlightsSection } from "@/components/home/luxury-highlights-section";
 import { CategoriesSection } from "@/components/home/categories-section";
-import { getAllProducts, getFeaturedCategories } from "@/lib/db-queries";
+import { getAllProducts, getFeaturedCategoriesSection } from "@/lib/db-queries";
 import { getHeroSlides } from "@/lib/db/store-config";
 
 // ── Lazy-load below-the-fold and overlay components ───────────────────────────
@@ -41,9 +41,9 @@ export const revalidate = 300; // Cache the home page for 5 minutes
 
 export default async function HomePage() {
   // All three queries are now cached — near-zero latency after the first call
-  const [products, featuredCategories, heroSlides] = await Promise.all([
+  const [products, featuredCategoriesSection, heroSlides] = await Promise.all([
     getAllProducts(20),
-    getFeaturedCategories(),
+    getFeaturedCategoriesSection(),
     getHeroSlides(),
   ]);
 
@@ -59,7 +59,7 @@ export default async function HomePage() {
         {/* LuxuryHighlightsSection is now a pure RSC — zero hydration cost */}
         <LuxuryHighlightsSection />
         {/* CategoriesSection is now a pure RSC — zero hydration cost */}
-        <CategoriesSection categories={featuredCategories} />
+        <CategoriesSection {...featuredCategoriesSection} />
         {/* Below-the-fold sections are lazy-loaded to shrink the initial JS bundle */}
         <TrendingSection products={products} />
         <PromoSection />

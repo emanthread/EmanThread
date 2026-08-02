@@ -15,8 +15,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 
 import { getProductImage } from "@/lib/utils";
-import { useCartStore } from "@/lib/cart-store";
+import { getCartItemUnitPrice, isCartItemAvailable, type CartItem, useCartStore } from "@/lib/cart-store";
 import { formatPrice } from "@/lib/data";
+import { isProductStitchingEligible } from "@/lib/commerce";
 import { cn } from "@/lib/utils";
 import {
   ChevronLeft,
@@ -44,6 +45,7 @@ interface PaymentDetails {
 }
 import { useAuthStore } from "@/lib/auth-store";
 import { FEATURE_FLAGS, DEFAULT_STITCHING_FEE } from "@/lib/feature-flags";
+import { resolveStitchingPriceKey } from "@/lib/stitching-price";
 
 const paymentMethods = [
   { id: "cod", name: "Cash on Delivery", description: "Pay when you receive your order", icon: Banknote },
@@ -53,27 +55,56 @@ const paymentMethods = [
   { id: "safepay", name: "Safepay", description: "Pay securely via Safepay — cards, wallets & more", icon: Lock },
 ];
 
-// --- Admin Measurement Selector ---
-function AdminMeasurementLookup({ onSelect }: { onSelect: (m: any) => void }) {
-  const [phone, setPhone] = useState("");
+// --- Admin-stored Measurement Selector ---
+function AdminMeasurementLookup({
+  onSelect,
+  accountPhone,
+  isAdmin,
+}: {
+  onSelect: (m: any) => void;
+  accountPhone: string;
+  isAdmin: boolean;
+}) {
+  const [phone, setPhone] = useState(() => isAdmin ? "" : accountPhone);
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const normalizedPhoneLength = phone.replace(/\D/g, "").length;
+
+  // Customers do not choose a lookup phone in the UI. The API independently
+  // verifies that this value belongs to the authenticated account.
+  useEffect(() => {
+    if (!isAdmin) {
+      setPhone(accountPhone);
+      setRecords([]);
+    }
+  }, [accountPhone, isAdmin]);
 
   useEffect(() => {
-    if (phone.length < 7) { setRecords([]); return; }
+    if (!isOpen || normalizedPhoneLength < 7) {
+      setRecords([]);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setRecords([]);
     const t = setTimeout(async () => {
       setLoading(true);
       try {
         const res = await fetch(`/api/customer-measurements/lookup?phone=${encodeURIComponent(phone)}`);
         if (res.ok) {
           const d = await res.json();
-          setRecords(d.records || []);
+          if (!cancelled) setRecords(d.records || []);
         }
-      } finally { setLoading(false); }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }, 500);
-    return () => clearTimeout(t);
-  }, [phone]);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [isOpen, phone, normalizedPhoneLength]);
 
   return (
     <div className="mt-2 bg-muted/20 rounded border border-border/50 px-2 py-2 text-xs transition-all">
@@ -81,16 +112,26 @@ function AdminMeasurementLookup({ onSelect }: { onSelect: (m: any) => void }) {
         className="flex justify-between items-center cursor-pointer text-muted-foreground font-medium hover:text-foreground"
         onClick={() => setIsOpen(!isOpen)}
       >
-        <span>Have admin-stored measurements?</span>
+        <span>{isAdmin ? "Find admin-stored measurements" : "Use my admin-stored measurements"}</span>
         <span>{isOpen ? "▲" : "▼"}</span>
       </div>
       {isOpen && (
         <div className="mt-2 space-y-2">
-          <Input 
-            placeholder="Add Phone Number (optional)..." 
-            value={phone} onChange={(e) => setPhone(e.target.value)}
-            className="h-7 text-xs"
-          />
+          {isAdmin ? (
+            <Input
+              placeholder="Search by customer phone number..."
+              value={phone} onChange={(e) => setPhone(e.target.value)}
+              className="h-7 text-xs"
+            />
+          ) : accountPhone ? (
+            <p className="text-[10px] text-muted-foreground">
+              Looking up measurements saved for your account phone: {accountPhone}
+            </p>
+          ) : (
+            <p className="text-[10px] text-muted-foreground">
+              Add a phone number to your account to use admin-stored measurements.
+            </p>
+          )}
           {loading && <p className="text-[10px] text-muted-foreground">Searching...</p>}
           {records.length > 0 && (
             <select 
@@ -120,7 +161,7 @@ function AdminMeasurementLookup({ onSelect }: { onSelect: (m: any) => void }) {
               })}
             </select>
           )}
-          {phone.length >= 7 && !loading && records.length === 0 && (
+          {normalizedPhoneLength >= 7 && !loading && records.length === 0 && (
              <p className="text-[10px] text-muted-foreground">No records found for this number.</p>
           )}
         </div>
@@ -129,26 +170,31 @@ function AdminMeasurementLookup({ onSelect }: { onSelect: (m: any) => void }) {
   );
 }
 
+// A missing profile means the existing unstitched-fabric journey. New product
+// profiles explicitly opt out so readywear, fragrance, beauty and gifts never
+// expose tailoring controls at checkout.
+function isStitchingEligible(item: CartItem): boolean {
+  return isProductStitchingEligible(item.product);
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, getTotalPrice, getStitchingTotal, hasStitching, clearCart, updateStitching } = useCartStore();
+  const { items, getTotalPrice, clearCart, updateStitching } = useCartStore();
   const { user, isAuthenticated } = useAuthStore();
   const totalPrice = getTotalPrice();
 
   // Item-level selection — all items selected by default
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(items.map((i) => i.product.id)));
-  const selectedItems = items.filter((i) => selectedIds.has(i.product.id));
-  const selectedTotal = selectedItems.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(items.map((i) => i.lineId)));
+  const selectedItems = items.filter((i) => selectedIds.has(i.lineId));
+  const selectedTotal = selectedItems.reduce((sum, i) => sum + getCartItemUnitPrice(i) * i.quantity, 0);
   const stitchingTotal = selectedItems.reduce(
-    (sum, item) => sum + (item.stitchingProfileId && item.stitchingProfileId !== "none" ? (item.stitchingPrice ?? DEFAULT_STITCHING_FEE) * item.quantity : 0),
+    (sum, item) => sum + (isStitchingEligible(item) && item.stitchingProfileId && item.stitchingProfileId !== "none" ? (item.stitchingPrice ?? DEFAULT_STITCHING_FEE) * item.quantity : 0),
     0
   );
   const hasStitchingSelected = selectedItems.some(
-    (item) => item.stitchingProfileId != null && item.stitchingProfileId !== "none"
+    (item) => isStitchingEligible(item) && item.stitchingProfileId != null && item.stitchingProfileId !== "none"
   );
-  const outOfStockItems = items.filter(
-    (item) => !item.product.inStock || (item.product.stockQuantity !== undefined && item.product.stockQuantity <= 0)
-  );
+  const outOfStockItems = items.filter((item) => !isCartItemAvailable(item));
   const hasOutOfStock = outOfStockItems.length > 0;
 
   const [paymentMethod, setPaymentMethod] = useState("cod");
@@ -191,7 +237,7 @@ export default function CheckoutPage() {
 
   const [measurementProfiles, setMeasurementProfiles] = useState<Array<{ id: string; profileName: string; garmentType: string; isDefault: boolean; shalwar1?: string; ladSimpleShalwar1?: string; ladShalwarBelt1?: string; trouserdata1?: string; ladTrouserdata15?: string }>>([]);
   // Per-item shalwar variant selection for items where the profile is a shalwar kameez type.
-  // Key: productId, Value: stitching price DB key for the chosen variant.
+  // Key: cart line id, Value: stitching price DB key for the chosen variant.
   const [itemShalwarVariants, setItemShalwarVariants] = useState<Record<string, string>>({});
 
   // Maps a measurement profile garmentType → StitchingPrice.fabricType key in DB.
@@ -209,7 +255,7 @@ export default function CheckoutPage() {
       female_lehnga_kurti:   "lehnga kurti",
       female_saari:          "saari",
     };
-    return map[garmentType] ?? garmentType;
+    return resolveStitchingPriceKey(garmentType, variant) ?? map[garmentType] ?? garmentType;
   };
 
   // Variant options shown beneath the profile selector for shalwar kameez profiles.
@@ -259,7 +305,7 @@ export default function CheckoutPage() {
 
   // Sync selectedIds when items change
   useEffect(() => {
-    setSelectedIds(new Set(items.map((i) => i.product.id)));
+    setSelectedIds(new Set(items.map((i) => i.lineId)));
   }, [items]);
 
   // Fetch stitching prices & measurement profiles
@@ -300,13 +346,14 @@ export default function CheckoutPage() {
             const defaultProfile = profiles.find((p: { isDefault: boolean }) => p.isDefault);
             if (defaultProfile) {
               items.forEach((item) => {
+                if (!isStitchingEligible(item)) return;
                 const hasStitching = item.stitchingProfileId != null && item.stitchingProfileId !== "none";
                 if (!hasStitching) {
                   // Use the profile's garmentType to look up the correct stitching price,
                   // falling back to DEFAULT_STITCHING_FEE if no matching price is configured.
                   const priceKey = garmentTypeToPriceKey(defaultProfile.garmentType);
                   const price = stitchingPriceMap[priceKey] ?? DEFAULT_STITCHING_FEE;
-                  updateStitching(item.product.id, {
+                  updateStitching(item.lineId, {
                     price,
                     profileId: defaultProfile.id,
                     profileName: defaultProfile.profileName,
@@ -474,9 +521,11 @@ export default function CheckoutPage() {
         items: selectedItems.map((item) => ({
           productId: item.product.id,
           quantity: item.quantity,
-          price: item.product.price,
-          stitchingProfileId: item.stitchingProfileId && item.stitchingProfileId !== "none" ? item.stitchingProfileId : undefined,
-          measurementProfileId: item.stitchingProfileId && item.stitchingProfileId !== "none" ? item.stitchingProfileId : undefined,
+          price: getCartItemUnitPrice(item),
+          variantId: item.variant?.id,
+          selectedOptions: item.selectedOptions,
+          stitchingProfileId: isStitchingEligible(item) && item.stitchingProfileId && item.stitchingProfileId !== "none" ? item.stitchingProfileId : undefined,
+          measurementProfileId: isStitchingEligible(item) && item.stitchingProfileId && item.stitchingProfileId !== "none" ? item.stitchingProfileId : undefined,
         })),
         shippingAddress: {
           firstName: formData.firstName, lastName: formData.lastName,
@@ -494,14 +543,14 @@ export default function CheckoutPage() {
       if (hasStitchingSelected) {
         payload.stitchingFee = stitchingTotal;
         payload.stitchingItems = selectedItems
-          .filter((item) => item.stitchingProfileId != null && item.stitchingProfileId !== "none")
+          .filter((item) => isStitchingEligible(item) && item.stitchingProfileId != null && item.stitchingProfileId !== "none")
           .map((item) => {
             let variantName = undefined;
             const profileId = item.stitchingProfileId;
             const profile = profileId ? (measurementProfiles.find(p => p.id === profileId) || item.adminMeasurement) : null;
             if (profile) {
               const variants = shalwarVariantOptions[profile.garmentType ?? ""];
-              const selectedKey = itemShalwarVariants[item.product.id];
+              const selectedKey = itemShalwarVariants[item.lineId];
               const variantOpt = variants?.find(v => v.key === selectedKey);
               if (variantOpt) {
                 variantName = variantOpt.label;
@@ -510,6 +559,10 @@ export default function CheckoutPage() {
             return {
               productId: item.product.id,
               fabricType: item.product.fabricType,
+              priceKey: garmentTypeToPriceKey(
+                profile?.garmentType ?? "",
+                itemShalwarVariants[item.lineId],
+              ),
               stitchingPrice: item.stitchingPrice ?? DEFAULT_STITCHING_FEE,
               adminMeasurement: item.adminMeasurement ? item.adminMeasurement : undefined,
               stitchingVariantName: variantName,
@@ -523,7 +576,7 @@ export default function CheckoutPage() {
 
       // Include measurement information for stitching items (server-side attachment)
       const itemsToAttach = selectedItems
-        .filter((item) => item.stitchingProfileId != null && item.stitchingProfileId !== "none")
+        .filter((item) => isStitchingEligible(item) && item.stitchingProfileId != null && item.stitchingProfileId !== "none")
         .map((item) => ({ productId: item.product.id, productName: item.product.name }));
       if (itemsToAttach.length > 0) {
         payload.measurementItems = itemsToAttach;
@@ -777,10 +830,10 @@ export default function CheckoutPage() {
 
                   <div className="space-y-3 max-h-[300px] overflow-y-auto">
                     {items.map((item) => {
-                      const isSelected = selectedIds.has(item.product.id);
+                      const isSelected = selectedIds.has(item.lineId);
                       return (
-                        <div key={item.product.id} className={cn("flex items-start gap-3 pb-3 border-b border-border last:border-0 transition-opacity", !isSelected && "opacity-50")}>
-                          <Checkbox checked={isSelected} onCheckedChange={() => toggleItem(item.product.id)} className="mt-4" />
+                        <div key={item.lineId} className={cn("flex items-start gap-3 pb-3 border-b border-border last:border-0 transition-opacity", !isSelected && "opacity-50")}>
+                          <Checkbox checked={isSelected} onCheckedChange={() => toggleItem(item.lineId)} className="mt-4" />
                           <div className="relative w-14 h-16 bg-secondary rounded overflow-hidden shrink-0">
                             <Image src={getProductImage(item.product.images)} alt={item.product.name} fill className="object-cover" sizes="80px" />
                             <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">{item.quantity}</span>
@@ -788,6 +841,13 @@ export default function CheckoutPage() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium line-clamp-1">{item.product.name}</p>
                             <p className="text-xs text-muted-foreground">{item.product.fabricType}</p>
+                            {item.selectedOptions?.map((option) => (
+                              <p key={`${item.lineId}-${option.label}`} className="text-xs text-muted-foreground">
+                                {option.label}: {option.value}
+                              </p>
+                            ))}
+                            {isStitchingEligible(item) && (
+                              <>
                             <div className="flex gap-2 items-start w-full">
                               <select
                                 value={item.stitchingProfileId && item.stitchingProfileId !== "none" ? item.stitchingProfileId : "none"}
@@ -799,8 +859,8 @@ export default function CheckoutPage() {
                                       return;
                                     }
                                     // Clear variant selection too
-                                    setItemShalwarVariants((prev) => { const next = { ...prev }; delete next[item.product.id]; return next; });
-                                    updateStitching(item.product.id, { price: null, profileId: null, profileName: null, adminMeasurement: undefined });
+                                    setItemShalwarVariants((prev) => { const next = { ...prev }; delete next[item.lineId]; return next; });
+                                    updateStitching(item.lineId, { price: null, profileId: null, profileName: null, adminMeasurement: undefined });
                                   } else {
                                     // If changing back from admin to standard profile, clear adminMeasurement
                                     let adminMeasurement = undefined;
@@ -809,10 +869,10 @@ export default function CheckoutPage() {
                                     // Determine correct stitching price via garmentType mapping.
                                     // If the profile is a shalwar kameez type, check if user already
                                     // selected a variant; otherwise default to simple shalwar.
-                                    const currentVariant = itemShalwarVariants[item.product.id];
+                                    const currentVariant = itemShalwarVariants[item.lineId];
                                     const priceKey = garmentTypeToPriceKey(profile?.garmentType ?? "", currentVariant);
                                     const price = stitchingPriceMap[priceKey] ?? DEFAULT_STITCHING_FEE;
-                                    updateStitching(item.product.id, {
+                                    updateStitching(item.lineId, {
                                       price,
                                       profileId: val,
                                       profileName: profile?.profileName ?? "Stitching Required",
@@ -846,19 +906,23 @@ export default function CheckoutPage() {
 
                             </div>
 
-                            <AdminMeasurementLookup 
-                              onSelect={(rec) => {
-                                setItemShalwarVariants((prev) => { const next = { ...prev }; delete next[item.product.id]; return next; });
-                                const priceKey = garmentTypeToPriceKey(rec.garmentType ?? "", undefined);
-                                const price = stitchingPriceMap[priceKey] ?? DEFAULT_STITCHING_FEE;
-                                updateStitching(item.product.id, {
-                                  price,
-                                  profileId: `admin_${rec.id}`,
-                                  profileName: `Admin: ${rec.customerName}`,
-                                  adminMeasurement: rec
-                                });
-                              }}
-                            />
+                            {isAuthenticated && user ? (
+                              <AdminMeasurementLookup
+                                accountPhone={user.phone ?? ""}
+                                isAdmin={["ADMIN", "SUPER_ADMIN"].includes(user.role)}
+                                onSelect={(rec) => {
+                                  setItemShalwarVariants((prev) => { const next = { ...prev }; delete next[item.lineId]; return next; });
+                                  const priceKey = garmentTypeToPriceKey(rec.garmentType ?? "", undefined);
+                                  const price = stitchingPriceMap[priceKey] ?? DEFAULT_STITCHING_FEE;
+                                  updateStitching(item.lineId, {
+                                    price,
+                                    profileId: `admin_${rec.id}`,
+                                    profileName: `Admin: ${rec.customerName}`,
+                                    adminMeasurement: rec
+                                  });
+                                }}
+                              />
+                            ) : null}
                             
                             {/* Shalwar variant selector — only shown when a shalwar kameez profile is active */}
                             {(() => {
@@ -895,7 +959,7 @@ export default function CheckoutPage() {
                               }
 
                               // Ensure selected variant is valid
-                              let selectedVariant = itemShalwarVariants[item.product.id];
+                              let selectedVariant = itemShalwarVariants[item.lineId];
                               if (!selectedVariant || !variants.find((v) => v.key === selectedVariant)) {
                                 selectedVariant = variants[0].key;
                                 // Need to trigger update, but we are rendering. 
@@ -906,10 +970,10 @@ export default function CheckoutPage() {
                                   value={selectedVariant}
                                   onChange={(e) => {
                                     const variantKey = e.target.value;
-                                    setItemShalwarVariants((prev) => ({ ...prev, [item.product.id]: variantKey }));
+                                    setItemShalwarVariants((prev) => ({ ...prev, [item.lineId]: variantKey }));
                                     // Update stitching price immediately based on new variant
                                     const newPrice = stitchingPriceMap[variantKey] ?? DEFAULT_STITCHING_FEE;
-                                    updateStitching(item.product.id, {
+                                    updateStitching(item.lineId, {
                                       price: newPrice,
                                       profileId: item.stitchingProfileId!,
                                       profileName: item.stitchingProfileName ?? "Stitching Required",
@@ -924,8 +988,10 @@ export default function CheckoutPage() {
                                 </select>
                               );
                             })()}
+                              </>
+                            )}
                           </div>
-                          <p className="text-sm font-medium shrink-0">{formatPrice(item.product.price * item.quantity)}</p>
+                          <p className="text-sm font-medium shrink-0">{formatPrice(getCartItemUnitPrice(item) * item.quantity)}</p>
                         </div>
                       );
                     })}
@@ -940,7 +1006,7 @@ export default function CheckoutPage() {
                         <Button type="button" variant="outline" disabled={!couponCode.trim() || couponLoading} onClick={async () => {
                           setCouponLoading(true); setCouponError(null);
                           try {
-                            const res = await fetch("/api/cart/apply-discount", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ couponCode, cartItems: selectedItems.map((i) => ({ productId: i.product.id, quantity: i.quantity, price: i.product.price })) }) });
+                            const res = await fetch("/api/cart/apply-discount", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ couponCode, cartItems: selectedItems.map((i) => ({ productId: i.product.id, quantity: i.quantity, price: getCartItemUnitPrice(i) })) }) });
                             if (res.ok) { const d = await res.json(); setAppliedDiscount(d.discountAmount); } else { const e = await res.json(); setCouponError(e.error || "Invalid code"); setAppliedDiscount(null); }
                           } catch { setCouponError("Failed to apply coupon"); setAppliedDiscount(null); } finally { setCouponLoading(false); }
                         }}>{couponLoading ? "..." : "Apply"}</Button>
@@ -1125,7 +1191,7 @@ export default function CheckoutPage() {
                       <p className="text-sm font-semibold text-red-700 mb-1">⚠ Cannot place order — out-of-stock items in cart:</p>
                       <ul className="list-disc list-inside space-y-0.5">
                         {outOfStockItems.map((item) => (
-                          <li key={item.product.id} className="text-xs text-red-600">{item.product.name}</li>
+                          <li key={item.lineId} className="text-xs text-red-600">{item.product.name}</li>
                         ))}
                       </ul>
                       <p className="text-xs text-red-500 mt-2">Please go back to your cart and remove these items.</p>

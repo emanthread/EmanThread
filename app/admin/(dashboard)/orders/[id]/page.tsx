@@ -175,6 +175,11 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
                           ✨ {variantName}
                         </span>
                       )}
+                      {item.selectedOptions && item.selectedOptions.length > 0 && (
+                        <p className="text-xs text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 mt-1 mb-1 w-fit">
+                          {item.selectedOptions.map((option) => `${option.label}: ${option.value}`).join(", ")}
+                        </p>
+                      )}
                       <p className="text-sm text-muted-foreground">Code: {item.sku}</p>
                       <p className="text-sm text-muted-foreground mt-0.5">
                         Qty: {item.quantity} × {formatPrice(item.price)}

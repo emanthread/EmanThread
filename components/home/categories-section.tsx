@@ -4,21 +4,38 @@ import { ArrowRight } from "lucide-react";
 import { type Category } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
-export function CategoriesSection({ categories }: { categories: Category[] }) {
+type FeaturedCategory = Category & { href?: string };
+
+interface CategoriesSectionProps {
+  categories: FeaturedCategory[];
+  eyebrow?: string;
+  title?: string;
+  description?: string;
+}
+
+function getCategoryHref(category: FeaturedCategory) {
+  return category.href?.trim() || `/shop?category=${encodeURIComponent(category.id)}`;
+}
+
+export function CategoriesSection({
+  categories,
+  eyebrow = "Our Collections",
+  title = "Shop by Category",
+  description = "Explore a curated selection for every style, occasion, and discovery.",
+}: CategoriesSectionProps) {
   return (
     <section className="py-20 lg:py-28">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center mb-14">
           <p className="text-sm tracking-[0.3em] uppercase text-muted-foreground mb-3">
-            Our Collections
+            {eyebrow}
           </p>
           <h2 className="text-3xl sm:text-4xl font-semibold text-balance">
-            Shop by Category
+            {title}
           </h2>
           <p className="mt-4 text-muted-foreground max-w-2xl mx-auto">
-            Explore our curated selection of premium fabrics, each crafted with
-            exceptional attention to quality and detail.
+            {description}
           </p>
         </div>
 
@@ -27,7 +44,7 @@ export function CategoriesSection({ categories }: { categories: Category[] }) {
           {categories.slice(0, 3).map((category, index) => (
             <Link
               key={category.id}
-              href={`/shop?category=${encodeURIComponent(category.id)}`}
+              href={getCategoryHref(category)}
               className={cn(
                 "group relative overflow-hidden bg-secondary rounded-2xl shadow-md transition-all duration-500 hover:shadow-xl hover:scale-[1.015] hover:-translate-y-1",
                 index === 0 ? "sm:col-span-2 lg:col-span-1 lg:row-span-2" : ""
@@ -75,7 +92,7 @@ export function CategoriesSection({ categories }: { categories: Category[] }) {
           {categories.slice(3).map((category) => (
             <Link
               key={category.id}
-              href={`/shop?category=${encodeURIComponent(category.id)}`}
+              href={getCategoryHref(category)}
               className="group relative overflow-hidden bg-secondary rounded-2xl shadow-md transition-all duration-500 hover:shadow-xl hover:scale-[1.015] hover:-translate-y-1"
             >
               <div className="relative aspect-[5/4]">

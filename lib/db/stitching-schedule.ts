@@ -25,6 +25,20 @@ function toMidnightPKT(date: Date): Date {
   return new Date(pktDate.getTime() - pktOffsetMs);
 }
 
+/**
+ * Formats an instant as the corresponding Pakistan calendar day. Date values
+ * used by the stitching scheduler are stored at midnight PKT (19:00 UTC the
+ * previous day), so `toISOString().slice(0, 10)` would otherwise expose the
+ * wrong customer-facing date.
+ */
+export function formatDatePKT(date: Date): string {
+  const pktDate = new Date(date.getTime() + 5 * 60 * 60 * 1000);
+  const year = pktDate.getUTCFullYear();
+  const month = String(pktDate.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(pktDate.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 /** Add N whole days to a midnight-PKT date */
 function addDays(date: Date, days: number): Date {
   const result = new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
@@ -53,6 +67,32 @@ export async function getStitchingCountForDate(date: Date): Promise<number> {
     },
   });
   return count;
+}
+
+/**
+ * Returns whether a requested PKT calendar day is still eligible for a
+ * stitching delivery. This shares the same block/override/capacity rules as
+ * automatic scheduling so direct order requests cannot bypass the calendar.
+ */
+export async function getStitchingDateAvailability(
+  date: Date,
+  defaultThreshold: number,
+): Promise<{
+  date: Date;
+  capacity: number | null;
+  count: number;
+  available: boolean;
+}> {
+  const canonicalDate = toMidnightPKT(date);
+  const capacity = await getEffectiveCapacityForDate(canonicalDate, defaultThreshold);
+  const count = capacity === null ? 0 : await getStitchingCountForDate(canonicalDate);
+
+  return {
+    date: canonicalDate,
+    capacity,
+    count,
+    available: capacity !== null && count < capacity,
+  };
 }
 
 /**
@@ -189,9 +229,7 @@ export async function getMonthCapacityMap(
   const countMap: Record<string, number> = {};
   for (const o of orders) {
     if (!o.stitchingDeliveryDate) continue;
-    const key = toMidnightPKT(o.stitchingDeliveryDate)
-      .toISOString()
-      .slice(0, 10);
+    const key = formatDatePKT(toMidnightPKT(o.stitchingDeliveryDate));
     countMap[key] = (countMap[key] ?? 0) + 1;
   }
 
@@ -215,7 +253,7 @@ export async function getMonthCapacityMap(
 
   for (let i = 0; i < daysInMonth; i++) {
     const day = addDays(startDate, i);
-    const dayStr = day.toISOString().slice(0, 10);
+    const dayStr = formatDatePKT(day);
     const { gte, lt } = dayBounds(day);
 
     // Find applicable rules for this day

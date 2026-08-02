@@ -7,11 +7,11 @@ import { getProductImage } from "@/lib/utils";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { ProductCard } from "@/components/product/product-card";
+import { WishlistAddToCart, type WishlistProductResolution } from "@/components/product/wishlist-add-to-cart";
 import { Button } from "@/components/ui/button";
 import { useWishlistStore } from "@/lib/wishlist-store";
-import { useCartStore } from "@/lib/cart-store";
 import { formatPrice, type Product } from "@/lib/data";
-import { Heart, ShoppingCart, X } from "lucide-react";
+import { Heart, X } from "lucide-react";
 
 const removeDuplicates = (items: any[]): any[] => {
   const seen = new Set();
@@ -28,16 +28,62 @@ const removeDuplicates = (items: any[]): any[] => {
 export default function WishlistPage() {
   const [mounted, setMounted] = useState(false);
   const { items, removeItem, clearWishlist } = useWishlistStore();
-  const { addItem } = useCartStore();
   const [products, setProducts] = useState<Product[]>([]);
+  const [resolvedProducts, setResolvedProducts] = useState<Record<string, Product>>({});
+  const [productResolution, setProductResolution] = useState<Record<string, WishlistProductResolution>>({});
 
   useEffect(() => {
     setMounted(true);
     fetch("/api/products")
       .then((res) => res.json())
-      .then((data) => setProducts(Array.isArray(data) ? data : []))
+      .then((data) => setProducts(Array.isArray(data) ? data : Array.isArray(data?.products) ? data.products : []))
       .catch((err) => console.error(err));
   }, []);
+
+  useEffect(() => {
+    const productIds = Array.from(new Set(items.map((item) => item.id).filter(Boolean)));
+    if (productIds.length === 0) return;
+
+    let cancelled = false;
+    setProductResolution((current) => {
+      const next = { ...current };
+      productIds.forEach((id) => {
+        if (next[id] !== "ready") next[id] = "loading";
+      });
+      return next;
+    });
+
+    void Promise.all(
+      productIds.map(async (id) => {
+        try {
+          const response = await fetch(`/api/products/${encodeURIComponent(id)}`);
+          const data = await response.json().catch(() => null);
+          if (!response.ok || !data?.product) {
+            return { id, state: "unavailable" as const };
+          }
+          return { id, state: "ready" as const, product: data.product as Product };
+        } catch {
+          return { id, state: "unavailable" as const };
+        }
+      })
+    ).then((results) => {
+      if (cancelled) return;
+      setProductResolution((current) => ({
+        ...current,
+        ...Object.fromEntries(results.map((result) => [result.id, result.state])),
+      }));
+      setResolvedProducts((current) => ({
+        ...current,
+        ...Object.fromEntries(
+          results.flatMap((result) => result.product ? [[result.id, result.product]] : [])
+        ),
+      }));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [items]);
 
   if (!mounted) return null;
   
@@ -46,10 +92,6 @@ export default function WishlistPage() {
   const recommendedProducts = products
     .filter((p) => !uniqueItems.some((item) => item.id === p.id))
     .slice(0, 4);
-
-  const handleAddToCart = (product: any) => {
-    addItem(product);
-  };
 
   return (
     <>
@@ -92,8 +134,11 @@ export default function WishlistPage() {
 
               {/* Wishlist Items Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {uniqueItems.map((product) => (
-                  <div key={`wishlist-${product.id}`} className="group relative">
+                {uniqueItems.map((savedProduct) => {
+                  const product = resolvedProducts[savedProduct.id] ?? savedProduct;
+                  const resolution = productResolution[savedProduct.id] ?? "loading";
+
+                  return <div key={`wishlist-${product.id}`} className="group relative">
                     <div className="relative overflow-hidden rounded-lg bg-secondary">
                       <Link href={`/product/${product.id}`}>
                         <Image
@@ -105,7 +150,7 @@ export default function WishlistPage() {
                         />
                       </Link>
                       <button
-                        onClick={() => removeItem(product.id)}
+                        onClick={() => removeItem(savedProduct.id)}
                         className="absolute right-3 top-3 p-2 bg-background/80 backdrop-blur rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-600"
                       >
                         <X className="h-4 w-4" />
@@ -120,14 +165,11 @@ export default function WishlistPage() {
                       <p className="text-sm text-muted-foreground">{product.fabricType}</p>
                       <div className="flex items-center justify-between">
                         <p className="font-semibold">{formatPrice(product.price)}</p>
-                        <Button size="sm" onClick={() => handleAddToCart(product)}>
-                          <ShoppingCart className="h-4 w-4 mr-2" />
-                          Add to Cart
-                        </Button>
+                        <WishlistAddToCart product={product} resolution={resolution} />
                       </div>
                     </div>
-                  </div>
-                ))}
+                  </div>;
+                })}
               </div>
             </div>
           )}

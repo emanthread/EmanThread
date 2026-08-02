@@ -10,7 +10,7 @@ import { CartDrawer } from "@/components/cart/cart-drawer";
 import { ProductCard } from "@/components/product/product-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useCartStore } from "@/lib/cart-store";
+import { getCartItemUnitPrice, isCartItemAvailable, useCartStore } from "@/lib/cart-store";
 import { formatPrice, type Product } from "@/lib/data";
 import { DEFAULT_STITCHING_FEE } from "@/lib/feature-flags";
 import { Plus, Minus, X, ShoppingBag, Truck } from "lucide-react";
@@ -20,7 +20,7 @@ export default function CartPage() {
     useCartStore();
   const totalPrice = getTotalPrice();
   const stitchingTotal = getStitchingTotal();
-  const outOfStockItems = items.filter((item) => !item.product.inStock || (item.product.stockQuantity !== undefined && item.product.stockQuantity <= 0));
+  const outOfStockItems = items.filter((item) => !isCartItemAvailable(item));
   const hasOutOfStock = outOfStockItems.length > 0;
 
   const [mounted, setMounted] = useState(false);
@@ -131,7 +131,7 @@ export default function CartPage() {
 
                   {items.map((item) => (
                     <div
-                      key={`cart-page-${item.product.id}`}
+                      key={`cart-page-${item.lineId}`}
                       className="grid grid-cols-12 gap-4 p-4 border-t border-border items-center"
                     >
                       {/* Product */}
@@ -157,7 +157,7 @@ export default function CartPage() {
                           <p className="text-sm text-muted-foreground">
                             Color: {item.product.color}
                           </p>
-                          {(!item.product.inStock || (item.product.stockQuantity !== undefined && item.product.stockQuantity <= 0)) && (
+                          {!isCartItemAvailable(item) && (
                             <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded px-2 py-0.5 mt-1">
                               ⚠ Out of Stock — please remove to checkout
                             </span>
@@ -167,8 +167,13 @@ export default function CartPage() {
                               ✂ {item.stitchingProfileName} (+{formatPrice(item.stitchingPrice ?? DEFAULT_STITCHING_FEE)} stitching/unit)
                             </p>
                           )}
+                          {item.selectedOptions?.map((option) => (
+                            <p key={`${item.lineId}-${option.label}`} className="text-xs text-muted-foreground mt-1">
+                              {option.label}: {option.value}
+                            </p>
+                          ))}
                           <button
-                            onClick={() => removeItem(item.product.id)}
+                            onClick={() => removeItem(item.lineId)}
                             className="text-sm text-red-600 hover:text-red-700 mt-2 flex items-center gap-1 sm:hidden"
                           >
                             <X className="h-3 w-3" />
@@ -182,7 +187,7 @@ export default function CartPage() {
                         <span className="sm:hidden text-xs text-muted-foreground block mb-1">
                           Price
                         </span>
-                        {formatPrice(item.product.price)}
+                        {formatPrice(getCartItemUnitPrice(item))}
                       </div>
 
                       {/* Quantity */}
@@ -191,7 +196,7 @@ export default function CartPage() {
                           <button
                             onClick={() =>
                               updateQuantity(
-                                item.product.id,
+                                item.lineId,
                                 item.quantity - 1
                               )
                             }
@@ -205,7 +210,7 @@ export default function CartPage() {
                           <button
                             onClick={() =>
                               updateQuantity(
-                                item.product.id,
+                                item.lineId,
                                 item.quantity + 1
                               )
                             }
@@ -222,10 +227,10 @@ export default function CartPage() {
                           Total
                         </span>
                         <span className="font-semibold">
-                          {formatPrice(item.product.price * item.quantity)}
+                          {formatPrice(getCartItemUnitPrice(item) * item.quantity)}
                         </span>
                         <button
-                          onClick={() => removeItem(item.product.id)}
+                          onClick={() => removeItem(item.lineId)}
                           className="hidden sm:block text-sm text-muted-foreground hover:text-red-600 mt-2 ml-auto transition-colors"
                         >
                           Remove

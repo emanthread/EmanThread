@@ -46,6 +46,7 @@ type CatalogMobileMenuProps = {
   user: MobileMenuUser | null;
   utilityLinks: readonly MobileUtilityLink[];
   wishlistCount: number;
+  wishlistReady: boolean;
   onSearch: () => void;
   onLogout: () => void | Promise<void>;
 };
@@ -68,6 +69,7 @@ export function CatalogMobileMenu({
   user,
   utilityLinks,
   wishlistCount,
+  wishlistReady,
   onSearch,
   onLogout,
 }: CatalogMobileMenuProps) {
@@ -233,6 +235,13 @@ export function CatalogMobileMenu({
                           departmentOpen ? null : department.id,
                         );
                         setOpenSectionId(null);
+                        if (!departmentOpen) {
+                          window.dispatchEvent(
+                            new CustomEvent("eman-thread:hero-department", {
+                              detail: { department: department.id },
+                            })
+                          );
+                        }
                       }}
                     >
                       <span className={styles.drawerButtonLabel}>
@@ -379,17 +388,19 @@ export function CatalogMobileMenu({
                   {link.label}
                 </Link>
               ))}
-              <Link
-                href="/wishlist"
-                className={styles.drawerUtilityLink}
-                onClick={() => setIsOpen(false)}
-              >
-                <Heart aria-hidden="true" size={16} />
-                <span>
-                  Wishlist
-                  {wishlistCount > 0 ? ` (${wishlistCount})` : ""}
-                </span>
-              </Link>
+              {wishlistReady ? (
+                <Link
+                  href="/wishlist"
+                  className={styles.drawerUtilityLink}
+                  onClick={() => setIsOpen(false)}
+                >
+                  <Heart aria-hidden="true" size={16} />
+                  <span>
+                    Wishlist
+                    {wishlistCount > 0 ? ` (${wishlistCount})` : ""}
+                  </span>
+                </Link>
+              ) : null}
 
               {isAuthenticated && user ? (
                 <>

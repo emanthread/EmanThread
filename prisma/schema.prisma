@@ -101,11 +101,56 @@ model Product {
   reviews           ProductReview[]
   category          Category    @relation(fields: [categoryId], references: [id])
   catalogAssignments ProductCatalogAssignment[]
+  commerceProfile   ProductCommerceProfile?
 
   @@index([categoryId])
   @@index([groupId])
   @@index([inStock, stockQuantity])
   @@index([fabricType])
+}
+
+// Additive commerce configuration for merchandise that cannot use the legacy
+// unstitched-fabric flow. Existing Product rows intentionally do not need a
+// profile: absence is treated as the current unstitched/stitching behaviour.
+model ProductCommerceProfile {
+  id                 String           @id @default(cuid())
+  productId          String           @unique
+  productKind        ProductKind      @default(UNSTITCHED_FABRIC)
+  stitchingEligible  Boolean          @default(true)
+  requiresSelection  Boolean          @default(false)
+  optionLabel        String?
+  sizeGuideUrl       String?
+  details            Json?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  product            Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variants           ProductVariant[]
+
+  @@index([productKind])
+  @@index([stitchingEligible])
+}
+
+// Variants are used for readywear/teen sizing and optional perfume, beauty,
+// or gift formats. They are deactivated instead of deleted by the admin UI so
+// historic order snapshots remain meaningful.
+model ProductVariant {
+  id                 String                 @id @default(cuid())
+  commerceProfileId  String
+  optionKey          String
+  label              String
+  sku                String?                @unique
+  priceAdjustment    Decimal                @default(0)
+  stockQuantity      Int                    @default(0)
+  inStock            Boolean                @default(true)
+  isActive           Boolean                @default(true)
+  displayOrder       Int                    @default(0)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  commerceProfile    ProductCommerceProfile @relation(fields: [commerceProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([commerceProfileId, optionKey])
+  @@index([commerceProfileId, isActive, displayOrder])
+  @@index([inStock, stockQuantity])
 }
 
 model CatalogNode {
@@ -239,9 +284,26 @@ model OrderItem {
   priceAtTimeOfPurchase Decimal
   order                 Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product               Product @relation(fields: [productId], references: [id])
+  configuration         OrderItemConfiguration?
 
   @@index([orderId, productId])
   @@index([productId])
+}
+
+// A separate additive table stores the purchased variant/options snapshot.
+// It deliberately does not require a FK to ProductVariant so a deactivated
+// future variant cannot invalidate an already placed order.
+model OrderItemConfiguration {
+  id               String    @id @default(cuid())
+  orderItemId      String    @unique
+  productVariantId String?
+  variantSku       String?
+  variantLabel     String?
+  selectedOptions  Json?
+  createdAt        DateTime  @default(now())
+  orderItem        OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@index([productVariantId])
 }
 
 model NotificationLog {
@@ -688,6 +750,17 @@ enum Badge {
   HOT
   LIMITED
   FEATURED
+}
+
+enum ProductKind {
+  UNSTITCHED_FABRIC
+  READY_TO_WEAR
+  FRAGRANCE
+  BEAUTY
+  TEENS
+  GIFT
+  GIFT_BOX
+  ACCESSORY
 }
 
 enum OrderStatus {

@@ -68,6 +68,7 @@ interface CatalogNode {
   parentId: string | null;
   nodeType: string;
   label: string;
+  slug: string;
   path: string;
   displayOrder: number;
   isActive: boolean;
@@ -131,6 +132,25 @@ interface CatalogAssignmentClientProps {
   canViewAuditLogs: boolean;
 }
 
+const DEPARTMENT_OVERVIEW = [
+  {
+    name: "Women",
+    description: "Choose a Women catalog path for women-focused products.",
+  },
+  {
+    name: "Men",
+    description: "Choose a Men catalog path for men-focused products.",
+  },
+  {
+    name: "Fragrance & Beauty",
+    description: "Choose a fragrance or beauty path for those products.",
+  },
+  {
+    name: "Teens",
+    description: "Choose a Teens catalog path for teen-focused products.",
+  },
+] as const;
+
 async function readApiError(
   response: Response,
   fallback: string
@@ -152,6 +172,71 @@ function parseOptionalOrder(value: string): number | null {
     throw new Error("Display order must be between 0 and 1,000,000");
   }
   return parsed;
+}
+
+function slugifyCatalogLabel(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
+const ROOT_CATALOG_PARENT = "__catalog_root__";
+
+type CatalogNodeDraft = {
+  parentId: string;
+  nodeType: string;
+  label: string;
+  slug: string;
+  displayOrder: string;
+  isActive: boolean;
+  isVisible: boolean;
+};
+
+function emptyCatalogNodeDraft(): CatalogNodeDraft {
+  return {
+    parentId: ROOT_CATALOG_PARENT,
+    nodeType: "category",
+    label: "",
+    slug: "",
+    displayOrder: "0",
+    isActive: false,
+    isVisible: false,
+  };
+}
+
+function catalogNodeDraft(node: CatalogNode): CatalogNodeDraft {
+  return {
+    parentId: node.parentId || ROOT_CATALOG_PARENT,
+    nodeType: node.nodeType,
+    label: node.label,
+    slug: node.slug,
+    displayOrder: String(node.displayOrder),
+    isActive: node.isActive,
+    isVisible: node.isVisible,
+  };
+}
+
+function catalogDescendantIds(nodes: CatalogNode[], id: string): Set<string> {
+  const childrenByParent = new Map<string, string[]>();
+  for (const node of nodes) {
+    if (!node.parentId) continue;
+    const current = childrenByParent.get(node.parentId) || [];
+    current.push(node.id);
+    childrenByParent.set(node.parentId, current);
+  }
+
+  const descendants = new Set<string>();
+  const pending = [...(childrenByParent.get(id) || [])];
+  while (pending.length) {
+    const current = pending.pop();
+    if (!current || descendants.has(current)) continue;
+    descendants.add(current);
+    pending.push(...(childrenByParent.get(current) || []));
+  }
+  return descendants;
 }
 
 function auditOperation(log: AuditLog): string {
@@ -269,6 +354,462 @@ function NodeChecklist({
       <p className="text-xs text-muted-foreground">
         {selectedIds.length} of {maxSelected} nodes selected
       </p>
+    </div>
+  );
+}
+
+function CatalogTaxonomyManager({
+  nodes,
+  loading,
+  onChanged,
+}: {
+  nodes: CatalogNode[];
+  loading: boolean;
+  onChanged: () => Promise<void>;
+}) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<CatalogNodeDraft>(
+    emptyCatalogNodeDraft
+  );
+  const [slugWasEdited, setSlugWasEdited] = useState(false);
+  const [search, setSearch] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState(false);
+
+  const editingNode = useMemo(
+    () => nodes.find((node) => node.id === editingId) || null,
+    [editingId, nodes]
+  );
+  const unavailableParentIds = useMemo(
+    () => (editingId ? catalogDescendantIds(nodes, editingId) : new Set()),
+    [editingId, nodes]
+  );
+  const availableParents = useMemo(
+    () =>
+      nodes.filter(
+        (node) =>
+          node.id !== editingId && !unavailableParentIds.has(node.id)
+      ),
+    [editingId, nodes, unavailableParentIds]
+  );
+  const filteredNodes = useMemo(() => {
+    const normalized = search.trim().toLowerCase();
+    if (!normalized) return nodes;
+    return nodes.filter(
+      (node) =>
+        node.label.toLowerCase().includes(normalized) ||
+        node.path.toLowerCase().includes(normalized) ||
+        node.nodeType.toLowerCase().includes(normalized)
+    );
+  }, [nodes, search]);
+
+  useEffect(() => {
+    if (editingId && !editingNode) {
+      setEditingId(null);
+      setDraft(emptyCatalogNodeDraft());
+      setSlugWasEdited(false);
+    }
+  }, [editingId, editingNode]);
+
+  const startCreate = () => {
+    setEditingId(null);
+    setDraft(emptyCatalogNodeDraft());
+    setSlugWasEdited(false);
+  };
+
+  const startEdit = (node: CatalogNode) => {
+    setEditingId(node.id);
+    setDraft(catalogNodeDraft(node));
+    setSlugWasEdited(true);
+  };
+
+  const updateLabel = (label: string) => {
+    setDraft((current) => ({
+      ...current,
+      label,
+      slug: slugWasEdited ? current.slug : slugifyCatalogLabel(label),
+    }));
+  };
+
+  const save = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const displayOrder = Number(draft.displayOrder);
+    if (
+      !Number.isSafeInteger(displayOrder) ||
+      displayOrder < 0 ||
+      displayOrder > 1_000_000
+    ) {
+      toast.error("Display order must be a whole number between 0 and 1,000,000");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const payload = {
+        parentId:
+          draft.parentId === ROOT_CATALOG_PARENT ? null : draft.parentId,
+        nodeType: draft.nodeType,
+        label: draft.label,
+        slug: draft.slug,
+        displayOrder,
+        isActive: draft.isActive,
+        isVisible: draft.isVisible,
+      };
+      const response = await apiFetch(
+        editingId
+          ? `/api/admin/catalog/nodes/${encodeURIComponent(editingId)}`
+          : "/api/admin/catalog/nodes",
+        {
+          method: editingId ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+      if (!response.ok) {
+        throw new Error(
+          await readApiError(
+            response,
+            editingId
+              ? "Failed to update catalog path"
+              : "Failed to create catalog path"
+          )
+        );
+      }
+
+      toast.success(
+        editingId ? "Catalog path updated" : "Catalog path created"
+      );
+      await onChanged();
+      if (!editingId) startCreate();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to save catalog path"
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!editingNode) return;
+    const confirmed = window.confirm(
+      `Delete ${editingNode.path}? This is only allowed when it has no child paths and no product assignments. No product will be deleted.`
+    );
+    if (!confirmed) return;
+
+    setRemoving(true);
+    try {
+      const response = await apiFetch(
+        `/api/admin/catalog/nodes/${encodeURIComponent(editingNode.id)}`,
+        { method: "DELETE" }
+      );
+      if (!response.ok) {
+        throw new Error(
+          await readApiError(response, "Failed to delete catalog path")
+        );
+      }
+      toast.success("Catalog path deleted");
+      startCreate();
+      await onChanged();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to delete catalog path"
+      );
+    } finally {
+      setRemoving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Alert>
+        <AlertTriangle aria-hidden="true" />
+        <AlertTitle>Catalog paths are staged by default</AlertTitle>
+        <AlertDescription>
+          New paths start inactive and hidden. Publish a parent before its
+          child. Existing product assignments are never changed by this form.
+        </AlertDescription>
+      </Alert>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(20rem,0.9fr)_minmax(26rem,1.1fr)]">
+        <Card>
+          <CardHeader className="flex flex-row items-start justify-between gap-4">
+            <div>
+              <CardTitle className="text-base">
+                {editingNode ? "Edit catalog path" : "Create catalog path"}
+              </CardTitle>
+              <CardDescription>
+                Use a department as a root, then add categories or
+                subcategories beneath it.
+              </CardDescription>
+            </div>
+            {editingNode && (
+              <Button type="button" variant="outline" size="sm" onClick={startCreate}>
+                <Plus className="mr-2 h-4 w-4" />
+                New path
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={save} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="catalog-node-parent">Parent path</Label>
+                <Select
+                  value={draft.parentId}
+                  onValueChange={(value) =>
+                    setDraft((current) => ({ ...current, parentId: value }))
+                  }
+                >
+                  <SelectTrigger id="catalog-node-parent">
+                    <SelectValue placeholder="Choose a parent" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ROOT_CATALOG_PARENT}>
+                      No parent (root / department)
+                    </SelectItem>
+                    {availableParents.map((node) => (
+                      <SelectItem key={node.id} value={node.id}>
+                        {node.path}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="catalog-node-name">Name</Label>
+                  <Input
+                    id="catalog-node-name"
+                    value={draft.label}
+                    onChange={(event) => updateLabel(event.target.value)}
+                    placeholder="e.g. Fragrances"
+                    maxLength={120}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="catalog-node-kind">Kind</Label>
+                  <Input
+                    id="catalog-node-kind"
+                    value={draft.nodeType}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        nodeType: event.target.value,
+                      }))
+                    }
+                    placeholder="department, category, subcategory"
+                    maxLength={48}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
+                <div className="space-y-2">
+                  <Label htmlFor="catalog-node-slug">Slug</Label>
+                  <Input
+                    id="catalog-node-slug"
+                    value={draft.slug}
+                    onChange={(event) => {
+                      setSlugWasEdited(true);
+                      setDraft((current) => ({
+                        ...current,
+                        slug: slugifyCatalogLabel(event.target.value),
+                      }));
+                    }}
+                    placeholder="fragrances"
+                    maxLength={80}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Lowercase letters, numbers, and hyphens. Parent or slug
+                    changes require the path to be inactive and hidden.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="catalog-node-order">Order</Label>
+                  <Input
+                    id="catalog-node-order"
+                    type="number"
+                    min={0}
+                    max={1_000_000}
+                    value={draft.displayOrder}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        displayOrder: event.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 sm:grid-cols-2">
+                <label className="flex items-start gap-3 text-sm">
+                  <Checkbox
+                    checked={draft.isActive}
+                    onCheckedChange={(value) =>
+                      setDraft((current) => ({
+                        ...current,
+                        isActive: value === true,
+                        isVisible:
+                          value === true ? current.isVisible : false,
+                      }))
+                    }
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="block font-medium">Active</span>
+                    <span className="block text-xs text-muted-foreground">
+                      Can receive product assignments.
+                    </span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-3 text-sm">
+                  <Checkbox
+                    checked={draft.isVisible}
+                    onCheckedChange={(value) =>
+                      setDraft((current) => ({
+                        ...current,
+                        isVisible: value === true,
+                        isActive:
+                          value === true ? true : current.isActive,
+                      }))
+                    }
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="block font-medium">Visible</span>
+                    <span className="block text-xs text-muted-foreground">
+                      Published only when every parent is published too.
+                    </span>
+                  </span>
+                </label>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button type="submit" disabled={saving || removing}>
+                  {saving ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
+                  {editingNode ? "Save path" : "Create path"}
+                </Button>
+                {editingNode && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => void remove()}
+                    disabled={saving || removing}
+                  >
+                    {removing ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="mr-2 h-4 w-4" />
+                    )}
+                    Delete path
+                  </Button>
+                )}
+              </div>
+              {editingNode &&
+                (editingNode._count.children || editingNode._count.assignments) ? (
+                  <p className="text-xs text-muted-foreground">
+                    Deletion is blocked: {editingNode._count.children} child
+                    path(s) and {editingNode._count.assignments} product
+                    assignment(s) remain.
+                  </p>
+                ) : null}
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Existing catalog paths</CardTitle>
+            <CardDescription>
+              Select a path to edit its name, placement, publication, or
+              display order. Product mappings stay in the Assign a product tab.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                className="pl-9"
+                placeholder="Filter paths, names, or kinds"
+                aria-label="Filter catalog paths to manage"
+              />
+            </div>
+            <div className="max-h-[34rem] overflow-y-auto rounded-md border">
+              {loading ? (
+                <div className="flex h-32 items-center justify-center">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                </div>
+              ) : filteredNodes.length ? (
+                filteredNodes.map((node) => (
+                  <div
+                    key={node.id}
+                    className={cn(
+                      "flex flex-wrap items-center justify-between gap-3 border-b px-3 py-3 last:border-b-0",
+                      editingId === node.id && "bg-muted/60"
+                    )}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium">{node.label}</p>
+                        <Badge variant="outline">{node.nodeType}</Badge>
+                        {!node.isActive && (
+                          <Badge variant="secondary">Inactive</Badge>
+                        )}
+                        {node.isActive && !node.isVisible && (
+                          <Badge variant="secondary">Hidden</Badge>
+                        )}
+                        {node.isActive && node.isVisible && (
+                          <Badge>Published</Badge>
+                        )}
+                      </div>
+                      <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
+                        {node.path}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {node._count.children} child path(s) /{" "}
+                        {node._count.assignments} assignment(s) / order{" "}
+                        {node.displayOrder}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={editingId === node.id ? "default" : "outline"}
+                      onClick={() => startEdit(node)}
+                    >
+                      Edit
+                    </Button>
+                  </div>
+                ))
+              ) : (
+                <p className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  No catalog paths match this filter.
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
@@ -438,6 +979,8 @@ export default function CatalogAssignmentClient({
 }: CatalogAssignmentClientProps) {
   const [nodes, setNodes] = useState<CatalogNode[]>([]);
   const [nodesLoading, setNodesLoading] = useState(true);
+  const [taxonomyNodes, setTaxonomyNodes] = useState<CatalogNode[]>([]);
+  const [taxonomyLoading, setTaxonomyLoading] = useState(true);
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState<string | null>(null);
@@ -474,7 +1017,7 @@ export default function CatalogAssignmentClient({
     setNodesLoading(true);
     try {
       const response = await fetch(
-        "/api/admin/catalog/nodes?active=true&visible=all&limit=250",
+        "/api/admin/catalog/nodes?active=true&visible=all&limit=1000",
         { cache: "no-store" }
       );
       if (!response.ok) {
@@ -491,6 +1034,30 @@ export default function CatalogAssignmentClient({
       setNodes([]);
     } finally {
       setNodesLoading(false);
+    }
+  }, []);
+
+  const loadTaxonomyNodes = useCallback(async () => {
+    setTaxonomyLoading(true);
+    try {
+      const response = await fetch(
+        "/api/admin/catalog/nodes?active=all&visible=all&limit=1000",
+        { cache: "no-store" }
+      );
+      if (!response.ok) {
+        throw new Error(
+          await readApiError(response, "Failed to load catalog paths")
+        );
+      }
+      const data = (await response.json()) as { nodes?: CatalogNode[] };
+      setTaxonomyNodes(data.nodes || []);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to load catalog paths"
+      );
+      setTaxonomyNodes([]);
+    } finally {
+      setTaxonomyLoading(false);
     }
   }, []);
 
@@ -571,26 +1138,50 @@ export default function CatalogAssignmentClient({
     if (!canViewAuditLogs) return;
     setAuditLoading(true);
     try {
-      const params = new URLSearchParams({
+      const assignmentParams = new URLSearchParams({
         page: "1",
         limit: "15",
         entity: "ProductCatalogAssignment",
       });
-      const response = await fetch(`/api/admin/audit-logs?${params}`, {
-        cache: "no-store",
+      const nodeParams = new URLSearchParams({
+        page: "1",
+        limit: "15",
+        entity: "CatalogNode",
       });
-      if (!response.ok) {
+      const [assignmentResponse, nodeResponse] = await Promise.all([
+        fetch(`/api/admin/audit-logs?${assignmentParams}`, {
+          cache: "no-store",
+        }),
+        fetch(`/api/admin/audit-logs?${nodeParams}`, {
+          cache: "no-store",
+        }),
+      ]);
+      if (!assignmentResponse.ok || !nodeResponse.ok) {
         throw new Error(
-          await readApiError(response, "Failed to load assignment audit trail")
+          await readApiError(
+            !assignmentResponse.ok ? assignmentResponse : nodeResponse,
+            "Failed to load catalog audit trail"
+          )
         );
       }
-      const data = (await response.json()) as { logs?: AuditLog[] };
-      setAuditLogs(data.logs || []);
+      const [assignmentData, nodeData] = (await Promise.all([
+        assignmentResponse.json(),
+        nodeResponse.json(),
+      ])) as [{ logs?: AuditLog[] }, { logs?: AuditLog[] }];
+      setAuditLogs(
+        [...(assignmentData.logs || []), ...(nodeData.logs || [])]
+          .sort(
+            (left, right) =>
+              new Date(right.createdAt).getTime() -
+              new Date(left.createdAt).getTime()
+          )
+          .slice(0, 15)
+      );
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Failed to load assignment audit trail"
+          : "Failed to load catalog audit trail"
       );
     } finally {
       setAuditLoading(false);
@@ -600,6 +1191,10 @@ export default function CatalogAssignmentClient({
   useEffect(() => {
     void loadNodes();
   }, [loadNodes]);
+
+  useEffect(() => {
+    void loadTaxonomyNodes();
+  }, [loadTaxonomyNodes]);
 
   useEffect(() => {
     void loadProducts();
@@ -617,7 +1212,11 @@ export default function CatalogAssignmentClient({
 
   const refreshAfterMutation = useCallback(async () => {
     const selectedId = selectedProduct?.id;
-    const tasks: Promise<unknown>[] = [loadProducts(), loadNodes()];
+    const tasks: Promise<unknown>[] = [
+      loadProducts(),
+      loadNodes(),
+      loadTaxonomyNodes(),
+    ];
     if (selectedId) tasks.push(refreshProduct(selectedId));
     if (canViewAuditLogs) tasks.push(loadAuditLogs());
     await Promise.all(tasks);
@@ -625,6 +1224,7 @@ export default function CatalogAssignmentClient({
     canViewAuditLogs,
     loadAuditLogs,
     loadNodes,
+    loadTaxonomyNodes,
     loadProducts,
     refreshProduct,
     selectedProduct?.id,
@@ -783,25 +1383,74 @@ export default function CatalogAssignmentClient({
         <Button
           variant="outline"
           onClick={() => void refreshAfterMutation()}
-          disabled={productsLoading || nodesLoading}
+          disabled={productsLoading || nodesLoading || taxonomyLoading}
         >
           <RefreshCw
             className={cn(
               "mr-2 h-4 w-4",
-              (productsLoading || nodesLoading) && "animate-spin"
+              (productsLoading || nodesLoading || taxonomyLoading) &&
+                "animate-spin"
             )}
           />
           Refresh
         </Button>
       </div>
 
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Simple catalog workflow</CardTitle>
+          <CardDescription>
+            For a normal assignment, select an existing product, choose its
+            catalog path, then save. Product details and legacy taxonomy stay
+            unchanged.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <ol className="grid gap-3 md:grid-cols-3">
+            {[
+              ["1", "Select an existing product", "Search by name, SKU, or Product ID."],
+              ["2", "Choose an active catalog path", "Pick the right destination from the list."],
+              ["3", "Save the assignment", "Review the saved path or make an adjustment."],
+            ].map(([step, title, description]) => (
+              <li key={step} className="flex gap-3 rounded-lg border p-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+                  {step}
+                </span>
+                <div>
+                  <p className="text-sm font-medium">{title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {description}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+
+          <section aria-labelledby="department-guide-title">
+            <p id="department-guide-title" className="text-sm font-medium">
+              Department guide
+            </p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              {DEPARTMENT_OVERVIEW.map((department) => (
+                <div key={department.name} className="rounded-md bg-muted/50 p-3">
+                  <p className="text-sm font-medium">{department.name}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {department.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        </CardContent>
+      </Card>
+
       <Alert>
         <AlertTriangle aria-hidden="true" />
-        <AlertTitle>Assignment-only workflow</AlertTitle>
+        <AlertTitle>Assignments do not change products</AlertTitle>
         <AlertDescription>
-          Removing a mapping only removes discovery from that catalog node. It
-          does not delete the product or alter its SKU, stock, price, Category,
-          or Fabric Type.
+          Removing a saved path only removes discovery from that path. It does
+          not delete the product or alter its SKU, stock, price, Category, or
+          Fabric Type.
         </AlertDescription>
       </Alert>
 
@@ -821,11 +1470,15 @@ export default function CatalogAssignmentClient({
         <TabsList className="max-w-full overflow-x-auto">
           <TabsTrigger value="assign">
             <Layers className="h-4 w-4" />
-            Assign products
+            Assign a product
+          </TabsTrigger>
+          <TabsTrigger value="paths">
+            <Layers className="h-4 w-4" />
+            Manage catalog paths
           </TabsTrigger>
           <TabsTrigger value="bulk">
             <ListChecks className="h-4 w-4" />
-            Reviewed bulk
+            Bulk (advanced)
           </TabsTrigger>
           {canViewAuditLogs && (
             <TabsTrigger value="audit">
@@ -838,10 +1491,12 @@ export default function CatalogAssignmentClient({
         <TabsContent value="assign" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Find existing products</CardTitle>
+              <CardTitle className="text-base">
+                1. Select an existing product
+              </CardTitle>
               <CardDescription>
-                Search by Product ID, SKU, or name. Use the node and assignment
-                status together to review assigned or unassigned products.
+                Search by Product ID, SKU, or name, then select the product you
+                want to place in a catalog path. Filters are optional.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -983,7 +1638,7 @@ export default function CatalogAssignmentClient({
                               onClick={() => selectProduct(product)}
                               aria-pressed={selectedProduct?.id === product.id}
                             >
-                              Manage
+                              Select
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -1038,10 +1693,11 @@ export default function CatalogAssignmentClient({
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Package className="h-5 w-5" />
-                    Selected product
+                    2. Choose catalog path
                   </CardTitle>
                   <CardDescription>
-                    Product details below are read-only context.
+                    The selected product is read-only here. Choose one or more
+                    active paths, then save.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -1075,9 +1731,10 @@ export default function CatalogAssignmentClient({
 
                   <div className="space-y-3">
                     <div>
-                      <Label>Add to active catalog nodes</Label>
+                      <Label>Choose active catalog path</Label>
                       <p className="text-xs text-muted-foreground">
-                        Already assigned nodes are omitted.
+                        Already assigned paths are omitted. You can choose more
+                        than one if needed.
                       </p>
                     </div>
                     {nodesLoading ? (
@@ -1129,7 +1786,7 @@ export default function CatalogAssignmentClient({
                       ) : (
                         <Plus className="mr-2 h-4 w-4" />
                       )}
-                      Add {newNodeIds.length || ""} assignment
+                      3. Save {newNodeIds.length || ""} catalog path
                       {newNodeIds.length === 1 ? "" : "s"}
                     </Button>
                   </div>
@@ -1139,11 +1796,11 @@ export default function CatalogAssignmentClient({
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">
-                    Current assignments
+                    Saved catalog paths
                   </CardTitle>
                   <CardDescription>
-                    Featured state and ordering are specific to each catalog
-                    node.
+                    Featured state and display order are specific to each saved
+                    path.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -1158,7 +1815,7 @@ export default function CatalogAssignmentClient({
                       ))
                     ) : (
                       <div className="rounded-lg border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
-                        This product has no additive catalog assignments yet.
+                        This product has no saved catalog paths yet.
                       </div>
                     )}
                   </div>
@@ -1169,21 +1826,29 @@ export default function CatalogAssignmentClient({
             <Card>
               <CardContent className="flex min-h-40 flex-col items-center justify-center text-center">
                 <Package className="mb-3 h-8 w-8 text-muted-foreground" />
-                <p className="font-medium">Select a product to manage</p>
+                <p className="font-medium">Start by selecting a product</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Its legacy taxonomy will remain read-only while you add or
-                  remove catalog mappings.
+                  Then choose an active catalog path and save. Its legacy
+                  taxonomy remains read-only.
                 </p>
               </CardContent>
             </Card>
           )}
         </TabsContent>
 
+        <TabsContent value="paths" className="space-y-4">
+          <CatalogTaxonomyManager
+            nodes={taxonomyNodes}
+            loading={taxonomyLoading}
+            onChanged={refreshAfterMutation}
+          />
+        </TabsContent>
+
         <TabsContent value="bulk">
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
-                Reviewed bulk assignment
+                Advanced: reviewed bulk assignment
               </CardTitle>
               <CardDescription>
                 Provide an explicit, reviewed list of up to 100 Product IDs or
@@ -1325,11 +1990,11 @@ export default function CatalogAssignmentClient({
               <CardHeader className="flex flex-row items-start justify-between gap-4">
                 <div>
                   <CardTitle className="text-base">
-                    Catalog assignment audit trail
+                    Catalog activity audit trail
                   </CardTitle>
                   <CardDescription>
-                    Recent assignment creates, updates, and removals recorded by
-                    the existing central audit mechanism.
+                    Recent path and assignment changes recorded by the existing
+                    central audit mechanism.
                   </CardDescription>
                 </div>
                 <Button variant="outline" size="sm" asChild>
@@ -1371,7 +2036,7 @@ export default function CatalogAssignmentClient({
                   </div>
                 ) : (
                   <div className="rounded-lg border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
-                    No catalog assignment audit entries have been recorded yet.
+                    No catalog activity audit entries have been recorded yet.
                   </div>
                 )}
               </CardContent>
@@ -1389,4 +2054,3 @@ export default function CatalogAssignmentClient({
     </div>
   );
 }
-

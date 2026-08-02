@@ -1,18 +1,129 @@
 import { NextResponse, after } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { createOrder, getZoneForCity, getStoreConfig, getDiscountByCode, incrementDiscountUsage } from "@/lib/db-queries";
-import { calculateStitchingDeliveryDate } from "@/lib/db/stitching-schedule";
+import {
+  calculateStitchingDeliveryDate,
+  getStitchingDateAvailability,
+} from "@/lib/db/stitching-schedule";
 import { applyDiscount } from "@/lib/discount-engine";
 import { auth } from "@/auth";
 import { triggerNotification, sendDeliveryUpdateParallel } from "@/lib/notifications";
 import { resolveAdminRecipients } from "@/lib/notifications/admin-alerts";
-import { FEATURE_FLAGS } from "@/lib/feature-flags";
+import { DEFAULT_STITCHING_FEE, FEATURE_FLAGS } from "@/lib/feature-flags";
 import { sanitizeDbError } from '@/lib/utils/errors';
 import { checkRateLimitAsync, RateLimits } from "@/lib/rate-limiter";
 import { validateCsrf } from "@/lib/csrf";
+import { isAdminRole } from "@/lib/permissions";
+import { mapFromPrismaFields } from "@/lib/validators/measurements-unified";
+import {
+  getStitchingPriceLookupKeys,
+  getStitchingPriceGender,
+  getStitchingVariantLabel,
+  normalizeStitchingPriceKey,
+  resolveStitchingPriceKey,
+} from "@/lib/stitching-price";
 
 export const dynamic = "force-dynamic";
+
+const ADMIN_MEASUREMENT_PREFIX = "admin_";
+
+type AdminMeasurementRow = Record<string, unknown> & {
+  id: string;
+  phone?: string;
+  customer_name?: string;
+  garment_type?: string;
+  gender?: string;
+};
+
+type CanonicalStitchingItem = {
+  productId: string;
+  fabricType: string;
+  priceKey: string;
+  stitchingPrice: number;
+  adminMeasurement?: Record<string, unknown>;
+  stitchingVariantName?: string;
+};
+
+function isAdminMeasurementProfileId(profileId: string): boolean {
+  return profileId.startsWith(ADMIN_MEASUREMENT_PREFIX)
+    && profileId.length > ADMIN_MEASUREMENT_PREFIX.length;
+}
+
+function safeDefaultStitchingFee(): number {
+  return Number.isFinite(DEFAULT_STITCHING_FEE) && DEFAULT_STITCHING_FEE >= 0
+    ? DEFAULT_STITCHING_FEE
+    : 2500;
+}
+
+function normalizePakistanPhone(value: string | null | undefined): string | null {
+  const digits = value?.replace(/\D/g, "") ?? "";
+  if (!digits) return null;
+  if (digits.startsWith("0")) return `92${digits.slice(1)}`;
+  return digits.startsWith("92") ? digits : `92${digits}`;
+}
+
+function parsePakistanCalendarDate(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const pktOffsetMs = 5 * 60 * 60 * 1000;
+  const date = new Date(Date.UTC(year, month - 1, day) - pktOffsetMs);
+  const pktDate = new Date(date.getTime() + pktOffsetMs);
+
+  return pktDate.getUTCFullYear() === year
+    && pktDate.getUTCMonth() === month - 1
+    && pktDate.getUTCDate() === day
+    ? date
+    : null;
+}
+
+function toCanonicalAdminMeasurement(row: AdminMeasurementRow): Record<string, unknown> {
+  const mapped = mapFromPrismaFields(row);
+
+  return {
+    ...mapped,
+    id: row.id,
+    customerName: typeof row.customer_name === "string" ? row.customer_name : mapped.customerName,
+    garmentType: typeof row.garment_type === "string" ? row.garment_type : mapped.garmentType,
+    gender: typeof row.gender === "string" ? row.gender : mapped.gender,
+  };
+}
+
+const MEASUREMENT_META_FIELDS = new Set([
+  "id", "userId", "gender", "garmentType", "notes", "status",
+  "requestedAt", "updatedAt", "deletedAt", "deliveryDate",
+  "source", "createdAt", "profileName", "isDefault",
+]);
+
+function buildMeasurementSnapshot(measurement: Record<string, unknown>) {
+  const garmentType = typeof measurement.garmentType === "string"
+    ? measurement.garmentType
+    : "";
+  if (!garmentType) return null;
+
+  const measurements: Record<string, string> = {};
+  for (const [key, value] of Object.entries(measurement)) {
+    if (!MEASUREMENT_META_FIELDS.has(key) && typeof value === "string" && value !== "") {
+      measurements[key] = value;
+    }
+  }
+
+  return {
+    profileName: garmentType
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" "),
+    garmentType,
+    measurements,
+    stylingPrefs: null,
+    notes: typeof measurement.notes === "string" ? measurement.notes : "",
+  };
+}
 
 const createOrderSchema = z.object({
   items: z
@@ -21,6 +132,14 @@ const createOrderSchema = z.object({
         productId: z.string().min(1, "Product ID is required"),
         quantity: z.number().int().min(1, "Quantity must be at least 1"),
         price: z.number().positive("Price must be positive"),
+        // Optional additive option data. The order transaction resolves the ID
+        // and creates the canonical snapshot; browser-provided labels are not
+        // trusted for price or inventory decisions.
+        variantId: z.string().min(1).max(191).optional(),
+        selectedOptions: z.array(z.object({
+          label: z.string().min(1).max(80),
+          value: z.string().min(1).max(200),
+        })).max(8).optional(),
         measurementProfileId: z.string().optional(),
       })
     )
@@ -39,13 +158,16 @@ const createOrderSchema = z.object({
   notes: z.string().optional(),
   couponCode: z.string().optional(),
   whatsappConsent: z.boolean().optional(),
-  stitchingFee: z.number().optional(),
+  stitchingFee: z.number().finite().nonnegative().optional(),
   stitchingItems: z.array(z.object({
-    productId: z.string(),
+    productId: z.string().min(1).max(191),
     fabricType: z.string(),
-    stitchingPrice: z.number(),
+    // Accepted only for old checkout clients. The server ignores it and uses
+    // the price associated with the authenticated measurement/profile instead.
+    stitchingPrice: z.number().finite().nonnegative(),
+    priceKey: z.string().trim().min(1).max(191).optional(),
     adminMeasurement: z.any().optional(),
-    stitchingVariantName: z.string().optional(),
+    stitchingVariantName: z.string().max(120).optional(),
   })).optional(),
   measurementItems: z.array(z.object({
     productId: z.string(),
@@ -86,14 +208,24 @@ export async function POST(req: Request) {
       );
     }
 
-    const { items, shippingAddress, paymentMethod, notes, couponCode, whatsappConsent, stitchingFee, stitchingItems, measurementItems } = result.data;
+    const {
+      items,
+      shippingAddress,
+      paymentMethod,
+      notes,
+      couponCode,
+      whatsappConsent,
+      stitchingItems,
+      measurementItems,
+      preferredDeliveryDate,
+    } = result.data;
 
     // Validate each product exists, price matches, and stock is sufficient
     // Batch-fetch all products in one query instead of N queries (N+1 fix)
     const productIds = items.map((item) => item.productId);
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } },
-      select: { id: true, price: true, stockQuantity: true, name: true, inStock: true },
+      select: { id: true, price: true, stockQuantity: true, name: true, fabricType: true, inStock: true },
     });
     const productMap = new Map(products.map((p) => [p.id, p]));
 
@@ -107,26 +239,282 @@ export async function POST(req: Request) {
         );
       }
 
-      const dbPrice = Number(product.price);
-      if (Math.abs(dbPrice - item.price) > 0.01) {
-        return NextResponse.json(
-          { error: `Price mismatch for product ${product.name}` },
-          { status: 400 }
-        );
+      if (item.variantId) {
+        // Never query additive tables before the reviewed migration/flag is
+        // live. createOrder performs variant/product/price/stock validation
+        // atomically inside its transaction when the flag is enabled.
+        if (!FEATURE_FLAGS.COMMERCE_PROFILE_V1) {
+          return NextResponse.json(
+            { error: "Product options are not available yet" },
+            { status: 400 },
+          );
+        }
+      } else {
+        const dbPrice = Number(product.price);
+        if (Math.abs(dbPrice - item.price) > 0.01) {
+          return NextResponse.json(
+            { error: `Price mismatch for product ${product.name}` },
+            { status: 400 }
+          );
+        }
+
+        if (!product.inStock) {
+          return NextResponse.json(
+            { error: `Product out of stock: ${product.name}` },
+            { status: 400 }
+          );
+        }
+
+        if (product.stockQuantity < item.quantity) {
+          return NextResponse.json(
+            { error: `Insufficient stock for ${product.name}. Available: ${product.stockQuantity}` },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
+    // Stitching always requires an authenticated, server-resolved measurement.
+    // Keep this before fee calculation so browser payload values can never
+    // influence an order total or the persisted stitching snapshot.
+    const session = await auth();
+    const userId = session?.user?.id;
+    const canUseAnyAdminMeasurement = isAdminRole(session?.user?.role ?? "");
+
+    if (!userId && stitchingItems?.length) {
+      return NextResponse.json(
+        { error: "Please log in to place orders with stitching." },
+        { status: 400 },
+      );
+    }
+
+    const canonicalStitchingItems: CanonicalStitchingItem[] = [];
+    const verifiedMeasurementsByProductId = new Map<string, Record<string, unknown>>();
+    if (stitchingItems?.length) {
+      const itemsByProductId = new Map<string, Array<(typeof items)[number]>>();
+      for (const item of items) {
+        const matchingItems = itemsByProductId.get(item.productId) ?? [];
+        matchingItems.push(item);
+        itemsByProductId.set(item.productId, matchingItems);
       }
 
-      if (!product.inStock) {
-        return NextResponse.json(
-          { error: `Product out of stock: ${product.name}` },
-          { status: 400 }
-        );
+      const seenStitchingProductIds = new Set<string>();
+      const stitchingLines: Array<{
+        stitchingItem: NonNullable<typeof stitchingItems>[number];
+        orderItem: (typeof items)[number];
+        measurementProfileId: string;
+      }> = [];
+
+      for (const stitchingItem of stitchingItems) {
+        if (seenStitchingProductIds.has(stitchingItem.productId)) {
+          return NextResponse.json(
+            { error: "A product can only have one stitching selection." },
+            { status: 400 },
+          );
+        }
+        seenStitchingProductIds.add(stitchingItem.productId);
+
+        const matchingItems = itemsByProductId.get(stitchingItem.productId);
+        if (!matchingItems || matchingItems.length !== 1) {
+          return NextResponse.json(
+            { error: "Each stitching selection must match exactly one order item." },
+            { status: 400 },
+          );
+        }
+
+        const orderItem = matchingItems[0];
+        const measurementProfileId = orderItem.measurementProfileId;
+        if (!measurementProfileId || measurementProfileId === "none") {
+          return NextResponse.json(
+            { error: "Please choose a measurement profile for each stitched product." },
+            { status: 400 },
+          );
+        }
+
+        stitchingLines.push({ stitchingItem, orderItem, measurementProfileId });
       }
 
-      if (product.stockQuantity < item.quantity) {
-        return NextResponse.json(
-          { error: `Insufficient stock for ${product.name}. Available: ${product.stockQuantity}` },
-          { status: 400 }
-        );
+      const standardProfileIds = [...new Set(
+        stitchingLines
+          .map((line) => line.measurementProfileId)
+          .filter((profileId) => !isAdminMeasurementProfileId(profileId)),
+      )];
+      const adminMeasurementIds = [...new Set(
+        stitchingLines
+          .map((line) => line.measurementProfileId)
+          .filter(isAdminMeasurementProfileId)
+          .map((profileId) => profileId.slice(ADMIN_MEASUREMENT_PREFIX.length)),
+      )];
+
+      let authenticatedCustomerPhone: string | null = null;
+      if (adminMeasurementIds.length > 0 && !canUseAnyAdminMeasurement) {
+        const authenticatedUser = await prisma.user.findUnique({
+          where: { id: userId! },
+          select: { phone: true },
+        });
+        authenticatedCustomerPhone = normalizePakistanPhone(authenticatedUser?.phone);
+        if (!authenticatedCustomerPhone) {
+          return NextResponse.json(
+            { error: "Add a verified phone number to your account before using an admin-stored measurement." },
+            { status: 400 },
+          );
+        }
+      }
+
+      const ownedProfiles = standardProfileIds.length
+        ? await prisma.measurementProfile.findMany({
+            where: {
+              id: { in: standardProfileIds },
+              userId,
+              deletedAt: null,
+              source: "profile",
+            },
+          })
+        : [];
+      const configuredStitchingPrices = await prisma.stitchingPrice.findMany({
+        select: { fabricType: true, gender: true, price: true, updatedAt: true, id: true },
+        orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+      });
+      const adminMeasurements = adminMeasurementIds.length
+        ? await prisma.$queryRaw<AdminMeasurementRow[]>(
+            Prisma.sql`
+              SELECT *
+              FROM "customer_measurements"
+              WHERE "id" IN (${Prisma.join(adminMeasurementIds)})
+                AND "deleted_at" IS NULL
+            `,
+          )
+        : [];
+
+      const ownedProfilesById = new Map(ownedProfiles.map((profile) => [profile.id, profile]));
+      const adminMeasurementsById = new Map(adminMeasurements.map((measurement) => [measurement.id, measurement]));
+      const configuredPricesByKey = new Map<string, number>();
+      for (const configuredPrice of configuredStitchingPrices) {
+        const amount = Number(configuredPrice.price);
+        if (!Number.isFinite(amount) || amount < 0) continue;
+
+        const key = `${configuredPrice.gender.trim().toLowerCase()}:${normalizeStitchingPriceKey(configuredPrice.fabricType)}`;
+        // The newest record wins if legacy data contains case-variant duplicates.
+        if (!configuredPricesByKey.has(key)) configuredPricesByKey.set(key, amount);
+      }
+
+      for (const line of stitchingLines) {
+        const product = productMap.get(line.stitchingItem.productId);
+        if (!product) {
+          return NextResponse.json(
+            { error: "The selected stitched product is no longer available." },
+            { status: 400 },
+          );
+        }
+
+        let garmentType: string;
+        let reportedGender: string | undefined;
+        let adminMeasurement: Record<string, unknown> | undefined;
+        let verifiedMeasurement: Record<string, unknown>;
+
+        if (isAdminMeasurementProfileId(line.measurementProfileId)) {
+          const adminMeasurementId = line.measurementProfileId.slice(ADMIN_MEASUREMENT_PREFIX.length);
+          const storedMeasurement = adminMeasurementsById.get(adminMeasurementId);
+          if (!storedMeasurement) {
+            return NextResponse.json(
+              { error: "The selected admin measurement is no longer available." },
+              { status: 400 },
+            );
+          }
+
+          adminMeasurement = toCanonicalAdminMeasurement(storedMeasurement);
+          if (
+            !canUseAnyAdminMeasurement
+            && normalizePakistanPhone(storedMeasurement.phone) !== authenticatedCustomerPhone
+          ) {
+            return NextResponse.json(
+              { error: "The selected admin measurement is unavailable." },
+              { status: 403 },
+            );
+          }
+          if (typeof adminMeasurement.garmentType !== "string" || !adminMeasurement.garmentType.trim()) {
+            return NextResponse.json(
+              { error: "The selected admin measurement has no garment type." },
+              { status: 400 },
+            );
+          }
+          garmentType = adminMeasurement.garmentType;
+          reportedGender = typeof adminMeasurement.gender === "string"
+            ? adminMeasurement.gender
+            : undefined;
+          verifiedMeasurement = adminMeasurement;
+        } else {
+          const profile = ownedProfilesById.get(line.measurementProfileId);
+          if (!profile) {
+            return NextResponse.json(
+              { error: "The selected measurement profile is unavailable." },
+              { status: 400 },
+            );
+          }
+          garmentType = profile.garmentType;
+          reportedGender = profile.gender;
+          verifiedMeasurement = profile as unknown as Record<string, unknown>;
+        }
+
+        const priceKey = resolveStitchingPriceKey(garmentType, line.stitchingItem.priceKey);
+        if (!priceKey) {
+          return NextResponse.json(
+            { error: "The selected stitching option does not match its measurement profile." },
+            { status: 400 },
+          );
+        }
+
+        const gender = getStitchingPriceGender(garmentType, reportedGender);
+        const configuredPrice = getStitchingPriceLookupKeys(garmentType, priceKey)
+          .map((lookupKey) => configuredPricesByKey.get(
+            `${gender.toLowerCase()}:${normalizeStitchingPriceKey(lookupKey)}`,
+          ))
+          .find((price): price is number => price !== undefined);
+        const stitchingPrice = configuredPrice ?? safeDefaultStitchingFee();
+        const stitchingVariantName = getStitchingVariantLabel(garmentType, priceKey);
+
+        canonicalStitchingItems.push({
+          productId: line.stitchingItem.productId,
+          fabricType: product.fabricType,
+          priceKey,
+          stitchingPrice,
+          ...(adminMeasurement ? { adminMeasurement } : {}),
+          ...(stitchingVariantName
+            ? { stitchingVariantName }
+            : {}),
+        });
+        verifiedMeasurementsByProductId.set(line.stitchingItem.productId, verifiedMeasurement);
+      }
+    }
+
+    const canonicalMeasurementItems = canonicalStitchingItems.map((stitchingItem) => {
+      const orderItem = items.find((item) => item.productId === stitchingItem.productId)!;
+      return {
+        productId: stitchingItem.productId,
+        productName: productMap.get(stitchingItem.productId)?.name ?? stitchingItem.productId,
+        measurementProfileId: orderItem.measurementProfileId,
+      };
+    });
+
+    // Measurement attachment is limited to the stitching lines we just
+    // authorized. Browser-provided names and arbitrary product IDs are never
+    // allowed to create an attachment on a different order line.
+    if (measurementItems?.length) {
+      const canonicalStitchedProductIds = new Set(
+        canonicalMeasurementItems.map((item) => item.productId),
+      );
+      const seenMeasurementProductIds = new Set<string>();
+      for (const measurementItem of measurementItems) {
+        if (
+          !canonicalStitchedProductIds.has(measurementItem.productId)
+          || seenMeasurementProductIds.has(measurementItem.productId)
+        ) {
+          return NextResponse.json(
+            { error: "Measurement attachments must match one selected stitched product." },
+            { status: 400 },
+          );
+        }
+        seenMeasurementProductIds.add(measurementItem.productId);
       }
     }
 
@@ -165,16 +553,14 @@ export async function POST(req: Request) {
       }
     }
 
-    const calculatedStitchingFee = stitchingItems && items 
-      ? stitchingItems.reduce((sum, sItem) => {
-          const matchedItem = items.find(i => i.productId === sItem.productId);
-          return sum + sItem.stitchingPrice * (matchedItem?.quantity || 1);
-        }, 0)
-      : 0;
+    const calculatedStitchingFee = canonicalStitchingItems.reduce((sum, stitchingItem) => {
+      const matchedItem = items.find((item) => item.productId === stitchingItem.productId);
+      return sum + stitchingItem.stitchingPrice * (matchedItem?.quantity ?? 0);
+    }, 0);
       
     // Always use server-calculated stitching fee — never trust the client.
     // The `stitchingFee` field in the request body is accepted for backward
-    // compatibility but is ignored; the fee is recomputed from stitchingItems.
+    // compatibility but is ignored; the fee is recomputed from canonical server data.
     const finalStitchingFee = calculatedStitchingFee;
 
     // ── Smart stitching delivery date ─────────────────────────────────────────
@@ -182,9 +568,9 @@ export async function POST(req: Request) {
     // using the configurable threshold and lead-days, respecting calendar rules.
     let stitchingDeliveryDate: Date | undefined;
     if (finalStitchingFee > 0) {
+      const threshold = storeConfig.stitchingDailyThreshold ?? 12;
+      const leadDays = storeConfig.stitchingLeadDays ?? 6;
       try {
-        const threshold = storeConfig.stitchingDailyThreshold ?? 12;
-        const leadDays  = storeConfig.stitchingLeadDays ?? 6;
         stitchingDeliveryDate = await calculateStitchingDeliveryDate(
           new Date(),
           threshold,
@@ -197,11 +583,29 @@ export async function POST(req: Request) {
 
       // If the customer picked a preferred delivery date, use it — but only if it's
       // on or after the auto-calculated earliest available date (server-side guard).
-      if (body.preferredDeliveryDate && stitchingDeliveryDate) {
-        const preferred = new Date(body.preferredDeliveryDate + "T00:00:00+05:00"); // interpret as PKT
-        if (!isNaN(preferred.getTime()) && preferred >= stitchingDeliveryDate) {
-          stitchingDeliveryDate = preferred;
+      if (preferredDeliveryDate && stitchingDeliveryDate) {
+        const preferred = parsePakistanCalendarDate(preferredDeliveryDate);
+        if (!preferred) {
+          return NextResponse.json(
+            { error: "Preferred delivery date is invalid." },
+            { status: 400 },
+          );
         }
+        if (preferred.getTime() < stitchingDeliveryDate.getTime()) {
+          return NextResponse.json(
+            { error: "Preferred delivery date is earlier than the next available stitching date." },
+            { status: 409 },
+          );
+        }
+
+        const availability = await getStitchingDateAvailability(preferred, threshold);
+        if (!availability.available) {
+          return NextResponse.json(
+            { error: "Preferred delivery date is no longer available. Please choose another date." },
+            { status: 409 },
+          );
+        }
+        stitchingDeliveryDate = availability.date;
       }
     }
 
@@ -215,12 +619,8 @@ export async function POST(req: Request) {
       estimatedDays: zone.estimatedDays,
     };
 
-    // Get user ID if authenticated (guest checkout supported)
-    const session = await auth();
-    const userId = session?.user?.id;
-
     // FIX C2: Hard guard — guests cannot place orders with stitching
-    if (!userId && stitchingItems && stitchingItems.length > 0) {
+    if (!userId && canonicalStitchingItems.length > 0) {
       return NextResponse.json(
         { error: "Please log in to place orders with stitching." },
         { status: 400 }
@@ -249,76 +649,39 @@ export async function POST(req: Request) {
       discountAmount,
       couponCode: appliedDiscountCode, // C8: atomic increment inside createOrder transaction
       stitchingFee: finalStitchingFee,
-      stitchingItems: stitchingItems ?? [],
+      stitchingItems: canonicalStitchingItems,
       stitchingDeliveryDate,
     }, isManualPayment);
 
     const processedMeasurementProductIds = new Set<string>();
 
-    // Attach unified measurement profile to order items (server-side, all payment methods)
-    if (measurementItems && measurementItems.length > 0 && userId) {
+    // Attach one verified measurement snapshot to each stitched order item.
+    if (canonicalMeasurementItems.length > 0 && userId) {
       // Wrap the entire measurement attachment in a safe try/catch to ensure
       // that any failure here does NOT roll back the already-created order.
       try {
         const { attachMeasurementToOrder } = await import('@/lib/db-queries');
 
-        // Use the specific measurementProfileId from the first stitching item if provided
-        const specifiedProfileId = measurementItems.find(mi => mi.measurementProfileId)?.measurementProfileId
-          ?? items.find(i => (i as any).measurementProfileId)?.measurementProfileId;
-          
-        // Check if an adminMeasurement was passed from the frontend
-        const adminMeasurement = stitchingItems?.find(s => s.adminMeasurement != null)?.adminMeasurement;
-
-        let unified;
-        if (adminMeasurement) {
-          // Map adminMeasurement to match MeasurementProfile structure
-          unified = { ...adminMeasurement, source: "admin", notes: "Admin Stored Measurement" };
-        } else if (specifiedProfileId) {
-          unified = await prisma.measurementProfile.findFirst({
-            where: { id: specifiedProfileId, userId, deletedAt: null, source: "profile" },
-          });
-        }
-
-        // Fallback: if no specific profile specified, use the user's default (or most recent) profile
-        if (!unified) {
-          unified = await prisma.measurementProfile.findFirst({
-            where: { userId, deletedAt: null, source: "profile" },
-            orderBy: { updatedAt: 'desc' },
-          });
-        }
+        // Keep the existing order-profile record, but derive it from the
+        // first already-verified stitched item instead of a loose fallback.
+        const firstMeasurement = verifiedMeasurementsByProductId.get(
+          canonicalMeasurementItems[0].productId,
+        );
+        const unified: any = firstMeasurement ? { ...firstMeasurement } : null;
 
       if (unified && !unified.deletedAt) {
-        // Build a flattened measurements map from the Measurement columns
-        const metaFields = new Set([
-          'id', 'userId', 'gender', 'garmentType', 'notes', 'status',
-          'requestedAt', 'updatedAt', 'deletedAt', 'deliveryDate',
-          'source', 'createdAt', 'profileName', 'isDefault',
-        ]);
-        const measurementFields: Record<string, string> = {};
-        for (const [key, val] of Object.entries(unified)) {
-          if (!metaFields.has(key) && typeof val === 'string' && val !== '') {
-            measurementFields[key] = val;
-          }
-        }
-
-        const readableName = unified.garmentType
-          .split('_')
-          .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-          .join(' ');
-
-        const snapshot = {
-          profileName: readableName,
-          garmentType: unified.garmentType,
-          measurements: measurementFields,
-          stylingPrefs: null,
-          notes: unified.notes ?? '',
-        };
-
-        for (const mItem of measurementItems) {
+        for (const mItem of canonicalMeasurementItems) {
           try {
-            const itemSnapshot = { ...snapshot } as any;
-            itemSnapshot.stitchingVariantName = stitchingItems?.find(s => s.productId === mItem.productId)?.stitchingVariantName;
-            itemSnapshot.stitchingPrice = stitchingItems?.find(s => s.productId === mItem.productId)?.stitchingPrice;
+            const verifiedMeasurement = verifiedMeasurementsByProductId.get(mItem.productId);
+            const itemSnapshot: any = verifiedMeasurement
+              ? buildMeasurementSnapshot(verifiedMeasurement)
+              : null;
+            if (!itemSnapshot) {
+              console.error(`No verified measurement snapshot for stitched product ${mItem.productId}`);
+              continue;
+            }
+            itemSnapshot.stitchingVariantName = canonicalStitchingItems.find((item) => item.productId === mItem.productId)?.stitchingVariantName;
+            itemSnapshot.stitchingPrice = canonicalStitchingItems.find((item) => item.productId === mItem.productId)?.stitchingPrice;
 
             await attachMeasurementToOrder({
               orderId: order.id,
@@ -481,7 +844,7 @@ export async function POST(req: Request) {
 
     // Check for low stock after order creation and trigger alerts
     const lowStockAlerts = await Promise.all(
-      items.map(async (item) => {
+      items.filter((item) => !item.variantId).map(async (item) => {
         const updatedProduct = await prisma.product.findUnique({
           where: { id: item.productId },
           select: { stockQuantity: true, name: true, sku: true, lowStockThreshold: true },

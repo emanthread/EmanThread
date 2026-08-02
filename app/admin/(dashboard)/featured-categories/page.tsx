@@ -12,12 +12,19 @@ import { Loader2, Save, Plus, Trash2, GripVertical, ExternalLink, Upload } from 
 import { toast } from "@/hooks/use-toast";
 
 interface FeaturedCategory {
-  id: string; // The URL slug / fabricType matching
+  id: string; // Used for the legacy /shop?category fallback
   name: string;
   description: string;
   image: string;
   productCount: number;
+  href?: string;
 }
+
+const DEFAULT_SECTION_COPY = {
+  eyebrow: "Our Collections",
+  title: "Shop by Category",
+  description: "Explore a curated selection for every style, occasion, and discovery.",
+};
 
 function ImageUploader({
   currentImage,
@@ -161,13 +168,25 @@ function CategoryEditor({
             />
           </div>
           <div className="space-y-2">
-            <Label>Category Slug (ID)</Label>
+            <Label>Filter ID (fallback)</Label>
             <Input
               value={category.id}
               onChange={(e) => update("id", e.target.value)}
-              placeholder="e.g. cotton (for shop filters)"
+              placeholder="e.g. cotton"
             />
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Destination (optional)</Label>
+          <Input
+            value={category.href || ""}
+            onChange={(e) => update("href", e.target.value)}
+            placeholder="e.g. /women or /shop?category=readywear"
+          />
+          <p className="text-xs text-muted-foreground">
+            Leave blank to use <code>/shop?category=</code> with the Filter ID above.
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -200,6 +219,9 @@ function CategoryEditor({
 
 export default function FeaturedCategoriesPage() {
   const [categories, setCategories] = useState<FeaturedCategory[]>([]);
+  const [eyebrow, setEyebrow] = useState(DEFAULT_SECTION_COPY.eyebrow);
+  const [title, setTitle] = useState(DEFAULT_SECTION_COPY.title);
+  const [description, setDescription] = useState(DEFAULT_SECTION_COPY.description);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -212,6 +234,9 @@ export default function FeaturedCategoriesPage() {
       });
       if (!res.ok) throw new Error("Failed to load");
       const data = await res.json();
+      setEyebrow(data.eyebrow || DEFAULT_SECTION_COPY.eyebrow);
+      setTitle(data.title || DEFAULT_SECTION_COPY.title);
+      setDescription(data.description || DEFAULT_SECTION_COPY.description);
       if (data.categories && data.categories.length > 0) {
         setCategories(data.categories);
       } else {
@@ -276,6 +301,7 @@ export default function FeaturedCategoriesPage() {
         description: "Description",
         image: "",
         productCount: 0,
+        href: "",
       },
     ]);
   };
@@ -288,7 +314,7 @@ export default function FeaturedCategoriesPage() {
       const res = await fetch("/api/admin/featured-categories", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ categories }),
+        body: JSON.stringify({ eyebrow, title, description, categories }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -345,6 +371,44 @@ export default function FeaturedCategoriesPage() {
         </div>
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Section content</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="featured-eyebrow">Eyebrow</Label>
+              <Input
+                id="featured-eyebrow"
+                value={eyebrow}
+                onChange={(e) => setEyebrow(e.target.value)}
+                placeholder="Our Collections"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="featured-title">Heading</Label>
+              <Input
+                id="featured-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Shop by Category"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="featured-description">Description</Label>
+            <Textarea
+              id="featured-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Introduce the collections shown below."
+              rows={2}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="space-y-4">
         {categories.map((category, index) => (
           <CategoryEditor
@@ -376,7 +440,7 @@ export default function FeaturedCategoriesPage() {
           <ul className="list-disc list-inside space-y-1">
             <li>Optimal image ratio is typically 5:4 or 2:1 depending on position in the grid.</li>
             <li>Click <strong>Upload Image</strong> to upload a new image from your computer.</li>
-            <li>Make sure the Category Slug matches your actual Fabric Type (e.g. `cotton`, `wash & wear` converted to slug) to link to the shop correctly.</li>
+            <li>Use a Destination for a category route such as `/women`; otherwise the card keeps the legacy shop filter based on its Filter ID.</li>
           </ul>
         </div>
       )}

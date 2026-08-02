@@ -1,40 +1,15 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import {
+  parseHeroSlidesJson,
+  validateHeroSlides,
+} from "@/lib/db/store-config";
 import { withLoggedAdminHandler } from "@/lib/logger";
 import { sanitizeDbError } from '@/lib/utils/errors';
+import { revalidatePath, revalidateTag } from "next/cache";
 
 export const dynamic = "force-dynamic";
-
-const DEFAULT_SLIDES = [
-  {
-    image: "/images/fabrics/hero_banner_1_1776582592087.png",
-    title: "The Art of Fine Fabric",
-    subtitle: "Summer Collection 2026",
-    description:
-      "Discover our curated selection of premium unstitched fabrics, crafted for the distinguished gentleman.",
-    cta: "Shop Collection",
-    link: "/shop",
-  },
-  {
-    image: "/images/fabrics/hero_boski_1776582616605.png",
-    title: "Timeless Elegance",
-    subtitle: "Premium Boski",
-    description:
-      "Experience the luxurious silk-cotton blend that defines sophistication.",
-    cta: "Explore Boski",
-    link: "/shop?category=boski",
-  },
-  {
-    image: "/images/fabrics/hero_wash_1776582631696.png",
-    title: "Comfort Meets Style",
-    subtitle: "Wash & Wear",
-    description:
-      "Effortless elegance with easy care - perfect for the modern lifestyle.",
-    cta: "Shop Now",
-    link: "/shop?category=wash-wear",
-  },
-];
 
 const DEFAULT_PROMO_BANNER = {
   image: "/images/fabrics/promo_1776582682565.png",
@@ -71,15 +46,7 @@ export const GET = withLoggedAdminHandler(async () => {
     const slidesRow = await prisma.storeConfig.findUnique({
       where: { key: "hero_slides" },
     });
-    let slides = DEFAULT_SLIDES;
-    if (slidesRow) {
-      try {
-        const parsed = JSON.parse(slidesRow.value);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          slides = parsed;
-        }
-      } catch {}
-    }
+    const slides = parseHeroSlidesJson(slidesRow?.value);
 
     // Fetch promo banner
     const promoRow = await prisma.storeConfig.findUnique({
@@ -110,36 +77,29 @@ export const PUT = withLoggedAdminHandler(async (req: Request) => {
     }
 
     const body = await req.json();
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    }
+
+    let heroSlidesUpdated = false;
+    let homeContentUpdated = false;
 
     // Handle hero slides update
-    if (body.slides) {
-      if (!Array.isArray(body.slides)) {
+    if (body.slides !== undefined) {
+      const validation = validateHeroSlides(body.slides);
+      if (!validation.slides) {
         return NextResponse.json(
-          { error: "slides must be an array" },
+          { error: validation.error || "Invalid hero slides" },
           { status: 400 }
         );
       }
-      for (let i = 0; i < body.slides.length; i++) {
-        const slide = body.slides[i];
-        if (
-          !slide.image ||
-          !slide.title ||
-          !slide.subtitle ||
-          !slide.description ||
-          !slide.cta ||
-          !slide.link
-        ) {
-          return NextResponse.json(
-            { error: `Slide ${i + 1} is missing required fields` },
-            { status: 400 }
-          );
-        }
-      }
       await prisma.storeConfig.upsert({
         where: { key: "hero_slides" },
-        create: { key: "hero_slides", value: JSON.stringify(body.slides) },
-        update: { value: JSON.stringify(body.slides) },
+        create: { key: "hero_slides", value: JSON.stringify(validation.slides) },
+        update: { value: JSON.stringify(validation.slides) },
       });
+      heroSlidesUpdated = true;
+      homeContentUpdated = true;
     }
 
     // Handle promo banner update
@@ -156,19 +116,24 @@ export const PUT = withLoggedAdminHandler(async (req: Request) => {
         create: { key: "promo_banner", value: JSON.stringify(pb) },
         update: { value: JSON.stringify(pb) },
       });
+      homeContentUpdated = true;
+    }
+
+    if (heroSlidesUpdated) {
+      // Expire the data cache immediately so both the page and public API use
+      // the newly saved slide set on their next request.
+      revalidateTag("hero-slides", { expire: 0 });
+      revalidatePath("/api/hero-slides");
+    }
+    if (homeContentUpdated) {
+      revalidatePath("/", "page");
     }
 
     // Return updated data
     const slidesRow = await prisma.storeConfig.findUnique({
       where: { key: "hero_slides" },
     });
-    let slides = DEFAULT_SLIDES;
-    if (slidesRow) {
-      try {
-        const parsed = JSON.parse(slidesRow.value);
-        if (Array.isArray(parsed) && parsed.length > 0) slides = parsed;
-      } catch {}
-    }
+    const slides = parseHeroSlidesJson(slidesRow?.value);
 
     const promoRow = await prisma.storeConfig.findUnique({
       where: { key: "promo_banner" },
