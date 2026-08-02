@@ -90,8 +90,8 @@
 .departmentButton {
   height: 100%;
   padding: 1px 0 0;
-  font-size: clamp(0.75rem, 0.9vw, 0.85rem);
-  font-weight: 700;
+  font-size: clamp(0.62rem, 0.76vw, 0.72rem);
+  font-weight: 600;
   letter-spacing: 0.105em;
   text-transform: uppercase;
 }
@@ -134,13 +134,12 @@
   justify-self: center;
   color: inherit;
   font-family: var(--font-cormorant), var(--font-serif), Georgia, serif;
-  font-size: clamp(1.8rem, 2.5vw, 2.4rem);
-  font-weight: 800;
+  font-size: 1.35rem;
+  font-weight: 700;
   line-height: 1;
   letter-spacing: 0.07em;
   text-decoration: none;
   white-space: nowrap;
-  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .mark > a {
@@ -209,8 +208,8 @@
   flex: 0 0 auto;
   height: 100%;
   padding: 1px 0 0;
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: 0.61rem;
+  font-weight: 600;
   letter-spacing: 0.115em;
   text-transform: uppercase;
 }
@@ -255,7 +254,7 @@
 .sectionLanding {
   color: inherit;
   font-family: var(--font-cormorant), var(--font-serif), Georgia, serif;
-  font-size: clamp(1.6rem, 2.5vw, 2.4rem);
+  font-size: clamp(1.35rem, 2vw, 2rem);
   line-height: 1.1;
   text-decoration: none;
 }
@@ -290,8 +289,8 @@
 .groupHeading {
   margin: 0 0 13px;
   color: color-mix(in srgb, var(--foreground) 56%, transparent);
-  font-size: 0.7rem;
-  font-weight: 800;
+  font-size: 0.59rem;
+  font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -310,9 +309,8 @@
   gap: 7px;
   width: fit-content;
   color: inherit;
-  font-size: 0.85rem;
-  font-weight: 500;
-  line-height: 1.45;
+  font-size: 0.73rem;
+  line-height: 1.35;
   letter-spacing: 0.035em;
   text-decoration: none;
 }
