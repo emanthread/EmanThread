@@ -2,7 +2,8 @@ import { cache } from "react";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { ARCHIVED_PRODUCT_TAG, visibleProductTags } from "@/lib/product-archive";
-import type { Product } from "@/lib/data";
+import type { Product, ProductKind } from "@/lib/data";
+import { PRODUCT_KIND_VALUES } from "@/lib/commerce";
 import { parseProductImages } from "@/lib/utils/parse-images";
 import {
   getCommerceProfilesByProductId,
@@ -40,9 +41,29 @@ export interface CatalogQueryInput {
   categoryIds?: string[];
   color?: string;
   season?: string;
+  productKind?: ProductKind;
+  option?: string;
   minPrice?: number;
   maxPrice?: number;
   inStock?: boolean;
+}
+
+export interface CatalogFilterOptionGroup {
+  label: string;
+  values: string[];
+}
+
+/**
+ * Facets are calculated only from products assigned to the current catalog
+ * node. This keeps a perfume or gift page from exposing irrelevant fabric or
+ * apparel values, without changing the legacy /shop query contract.
+ */
+export interface CatalogFilterFacets {
+  fabrics: string[];
+  colors: string[];
+  seasons: string[];
+  productKinds: ProductKind[];
+  optionGroups: CatalogFilterOptionGroup[];
 }
 
 export interface CatalogBreadcrumb {
@@ -82,6 +103,7 @@ export interface ResolvedCatalogNode {
 export interface CatalogPageData {
   node: ResolvedCatalogNode;
   products: Product[];
+  facets: CatalogFilterFacets;
   query: Required<
     Pick<CatalogQueryInput, "page" | "pageSize" | "sort">
   > &
@@ -158,6 +180,15 @@ function finiteNumber(
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function productKindParam(
+  value: string | string[] | undefined
+): ProductKind | undefined {
+  const candidate = boundedText(value, 40) as ProductKind | undefined;
+  return candidate && PRODUCT_KIND_VALUES.includes(candidate)
+    ? candidate
+    : undefined;
+}
+
 function positiveInteger(
   value: string | string[] | undefined,
   fallback: number,
@@ -215,6 +246,11 @@ function normalizeQuery(input: CatalogQueryInput): CatalogPageData["query"] {
     categoryIds: categoryIds?.length ? categoryIds : undefined,
     color: input.color?.trim().slice(0, 80) || undefined,
     season: input.season?.trim().slice(0, 80) || undefined,
+    productKind:
+      input.productKind && PRODUCT_KIND_VALUES.includes(input.productKind)
+        ? input.productKind
+        : undefined,
+    option: input.option?.trim().slice(0, 80) || undefined,
     minPrice,
     maxPrice,
     inStock: input.inStock,
@@ -246,6 +282,8 @@ export function parseCatalogSearchParams(
       .filter(Boolean),
     color: boundedText(params.color, 80),
     season: boundedText(params.season, 80),
+    productKind: productKindParam(params.kind),
+    option: boundedText(params.option, 80),
     minPrice: finiteNumber(params.minPrice),
     maxPrice: finiteNumber(params.maxPrice),
     inStock:
@@ -470,52 +508,211 @@ function productWhereForCatalog(
     });
   }
 
-  return {
-    NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } },
-    ...(query.search
-      ? {
-          OR: [
-            {
-              name: {
-                contains: query.search,
-                mode: "insensitive" as const,
-              },
-            },
-            {
-              sku: {
-                contains: query.search,
-                mode: "insensitive" as const,
-              },
-            },
-            {
-              description: {
-                contains: query.search,
-                mode: "insensitive" as const,
-              },
-            },
-          ],
-        }
-      : {}),
-    ...(fabricTypeFilters.length ? { AND: fabricTypeFilters } : {}),
-    ...(query.color
-      ? {
-          color: {
-            equals: query.color,
+  const conditions: Prisma.ProductWhereInput[] = [
+    { NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } } },
+  ];
+
+  if (query.search) {
+    conditions.push({
+      OR: [
+        {
+          name: {
+            contains: query.search,
             mode: "insensitive" as const,
           },
-        }
-      : {}),
-    ...(query.season
-      ? {
-          // Product tags are the legacy season source. This is only applied
-          // to an additive catalog path and does not alter /shop queries.
-          tags: {
-            contains: query.season,
+        },
+        {
+          sku: {
+            contains: query.search,
+            mode: "insensitive" as const,
           },
-        }
-      : {}),
-    ...(price ? { price } : {}),
-    ...(query.inStock === true ? { inStock: true } : {}),
+        },
+        {
+          description: {
+            contains: query.search,
+            mode: "insensitive" as const,
+          },
+        },
+      ],
+    });
+  }
+
+  if (fabricTypeFilters.length) conditions.push(...fabricTypeFilters);
+
+  if (query.color) {
+    conditions.push({
+      color: {
+        equals: query.color,
+        mode: "insensitive" as const,
+      },
+    });
+  }
+
+  if (query.season) {
+    // Product tags are the legacy season source. This is only applied to an
+    // additive catalog path and does not alter /shop queries.
+    conditions.push({ tags: { contains: query.season } });
+  }
+
+  if (query.productKind) {
+    conditions.push(
+      query.productKind === "UNSTITCHED_FABRIC"
+        ? {
+            // Products without a profile retain the live, legacy unstitched
+            // behaviour, so the new facet must include them rather than
+            // hiding the existing catalog.
+            OR: [
+              { commerceProfile: { is: null } },
+              {
+                commerceProfile: {
+                  is: { productKind: "UNSTITCHED_FABRIC" },
+                },
+              },
+            ],
+          }
+        : {
+            commerceProfile: {
+              is: { productKind: query.productKind },
+            },
+          }
+    );
+  }
+
+  if (query.option) {
+    conditions.push({
+      commerceProfile: {
+        is: {
+          variants: {
+            some: {
+              isActive: true,
+              label: {
+                equals: query.option,
+                mode: "insensitive" as const,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  if (price) conditions.push({ price });
+  if (query.inStock === true) conditions.push({ inStock: true });
+
+  return { AND: conditions };
+}
+
+const CATALOG_SEASONS = [
+  "Summer",
+  "Winter",
+  "Eid",
+  "Festive",
+  "All Season",
+  "Casual",
+  "Formal",
+  "Wedding",
+] as const;
+
+function normalizedFacetValues(values: Iterable<string | null | undefined>) {
+  const unique = new Map<string, string>();
+
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLocaleLowerCase("en-US");
+    if (!unique.has(key)) unique.set(key, trimmed);
+  }
+
+  return [...unique.values()].sort((left, right) =>
+    left.localeCompare(right, "en", { sensitivity: "base" })
+  );
+}
+
+function fallbackOptionLabel(productKind: ProductKind): string {
+  switch (productKind) {
+    case "READY_TO_WEAR":
+    case "TEENS":
+      return "Size";
+    case "FRAGRANCE":
+      return "Volume";
+    case "BEAUTY":
+      return "Shade / option";
+    case "GIFT":
+    case "GIFT_BOX":
+      return "Gift option";
+    default:
+      return "Option";
+  }
+}
+
+async function getCatalogFilterFacets(
+  catalogNodeId: string
+): Promise<CatalogFilterFacets> {
+  const assignedProductWhere: Prisma.ProductWhereInput = {
+    NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } },
+    catalogAssignments: { some: { catalogNodeId } },
+  };
+  const products = await prisma.product.findMany({
+    where: assignedProductWhere,
+    select: {
+      fabricType: true,
+      color: true,
+      tags: true,
+      commerceProfile: {
+        select: {
+          productKind: true,
+          optionLabel: true,
+          variants: {
+            where: { isActive: true },
+            select: { label: true },
+          },
+        },
+      },
+    },
+  });
+
+  const productKinds = new Set<ProductKind>();
+  const optionGroups = new Map<string, string[]>();
+  let hasLegacyUnstitchedProduct = false;
+
+  for (const product of products) {
+    if (!product.commerceProfile) {
+      hasLegacyUnstitchedProduct = true;
+      continue;
+    }
+
+    const profile = product.commerceProfile;
+    productKinds.add(profile.productKind as ProductKind);
+    if (!profile.variants.length) continue;
+
+    const label = profile.optionLabel?.trim() || fallbackOptionLabel(
+      profile.productKind as ProductKind
+    );
+    const values = optionGroups.get(label) || [];
+    values.push(...profile.variants.map((variant) => variant.label));
+    optionGroups.set(label, values);
+  }
+
+  if (hasLegacyUnstitchedProduct) productKinds.add("UNSTITCHED_FABRIC");
+
+  return {
+    fabrics: normalizedFacetValues(products.map((product) => product.fabricType)),
+    colors: normalizedFacetValues(products.map((product) => product.color)),
+    seasons: CATALOG_SEASONS.filter((season) =>
+      products.some((product) =>
+        visibleProductTags(product.tags).some(
+          (tag) => tag.toLocaleLowerCase("en-US") === season.toLocaleLowerCase("en-US")
+        )
+      )
+    ),
+    productKinds: PRODUCT_KIND_VALUES.filter((kind) => productKinds.has(kind)),
+    optionGroups: [...optionGroups.entries()]
+      .map(([label, values]) => ({
+        label,
+        values: normalizedFacetValues(values).slice(0, 60),
+      }))
+      .filter((group) => group.values.length > 0)
+      .sort((left, right) => left.label.localeCompare(right.label, "en")),
   };
 }
 
@@ -617,7 +814,7 @@ export async function getCatalogPageData(
     product: productWhere,
   };
 
-  const [assignments, total] = await Promise.all([
+  const [assignments, total, facets] = await Promise.all([
     prisma.productCatalogAssignment.findMany({
       where: assignmentWhere,
       include: { product: true },
@@ -628,6 +825,7 @@ export async function getCatalogPageData(
     prisma.productCatalogAssignment.count({
       where: assignmentWhere,
     }),
+    getCatalogFilterFacets(node.id),
   ]);
 
   const totalPages = Math.ceil(total / query.pageSize);
@@ -638,6 +836,7 @@ export async function getCatalogPageData(
 
   return {
     node,
+    facets,
     products: assignments.map((assignment) =>
       transformCatalogProduct(
         assignment,

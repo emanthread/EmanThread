@@ -6,14 +6,13 @@ import {
   ChevronLeft,
   ChevronRight,
   PackageOpen,
-  Search,
 } from "lucide-react";
 import { CartDrawer } from "@/components/cart/cart-drawer";
+import { CatalogFilters, CatalogSort } from "@/components/catalog/catalog-filters";
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import { ProductCard } from "@/components/product/product-card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   getCatalogPageData,
   hasCatalogQueryParams,
@@ -157,7 +156,13 @@ function catalogHref(
 
   if (nextQuery.search) params.set("q", nextQuery.search);
   if (nextQuery.fabricType) params.set("fabric", nextQuery.fabricType);
+  if (nextQuery.categoryIds?.length) {
+    params.set("category", nextQuery.categoryIds.join(","));
+  }
   if (nextQuery.color) params.set("color", nextQuery.color);
+  if (nextQuery.season) params.set("season", nextQuery.season);
+  if (nextQuery.productKind) params.set("kind", nextQuery.productKind);
+  if (nextQuery.option) params.set("option", nextQuery.option);
   if (nextQuery.minPrice !== undefined) {
     params.set("minPrice", String(nextQuery.minPrice));
   }
@@ -192,128 +197,6 @@ function breadcrumbJsonLd(data: CatalogPageData) {
       })),
     ],
   };
-}
-
-function CatalogFilters({ data }: { data: CatalogPageData }) {
-  const { node, query } = data;
-
-  return (
-    <form
-      action={node.path}
-      method="get"
-      className="grid gap-4 border-y border-border py-6 sm:grid-cols-2 lg:grid-cols-6"
-      aria-label="Filter catalog products"
-    >
-      <label className="space-y-1.5 lg:col-span-2">
-        <span className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-          Search
-        </span>
-        <span className="relative block">
-          <Search
-            aria-hidden="true"
-            className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            type="search"
-            name="q"
-            defaultValue={query.search}
-            maxLength={100}
-            placeholder="Name or SKU"
-            className="pl-9"
-          />
-        </span>
-      </label>
-
-      <label className="space-y-1.5">
-        <span className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-          Fabric
-        </span>
-        <Input
-          name="fabric"
-          defaultValue={query.fabricType}
-          maxLength={80}
-          placeholder="Any fabric"
-        />
-      </label>
-
-      <label className="space-y-1.5">
-        <span className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-          Color
-        </span>
-        <Input
-          name="color"
-          defaultValue={query.color}
-          maxLength={80}
-          placeholder="Any color"
-        />
-      </label>
-
-      <label className="space-y-1.5">
-        <span className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-          Min price
-        </span>
-        <Input
-          type="number"
-          name="minPrice"
-          min={0}
-          step="1"
-          defaultValue={query.minPrice}
-          placeholder="0"
-        />
-      </label>
-
-      <label className="space-y-1.5">
-        <span className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-          Max price
-        </span>
-        <Input
-          type="number"
-          name="maxPrice"
-          min={0}
-          step="1"
-          defaultValue={query.maxPrice}
-          placeholder="Any"
-        />
-      </label>
-
-      <label className="space-y-1.5 sm:col-span-1 lg:col-span-2">
-        <span className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-          Sort
-        </span>
-        <select
-          name="sort"
-          defaultValue={query.sort}
-          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-        >
-          <option value="featured">Featured</option>
-          <option value="newest">Newest</option>
-          <option value="price-asc">Price: low to high</option>
-          <option value="price-desc">Price: high to low</option>
-          <option value="name-asc">Name: A to Z</option>
-        </select>
-      </label>
-
-      <label className="flex min-h-9 items-center gap-2 self-end text-sm sm:col-span-1 lg:col-span-2">
-        <input
-          type="checkbox"
-          name="inStock"
-          value="true"
-          defaultChecked={query.inStock}
-          className="size-4 rounded border-input accent-primary"
-        />
-        In-stock products only
-      </label>
-
-      <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-2">
-        <Button type="submit" className="flex-1">
-          Apply
-        </Button>
-        <Button variant="outline" asChild>
-          <Link href={node.path}>Clear</Link>
-        </Button>
-      </div>
-    </form>
-  );
 }
 
 function FeaturedContent({ data }: { data: CatalogPageData }) {
@@ -491,6 +374,10 @@ export async function CatalogPage({
     data.query.search ||
       data.query.fabricType ||
       data.query.color ||
+      data.query.season ||
+      data.query.productKind ||
+      data.query.option ||
+      data.query.categoryIds?.length ||
       data.query.minPrice !== undefined ||
       data.query.maxPrice !== undefined ||
       data.query.inStock
@@ -594,10 +481,13 @@ export async function CatalogPage({
           )}
 
           <FeaturedContent data={data} />
-          <CatalogFilters data={data} />
 
           <section aria-labelledby="catalog-products-heading" className="pt-8">
-            <div className="mb-7 flex flex-wrap items-end justify-between gap-3">
+            <div className="flex flex-col gap-5 lg:flex-row lg:gap-8">
+              <CatalogFilters data={data} />
+
+              <div className="min-w-0 flex-1">
+            <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
               <div>
                 <h2
                   id="catalog-products-heading"
@@ -609,7 +499,10 @@ export async function CatalogPage({
                   {data.total} {data.total === 1 ? "product" : "products"}
                 </p>
               </div>
-              {!data.node.indexable && (
+              <div className="w-full sm:w-52">
+                <CatalogSort data={data} />
+              </div>
+              {process.env.NODE_ENV === "development" && !data.node.indexable && (
                 <p className="text-xs text-muted-foreground">
                   Preview collection — not indexed
                 </p>
@@ -617,7 +510,7 @@ export async function CatalogPage({
             </div>
 
             {data.products.length ? (
-              <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 xl:grid-cols-4">
                 {data.products.map((product, index) => (
                   <ProductCard
                     key={product.id}
@@ -640,7 +533,7 @@ export async function CatalogPage({
                 <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">
                   {hasFilters
                     ? "Try clearing one or more filters to see other assigned products."
-                    : "Approved products will appear here when their catalog assignments are ready."}
+                    : "Products will appear here after they are assigned to this collection in the catalog."}
                 </p>
                 {hasFilters && (
                   <Button variant="outline" asChild className="mt-5">
@@ -651,6 +544,8 @@ export async function CatalogPage({
             )}
 
             <Pagination data={data} />
+              </div>
+            </div>
           </section>
         </div>
       </main>
