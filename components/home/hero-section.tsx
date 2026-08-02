@@ -212,7 +212,7 @@ export function HeroSection({ initialSlides }: HeroSectionProps) {
 
       {/* This selector is intentionally local to the hero. Header navigation
           and catalog routing continue to behave independently. */}
-      <div className="absolute inset-x-0 top-5 z-20">
+      <div className="absolute inset-x-0 top-24 lg:top-32 z-20">
         <div className="mx-auto flex max-w-7xl flex-wrap gap-2 px-4 sm:px-6 lg:px-8">
           {HERO_DEPARTMENTS.map((department) => (
             <button
