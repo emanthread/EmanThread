@@ -131,16 +131,39 @@
 }
 
 .mark {
+  position: relative;
   justify-self: center;
   color: inherit;
   font-family: var(--font-cormorant), var(--font-serif), Georgia, serif;
-  font-size: clamp(1.6rem, 2vw, 2.2rem);
+  font-size: clamp(1.85rem, 2.4vw, 2.6rem);
   font-weight: 800;
   line-height: 1;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.13em;
   text-decoration: none;
   white-space: nowrap;
-  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
+  text-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.45),
+    0 2px 6px rgba(0, 0, 0, 0.28),
+    0 1px 0 rgba(0, 0, 0, 0.12);
+}
+
+/* Delicate decorative accent line — always visible */
+.mark::after {
+  content: "";
+  position: absolute;
+  inset: auto 50% -6px;
+  width: 28px;
+  height: 1px;
+  margin-inline-start: -14px;
+  background: currentColor;
+  opacity: 0.38;
+  transition: width 280ms ease, opacity 280ms ease;
+}
+
+.mark:hover::after {
+  width: 80%;
+  margin-inline-start: -40%;
+  opacity: 0.55;
 }
 
 .mark > a {

@@ -210,29 +210,6 @@ export function HeroSection({ initialSlides }: HeroSectionProps) {
         );
       })}
 
-      {/* This selector is intentionally local to the hero. Header navigation
-          and catalog routing continue to behave independently. */}
-      <div className="absolute inset-x-0 top-24 lg:top-32 z-20">
-        <div className="mx-auto flex max-w-7xl flex-wrap gap-2 px-4 sm:px-6 lg:px-8">
-          {HERO_DEPARTMENTS.map((department) => (
-            <button
-              key={department.id}
-              type="button"
-              onClick={() => selectDepartment(department.id)}
-              aria-pressed={activeDepartment === department.id}
-              className={cn(
-                "rounded-full border px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] transition-colors sm:px-4",
-                activeDepartment === department.id
-                  ? "border-white bg-white text-foreground"
-                  : "border-white/45 bg-black/20 text-white hover:border-white hover:bg-black/35"
-              )}
-            >
-              {department.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Content */}
       <div className="relative h-full mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex items-center">
         <div
