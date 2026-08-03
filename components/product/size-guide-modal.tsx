@@ -15,12 +15,12 @@ import type { Product } from "@/lib/data";
 import {
   hasProductSizeGuide,
   isImageSizeGuideUrl,
-  resolveProductSizeGuideTemplate,
+  resolveProductSizeGuideTemplates,
 } from "@/lib/size-guide";
 
 export function SizeGuideModal({ product }: { product: Product }) {
   const customGuideUrl = product.commerce?.sizeGuideUrl?.trim();
-  const templateKey = resolveProductSizeGuideTemplate(product);
+  const templateKeys = resolveProductSizeGuideTemplates(product);
 
   if (!hasProductSizeGuide(product)) return null;
 
@@ -55,8 +55,16 @@ export function SizeGuideModal({ product }: { product: Product }) {
                 Product-specific size chart.
               </figcaption>
             </figure>
-          ) : templateKey ? (
-            <SizeGuideTemplateImage templateKey={templateKey} priority />
+          ) : templateKeys.length > 0 ? (
+            <div className="space-y-6">
+              {templateKeys.map((templateKey, index) => (
+                <SizeGuideTemplateImage
+                  key={templateKey}
+                  templateKey={templateKey}
+                  priority={index === 0}
+                />
+              ))}
+            </div>
           ) : null}
 
           {customGuideUrl && !isImageSizeGuideUrl(customGuideUrl) ? (

@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Check } from "lucide-react";
 import { formatPrice, type Product, type ProductVariant } from "@/lib/data";
 import {
@@ -18,6 +19,13 @@ interface ProductOptionPickerProps {
   invalid?: boolean;
   compact?: boolean;
   className?: string;
+  guideAction?: ReactNode;
+}
+
+function isGarmentSizeOption(value: string): boolean {
+  return /^(?:xxs|xs|s|m|l|xl|xxl|xxxl|2xl|3xl|4xl|\d{2}|\d{2}-\d{2}|one size|free size)$/i.test(
+    value.trim()
+  );
 }
 
 /**
@@ -32,6 +40,7 @@ export function ProductOptionPicker({
   invalid = false,
   compact = false,
   className,
+  guideAction,
 }: ProductOptionPickerProps) {
   const variants = getActiveVariants(product);
   const commerce = getProductCommerce(product);
@@ -40,6 +49,8 @@ export function ProductOptionPicker({
 
   const optionLabel = commerce.optionLabel?.trim() || "Option";
   const selectionRequired = requiresVariantSelectionForPurchase(product);
+  const usesCircularSizeChoices =
+    /\bsize\b/i.test(optionLabel) && variants.every((variant) => isGarmentSizeOption(variant.label));
 
   if (variants.length === 0) {
     return (
@@ -66,14 +77,17 @@ export function ProductOptionPicker({
         className
       )}
     >
-      <div className="mb-2 flex items-center justify-between gap-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-sm font-medium">
-          {optionLabel}
+          Select {optionLabel}
           {selectionRequired && <span className="text-destructive"> *</span>}
         </p>
-        {selectionRequired && (
-          <span className="text-[11px] text-muted-foreground">Required</span>
-        )}
+        <div className="flex items-center gap-3">
+          {selectionRequired && (
+            <span className="text-[11px] text-muted-foreground">Required</span>
+          )}
+          {guideAction}
+        </div>
       </div>
 
       <div
@@ -95,7 +109,16 @@ export function ProductOptionPicker({
               disabled={!available}
               onClick={() => onSelect(variant)}
               className={cn(
-                "relative inline-flex min-h-9 items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
+                "relative inline-flex items-center justify-center border text-xs font-medium transition-colors",
+                usesCircularSizeChoices
+                  ? cn(
+                      "h-11 min-w-11 rounded-full px-2",
+                      compact && "h-9 min-w-9 px-1.5 text-[11px]"
+                    )
+                  : cn(
+                      "min-h-9 gap-1 rounded-md px-3 py-1.5",
+                      compact && "px-2 py-1 text-[11px]"
+                    ),
                 selected
                   ? "border-primary bg-primary text-primary-foreground"
                   : "border-border bg-background hover:border-primary/60 hover:bg-secondary",
@@ -103,10 +126,15 @@ export function ProductOptionPicker({
               )}
               title={available ? `${variant.label} — ${formatPrice(unitPrice)}` : `${variant.label} is out of stock`}
             >
-              {selected && <Check className="h-3 w-3" aria-hidden="true" />}
+              {selected && !usesCircularSizeChoices && <Check className="h-3 w-3" aria-hidden="true" />}
               <span>{variant.label}</span>
-              {variant.priceAdjustment !== 0 && (
+              {variant.priceAdjustment !== 0 && !usesCircularSizeChoices && (
                 <span className={cn("text-[10px]", selected ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                  {variant.priceAdjustment > 0 ? "+" : ""}{formatPrice(variant.priceAdjustment)}
+                </span>
+              )}
+              {variant.priceAdjustment !== 0 && usesCircularSizeChoices && (
+                <span className="sr-only">
                   {variant.priceAdjustment > 0 ? "+" : ""}{formatPrice(variant.priceAdjustment)}
                 </span>
               )}

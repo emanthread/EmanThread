@@ -196,7 +196,6 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
   const [stitchingPriceMap, setStitchingPriceMap] = useState<Record<string, number>>({});
   const [measurementProfiles, setMeasurementProfiles] = useState<Array<{ id: string; profileName: string; garmentType: string }>>([]);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
-  const [isOptionPickerOpen, setIsOptionPickerOpen] = useState(false);
   const [optionError, setOptionError] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const router = useRouter();
@@ -226,7 +225,6 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
     setIsVideoSelected(false);
     setIsZoomed(false);
     setSelectedVariantId(null);
-    setIsOptionPickerOpen(false);
     setOptionError(false);
     setSelectedMeasurement("none");
   }, [product.id]);
@@ -289,7 +287,6 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
     if (!productAvailable) return false;
 
     if (selectionRequired && (!selectedVariant || !isVariantAvailable(selectedVariant))) {
-      setIsOptionPickerOpen(true);
       setOptionError(true);
       return false;
     }
@@ -530,7 +527,6 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
           <h1 className="text-3xl sm:text-4xl font-semibold leading-tight">
             {product.name}
           </h1>
-          <SizeGuideModal product={product} />
           <ProductDetailFlashSale />
           <div className="flex items-center gap-3">
             <span className="text-3xl font-bold">{formatPrice(displayedPrice)}</span>
@@ -584,41 +580,16 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
                   No {product.commerce?.optionLabel?.trim() || "options"} are available right now. This item cannot be ordered until one is restocked.
                 </div>
               ) : (
-                <>
-                  <button
-                    type="button"
-                    className={cn(
-                      "flex w-full items-center justify-between gap-3 text-left text-sm font-semibold",
-                      optionError && "text-destructive"
-                    )}
-                    aria-expanded={isOptionPickerOpen}
-                    onClick={() => {
-                      setIsOptionPickerOpen((open) => !open);
-                      setOptionError(false);
-                    }}
-                  >
-                    <span>
-                      {selectedVariant
-                        ? `${product.commerce?.optionLabel?.trim() || "Option"}: ${selectedVariant.label}`
-                        : `Choose ${product.commerce?.optionLabel?.trim() || "option"}${selectionRequired ? " *" : ""}`}
-                    </span>
-                    <span className="text-xs font-normal text-muted-foreground">
-                      {isOptionPickerOpen ? "Close" : "Select"}
-                    </span>
-                  </button>
-                  {isOptionPickerOpen && (
-                    <ProductOptionPicker
-                      product={product}
-                      selectedVariantId={selectedVariantId}
-                      onSelect={(variant: ProductVariant) => {
-                        setSelectedVariantId(variant.id);
-                        setOptionError(false);
-                      }}
-                      invalid={optionError}
-                      className="mt-3 animate-in fade-in slide-in-from-top-1 duration-200"
-                    />
-                  )}
-                </>
+                <ProductOptionPicker
+                  product={product}
+                  selectedVariantId={selectedVariantId}
+                  onSelect={(variant: ProductVariant) => {
+                    setSelectedVariantId(variant.id);
+                    setOptionError(false);
+                  }}
+                  invalid={optionError}
+                  guideAction={<SizeGuideModal product={product} />}
+                />
               )}
             </div>
           )}

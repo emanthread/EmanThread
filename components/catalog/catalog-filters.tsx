@@ -1,12 +1,23 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { ChangeEvent } from "react";
 import { Search, SlidersHorizontal } from "lucide-react";
 import { productKindLabel } from "@/lib/commerce";
-import type { CatalogPageData } from "@/lib/db/catalog";
+import type {
+  CatalogPageData,
+  CatalogSidebarNavigationOption,
+} from "@/lib/db/catalog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Sheet,
   SheetContent,
@@ -18,7 +29,10 @@ import {
 
 type CatalogFiltersProps = {
   data: CatalogPageData;
+  navigationOptions: CatalogSidebarNavigationOption[];
 };
+
+type CatalogDataProps = Pick<CatalogFiltersProps, "data">;
 
 const selectClassName =
   "h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -47,10 +61,43 @@ function currentValue(
     : values;
 }
 
+/** Mirrors the Department & Collection control on the established /shop sidebar. */
+function CatalogSidebarNavigation({
+  data,
+  navigationOptions,
+}: CatalogFiltersProps) {
+  const router = useRouter();
+
+  if (!navigationOptions.length) return null;
+
+  return (
+    <div>
+      <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider">
+        Department &amp; Collection
+      </h3>
+      <Select value={data.node.path} onValueChange={(path) => router.push(path)}>
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="All departments" />
+        </SelectTrigger>
+        <SelectContent>
+          {navigationOptions.map((option) => (
+            <SelectItem key={option.path} value={option.path}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Select a new department or subcategory without leaving the catalog.
+      </p>
+    </div>
+  );
+}
+
 function CatalogFilterFields({
   data,
   idPrefix,
-}: CatalogFiltersProps & { idPrefix: string }) {
+}: CatalogDataProps & { idPrefix: string }) {
   const { facets, node, query } = data;
   const department = node.path.split("/")[1];
   const showFabric = department !== "fragrance-beauty" && facets.fabrics.length > 1;
@@ -257,7 +304,7 @@ function CatalogFilterForm({
   data,
   idPrefix,
   compact = false,
-}: CatalogFiltersProps & { idPrefix: string; compact?: boolean }) {
+}: CatalogDataProps & { idPrefix: string; compact?: boolean }) {
   return (
     <form
       action={data.node.path}
@@ -279,25 +326,36 @@ function CatalogFilterForm({
 }
 
 /** Desktop sidebar plus an equivalent left-hand drawer on smaller screens. */
-export function CatalogFilters({ data }: CatalogFiltersProps) {
+export function CatalogFilters({ data, navigationOptions }: CatalogFiltersProps) {
   const count = activeFilterCount(data.query);
 
   return (
     <>
       <aside className="hidden w-64 shrink-0 lg:block" aria-label="Catalog filters">
-        <div className="sticky top-28 border-r border-border pr-6">
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <h2 className="font-serif text-xl font-semibold">Filters</h2>
-            {count ? (
+        <div className="sticky top-28 space-y-8">
+          {count ? (
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="font-serif text-xl font-semibold">Filters</h2>
               <Link
                 href={data.node.path}
                 className="text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
               >
                 Clear all
               </Link>
+            </div>
+          ) : null}
+
+          <CatalogSidebarNavigation
+            data={data}
+            navigationOptions={navigationOptions}
+          />
+
+          <div className="border-t border-border pt-8">
+            {!count ? (
+              <h2 className="mb-5 font-serif text-xl font-semibold">Filters</h2>
             ) : null}
+            <CatalogFilterForm data={data} idPrefix="catalog-desktop" />
           </div>
-          <CatalogFilterForm data={data} idPrefix="catalog-desktop" />
         </div>
       </aside>
 
@@ -319,7 +377,11 @@ export function CatalogFilters({ data }: CatalogFiltersProps) {
                 Refine {data.node.label} without leaving this collection.
               </SheetDescription>
             </SheetHeader>
-            <div className="p-5">
+            <div className="space-y-6 p-5">
+              <CatalogSidebarNavigation
+                data={data}
+                navigationOptions={navigationOptions}
+              />
               <CatalogFilterForm data={data} idPrefix="catalog-mobile" compact />
             </div>
           </SheetContent>
@@ -349,7 +411,7 @@ function SortPreservedFields({ query }: { query: CatalogPageData["query"] }) {
 }
 
 /** Sorting is kept beside the product grid; it never replaces the grid. */
-export function CatalogSort({ data }: CatalogFiltersProps) {
+export function CatalogSort({ data }: CatalogDataProps) {
   return (
     <form action={data.node.path} method="get">
       <SortPreservedFields query={data.query} />

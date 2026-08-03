@@ -175,6 +175,7 @@ function transformProduct(p: any, commerce?: ProductCommerceProfile): Product {
     metaDescription: p.metaDescription || undefined,
     rating,
     reviewCount,
+    categoryName: p.category?.name || undefined,
     ...(Array.isArray(p.catalogAssignments)
       ? {
           catalogPaths: Array.from(

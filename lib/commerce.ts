@@ -162,6 +162,18 @@ export function isProductStitchingEligible(product: Product): boolean {
       commerce.productKind === "UNSTITCHED_FABRIC" && commerce.stitchingEligible
     );
   }
+  
+  const blockKeywords = ["women", "fragrance", "beauty", "teens", "perfume", "makeup", "gift", "ready to wear", "ready-to-wear"];
+  const checkString = (str?: string) => {
+    if (!str) return false;
+    const lower = str.toLowerCase();
+    return blockKeywords.some(keyword => lower.includes(keyword));
+  };
+
+  if (checkString(product.categoryName) || checkString(product.fabricType)) {
+    return false;
+  }
+
   return !catalogPlacementBlocksStitching(product.catalogPaths);
 }
 

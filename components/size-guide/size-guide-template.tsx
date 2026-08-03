@@ -2,7 +2,9 @@
 
 import Image from "next/image";
 import mensShirtSizeGuide from "@/size guide/shirt size guide.jpeg";
+import mensShalwarKameezSizeGuide from "@/size guide/mens shalwar kameez size guide.jpeg";
 import mensSuitSizeGuide from "@/size guide/mens size guide for pent coat.jpeg";
+import pentCoatSizeGuide from "@/size guide/pent coat size guide.jpeg";
 import waistcoatSizeGuide from "@/size guide/waistcoat size chart.jpeg";
 import womensReadywearSizeGuide from "@/size guide/Ladies Measurement.jpeg";
 import {
@@ -13,7 +15,9 @@ import {
 
 const templateImages = {
   "mens-shirt": mensShirtSizeGuide,
+  "mens-shalwar-kameez": mensShalwarKameezSizeGuide,
   "mens-suit": mensSuitSizeGuide,
+  "pent-coat": pentCoatSizeGuide,
   waistcoat: waistcoatSizeGuide,
   "womens-readywear": womensReadywearSizeGuide,
 } satisfies Record<SizeGuideTemplateKey, typeof mensShirtSizeGuide>;

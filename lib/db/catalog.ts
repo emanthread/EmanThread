@@ -72,6 +72,16 @@ export interface CatalogBreadcrumb {
   path: string;
 }
 
+/**
+ * Read-only, published navigation used by category-page sidebars. The label
+ * includes its parent labels so the same compact selector used by /shop can
+ * represent both departments and deeply nested subcategories.
+ */
+export interface CatalogSidebarNavigationOption {
+  path: string;
+  label: string;
+}
+
 export interface CatalogFeaturedItem {
   title: string | null;
   description: string | null;
@@ -146,6 +156,14 @@ type CatalogAncestorRow = CatalogBreadcrumb & {
   isActive: boolean;
   isVisible: boolean;
   depth: number;
+};
+
+type PublishedCatalogNavigationNode = {
+  id: string;
+  parentId: string | null;
+  label: string;
+  path: string;
+  displayOrder: number;
 };
 
 const productBadgeMap: Record<string, Product["badge"]> = {
@@ -476,6 +494,59 @@ function mapCatalogNode(
  */
 export const resolveActiveCatalogNode = cache(
   resolveActiveCatalogNodeUncached
+);
+
+/**
+ * Load only published catalog paths and omit children whose ancestor chain is
+ * incomplete. This reflects Admin publication changes immediately while never
+ * exposing a hidden or staged path in the customer sidebar.
+ */
+export const getPublishedCatalogSidebarNavigation = cache(
+  async (): Promise<CatalogSidebarNavigationOption[]> => {
+    const nodes = await prisma.catalogNode.findMany({
+      where: { isActive: true, isVisible: true },
+      select: {
+        id: true,
+        parentId: true,
+        label: true,
+        path: true,
+        displayOrder: true,
+      },
+      orderBy: [{ displayOrder: "asc" }, { label: "asc" }],
+    });
+
+    const nodesById = new Map<string, PublishedCatalogNavigationNode>(
+      nodes.map((node) => [node.id, node])
+    );
+
+    const hierarchyFor = (node: PublishedCatalogNavigationNode): string[] | null => {
+      const labels: string[] = [];
+      const visited = new Set<string>();
+      let current: PublishedCatalogNavigationNode | undefined = node;
+
+      while (current) {
+        if (visited.has(current.id)) return null;
+        visited.add(current.id);
+        labels.unshift(current.label);
+
+        if (!current.parentId) return labels;
+        current = nodesById.get(current.parentId);
+      }
+
+      return null;
+    };
+
+    return nodes
+      .filter((node) =>
+        /^\/(?:women|men|fragrance-beauty|teens)(?:\/|$)/.test(node.path)
+      )
+      .map((node) => {
+        const hierarchy = hierarchyFor(node);
+        return hierarchy ? { path: node.path, label: hierarchy.join(" · ") } : null;
+      })
+      .filter((option): option is CatalogSidebarNavigationOption => option !== null)
+      .sort((left, right) => left.label.localeCompare(right.label, "en"));
+  }
 );
 
 function productWhereForCatalog(

@@ -15,6 +15,7 @@ import { ProductCard } from "@/components/product/product-card";
 import { Button } from "@/components/ui/button";
 import {
   getCatalogPageData,
+  getPublishedCatalogSidebarNavigation,
   hasCatalogQueryParams,
   parseCatalogSearchParams,
   resolveActiveCatalogNode,
@@ -366,6 +367,8 @@ export async function CatalogPage({
 
   if (!data) notFound();
 
+  const sidebarNavigation = await getPublishedCatalogSidebarNavigation();
+
   const breadcrumbData = breadcrumbJsonLd(data);
   const bannerImage = supportedImageSource(data.node.bannerImage)
     ? data.node.bannerImage
@@ -484,7 +487,7 @@ export async function CatalogPage({
 
           <section aria-labelledby="catalog-products-heading" className="pt-8">
             <div className="flex flex-col gap-5 lg:flex-row lg:gap-8">
-              <CatalogFilters data={data} />
+              <CatalogFilters data={data} navigationOptions={sidebarNavigation} />
 
               <div className="min-w-0 flex-1">
             <div className="mb-7 flex flex-wrap items-end justify-between gap-4">

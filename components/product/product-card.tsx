@@ -7,17 +7,13 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, Eye, Heart, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ProductOptionPicker } from "@/components/product/product-option-picker";
 import { useCartStore } from "@/lib/cart-store";
 import { useWishlistStore } from "@/lib/wishlist-store";
-import { formatPrice, type Product, type ProductVariant } from "@/lib/data";
+import { formatPrice, type Product } from "@/lib/data";
 import {
-  getActiveVariants,
   getVariantUnitPrice,
   hasUnavailableRequiredSelection,
   isProductAvailableForPurchase,
-  isVariantAvailable,
-  productOptionForVariant,
   requiresVariantSelectionForPurchase,
 } from "@/lib/commerce";
 import { cn, getProductImage } from "@/lib/utils";
@@ -34,48 +30,24 @@ interface ProductCardProps {
   priority?: boolean;
 }
 
-type CartSelection = {
-  variant: {
-    id: string;
-    label: string;
-    sku?: string;
-    priceAdjustment: number;
-  };
-  selectedOptions: Array<{ label: string; value: string }>;
-  unitPrice: number;
-};
-
-type AddItemWithSelection = (
-  product: Product,
-  quantity?: number,
-  stitchingOptions?: { price: number; profileId: string; profileName: string },
-  selection?: CartSelection
-) => void;
-
 export function ProductCard({ product, priority = false }: ProductCardProps) {
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const [manualImageIndex, setManualImageIndex] = useState<number | null>(null);
-  const [isOptionPickerOpen, setIsOptionPickerOpen] = useState(false);
-  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
-  const [optionError, setOptionError] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const suppressLinkClick = useRef(false);
   const { addItem } = useCartStore();
   const { toggleItem, isInWishlist, isIdentityResolved } = useWishlistStore();
 
   const productImages = product.images.length > 0 ? product.images : [getProductImage(product.images)];
-  const activeVariants = getActiveVariants(product);
-  const selectedVariant = activeVariants.find((variant) => variant.id === selectedVariantId) ?? null;
   const selectionRequired = requiresVariantSelectionForPurchase(product);
   const requiredSelectionUnavailable = hasUnavailableRequiredSelection(product);
-  const hasOptions = Boolean(product.commerce && (activeVariants.length > 0 || selectionRequired));
   const productAvailable = isProductAvailableForPurchase(product);
-  const displayedPrice = getVariantUnitPrice(product, selectedVariant);
+  const displayedPrice = getVariantUnitPrice(product);
   const displayedOriginalPrice = product.originalPrice
-    ? product.originalPrice + (selectedVariant?.priceAdjustment ?? 0)
+    ? product.originalPrice
     : undefined;
 
   useEffect(() => {
@@ -84,9 +56,6 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
 
   useEffect(() => {
     setManualImageIndex(null);
-    setSelectedVariantId(null);
-    setOptionError(false);
-    setIsOptionPickerOpen(false);
   }, [product.id]);
 
   const handleProductClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
@@ -131,37 +100,10 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
     }, 500);
   };
 
-  const handleVariantSelect = (variant: ProductVariant) => {
-    setSelectedVariantId(variant.id);
-    setOptionError(false);
-  };
-
   const handleAddToCart = () => {
-    if (!productAvailable) return;
+    if (!productAvailable || selectionRequired) return;
 
-    if (selectionRequired && (!selectedVariant || !isVariantAvailable(selectedVariant))) {
-      setIsOptionPickerOpen(true);
-      setOptionError(true);
-      return;
-    }
-
-    const selection: CartSelection | undefined = selectedVariant
-      ? {
-          variant: {
-            id: selectedVariant.id,
-            label: selectedVariant.label,
-            sku: selectedVariant.sku,
-            priceAdjustment: selectedVariant.priceAdjustment,
-          },
-          selectedOptions: [productOptionForVariant(product, selectedVariant)],
-          unitPrice: displayedPrice,
-        }
-      : undefined;
-
-    // The cart keeps its existing three-argument call shape for legacy fabric
-    // products. The fourth, optional selection is consumed only by the new
-    // additive commerce path.
-    (addItem as AddItemWithSelection)(product, 1, undefined, selection);
+    addItem(product, 1);
     setJustAdded(true);
     setTimeout(() => setJustAdded(false), 2000);
   };
@@ -274,15 +216,28 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
 
           {/* Quick Actions */}
           <div className="absolute bottom-0 left-0 right-0 flex gap-2 p-4 opacity-95 transition-all duration-300 lg:translate-y-0 lg:group-hover:opacity-100">
-            <Button
-              size="sm"
-              className="flex-1 bg-background/95 text-foreground backdrop-blur-sm hover:bg-background"
-              onClick={handleAddToCart}
-              disabled={!productAvailable}
-            >
-              <ShoppingBag className="h-4 w-4 mr-2" />
-              {requiredSelectionUnavailable ? "Option Unavailable" : productAvailable ? "Add to Cart" : "Out of Stock"}
-            </Button>
+            {selectionRequired && productAvailable && !requiredSelectionUnavailable ? (
+              <Button
+                size="sm"
+                className="flex-1 bg-background/95 text-foreground backdrop-blur-sm hover:bg-background"
+                asChild
+              >
+                <Link href={`/product/${product.id}`} onClick={handleProductClick}>
+                  <ShoppingBag className="mr-2 h-4 w-4" />
+                  View Product
+                </Link>
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                className="flex-1 bg-background/95 text-foreground backdrop-blur-sm hover:bg-background"
+                onClick={handleAddToCart}
+                disabled={!productAvailable}
+              >
+                <ShoppingBag className="mr-2 h-4 w-4" />
+                {requiredSelectionUnavailable ? "Option Unavailable" : productAvailable ? "Add to Cart" : "Out of Stock"}
+              </Button>
+            )}
             {/* Screen-reader announcement when item is added to cart */}
             {justAdded && (
               <span aria-live="assertive" className="sr-only">
@@ -338,54 +293,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
               </span>
             )}
           </div>
-          {selectedVariant && (
-            <p className="text-xs text-muted-foreground">
-              {product.commerce?.optionLabel?.trim() || "Option"}: {selectedVariant.label}
-            </p>
-          )}
         </div>
-
-        {hasOptions && (
-          <div className="px-3 pb-4 pt-3">
-            {requiredSelectionUnavailable ? (
-              <div
-                className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
-                role="status"
-              >
-                No {product.commerce?.optionLabel?.trim() || "options"} available right now.
-              </div>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className={cn(
-                    "w-full rounded-md border px-3 py-2 text-left text-xs font-medium transition-colors hover:bg-secondary",
-                    optionError ? "border-destructive text-destructive" : "border-border"
-                  )}
-                  aria-expanded={isOptionPickerOpen}
-                  onClick={() => {
-                    setIsOptionPickerOpen((open) => !open);
-                    setOptionError(false);
-                  }}
-                >
-                  {selectedVariant
-                    ? `${product.commerce?.optionLabel?.trim() || "Option"}: ${selectedVariant.label}`
-                    : `Choose ${product.commerce?.optionLabel?.trim() || "option"}${selectionRequired ? " *" : ""}`}
-                </button>
-                {isOptionPickerOpen && (
-                  <ProductOptionPicker
-                    product={product}
-                    selectedVariantId={selectedVariantId}
-                    onSelect={handleVariantSelect}
-                    invalid={optionError}
-                    compact
-                    className="mt-2 animate-in fade-in slide-in-from-top-1 duration-200"
-                  />
-                )}
-              </>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Quick View Modal */}
