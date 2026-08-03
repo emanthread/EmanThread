@@ -198,7 +198,66 @@ export function serializeCommerceProfile(
   };
 }
 
+const DEFAULT_OPTION_LABELS: Record<ProductKind, string> = {
+  UNSTITCHED_FABRIC: "Size",
+  READY_TO_WEAR: "Size",
+  FRAGRANCE: "Volume",
+  BEAUTY: "Shade / option",
+  TEENS: "Size",
+  GIFT: "Gift option",
+  GIFT_BOX: "Gift option",
+  ACCESSORY: "Option",
+};
+
+const COMMON_APPAREL_SIZE_PRESETS = [
+  { optionKey: "xs", label: "XS" },
+  { optionKey: "s", label: "S" },
+  { optionKey: "m", label: "M" },
+  { optionKey: "l", label: "L" },
+  { optionKey: "xl", label: "XL" },
+  { optionKey: "xxl", label: "XXL" },
+] as const;
+
+function isSizeBasedProduct(kind: ProductKind): boolean {
+  return kind === "READY_TO_WEAR" || kind === "TEENS";
+}
+
+function normalizedOptionValue(value: string): string {
+  return value.trim().toLocaleLowerCase();
+}
+
 function suggestedOptionLabel(kind: ProductKind): string {
+  return DEFAULT_OPTION_LABELS[kind];
+}
+
+function newOptionDraft(optionKey = "", label = ""): ProductVariantDraft {
+  return {
+    optionKey,
+    label,
+    sku: "",
+    priceAdjustment: "0",
+    stockQuantity: "0",
+    inStock: true,
+    isActive: true,
+  };
+}
+
+function canAddCommonApparelSizes(variants: ProductVariantDraft[]): boolean {
+  if (variants.length >= 50) return false;
+  const existingValues = new Set(
+    variants.flatMap((variant) => [
+      normalizedOptionValue(variant.optionKey),
+      normalizedOptionValue(variant.label),
+    ])
+  );
+  return COMMON_APPAREL_SIZE_PRESETS.some(
+    (preset) =>
+      !existingValues.has(normalizedOptionValue(preset.optionKey)) &&
+      !existingValues.has(normalizedOptionValue(preset.label))
+  );
+}
+
+function suggestedOptionLabelLegacy(kind: ProductKind): string {
   switch (kind) {
     case "READY_TO_WEAR":
     case "TEENS":

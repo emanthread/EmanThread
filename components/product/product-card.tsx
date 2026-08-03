@@ -36,7 +36,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
   const [justAdded, setJustAdded] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const [manualImageIndex, setManualImageIndex] = useState<number | null>(null);
-  const touchStartX = useRef<number | null>(null);
+  const touchStart = useRef<{ x: number; y: number; pointerId: number } | null>(null);
   const suppressLinkClick = useRef(false);
   const { addItem } = useCartStore();
   const { toggleItem, isInWishlist, isIdentityResolved } = useWishlistStore();
@@ -78,20 +78,36 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
   };
 
   const handleImagePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === "touch" && !(event.target as HTMLElement).closest("button")) {
-      touchStartX.current = event.clientX;
-    }
+    if (event.pointerType !== "touch" || (event.target as HTMLElement).closest("button")) return;
+
+    touchStart.current = {
+      x: event.clientX,
+      y: event.clientY,
+      pointerId: event.pointerId,
+    };
+
+    // Keep receiving the end event when a deliberate swipe finishes beyond the
+    // card's edge. `touch-pan-y` still leaves normal vertical page scrolling intact.
+    event.currentTarget.setPointerCapture(event.pointerId);
   };
 
   const handleImagePointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType !== "touch" || touchStartX.current === null) return;
+    const start = touchStart.current;
+    if (event.pointerType !== "touch" || !start || start.pointerId !== event.pointerId) return;
 
-    const distance = event.clientX - touchStartX.current;
-    touchStartX.current = null;
+    const horizontalDistance = event.clientX - start.x;
+    const verticalDistance = event.clientY - start.y;
+    touchStart.current = null;
 
-    if (Math.abs(distance) < 36 || productImages.length < 2) return;
+    // Do not turn a vertical page scroll into an image change. A short, normal
+    // tap is still handled by the product link below.
+    if (
+      Math.abs(horizontalDistance) < 36 ||
+      Math.abs(horizontalDistance) <= Math.abs(verticalDistance) ||
+      productImages.length < 2
+    ) return;
 
-    handleImageChange(distance > 0 ? -1 : 1);
+    handleImageChange(horizontalDistance > 0 ? -1 : 1);
     // The touch gesture ends with a click on the image link in some browsers.
     // Swallow that one click so a gallery swipe never navigates away.
     suppressLinkClick.current = true;
@@ -128,7 +144,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
           onPointerDown={handleImagePointerDown}
           onPointerUp={handleImagePointerEnd}
           onPointerCancel={() => {
-            touchStartX.current = null;
+            touchStart.current = null;
           }}
         >
           <Link href={`/product/${product.id}`} className="relative block h-full w-full" onClick={handleProductClick}>
@@ -170,7 +186,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
               <button
                 type="button"
                 aria-label="Show previous product image"
-                className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-background/90 p-2 text-foreground opacity-100 shadow-sm backdrop-blur-sm transition hover:bg-background lg:opacity-0 lg:group-hover:opacity-100"
+                className="absolute left-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-background/95 text-foreground shadow-sm backdrop-blur-sm transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 onClick={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
@@ -182,7 +198,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
               <button
                 type="button"
                 aria-label="Show next product image"
-                className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-background/90 p-2 text-foreground opacity-100 shadow-sm backdrop-blur-sm transition hover:bg-background lg:opacity-0 lg:group-hover:opacity-100"
+                className="absolute right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-background/95 text-foreground shadow-sm backdrop-blur-sm transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 onClick={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
