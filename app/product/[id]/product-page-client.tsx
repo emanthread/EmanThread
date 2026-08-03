@@ -9,6 +9,7 @@ import { Footer } from "@/components/layout/footer";
 import { CartDrawer } from "@/components/cart/cart-drawer";
 import { ProductCard } from "@/components/product/product-card";
 import { ProductOptionPicker } from "@/components/product/product-option-picker";
+import { SizeGuideModal } from "@/components/product/size-guide-modal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -529,6 +530,7 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
           <h1 className="text-3xl sm:text-4xl font-semibold leading-tight">
             {product.name}
           </h1>
+          <SizeGuideModal product={product} />
           <ProductDetailFlashSale />
           <div className="flex items-center gap-3">
             <span className="text-3xl font-bold">{formatPrice(displayedPrice)}</span>

@@ -646,11 +646,11 @@ function fallbackOptionLabel(productKind: ProductKind): string {
 }
 
 async function getCatalogFilterFacets(
-  catalogNodeId: string
+  catalogNodeIds: string[]
 ): Promise<CatalogFilterFacets> {
   const assignedProductWhere: Prisma.ProductWhereInput = {
     NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } },
-    catalogAssignments: { some: { catalogNodeId } },
+    catalogAssignments: { some: { catalogNodeId: { in: catalogNodeIds } } },
   };
   const products = await prisma.product.findMany({
     where: assignedProductWhere,
@@ -754,12 +754,34 @@ function assignmentOrderBy(
   }
 }
 
+function productOrderBy(
+  sort: CatalogSort
+): Prisma.ProductOrderByWithRelationInput[] {
+  switch (sort) {
+    case "newest":
+      return [{ createdAt: "desc" }, { id: "asc" }];
+    case "trending":
+      return [{ badge: "desc" }, { createdAt: "desc" }, { id: "asc" }];
+    case "price-asc":
+      return [{ price: "asc" }, { createdAt: "desc" }, { id: "asc" }];
+    case "price-desc":
+      return [{ price: "desc" }, { createdAt: "desc" }, { id: "asc" }];
+    case "name-asc":
+      return [{ name: "asc" }, { id: "asc" }];
+    case "featured":
+    default:
+      // Parent collection pages aggregate their descendants. A Product-level
+      // order is intentional here: it removes duplicate cards where a product
+      // is assigned both to a parent and a child node. Direct-node pages retain
+      // their existing assignment-level featured/display-order behaviour.
+      return [{ createdAt: "desc" }, { id: "asc" }];
+  }
+}
+
 function transformCatalogProduct(
-  assignment: CatalogAssignmentWithProduct,
+  product: CatalogAssignmentWithProduct["product"],
   commerce?: Product["commerce"]
 ): Product {
-  const product = assignment.product;
-
   return {
     id: product.id,
     name: product.name,
@@ -790,6 +812,25 @@ function transformCatalogProduct(
   };
 }
 
+async function getCatalogNodeScopeIds(node: ResolvedCatalogNode): Promise<string[]> {
+  const nodes = await prisma.catalogNode.findMany({
+    where: {
+      isActive: true,
+      isVisible: true,
+      OR: [
+        { id: node.id },
+        { path: { startsWith: `${node.path}/` } },
+      ],
+    },
+    select: { id: true },
+  });
+
+  // The resolved node is active and visible, but keep the exact node as a
+  // defensive fallback if a future database implementation changes startsWith
+  // semantics or a stale read omits it.
+  return Array.from(new Set([node.id, ...nodes.map((item) => item.id)]));
+}
+
 /**
  * Load one catalog page using only additive assignments and existing Product
  * rows. This function never falls back to, calls, or mutates the legacy /shop
@@ -809,6 +850,52 @@ export async function getCatalogPageData(
     ? await resolveCategoryFabricTypes(query.categoryIds.join(","))
     : [];
   const productWhere = productWhereForCatalog(query, categoryFabricTypes);
+  const scopeIds = await getCatalogNodeScopeIds(node);
+
+  // A leaf node keeps the existing assignment-level merchandising order.
+  // A parent node additionally includes every visible descendant so selecting
+  // one precise admin subcategory makes the product discoverable at each
+  // meaningful department/collection level without duplicating its card.
+  if (scopeIds.length > 1) {
+    const scopedProductWhere: Prisma.ProductWhereInput = {
+      AND: [
+        productWhere,
+        {
+          catalogAssignments: {
+            some: { catalogNodeId: { in: scopeIds } },
+          },
+        },
+      ],
+    };
+    const [products, total, facets] = await Promise.all([
+      prisma.product.findMany({
+        where: scopedProductWhere,
+        orderBy: productOrderBy(query.sort),
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+      }),
+      prisma.product.count({ where: scopedProductWhere }),
+      getCatalogFilterFacets(scopeIds),
+    ]);
+    const commerceByProductId = await getCommerceProfilesByProductId(
+      products.map((product) => product.id)
+    );
+    const totalPages = Math.ceil(total / query.pageSize);
+
+    return {
+      node,
+      facets,
+      products: products.map((product) =>
+        transformCatalogProduct(product, commerceByProductId.get(product.id))
+      ),
+      query,
+      total,
+      totalPages,
+      hasPreviousPage: query.page > 1,
+      hasNextPage: query.page < totalPages,
+    };
+  }
+
   const assignmentWhere: Prisma.ProductCatalogAssignmentWhereInput = {
     catalogNodeId: node.id,
     product: productWhere,
@@ -825,7 +912,7 @@ export async function getCatalogPageData(
     prisma.productCatalogAssignment.count({
       where: assignmentWhere,
     }),
-    getCatalogFilterFacets(node.id),
+    getCatalogFilterFacets(scopeIds),
   ]);
 
   const totalPages = Math.ceil(total / query.pageSize);
@@ -839,7 +926,7 @@ export async function getCatalogPageData(
     facets,
     products: assignments.map((assignment) =>
       transformCatalogProduct(
-        assignment,
+        assignment.product,
         commerceByProductId.get(assignment.productId)
       )
     ),

@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { adminFetch } from "@/lib/admin-fetch";
+import type { ProductKind } from "@/lib/data";
 
 export type CatalogAssignmentDraft = {
   catalogNodeId: string;
@@ -35,13 +36,62 @@ export type CatalogAssignmentPayload = {
   displayOrder: number | null;
 };
 
-type CatalogNode = {
+export type CatalogNode = {
   id: string;
   label: string;
   path: string;
   isActive: boolean;
   isVisible: boolean;
 };
+
+function catalogDepartmentNodes(nodes: CatalogNode[]): CatalogNode[] {
+  return nodes.filter((node) => node.path.split("/").filter(Boolean).length === 1);
+}
+
+function catalogPathMatchesDepartment(path: string, departmentPath: string): boolean {
+  return path === departmentPath || path.startsWith(`${departmentPath}/`);
+}
+
+/**
+ * The catalog path is the merchandising source of truth. This only proposes a
+ * sensible starting product kind; the admin remains able to choose the final
+ * merchandise type and every existing profile remains untouched.
+ */
+export function suggestedProductKindForCatalogPath(
+  path: string
+): ProductKind | null {
+  const normalized = path.toLowerCase();
+  if (
+    normalized.includes("/fragrances") ||
+    normalized.includes("/perfume") ||
+    normalized.includes("/attar") ||
+    normalized.includes("body-mist") ||
+    normalized.includes("body-spray") ||
+    normalized.includes("bakhoor") ||
+    normalized.includes("diffuser") ||
+    normalized.includes("scented-candle")
+  ) {
+    return "FRAGRANCE";
+  }
+  if (
+    normalized.includes("/makeup") ||
+    normalized.includes("/skincare") ||
+    normalized.includes("eye-") ||
+    normalized.includes("lip") ||
+    normalized.includes("foundation") ||
+    normalized.includes("blush")
+  ) {
+    return "BEAUTY";
+  }
+  if (normalized.includes("gift-box")) return "GIFT_BOX";
+  if (normalized.includes("gift")) return "GIFT";
+  if (normalized.startsWith("/teens")) return "TEENS";
+  if (normalized.includes("ready-to-wear") || normalized.includes("/rtw")) {
+    return "READY_TO_WEAR";
+  }
+  if (normalized.includes("unstitched")) return "UNSTITCHED_FABRIC";
+  return null;
+}
 
 type AssignmentApiRow = Omit<CatalogAssignmentDraft, "displayOrder"> & {
   displayOrder: number | null;
@@ -105,6 +155,7 @@ export function ProductCatalogAssignmentSection({
   onLoadingChange,
   onLoadError,
   saveError,
+  onProductKindSuggested,
 }: {
   productId?: string;
   assignments: CatalogAssignmentDraft[];
@@ -112,11 +163,14 @@ export function ProductCatalogAssignmentSection({
   onLoadingChange: (loading: boolean) => void;
   onLoadError: (error: string | null) => void;
   saveError?: string | null;
+  onProductKindSuggested?: (kind: ProductKind) => void;
 }) {
   const [nodes, setNodes] = useState<CatalogNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [nodeToAdd, setNodeToAdd] = useState("");
+  const [departmentPath, setDepartmentPath] = useState("");
+  const [primaryNodeId, setPrimaryNodeId] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -204,6 +258,10 @@ export function ProductCatalogAssignmentSection({
   const availableNodes = nodes.filter(
     (node) => !assignments.some((assignment) => assignment.catalogNodeId === node.id)
   );
+  const departments = catalogDepartmentNodes(nodes);
+  const nodesForDepartment = departmentPath
+    ? nodes.filter((node) => catalogPathMatchesDepartment(node.path, departmentPath))
+    : [];
 
   const addNode = () => {
     const node = nodesById.get(nodeToAdd);
@@ -225,6 +283,32 @@ export function ProductCatalogAssignmentSection({
     setNodeToAdd("");
   };
 
+  const selectPrimaryNode = (catalogNodeId: string) => {
+    setPrimaryNodeId(catalogNodeId);
+    const node = nodesById.get(catalogNodeId);
+    if (!node) return;
+
+    if (!assignments.some((assignment) => assignment.catalogNodeId === node.id)) {
+      onChange([
+        ...assignments,
+        {
+          catalogNodeId: node.id,
+          isFeatured: false,
+          displayOrder: "",
+          catalogNode: {
+            label: node.label,
+            path: node.path,
+            isActive: node.isActive,
+            isVisible: node.isVisible,
+          },
+        },
+      ]);
+    }
+
+    const suggestedKind = suggestedProductKindForCatalogPath(node.path);
+    if (suggestedKind) onProductKindSuggested?.(suggestedKind);
+  };
+
   const updateAssignment = (
     catalogNodeId: string,
     update: Partial<CatalogAssignmentDraft>
@@ -241,10 +325,10 @@ export function ProductCatalogAssignmentSection({
   return (
     <section className="space-y-3 rounded-lg border border-dashed p-4">
       <div>
-        <h3 className="font-medium">Catalog Assignment</h3>
+        <h3 className="font-medium">Department & category</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Assign this product to dedicated catalog nodes. Category and Fabric Type
-          remain unchanged.
+          Choose where this product belongs first. The chosen category is added
+          safely to its catalog placements; existing placements are never removed.
         </p>
       </div>
 
@@ -264,7 +348,59 @@ export function ProductCatalogAssignmentSection({
         </Alert>
       )}
 
-      <div className="flex gap-2">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1">
+          <Label htmlFor="catalog-department">Main department</Label>
+          <Select
+            value={departmentPath}
+            onValueChange={(path) => {
+              setDepartmentPath(path);
+              setPrimaryNodeId("");
+            }}
+            disabled={loading || !departments.length}
+          >
+            <SelectTrigger id="catalog-department">
+              <SelectValue placeholder={loading ? "Loading departments..." : "Choose department"} />
+            </SelectTrigger>
+            <SelectContent>
+              {departments.map((node) => (
+                <SelectItem key={node.id} value={node.path}>
+                  {node.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="catalog-primary-node">Category / subcategory</Label>
+          <Select
+            value={primaryNodeId}
+            onValueChange={selectPrimaryNode}
+            disabled={loading || !departmentPath || !nodesForDepartment.length}
+          >
+            <SelectTrigger id="catalog-primary-node">
+              <SelectValue placeholder={departmentPath ? "Choose category" : "Choose department first"} />
+            </SelectTrigger>
+            <SelectContent>
+              {nodesForDepartment.map((node) => (
+                <SelectItem key={node.id} value={node.id}>
+                  {node.path}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {primaryNodeId ? (
+        <p className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+          This product will be discoverable on the selected category and its parent department pages.
+        </p>
+      ) : null}
+
+      <div className="border-t border-dashed pt-3">
+        <Label className="mb-2 block">Additional catalog placements</Label>
+        <div className="flex gap-2">
         <Select value={nodeToAdd} onValueChange={setNodeToAdd} disabled={loading || !availableNodes.length}>
           <SelectTrigger aria-label="Catalog node">
             <SelectValue placeholder={loading ? "Loading catalog nodes..." : "Select catalog node"} />
@@ -281,11 +417,12 @@ export function ProductCatalogAssignmentSection({
           {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
           Add
         </Button>
+        </div>
       </div>
 
       {assignments.length === 0 ? (
         <p className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-          No catalog nodes assigned. Saving this product will not change catalog discovery.
+          No category is assigned yet. Choose a department and category above so this product can appear in the storefront catalog.
         </p>
       ) : (
         <div className="space-y-3">

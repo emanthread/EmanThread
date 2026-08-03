@@ -120,16 +120,49 @@ export function hasUnavailableRequiredSelection(product: Product): boolean {
   );
 }
 
+const NON_STITCHING_CATALOG_PATH_MARKERS = [
+  "/ready-to-wear",
+  "/fragrance-beauty",
+  "/fragrance",
+  "/beauty",
+  "/teens",
+  "/gift",
+] as const;
+
+/**
+ * Catalog placement is a safety fallback while the live store transitions
+ * existing products into explicit commerce profiles. It deliberately uses
+ * the new catalog path, never the legacy categoryId/fabricType fields, which
+ * remain compatibility metadata for the old fabric-first listing.
+ */
+export function catalogPlacementBlocksStitching(
+  catalogPaths: readonly string[] | undefined
+): boolean {
+  return Boolean(
+    catalogPaths?.some((path) => {
+      const normalized = path.toLocaleLowerCase("en-US");
+      return NON_STITCHING_CATALOG_PATH_MARKERS.some((marker) =>
+        normalized.includes(marker)
+      );
+    })
+  );
+}
+
 /**
  * Missing metadata retains the live legacy fabric flow. Once a commerce
  * profile exists, stitching is only valid for unstitched fabric; the explicit
- * boolean remains a second safety gate for future profile changes.
+ * boolean remains a second safety gate. During the catalog rollout, a product
+ * in an explicitly non-stitchable catalog branch is also protected even if an
+ * older record has not yet received its commerce profile.
  */
 export function isProductStitchingEligible(product: Product): boolean {
   const commerce = product.commerce;
-  return !commerce || (
-    commerce.productKind === "UNSTITCHED_FABRIC" && commerce.stitchingEligible
-  );
+  if (commerce) {
+    return (
+      commerce.productKind === "UNSTITCHED_FABRIC" && commerce.stitchingEligible
+    );
+  }
+  return !catalogPlacementBlocksStitching(product.catalogPaths);
 }
 
 export function getVariantUnitPrice(product: Product, variant?: ProductVariant | null): number {

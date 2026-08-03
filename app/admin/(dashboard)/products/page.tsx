@@ -216,6 +216,10 @@ export default function AdminProductsPage() {
   const [commerceProfileLoading, setCommerceProfileLoading] = useState(false);
   const [commerceProfileLoadError, setCommerceProfileLoadError] = useState<string | null>(null);
   const [commerceProfileSaveError, setCommerceProfileSaveError] = useState<string | null>(null);
+  // A missing profile is meaningful: legacy products must remain profile-free
+  // until an admin deliberately configures the new commerce layer.
+  const [commerceProfileExists, setCommerceProfileExists] = useState<boolean | null>(null);
+  const [commerceProfileDirty, setCommerceProfileDirty] = useState(false);
   // Replace manual setTimeout boilerplate with shared hook (same 500ms delay).
   // The hook already exists and is used correctly in customers/page.tsx.
   const debouncedSearch = useDebounce(searchQuery, 500);
@@ -436,6 +440,8 @@ export default function AdminProductsPage() {
     setCommerceProfileLoading(commerceProfileEnabled);
     setCommerceProfileLoadError(null);
     setCommerceProfileSaveError(null);
+    setCommerceProfileExists(null);
+    setCommerceProfileDirty(false);
     setProductForm({ ...product });
     setIsEditProductOpen(true);
   };
@@ -451,6 +457,8 @@ export default function AdminProductsPage() {
     setCommerceProfileLoading(false);
     setCommerceProfileLoadError(null);
     setCommerceProfileSaveError(null);
+    setCommerceProfileExists(false);
+    setCommerceProfileDirty(false);
     setProductForm(base);
     setTagInput("");
     setIsAddProductOpen(true);
@@ -494,14 +502,25 @@ export default function AdminProductsPage() {
       }
     }
 
+    const shouldSaveCommerceProfile =
+      commerceProfileEnabled &&
+      (commerceProfileDirty || commerceProfileExists === true);
     let serializedCommerceProfile;
-    if (commerceProfileEnabled) {
+    if (shouldSaveCommerceProfile) {
       try {
         serializedCommerceProfile = serializeCommerceProfile(commerceProfile);
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Invalid merchandise settings");
         return;
       }
+    }
+
+    // Do not retroactively require catalog work from an existing live product.
+    // A new product, however, must have a storefront placement when the
+    // additive catalog workflow is enabled.
+    if (catalogAssignmentsEnabled && !isEditProductOpen && catalogAssignments.length === 0) {
+      toast.error("Choose a department and category so the new product appears in the storefront catalog");
+      return;
     }
 
     const resolvedCategoryId = productForm.categoryId || "";
@@ -597,7 +616,7 @@ export default function AdminProductsPage() {
       }
     }
 
-    if (commerceProfileEnabled) {
+    if (shouldSaveCommerceProfile) {
       try {
         const response = await adminFetch(
           `/api/admin/products/${encodeURIComponent(savedProduct.id)}/commerce-profile`,
@@ -641,6 +660,8 @@ export default function AdminProductsPage() {
     setCommerceProfile(emptyCommerceProfileDraft());
     setCommerceProfileLoadError(null);
     setCommerceProfileSaveError(null);
+    setCommerceProfileExists(null);
+    setCommerceProfileDirty(false);
     setIsSaving(false);
   };
 
@@ -1087,6 +1108,8 @@ export default function AdminProductsPage() {
         commerceProfileEnabled={commerceProfileEnabled}
         commerceProfile={commerceProfile}
         setCommerceProfile={setCommerceProfile}
+        setCommerceProfileDirty={setCommerceProfileDirty}
+        setCommerceProfileExists={setCommerceProfileExists}
         commerceProfileLoading={commerceProfileLoading}
         setCommerceProfileLoading={setCommerceProfileLoading}
         setCommerceProfileLoadError={setCommerceProfileLoadError}
@@ -1137,6 +1160,8 @@ interface ProductDialogProps {
   commerceProfileEnabled: boolean;
   commerceProfile: CommerceProfileDraft;
   setCommerceProfile: (profile: CommerceProfileDraft) => void;
+  setCommerceProfileDirty: (dirty: boolean) => void;
+  setCommerceProfileExists: (exists: boolean) => void;
   commerceProfileLoading: boolean;
   setCommerceProfileLoading: (loading: boolean) => void;
   setCommerceProfileLoadError: (error: string | null) => void;
@@ -1175,6 +1200,8 @@ function ProductDialog({
   commerceProfileEnabled,
   commerceProfile,
   setCommerceProfile,
+  setCommerceProfileDirty,
+  setCommerceProfileExists,
   commerceProfileLoading,
   setCommerceProfileLoading,
   setCommerceProfileLoadError,
@@ -1185,6 +1212,44 @@ function ProductDialog({
   const update = (field: keyof AdminProduct, value: any) => {
     clearFieldError(field);
     setProduct((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const isLegacyFabricProduct = commerceProfile.productKind === "UNSTITCHED_FABRIC";
+  const applySuggestedProductKind = (productKind: CommerceProfileDraft["productKind"]) => {
+    // Existing products may already have a deliberately chosen profile. A
+    // category choice should never overwrite it. For a new product, only
+    // replace the untouched legacy default with the category's sensible type.
+    if (
+      isEdit ||
+      commerceProfile.productKind !== "UNSTITCHED_FABRIC" ||
+      productKind === commerceProfile.productKind
+    ) {
+      return;
+    }
+
+    const defaultOptionLabels: Partial<Record<CommerceProfileDraft["productKind"], string>> = {
+      READY_TO_WEAR: "Size",
+      TEENS: "Size",
+      FRAGRANCE: "Volume",
+      BEAUTY: "Shade / option",
+      GIFT: "Gift option",
+      GIFT_BOX: "Gift option",
+    };
+
+    setCommerceProfile({
+      ...commerceProfile,
+      productKind,
+      stitchingEligible: false,
+      requiresSelection: productKind === "READY_TO_WEAR" || productKind === "TEENS",
+      // The blank/new form begins as an unstitched product with "Size". Keep
+      // an admin-entered label, but exchange that default for the relevant
+      // terminology when a fragrance, beauty item, or gift is selected.
+      optionLabel:
+        commerceProfile.optionLabel === "Size"
+          ? defaultOptionLabels[productKind] || commerceProfile.optionLabel
+          : commerceProfile.optionLabel,
+    });
+    setCommerceProfileDirty(true);
   };
 
 
@@ -1258,9 +1323,21 @@ function ProductDialog({
             </div>
           </div>
 
+          {catalogAssignmentsEnabled && (
+            <ProductCatalogAssignmentSection
+              productId={isEdit ? product.id || undefined : undefined}
+              assignments={catalogAssignments}
+              onChange={setCatalogAssignments}
+              onLoadingChange={setCatalogAssignmentsLoading}
+              onLoadError={setCatalogAssignmentLoadError}
+              saveError={catalogAssignmentSaveError}
+              onProductKindSuggested={applySuggestedProductKind}
+            />
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Legacy Shop Category *</Label>
+              <Label>{isLegacyFabricProduct ? "Legacy Shop Category *" : "Compatibility Category *"}</Label>
               <Select
                 value={product.categoryId}
                 onValueChange={(v) => update("categoryId", v)}
@@ -1269,7 +1346,13 @@ function ProductDialog({
                   {isLoadingCategories ? (
                     <span className="text-muted-foreground text-sm">Loading…</span>
                   ) : (
-                    <SelectValue placeholder="Select legacy category" />
+                    <SelectValue
+                      placeholder={
+                        isLegacyFabricProduct
+                          ? "Select legacy category"
+                          : "Select compatibility category"
+                      }
+                    />
                   )}
                 </SelectTrigger>
                 <SelectContent>
@@ -1283,7 +1366,7 @@ function ProductDialog({
               <ProductFieldError message={fieldErrors.categoryId} />
             </div>
             <div className="space-y-2">
-              <Label>Legacy Shop Type *</Label>
+              <Label>{isLegacyFabricProduct ? "Legacy Shop Type *" : "Compatibility Type *"}</Label>
               <Select
                 value={product.fabricType}
                 onValueChange={(v) => update("fabricType", v)}
@@ -1292,7 +1375,13 @@ function ProductDialog({
                   {isLoadingCategories ? (
                     <span className="text-muted-foreground text-sm">Loading…</span>
                   ) : (
-                    <SelectValue placeholder="Select legacy shop type" />
+                    <SelectValue
+                      placeholder={
+                        isLegacyFabricProduct
+                          ? "Select legacy shop type"
+                          : "Select compatibility type"
+                      }
+                    />
                   )}
                 </SelectTrigger>
                 <SelectContent>
@@ -1330,7 +1419,9 @@ function ProductDialog({
           </div>
 
           <p className="-mt-2 text-xs text-muted-foreground">
-            These existing fields continue to power the current /shop listing. Use the catalog and merchandise sections below for the new departments.
+            {isLegacyFabricProduct
+              ? "These established fields preserve the existing /shop listing. Department and category placement is selected above."
+              : "The live Product table still requires these compatibility values. They do not decide the new catalog placement, and no hidden or dummy value is used."}
           </p>
 
           <div className="grid grid-cols-2 gap-4">
@@ -1612,22 +1703,16 @@ function ProductDialog({
             />
           </div>
 
-          {catalogAssignmentsEnabled && (
-            <ProductCatalogAssignmentSection
-              productId={isEdit ? product.id || undefined : undefined}
-              assignments={catalogAssignments}
-              onChange={setCatalogAssignments}
-              onLoadingChange={setCatalogAssignmentsLoading}
-              onLoadError={setCatalogAssignmentLoadError}
-              saveError={catalogAssignmentSaveError}
-            />
-          )}
-
           {commerceProfileEnabled && (
             <ProductCommerceProfileSection
               productId={isEdit ? product.id || undefined : undefined}
               draft={commerceProfile}
               onChange={setCommerceProfile}
+              onUserChange={(draft) => {
+                setCommerceProfile(draft);
+                setCommerceProfileDirty(true);
+              }}
+              onProfilePresenceChange={setCommerceProfileExists}
               onLoadingChange={setCommerceProfileLoading}
               onLoadError={setCommerceProfileLoadError}
               saveError={commerceProfileSaveError}

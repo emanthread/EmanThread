@@ -24,6 +24,7 @@ import {
   normalizeStitchingPriceKey,
   resolveStitchingPriceKey,
 } from "@/lib/stitching-price";
+import { catalogPlacementBlocksStitching } from "@/lib/commerce";
 
 export const dynamic = "force-dynamic";
 
@@ -228,6 +229,56 @@ export async function POST(req: Request) {
       select: { id: true, price: true, stockQuantity: true, name: true, fabricType: true, inStock: true },
     });
     const productMap = new Map(products.map((p) => [p.id, p]));
+
+    // A product-page control is not enough: enforce the same rule before
+    // accepting any browser-supplied stitching line. The queries are gated so
+    // the live legacy flow never touches additive tables before their rollout
+    // flags and migrations are enabled.
+    const requestedStitchingProductIds = [
+      ...new Set(stitchingItems?.map((item) => item.productId) || []),
+    ];
+    if (requestedStitchingProductIds.length > 0) {
+      const [commerceProfiles, catalogAssignments] = await Promise.all([
+        FEATURE_FLAGS.COMMERCE_PROFILE_V1
+          ? prisma.productCommerceProfile.findMany({
+              where: { productId: { in: requestedStitchingProductIds } },
+              select: { productId: true, productKind: true, stitchingEligible: true },
+            })
+          : Promise.resolve([]),
+        FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1
+          ? prisma.productCatalogAssignment.findMany({
+              where: { productId: { in: requestedStitchingProductIds } },
+              select: { productId: true, catalogNode: { select: { path: true } } },
+            })
+          : Promise.resolve([]),
+      ]);
+      const commerceProfileByProductId = new Map(
+        commerceProfiles.map((profile) => [profile.productId, profile])
+      );
+      const catalogPathsByProductId = new Map<string, string[]>();
+      for (const assignment of catalogAssignments) {
+        const paths = catalogPathsByProductId.get(assignment.productId) || [];
+        paths.push(assignment.catalogNode.path);
+        catalogPathsByProductId.set(assignment.productId, paths);
+      }
+
+      for (const productId of requestedStitchingProductIds) {
+        const profile = commerceProfileByProductId.get(productId);
+        const catalogPaths = catalogPathsByProductId.get(productId);
+        const profileBlocksStitching = Boolean(
+          profile && (
+            profile.productKind !== "UNSTITCHED_FABRIC" ||
+            !profile.stitchingEligible
+          )
+        );
+        if (profileBlocksStitching || (!profile && catalogPlacementBlocksStitching(catalogPaths))) {
+          return NextResponse.json(
+            { error: "Stitching is available only for unstitched fabric." },
+            { status: 400 }
+          );
+        }
+      }
+    }
 
     for (const item of items) {
       const product = productMap.get(item.productId);

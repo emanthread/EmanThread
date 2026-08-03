@@ -225,6 +225,8 @@ export function ProductCommerceProfileSection({
   productId,
   draft,
   onChange,
+  onUserChange,
+  onProfilePresenceChange,
   onLoadingChange,
   onLoadError,
   saveError,
@@ -232,6 +234,8 @@ export function ProductCommerceProfileSection({
   productId?: string;
   draft: CommerceProfileDraft;
   onChange: (draft: CommerceProfileDraft) => void;
+  onUserChange?: (draft: CommerceProfileDraft) => void;
+  onProfilePresenceChange?: (exists: boolean) => void;
   onLoadingChange: (loading: boolean) => void;
   onLoadError: (error: string | null) => void;
   saveError?: string | null;
@@ -255,8 +259,11 @@ export function ProductCommerceProfileSection({
         if (!response.ok) {
           throw new Error(readApiError(payload, "Failed to load merchandise settings"));
         }
-        if (!cancelled && payload?.profile) {
-          onChange(toDraft(payload.profile as CommerceProfileResponse));
+        if (!cancelled) {
+          onProfilePresenceChange?.(Boolean(payload?.profile));
+          if (payload?.profile) {
+            onChange(toDraft(payload.profile as CommerceProfileResponse));
+          }
         }
       } catch (error) {
         if (!cancelled) {
@@ -279,7 +286,7 @@ export function ProductCommerceProfileSection({
   }, [productId]);
 
   const update = (changes: Partial<CommerceProfileDraft>) => {
-    onChange({ ...draft, ...changes });
+    (onUserChange || onChange)({ ...draft, ...changes });
   };
 
   const updateVariant = (index: number, changes: Partial<ProductVariantDraft>) => {

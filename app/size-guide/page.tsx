@@ -1,6 +1,7 @@
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { CartDrawer } from "@/components/cart/cart-drawer";
+import { SizeGuideTemplateGallery } from "@/components/size-guide/size-guide-template";
 import { getContentPage } from "@/lib/content-pages";
 
 export const revalidate = 3600;
@@ -15,12 +16,23 @@ export default async function SizeGuidePage() {
       <main className="min-h-screen pt-32 pb-16 bg-muted/30">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <h1 className="text-4xl font-serif font-bold mb-8">Size Guide</h1>
-          
+
+          <section className="mb-10 rounded-xl border border-border bg-background p-5 shadow-sm sm:p-8">
+            <h2 className="text-2xl font-semibold">Ready-to-wear size charts</h2>
+            <p className="mb-8 mt-2 text-sm leading-relaxed text-muted-foreground">
+              Use the chart that matches the garment. All supplied charts use inches and describe the finished garment, not body measurements.
+            </p>
+            <SizeGuideTemplateGallery />
+          </section>
+
           {content ? (
-            <div
-              className="bg-background rounded-xl p-8 shadow-sm border border-border prose prose-muted max-w-none"
-              dangerouslySetInnerHTML={{ __html: content }}
-            />
+            <section className="bg-background rounded-xl p-8 shadow-sm border border-border">
+              <h2 className="mb-4 text-2xl font-semibold">Additional fitting guidance</h2>
+              <div
+                className="prose prose-muted max-w-none"
+                dangerouslySetInnerHTML={{ __html: content }}
+              />
+            </section>
           ) : (
             <div className="bg-background rounded-xl p-8 shadow-sm border border-border space-y-8">
               <section>

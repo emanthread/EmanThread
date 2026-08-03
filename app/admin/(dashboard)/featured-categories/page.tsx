@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Save, Plus, Trash2, GripVertical, ExternalLink, Upload } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { catalogMenu } from "@/lib/navigation/catalog-menu";
 
 interface FeaturedCategory {
   id: string; // Used for the legacy /shop?category fallback
@@ -140,14 +141,18 @@ function ImageUploader({
 function CategoryEditor({
   category,
   index,
+  availablePaths,
   onChange,
   onRemove,
 }: {
   category: FeaturedCategory;
   index: number;
+  availablePaths: { label: string; href: string }[];
   onChange: (index: number, category: FeaturedCategory) => void;
   onRemove: (index: number) => void;
 }) {
+  const [forceCustom, setForceCustom] = useState(false);
+  const isCustomMode = forceCustom || (!!category.href && !availablePaths.some((p) => p.href === category.href));
   const update = (field: keyof FeaturedCategory, value: string | number) => {
     onChange(index, { ...category, [field]: value });
   };
@@ -195,13 +200,47 @@ function CategoryEditor({
 
         <div className="space-y-2">
           <Label>Destination (optional)</Label>
-          <Input
-            value={category.href || ""}
-            onChange={(e) => update("href", e.target.value)}
-            placeholder="e.g. /women or /shop?category=readywear"
-          />
+          <Select
+            value={isCustomMode ? "custom" : category.href || "default"}
+            onValueChange={(val) => {
+              if (val === "default") {
+                setForceCustom(false);
+                update("href", "");
+              } else if (val === "custom") {
+                setForceCustom(true);
+                if (!isCustomMode) update("href", "");
+              } else {
+                setForceCustom(false);
+                update("href", val);
+              }
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select a destination..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">Default (/shop?category=...)</SelectItem>
+              {availablePaths.map((path) => (
+                <SelectItem key={path.href} value={path.href}>
+                  {path.label}
+                </SelectItem>
+              ))}
+              <SelectItem value="custom">Custom Path...</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          {isCustomMode && (
+            <div className="pt-2">
+              <Input
+                value={category.href || ""}
+                onChange={(e) => update("href", e.target.value)}
+                placeholder="e.g. /promo-page or /shop?category=readywear"
+              />
+            </div>
+          )}
+
           <p className="text-xs text-muted-foreground">
-            Leave blank to use <code>/shop?category=</code> with the Filter ID above.
+            Leave as Default to use <code>/shop?category=</code> with the Filter ID above.
           </p>
         </div>
 
@@ -241,6 +280,30 @@ export default function FeaturedCategoriesPage() {
   const [description, setDescription] = useState(DEFAULT_SECTION_COPY.description);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const DEPARTMENT_ID_MAP: Record<string, string> = {
+    WOMEN: "women",
+    MEN: "men",
+    "FRAGRANCE & BEAUTY": "fragrance-beauty",
+    TEENS: "teens",
+  };
+
+  const availablePaths = useMemo(() => {
+    const paths: { label: string; href: string }[] = [];
+    const deptId = DEPARTMENT_ID_MAP[department];
+    const deptMenu = catalogMenu.find((d) => d.id === deptId);
+    if (!deptMenu) return paths;
+
+    for (const section of deptMenu.sections) {
+      if (section.href) paths.push({ label: section.label, href: section.href });
+      for (const group of section.groups) {
+        for (const item of group.items) {
+          if (item.href) paths.push({ label: `${section.label} > ${item.label}`, href: item.href });
+        }
+      }
+    }
+    return paths;
+  }, [department]);
 
   const loadData = useCallback(async (dept: Department) => {
     setLoading(true);
@@ -459,6 +522,7 @@ export default function FeaturedCategoriesPage() {
                   key={index}
                   category={category}
                   index={index}
+                  availablePaths={availablePaths}
                   onChange={handleCategoryChange}
                   onRemove={handleRemoveCategory}
                 />

@@ -64,6 +64,8 @@ export interface Product {
   metaDescription?: string;
   rating?: number;
   reviewCount?: number;
+  /** Additive catalog placement metadata used only for safe storefront rules. */
+  catalogPaths?: string[];
   commerce?: ProductCommerceProfile;
 }
 

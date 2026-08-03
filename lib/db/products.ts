@@ -175,6 +175,17 @@ function transformProduct(p: any, commerce?: ProductCommerceProfile): Product {
     metaDescription: p.metaDescription || undefined,
     rating,
     reviewCount,
+    ...(Array.isArray(p.catalogAssignments)
+      ? {
+          catalogPaths: Array.from(
+            new Set(
+              p.catalogAssignments
+                .map((assignment: any) => assignment?.catalogNode?.path)
+                .filter((path: unknown): path is string => typeof path === "string" && path.length > 0)
+            )
+          ),
+        }
+      : {}),
     commerce,
   };
 }
@@ -241,6 +252,13 @@ async function _getProductById(id: string): Promise<Product | null> {
     where: { id, NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } } },
     include: {
       category: true,
+      ...(FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1
+        ? {
+            catalogAssignments: {
+              select: { catalogNode: { select: { path: true } } },
+            },
+          }
+        : {}),
       reviews: {
         select: { rating: true, isVisible: true, deletedAt: true },
       },
@@ -261,6 +279,13 @@ async function _getProductBySlug(slug: string): Promise<Product | null> {
     where: { slug, NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } } },
     include: {
       category: true,
+      ...(FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1
+        ? {
+            catalogAssignments: {
+              select: { catalogNode: { select: { path: true } } },
+            },
+          }
+        : {}),
       reviews: {
         select: { rating: true, isVisible: true, deletedAt: true },
       },
@@ -290,7 +315,25 @@ export async function getProductVariations(name: string): Promise<Product[]> {
 }
 
 async function _getFilteredProducts(filter: ProductFilterInput) {
-  const where: any = { NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } } };
+  // The established /shop route remains a fabric-first listing. Products that
+  // have not opted into the additive commerce profile remain exactly as they
+  // were, while new non-apparel products stay in their assigned catalog
+  // department instead of leaking into the legacy fabric grid.
+  const where: any = {
+    AND: [
+      { NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } } },
+      {
+        OR: [
+          { commerceProfile: { is: null } },
+          {
+            commerceProfile: {
+              is: { productKind: "UNSTITCHED_FABRIC" },
+            },
+          },
+        ],
+      },
+    ],
+  };
   if (filter.category) {
     const cats = await resolveCategoryFabricTypes(filter.category);
     if (cats.length > 1) {
