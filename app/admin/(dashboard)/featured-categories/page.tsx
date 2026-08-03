@@ -8,6 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2, Save, Plus, Trash2, GripVertical, ExternalLink, Upload } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
@@ -19,6 +26,15 @@ interface FeaturedCategory {
   productCount: number;
   href?: string;
 }
+
+const DEPARTMENTS = [
+  { value: "WOMEN", label: "Women" },
+  { value: "MEN", label: "Men" },
+  { value: "FRAGRANCE & BEAUTY", label: "Fragrance & Beauty" },
+  { value: "TEENS", label: "Teens" },
+] as const;
+
+type Department = (typeof DEPARTMENTS)[number]["value"];
 
 const DEFAULT_SECTION_COPY = {
   eyebrow: "Our Collections",
@@ -218,6 +234,7 @@ function CategoryEditor({
 }
 
 export default function FeaturedCategoriesPage() {
+  const [department, setDepartment] = useState<Department>("WOMEN");
   const [categories, setCategories] = useState<FeaturedCategory[]>([]);
   const [eyebrow, setEyebrow] = useState(DEFAULT_SECTION_COPY.eyebrow);
   const [title, setTitle] = useState(DEFAULT_SECTION_COPY.title);
@@ -225,39 +242,23 @@ export default function FeaturedCategoriesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (dept: Department) => {
+    setLoading(true);
     try {
       // Use no-store and cache-busting timestamp to absolutely prevent client/router caching
-      const res = await fetch(`/api/admin/featured-categories?_t=${Date.now()}`, {
-        cache: "no-store",
-        headers: { "Pragma": "no-cache" }
-      });
+      const res = await fetch(
+        `/api/admin/featured-categories?department=${encodeURIComponent(dept)}&_t=${Date.now()}`,
+        {
+          cache: "no-store",
+          headers: { "Pragma": "no-cache" },
+        }
+      );
       if (!res.ok) throw new Error("Failed to load");
       const data = await res.json();
       setEyebrow(data.eyebrow || DEFAULT_SECTION_COPY.eyebrow);
       setTitle(data.title || DEFAULT_SECTION_COPY.title);
       setDescription(data.description || DEFAULT_SECTION_COPY.description);
-      if (data.categories && data.categories.length > 0) {
-        setCategories(data.categories);
-      } else {
-        // Fallback default state
-        setCategories([
-          {
-            id: "cotton",
-            name: "Cotton",
-            description: "Breathable comfort for every season",
-            image: "/images/fabrics/cat_cotton_1776582727723.png",
-            productCount: 0,
-          },
-          {
-            id: "khaddar",
-            name: "Khaddar",
-            description: "Traditional handwoven excellence",
-            image: "/images/fabrics/promo_1776582682565.png",
-            productCount: 0,
-          },
-        ]);
-      }
+      setCategories(data.categories && data.categories.length > 0 ? data.categories : []);
     } catch (err) {
       console.error("Load error:", err);
       toast({
@@ -271,8 +272,12 @@ export default function FeaturedCategoriesPage() {
   }, []);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadData(department);
+  }, [department, loadData]);
+
+  const handleDepartmentChange = (value: string) => {
+    setDepartment(value as Department);
+  };
 
   const handleCategoryChange = (index: number, category: FeaturedCategory) => {
     const updated = [...categories];
@@ -314,7 +319,7 @@ export default function FeaturedCategoriesPage() {
       const res = await fetch("/api/admin/featured-categories", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eyebrow, title, description, categories }),
+        body: JSON.stringify({ eyebrow, title, description, categories, department }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -322,10 +327,10 @@ export default function FeaturedCategoriesPage() {
       }
       toast({
         title: "Saved",
-        description: "Featured categories updated successfully",
+        description: `Featured categories for ${department} updated successfully`,
       });
       router.refresh();
-      await loadData();
+      await loadData(department);
     } catch (err: any) {
       console.error("Save error:", err);
       toast({
@@ -338,29 +343,24 @@ export default function FeaturedCategoriesPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  const currentDepartmentLabel =
+    DEPARTMENTS.find((d) => d.value === department)?.label ?? department;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Featured Categories</h1>
           <p className="text-muted-foreground">
-            Manage the categories displayed in the "Shop by Category" section on the home page.
+            Manage the categories displayed in the &quot;Shop by Category&quot; section on the home page.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleAddCategory}>
+          <Button variant="outline" onClick={handleAddCategory} disabled={loading}>
             <Plus className="h-4 w-4 mr-2" />
             Add Category
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving || loading}>
             {saving ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (
@@ -371,78 +371,125 @@ export default function FeaturedCategoriesPage() {
         </div>
       </div>
 
+      {/* Department selector */}
       <Card>
-        <CardHeader>
-          <CardTitle>Section content</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="featured-eyebrow">Eyebrow</Label>
-              <Input
-                id="featured-eyebrow"
-                value={eyebrow}
-                onChange={(e) => setEyebrow(e.target.value)}
-                placeholder="Our Collections"
-              />
+        <CardContent className="pt-5 pb-4">
+          <div className="flex items-start gap-4">
+            <div className="space-y-1.5 min-w-[220px]">
+              <Label htmlFor="department-select">Department / Main Category</Label>
+              <Select value={department} onValueChange={handleDepartmentChange}>
+                <SelectTrigger id="department-select" className="w-full">
+                  <SelectValue placeholder="Select department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DEPARTMENTS.map((dept) => (
+                    <SelectItem key={dept.value} value={dept.value}>
+                      {dept.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="featured-title">Heading</Label>
-              <Input
-                id="featured-title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Shop by Category"
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="featured-description">Description</Label>
-            <Textarea
-              id="featured-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Introduce the collections shown below."
-              rows={2}
-            />
+            <p className="text-sm text-muted-foreground mt-7">
+              Each department has its own independent set of featured category cards. Switch
+              departments to edit or add cards for that section.
+            </p>
           </div>
         </CardContent>
       </Card>
 
-      <div className="space-y-4">
-        {categories.map((category, index) => (
-          <CategoryEditor
-            key={index}
-            category={category}
-            index={index}
-            onChange={handleCategoryChange}
-            onRemove={handleRemoveCategory}
-          />
-        ))}
-      </div>
-
-      {categories.length > 0 && (
-        <div className="flex justify-end mt-4">
-          <Button onClick={handleSave} disabled={saving} size="lg">
-            {saving ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4 mr-2" />
-            )}
-            Save Changes
-          </Button>
+      {loading ? (
+        <div className="flex items-center justify-center h-40">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      )}
+      ) : (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Section content — {currentDepartmentLabel}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="featured-eyebrow">Eyebrow</Label>
+                  <Input
+                    id="featured-eyebrow"
+                    value={eyebrow}
+                    onChange={(e) => setEyebrow(e.target.value)}
+                    placeholder="Our Collections"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="featured-title">Heading</Label>
+                  <Input
+                    id="featured-title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Shop by Category"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="featured-description">Description</Label>
+                <Textarea
+                  id="featured-description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Introduce the collections shown below."
+                  rows={2}
+                />
+              </div>
+            </CardContent>
+          </Card>
 
-      {categories.length > 0 && (
-        <div className="text-sm text-muted-foreground bg-muted rounded-lg p-4 mt-6">
-          <p className="font-medium mb-1">Tips:</p>
-          <ul className="list-disc list-inside space-y-1">
-            <li>Optimal image ratio is typically 5:4 or 2:1 depending on position in the grid.</li>
-            <li>Click <strong>Upload Image</strong> to upload a new image from your computer.</li>
-            <li>Use a Destination for a category route such as `/women`; otherwise the card keeps the legacy shop filter based on its Filter ID.</li>
-          </ul>
-        </div>
+          {categories.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-10 text-center gap-3">
+              <p className="text-muted-foreground text-sm">
+                No featured categories yet for <strong>{currentDepartmentLabel}</strong>.
+              </p>
+              <Button variant="outline" onClick={handleAddCategory}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add First Category
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {categories.map((category, index) => (
+                <CategoryEditor
+                  key={index}
+                  category={category}
+                  index={index}
+                  onChange={handleCategoryChange}
+                  onRemove={handleRemoveCategory}
+                />
+              ))}
+            </div>
+          )}
+
+          {categories.length > 0 && (
+            <div className="flex justify-end mt-4">
+              <Button onClick={handleSave} disabled={saving} size="lg">
+                {saving ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                Save Changes
+              </Button>
+            </div>
+          )}
+
+          {categories.length > 0 && (
+            <div className="text-sm text-muted-foreground bg-muted rounded-lg p-4 mt-6">
+              <p className="font-medium mb-1">Tips:</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Optimal image ratio is typically 5:4 or 2:1 depending on position in the grid.</li>
+                <li>Click <strong>Upload Image</strong> to upload a new image from your computer.</li>
+                <li>Use a Destination for a category route such as `/women`; otherwise the card keeps the legacy shop filter based on its Filter ID.</li>
+              </ul>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

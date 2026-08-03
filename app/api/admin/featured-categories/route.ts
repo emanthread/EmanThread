@@ -15,6 +15,24 @@ const DEFAULT_SECTION_COPY = {
   description: "Explore a curated selection for every style, occasion, and discovery.",
 };
 
+/** Maps the four main departments to a stable store config key suffix */
+const DEPARTMENT_KEY_MAP: Record<string, string> = {
+  WOMEN: "featured_categories_v2_women",
+  MEN: "featured_categories_v2_men",
+  "FRAGRANCE & BEAUTY": "featured_categories_v2_fragrance_beauty",
+  TEENS: "featured_categories_v2_teens",
+};
+
+const VALID_DEPARTMENTS = Object.keys(DEPARTMENT_KEY_MAP);
+
+/** Returns the store config key for a given department, or the global key if none. */
+function resolveKey(department?: string | null): string {
+  if (department && DEPARTMENT_KEY_MAP[department]) {
+    return DEPARTMENT_KEY_MAP[department];
+  }
+  return FEATURED_CATEGORIES_V2_KEY;
+}
+
 async function checkAdmin() {
   const session = await auth();
   if (
@@ -83,29 +101,45 @@ function parseLegacyCategories(value: string) {
   }
 }
 
-export const GET = withLoggedAdminHandler(async () => {
+export const GET = withLoggedAdminHandler(async (req: Request) => {
   try {
     if (!(await checkAdmin())) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const department = searchParams.get("department");
+    const configKey = resolveKey(department);
+
     const v2Row = await prisma.storeConfig.findUnique({
-      where: { key: FEATURED_CATEGORIES_V2_KEY },
+      where: { key: configKey },
     });
     const v2 = v2Row ? parseSection(v2Row.value) : null;
     if (v2) {
-      return NextResponse.json({ ...v2, source: "v2" });
+      return NextResponse.json({ ...v2, source: "v2", department: department ?? null });
     }
 
-    const legacyRow = await prisma.storeConfig.findUnique({
-      where: { key: FEATURED_CATEGORIES_LEGACY_KEY },
-    });
-    const categories = legacyRow ? parseLegacyCategories(legacyRow.value) : [];
+    // For the global (no-department) key, fall back to the legacy key
+    if (!department) {
+      const legacyRow = await prisma.storeConfig.findUnique({
+        where: { key: FEATURED_CATEGORIES_LEGACY_KEY },
+      });
+      const categories = legacyRow ? parseLegacyCategories(legacyRow.value) : [];
 
+      return NextResponse.json({
+        ...DEFAULT_SECTION_COPY,
+        categories,
+        source: categories.length > 0 ? "legacy" : "default",
+        department: null,
+      });
+    }
+
+    // Department-specific key has no data yet — return empty defaults
     return NextResponse.json({
       ...DEFAULT_SECTION_COPY,
-      categories,
-      source: categories.length > 0 ? "legacy" : "default",
+      categories: [],
+      source: "default",
+      department,
     });
   } catch (error) {
     console.error("Get featured categories error:", error);
@@ -120,6 +154,18 @@ export const PUT = withLoggedAdminHandler(async (req: Request) => {
     }
 
     const body = await req.json();
+
+    // Validate department if provided
+    const department: string | null = body.department ?? null;
+    if (department !== null && !VALID_DEPARTMENTS.includes(department)) {
+      return NextResponse.json(
+        { error: `Invalid department. Must be one of: ${VALID_DEPARTMENTS.join(", ")}` },
+        { status: 400 }
+      );
+    }
+
+    const configKey = resolveKey(department);
+
     const parsedSection = sectionSchema.parse({
       eyebrow: body.eyebrow,
       title: body.title,
@@ -128,10 +174,10 @@ export const PUT = withLoggedAdminHandler(async (req: Request) => {
     });
 
     await prisma.storeConfig.upsert({
-      where: { key: FEATURED_CATEGORIES_V2_KEY },
+      where: { key: configKey },
       update: { value: JSON.stringify(parsedSection) },
       create: {
-        key: FEATURED_CATEGORIES_V2_KEY,
+        key: configKey,
         value: JSON.stringify(parsedSection),
       },
     });
@@ -142,7 +188,7 @@ export const PUT = withLoggedAdminHandler(async (req: Request) => {
     revalidatePath("/", "page");
     revalidatePath("/shop", "page");
 
-    return NextResponse.json({ success: true, ...parsedSection, source: "v2" });
+    return NextResponse.json({ success: true, ...parsedSection, source: "v2", department });
   } catch (error) {
     console.error("Update featured categories error:", error);
     return NextResponse.json(
