@@ -24,8 +24,8 @@ noindex:
 isActive=true, isVisible=false, indexable=false
 ```
 
-Reruns update only structural fields (`parentId`, type, label, explicit
-path/segment, and order). They preserve operator-managed activity/publication,
+Reruns update only reviewed structural fields (`parentId`, type, product
+behavior, label, explicit path/segment, and order). They preserve operator-managed activity/publication,
 visibility, SEO, banner, description, featured-content, and canonical fields.
 Rows not present in the manifest are not changed or deleted.
 

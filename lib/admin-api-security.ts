@@ -38,8 +38,13 @@ const ADMIN_API_POLICIES: AdminApiPolicy[] = [
   },
   {
     prefix: "/api/admin/products",
-    read: [Permission.VIEW_PRODUCTS],
+    read: [Permission.VIEW_PRODUCTS, Permission.MANAGE_PRODUCTS],
     write: [Permission.MANAGE_PRODUCTS],
+  },
+  {
+    prefix: "/api/admin/catalog/nodes",
+    read: [Permission.MANAGE_PRODUCTS],
+    write: [Permission.MANAGE_SETTINGS],
   },
   {
     prefix: "/api/admin/catalog",
@@ -53,12 +58,12 @@ const ADMIN_API_POLICIES: AdminApiPolicy[] = [
   },
   {
     prefix: "/api/admin/categories",
-    read: [Permission.VIEW_PRODUCTS],
+    read: [Permission.VIEW_PRODUCTS, Permission.MANAGE_PRODUCTS],
     write: [Permission.MANAGE_PRODUCTS],
   },
   {
     prefix: "/api/admin/fabric-types",
-    read: [Permission.VIEW_PRODUCTS],
+    read: [Permission.VIEW_PRODUCTS, Permission.MANAGE_PRODUCTS],
     write: [Permission.MANAGE_PRODUCTS],
   },
   {

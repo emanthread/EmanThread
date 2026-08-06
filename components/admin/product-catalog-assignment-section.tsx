@@ -1,13 +1,32 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Loader2, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  AlertTriangle,
+  Check,
+  ChevronsUpDown,
+  Loader2,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -17,6 +36,11 @@ import {
 } from "@/components/ui/select";
 import { adminFetch } from "@/lib/admin-fetch";
 import type { ProductKind } from "@/lib/data";
+import {
+  classifyCatalogNode,
+  humanizeCatalogSegment,
+} from "@/lib/catalog-product-classification";
+import { cn } from "@/lib/utils";
 
 export type CatalogAssignmentDraft = {
   catalogNodeId: string;
@@ -25,8 +49,10 @@ export type CatalogAssignmentDraft = {
   catalogNode?: {
     label: string;
     path: string;
+    productKind?: ProductKind | null;
     isActive: boolean;
     isVisible: boolean;
+    _count?: { children: number };
   };
 };
 
@@ -40,8 +66,10 @@ export type CatalogNode = {
   id: string;
   label: string;
   path: string;
+  productKind?: ProductKind | null;
   isActive: boolean;
   isVisible: boolean;
+  _count?: { children: number };
 };
 
 function catalogDepartmentNodes(nodes: CatalogNode[]): CatalogNode[] {
@@ -52,45 +80,150 @@ function catalogPathMatchesDepartment(path: string, departmentPath: string): boo
   return path === departmentPath || path.startsWith(`${departmentPath}/`);
 }
 
-/**
- * The catalog path is the merchandising source of truth. This only proposes a
- * sensible starting product kind; the admin remains able to choose the final
- * merchandise type and every existing profile remains untouched.
- */
-export function suggestedProductKindForCatalogPath(
-  path: string
-): ProductKind | null {
-  const normalized = path.toLowerCase();
-  if (
-    normalized.includes("/fragrances") ||
-    normalized.includes("/perfume") ||
-    normalized.includes("/attar") ||
-    normalized.includes("body-mist") ||
-    normalized.includes("body-spray") ||
-    normalized.includes("bakhoor") ||
-    normalized.includes("diffuser") ||
-    normalized.includes("scented-candle")
-  ) {
-    return "FRAGRANCE";
-  }
-  if (
-    normalized.includes("/makeup") ||
-    normalized.includes("/skincare") ||
-    normalized.includes("eye-") ||
-    normalized.includes("lip") ||
-    normalized.includes("foundation") ||
-    normalized.includes("blush")
-  ) {
-    return "BEAUTY";
-  }
-  if (normalized.includes("gift-box")) return "GIFT_BOX";
-  if (normalized.includes("gift")) return "GIFT";
-  if (normalized.startsWith("/teens")) return "TEENS";
-  if (normalized.includes("ready-to-wear") || normalized.includes("/rtw")) {
-    return "READY_TO_WEAR";
-  }
-  if (normalized.includes("unstitched")) return "UNSTITCHED_FABRIC";
-  return null;
+function catalogNodeBreadcrumb(
+  path: string,
+  nodesOrLabels: CatalogNode[] | ReadonlyMap<string, string>
+): string {
+  const labelsByPath = Array.isArray(nodesOrLabels)
+    ? new Map(nodesOrLabels.map((node) => [node.path, node.label]))
+    : nodesOrLabels;
+  let currentPath = "";
+  return path
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => {
+      currentPath += `/${segment}`;
+      return labelsByPath.get(currentPath) || humanizeCatalogSegment(segment);
+    })
+    .join(" > ");
+}
+
+const MAX_VISIBLE_CATEGORY_RESULTS = 75;
+
+export function catalogNodePickerResults(
+  nodes: CatalogNode[],
+  allNodes: CatalogNode[],
+  search: string,
+  limit = MAX_VISIBLE_CATEGORY_RESULTS
+): { nodes: CatalogNode[]; total: number } {
+  const labelsByPath = new Map(
+    allNodes.map((node) => [node.path, node.label])
+  );
+  const normalizedSearch = search.trim().toLocaleLowerCase("en-US");
+  const matchingNodes = nodes.filter((node) => {
+    if (!normalizedSearch) return true;
+    const breadcrumb = catalogNodeBreadcrumb(node.path, labelsByPath);
+    return `${node.label} ${breadcrumb} ${node.path}`
+      .toLocaleLowerCase("en-US")
+      .includes(normalizedSearch);
+  });
+  return { nodes: matchingNodes.slice(0, limit), total: matchingNodes.length };
+}
+
+function CatalogNodeCombobox({
+  id,
+  value,
+  nodes,
+  allNodes,
+  onChange,
+  disabled,
+  placeholder,
+  searchPlaceholder,
+  ariaLabel,
+}: {
+  id?: string;
+  value: string;
+  nodes: CatalogNode[];
+  allNodes: CatalogNode[];
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  placeholder: string;
+  searchPlaceholder: string;
+  ariaLabel?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const labelsByPath = useMemo(
+    () => new Map(allNodes.map((node) => [node.path, node.label])),
+    [allNodes]
+  );
+  const selected = nodes.find((node) => node.id === value);
+  const results = useMemo(
+    () => catalogNodePickerResults(nodes, allNodes, search),
+    [allNodes, nodes, search]
+  );
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) setSearch("");
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          id={id}
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-label={ariaLabel}
+          aria-expanded={open}
+          disabled={disabled}
+          className="w-full justify-between font-normal"
+        >
+          <span className="truncate text-left">
+            {selected
+              ? catalogNodeBreadcrumb(selected.path, labelsByPath)
+              : placeholder}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput
+            value={search}
+            onValueChange={setSearch}
+            placeholder={searchPlaceholder}
+          />
+          <CommandList>
+            {results.nodes.length === 0 ? (
+              <CommandEmpty>No matching category.</CommandEmpty>
+            ) : (
+              results.nodes.map((node) => (
+                <CommandItem
+                  key={node.id}
+                  value={node.id}
+                  onSelect={() => {
+                    onChange(node.id);
+                    setOpen(false);
+                    setSearch("");
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "h-4 w-4",
+                      value === node.id ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  <span className="truncate">
+                    {catalogNodeBreadcrumb(node.path, labelsByPath)}
+                  </span>
+                </CommandItem>
+              ))
+            )}
+            {results.total > MAX_VISIBLE_CATEGORY_RESULTS && (
+              <p className="border-t px-3 py-2 text-xs text-muted-foreground">
+                Showing the first {MAX_VISIBLE_CATEGORY_RESULTS} of{" "}
+                {results.total}. Type to narrow the list.
+              </p>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 type AssignmentApiRow = Omit<CatalogAssignmentDraft, "displayOrder"> & {
@@ -155,7 +288,9 @@ export function ProductCatalogAssignmentSection({
   onLoadingChange,
   onLoadError,
   saveError,
-  onProductKindSuggested,
+  onPrimaryPathChange,
+  onEstablishedProductKindLoad,
+  allowedPrimaryProductKinds,
 }: {
   productId?: string;
   assignments: CatalogAssignmentDraft[];
@@ -163,7 +298,13 @@ export function ProductCatalogAssignmentSection({
   onLoadingChange: (loading: boolean) => void;
   onLoadError: (error: string | null) => void;
   saveError?: string | null;
-  onProductKindSuggested?: (kind: ProductKind) => void;
+  allowedPrimaryProductKinds?: readonly ProductKind[];
+  onEstablishedProductKindLoad?: (productKind: ProductKind) => void;
+  onPrimaryPathChange?: (
+    path: string | null,
+    reason: "initial" | "selection",
+    productKind?: ProductKind | null
+  ) => void;
 }) {
   const [nodes, setNodes] = useState<CatalogNode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -171,6 +312,7 @@ export function ProductCatalogAssignmentSection({
   const [nodeToAdd, setNodeToAdd] = useState("");
   const [departmentPath, setDepartmentPath] = useState("");
   const [primaryNodeId, setPrimaryNodeId] = useState("");
+  const primaryToReplace = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -209,13 +351,14 @@ export function ProductCatalogAssignmentSection({
         }
 
         if (cancelled) return;
-        const currentAssignments = Array.isArray(assignmentsPayload?.products?.[0]?.catalogAssignments)
-          ? (assignmentsPayload.products[0].catalogAssignments as AssignmentApiRow[])
+        const assignmentProduct = assignmentsPayload?.products?.[0];
+        const currentAssignments = Array.isArray(assignmentProduct?.catalogAssignments)
+          ? (assignmentProduct.catalogAssignments as AssignmentApiRow[])
           : [];
 
         // A newly-created Product may be switched into edit mode solely to
         // retry a failed assignment save. Keep that unsaved draft intact.
-        onChange(
+        const nextAssignments =
           assignments.length
             ? assignments
             : currentAssignments.map((assignment) => ({
@@ -226,8 +369,35 @@ export function ProductCatalogAssignmentSection({
                     ? ""
                     : String(assignment.displayOrder),
                 catalogNode: assignment.catalogNode,
-              }))
-        );
+              }));
+        onChange(nextAssignments);
+
+        const firstAssignment = nextAssignments[0];
+        const firstNode = firstAssignment
+          ? loadedNodes.find((node) => node.id === firstAssignment.catalogNodeId) ||
+            firstAssignment.catalogNode
+          : null;
+        if (firstAssignment && firstNode) {
+          setPrimaryNodeId(firstAssignment.catalogNodeId);
+          primaryToReplace.current = null;
+          const rootSegment = firstNode.path.split("/").filter(Boolean)[0];
+          setDepartmentPath(rootSegment ? `/${rootSegment}` : "");
+          const isSpecificCategory =
+            (firstNode._count?.children ?? 0) === 0 &&
+            Boolean(classifyCatalogNode(firstNode));
+          onPrimaryPathChange?.(
+            isSpecificCategory ? firstNode.path : null,
+            "initial",
+            isSpecificCategory ? firstNode.productKind : null
+          );
+        }
+        const establishedProductKind = assignmentProduct?.commerceProfile
+          ?.productKind as ProductKind | undefined;
+        if (establishedProductKind) {
+          // Run after the primary callback so a dormant profile wins over a
+          // stale or missing primary during a catalog-only rollback repair.
+          onEstablishedProductKindLoad?.(establishedProductKind);
+        }
       } catch (error) {
         if (!cancelled) {
           const message = error instanceof Error ? error.message : "Failed to load catalog data";
@@ -260,7 +430,19 @@ export function ProductCatalogAssignmentSection({
   );
   const departments = catalogDepartmentNodes(nodes);
   const nodesForDepartment = departmentPath
-    ? nodes.filter((node) => catalogPathMatchesDepartment(node.path, departmentPath))
+    ? nodes
+        .filter(
+          (node) =>
+            node.path !== departmentPath &&
+            catalogPathMatchesDepartment(node.path, departmentPath) &&
+            ((node._count?.children ?? 0) === 0 || node.id === primaryNodeId) &&
+            classifyCatalogNode(node) &&
+            (node.id === primaryNodeId ||
+              !allowedPrimaryProductKinds ||
+              (node.productKind != null &&
+                allowedPrimaryProductKinds.includes(node.productKind)))
+        )
+        .sort((left, right) => left.path.localeCompare(right.path, "en"))
     : [];
 
   const addNode = () => {
@@ -275,6 +457,7 @@ export function ProductCatalogAssignmentSection({
         catalogNode: {
           label: node.label,
           path: node.path,
+          productKind: node.productKind,
           isActive: node.isActive,
           isVisible: node.isVisible,
         },
@@ -284,29 +467,65 @@ export function ProductCatalogAssignmentSection({
   };
 
   const selectPrimaryNode = (catalogNodeId: string) => {
+    const previousPrimaryId = primaryToReplace.current || primaryNodeId;
+    primaryToReplace.current = null;
     setPrimaryNodeId(catalogNodeId);
     const node = nodesById.get(catalogNodeId);
     if (!node) return;
 
-    if (!assignments.some((assignment) => assignment.catalogNodeId === node.id)) {
-      onChange([
-        ...assignments,
-        {
-          catalogNodeId: node.id,
-          isFeatured: false,
-          displayOrder: "",
-          catalogNode: {
-            label: node.label,
-            path: node.path,
-            isActive: node.isActive,
-            isVisible: node.isVisible,
-          },
-        },
-      ]);
-    }
+    const existing = assignments.find(
+      (assignment) => assignment.catalogNodeId === node.id
+    );
+    const primaryAssignment: CatalogAssignmentDraft = existing || {
+      catalogNodeId: node.id,
+      isFeatured: false,
+      displayOrder: "",
+      catalogNode: {
+        label: node.label,
+        path: node.path,
+        productKind: node.productKind,
+        isActive: node.isActive,
+        isVisible: node.isVisible,
+      },
+    };
+    // A category correction replaces the old primary. Additional placements
+    // are retained only when the admin deliberately added them in Advanced.
+    onChange([
+      primaryAssignment,
+      ...assignments.filter(
+        (assignment) =>
+          assignment.catalogNodeId !== node.id &&
+          assignment.catalogNodeId !== previousPrimaryId
+      ),
+    ]);
 
-    const suggestedKind = suggestedProductKindForCatalogPath(node.path);
-    if (suggestedKind) onProductKindSuggested?.(suggestedKind);
+    onPrimaryPathChange?.(node.path, "selection", node.productKind);
+  };
+
+  const removeAssignment = (catalogNodeId: string) => {
+    const remaining = assignments.filter(
+      (item) => item.catalogNodeId !== catalogNodeId
+    );
+    primaryToReplace.current = null;
+    onChange(remaining);
+    if (catalogNodeId !== primaryNodeId) return;
+
+    const nextPrimary = remaining[0];
+    setPrimaryNodeId(nextPrimary?.catalogNodeId || "");
+    const node = nextPrimary
+      ? nodesById.get(nextPrimary.catalogNodeId) || nextPrimary.catalogNode
+      : null;
+    const rootSegment = node?.path.split("/").filter(Boolean)[0];
+    if (rootSegment) setDepartmentPath(`/${rootSegment}`);
+    const isSpecificCategory =
+      Boolean(node) &&
+      (node?._count?.children ?? 0) === 0 &&
+      Boolean(classifyCatalogNode(node));
+    onPrimaryPathChange?.(
+      isSpecificCategory ? node?.path || null : null,
+      "selection",
+      isSpecificCategory ? node?.productKind : null
+    );
   };
 
   const updateAssignment = (
@@ -322,20 +541,34 @@ export function ProductCatalogAssignmentSection({
     );
   };
 
+  const resolvedPrimaryId = primaryNodeId;
+  const primaryAssignment = assignments.find(
+    (assignment) => assignment.catalogNodeId === resolvedPrimaryId
+  );
+  const primaryNode = primaryAssignment
+    ? nodesById.get(primaryAssignment.catalogNodeId) || primaryAssignment.catalogNode
+    : null;
+  const primaryNeedsSpecificCategory =
+    Boolean(primaryNode) &&
+    ((primaryNode?._count?.children ?? 0) > 0 ||
+      !classifyCatalogNode(primaryNode));
+
   return (
-    <section className="space-y-3 rounded-lg border border-dashed p-4">
+    <section className="space-y-4 rounded-xl border bg-card p-5">
       <div>
-        <h3 className="font-medium">Department & category</h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="font-semibold">Choose a product category</h2>
+        </div>
         <p className="mt-1 text-sm text-muted-foreground">
-          Choose where this product belongs first. The chosen category is added
-          safely to its catalog placements; existing placements are never removed.
+          This one choice adapts the rest of the form and places the product in
+          the right storefront department.
         </p>
       </div>
 
       {saveError && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Product saved; catalog assignments need attention</AlertTitle>
+          <AlertTitle>Catalog assignments need attention</AlertTitle>
           <AlertDescription>{saveError}</AlertDescription>
         </Alert>
       )}
@@ -350,12 +583,14 @@ export function ProductCatalogAssignmentSection({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
-          <Label htmlFor="catalog-department">Main department</Label>
+          <Label htmlFor="catalog-department">Department *</Label>
           <Select
             value={departmentPath}
             onValueChange={(path) => {
+              if (primaryNodeId) primaryToReplace.current = primaryNodeId;
               setDepartmentPath(path);
               setPrimaryNodeId("");
+              onPrimaryPathChange?.(null, "selection", null);
             }}
             disabled={loading || !departments.length}
           >
@@ -372,71 +607,104 @@ export function ProductCatalogAssignmentSection({
           </Select>
         </div>
         <div className="space-y-1">
-          <Label htmlFor="catalog-primary-node">Category / subcategory</Label>
-          <Select
+          <Label htmlFor="catalog-primary-node">Category *</Label>
+          <CatalogNodeCombobox
+            id="catalog-primary-node"
             value={primaryNodeId}
-            onValueChange={selectPrimaryNode}
+            nodes={nodesForDepartment}
+            allNodes={nodes}
+            onChange={selectPrimaryNode}
             disabled={loading || !departmentPath || !nodesForDepartment.length}
-          >
-            <SelectTrigger id="catalog-primary-node">
-              <SelectValue placeholder={departmentPath ? "Choose category" : "Choose department first"} />
-            </SelectTrigger>
-            <SelectContent>
-              {nodesForDepartment.map((node) => (
-                <SelectItem key={node.id} value={node.id}>
-                  {node.path}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder={departmentPath ? "Choose category" : "Choose department first"}
+            searchPlaceholder="Search categories..."
+            ariaLabel="Product category"
+          />
         </div>
       </div>
 
-      {primaryNodeId ? (
-        <p className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-          This product will be discoverable on the selected category and its parent department pages.
+      {primaryNode ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100">
+          <span>
+            <span className="font-medium">Selected:</span>{" "}
+            {catalogNodeBreadcrumb(primaryNode.path, nodes)}
+          </span>
+          {classifyCatalogNode(primaryNode) && (
+            <Badge variant="secondary">
+              {classifyCatalogNode(primaryNode)?.label}
+            </Badge>
+          )}
+        </div>
+      ) : assignments.length === 0 ? (
+        <p className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+          Choose a department and category to continue.
         </p>
       ) : null}
 
-      <div className="border-t border-dashed pt-3">
-        <Label className="mb-2 block">Additional catalog placements</Label>
-        <div className="flex gap-2">
-        <Select value={nodeToAdd} onValueChange={setNodeToAdd} disabled={loading || !availableNodes.length}>
-          <SelectTrigger aria-label="Catalog node">
-            <SelectValue placeholder={loading ? "Loading catalog nodes..." : "Select catalog node"} />
-          </SelectTrigger>
-          <SelectContent>
-            {availableNodes.map((node) => (
-              <SelectItem key={node.id} value={node.id}>
-                {node.path}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button type="button" variant="outline" onClick={addNode} disabled={!nodeToAdd || loading}>
-          {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-          Add
-        </Button>
-        </div>
-      </div>
+      {primaryNeedsSpecificCategory && (
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Choose a more specific category</AlertTitle>
+          <AlertDescription>
+            This existing placement is a broad storefront landing page. Choose
+            a leaf category above; broad pages can remain additional placements.
+          </AlertDescription>
+        </Alert>
+      )}
 
-      {assignments.length === 0 ? (
-        <p className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-          No category is assigned yet. Choose a department and category above so this product can appear in the storefront catalog.
-        </p>
-      ) : (
-        <div className="space-y-3">
+      <details className="group rounded-lg border bg-muted/10">
+        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium">
+          Advanced: additional placements and display settings
+          <span className="ml-2 font-normal text-muted-foreground">
+            {Math.max(0, assignments.length - 1)} additional
+          </span>
+        </summary>
+        <div className="space-y-4 border-t p-4">
+          <div>
+            <Label className="mb-2 block">Add another storefront placement</Label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <CatalogNodeCombobox
+                value={nodeToAdd}
+                nodes={availableNodes}
+                allNodes={nodes}
+                onChange={setNodeToAdd}
+                disabled={loading || !availableNodes.length}
+                placeholder={loading ? "Loading categories..." : "Choose another category"}
+                searchPlaceholder="Search all placements..."
+                ariaLabel="Additional catalog placement"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addNode}
+                disabled={!nodeToAdd || loading}
+              >
+                {loading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="mr-2 h-4 w-4" />
+                )}
+                Add placement
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-3">
           {assignments.map((assignment) => {
-            const node = assignment.catalogNode || nodesById.get(assignment.catalogNodeId);
+            const node = nodesById.get(assignment.catalogNodeId) || assignment.catalogNode;
             const nodeActive = node?.isActive !== false;
+            const isPrimary = assignment.catalogNodeId === resolvedPrimaryId;
             return (
               <div key={assignment.catalogNodeId} className="space-y-3 rounded-md border p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="font-medium">{node?.label || assignment.catalogNodeId}</p>
-                    <p className="truncate font-mono text-xs text-muted-foreground">
-                      {node?.path || "Catalog node unavailable"}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium">
+                        {node?.path
+                          ? catalogNodeBreadcrumb(node.path, nodes)
+                          : node?.label || "Catalog category unavailable"}
+                      </p>
+                      {isPrimary && <Badge>Primary</Badge>}
+                    </div>
                     {!nodeActive && <Badge variant="destructive" className="mt-1">Inactive</Badge>}
                     {node && !node.isVisible && <Badge variant="outline" className="ml-1 mt-1">Not visible</Badge>}
                   </div>
@@ -445,7 +713,7 @@ export function ProductCatalogAssignmentSection({
                     variant="ghost"
                     size="sm"
                     className="text-destructive hover:text-destructive"
-                    onClick={() => onChange(assignments.filter((item) => item.catalogNodeId !== assignment.catalogNodeId))}
+                    onClick={() => removeAssignment(assignment.catalogNodeId)}
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
                     Remove
@@ -477,8 +745,9 @@ export function ProductCatalogAssignmentSection({
               </div>
             );
           })}
+          </div>
         </div>
-      )}
+      </details>
     </section>
   );
 }

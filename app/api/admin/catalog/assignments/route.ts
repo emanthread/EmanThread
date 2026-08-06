@@ -5,6 +5,8 @@ import { prisma } from "@/lib/db";
 import { createAuditLog } from "@/lib/db/audit";
 import { getClientIp } from "@/lib/client-ip";
 import { withLoggedAdminHandler } from "@/lib/logger";
+import { ARCHIVED_PRODUCT_TAG } from "@/lib/product-archive";
+import { PRODUCT_KIND_VALUES } from "@/lib/commerce";
 import {
   catalogApiError,
   catalogRecordIdSchema,
@@ -16,6 +18,31 @@ export const dynamic = "force-dynamic";
 const MAX_BULK_PRODUCTS = 100;
 const MAX_NODES_PER_REQUEST = 25;
 const MAX_ASSIGNMENTS_PER_REQUEST = 500;
+
+const catalogProductScope: Prisma.ProductWhereInput = {
+  NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } },
+};
+
+const validPrimaryAssignmentFilter: Prisma.ProductCatalogAssignmentWhereInput = {
+  isPrimary: true,
+  catalogNode: {
+    isActive: true,
+    productKind: { not: null },
+    children: { none: {} },
+  },
+  OR: [
+    // Products without a profile have no contradictory commerce type. Once a
+    // profile exists, its behavior and the primary catalog classification must
+    // agree or the product belongs in the correction queue.
+    { product: { commerceProfile: { is: null } } },
+    ...PRODUCT_KIND_VALUES.map(
+      (productKind): Prisma.ProductCatalogAssignmentWhereInput => ({
+        catalogNode: { productKind },
+        product: { commerceProfile: { is: { productKind } } },
+      })
+    ),
+  ],
+};
 
 const assignmentQuerySchema = z.object({
   page: z.coerce.number().int().min(1).max(1_000).default(1),
@@ -79,9 +106,25 @@ function assignmentFilter(
   status: "all" | "assigned" | "unassigned",
   catalogNodeId?: string
 ): Prisma.ProductWhereInput {
-  if (status === "all") return {};
-
   const relationFilter = catalogNodeId ? { catalogNodeId } : {};
+  if (!catalogNodeId && status !== "all") {
+    return status === "assigned"
+      ? {
+          catalogAssignments: {
+            some: validPrimaryAssignmentFilter,
+          },
+        }
+      : {
+          catalogAssignments: {
+            none: validPrimaryAssignmentFilter,
+          },
+        };
+  }
+  if (status === "all") {
+    return catalogNodeId
+      ? { catalogAssignments: { some: relationFilter } }
+      : {};
+  }
   return status === "assigned"
     ? { catalogAssignments: { some: relationFilter } }
     : { catalogAssignments: { none: relationFilter } };
@@ -110,6 +153,7 @@ export const GET = withLoggedAdminHandler(async (request: Request) => {
 
   const { page, limit, search, productId, catalogNodeId, status } = parsed.data;
   const where: Prisma.ProductWhereInput = {
+    ...catalogProductScope,
     ...assignmentFilter(status, catalogNodeId),
     ...(productId ? { id: productId } : {}),
     ...(search
@@ -143,7 +187,7 @@ export const GET = withLoggedAdminHandler(async (request: Request) => {
       }
     }
 
-    const [products, total] = await Promise.all([
+    const [products, total, catalogTotal, unassignedTotal] = await Promise.all([
       prisma.product.findMany({
         where,
         skip: (page - 1) * limit,
@@ -155,12 +199,17 @@ export const GET = withLoggedAdminHandler(async (request: Request) => {
           name: true,
           fabricType: true,
           category: { select: { id: true, name: true } },
+          // This endpoint is catalog-flag gated before any database access.
+          // Return a dormant profile kind as the authoritative repair hint
+          // when commerce UI is temporarily disabled.
+          commerceProfile: { select: { productKind: true } },
           catalogAssignments: {
-            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+            orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }, { id: "asc" }],
             select: {
               id: true,
               productId: true,
               catalogNodeId: true,
+              isPrimary: true,
               isFeatured: true,
               displayOrder: true,
               createdAt: true,
@@ -171,6 +220,7 @@ export const GET = withLoggedAdminHandler(async (request: Request) => {
                   label: true,
                   path: true,
                   nodeType: true,
+                  productKind: true,
                   isActive: true,
                   isVisible: true,
                 },
@@ -180,11 +230,23 @@ export const GET = withLoggedAdminHandler(async (request: Request) => {
         },
       }),
       prisma.product.count({ where }),
+      prisma.product.count({ where: catalogProductScope }),
+      prisma.product.count({
+        where: {
+          ...catalogProductScope,
+          catalogAssignments: { none: validPrimaryAssignmentFilter },
+        },
+      }),
     ]);
 
     return NextResponse.json({
       products,
       total,
+      stats: {
+        total: catalogTotal,
+        assigned: catalogTotal - unassignedTotal,
+        unassigned: unassignedTotal,
+      },
       page,
       limit,
       totalPages: Math.max(1, Math.ceil(total / limit)),
@@ -231,12 +293,24 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
 
     const [products, nodes] = await Promise.all([
       prisma.product.findMany({
-        where: { OR: productClauses },
-        select: { id: true, sku: true, name: true },
+        where: { ...catalogProductScope, OR: productClauses },
+        select: {
+          id: true,
+          sku: true,
+          name: true,
+          commerceProfile: { select: { productKind: true } },
+        },
       }),
       prisma.catalogNode.findMany({
         where: { id: { in: catalogNodeIds } },
-        select: { id: true, label: true, path: true, isActive: true },
+        select: {
+          id: true,
+          label: true,
+          path: true,
+          productKind: true,
+          isActive: true,
+          _count: { select: { children: true } },
+        },
       }),
     ]);
 
@@ -295,17 +369,27 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
       );
     }
 
-    const existing = await prisma.productCatalogAssignment.findMany({
-      where: {
-        productId: { in: resolvedProductIds },
-        catalogNodeId: { in: catalogNodeIds },
-      },
-      select: {
-        id: true,
-        productId: true,
-        catalogNodeId: true,
-      },
-    });
+    const [existing, existingProductAssignments] = await Promise.all([
+      prisma.productCatalogAssignment.findMany({
+        where: {
+          productId: { in: resolvedProductIds },
+          catalogNodeId: { in: catalogNodeIds },
+        },
+        select: {
+          id: true,
+          productId: true,
+          catalogNodeId: true,
+        },
+      }),
+      prisma.productCatalogAssignment.findMany({
+        where: {
+          productId: { in: resolvedProductIds },
+          ...validPrimaryAssignmentFilter,
+        },
+        select: { productId: true },
+        distinct: ["productId"],
+      }),
+    ]);
 
     if (existing.length) {
       return NextResponse.json(
@@ -317,17 +401,66 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
       );
     }
 
+    const productsWithValidPrimary = new Set(
+      existingProductAssignments.map((assignment) => assignment.productId)
+    );
+    const nodesById = new Map(nodes.map((node) => [node.id, node]));
+    const primaryNode = nodesById.get(catalogNodeIds[0]!);
+    const productsNeedingPrimary = products.filter(
+      (product) => !productsWithValidPrimary.has(product.id)
+    );
+    if (
+      productsNeedingPrimary.length &&
+      (!primaryNode?.productKind || primaryNode._count.children > 0)
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Choose a specific product category first; broad landing pages can only be additional placements",
+        },
+        { status: 400 }
+      );
+    }
+    const incompatibleProduct = productsNeedingPrimary.find(
+      (product) =>
+        product.commerceProfile &&
+        product.commerceProfile.productKind !== primaryNode?.productKind
+    );
+    if (incompatibleProduct) {
+      return NextResponse.json(
+        {
+          error: `${incompatibleProduct.name} has a different product type. Edit the product to change its primary category.`,
+        },
+        { status: 409 }
+      );
+    }
     const data = resolvedProductIds.flatMap((productId) =>
-      catalogNodeIds.map((catalogNodeId) => ({
+      catalogNodeIds.map((catalogNodeId, nodeIndex) => ({
         productId,
         catalogNodeId,
+        isPrimary: !productsWithValidPrimary.has(productId) && nodeIndex === 0,
         isFeatured: parsed.data.isFeatured,
         displayOrder: parsed.data.displayOrder ?? null,
       }))
     );
 
     await prisma.$transaction(async (transaction) => {
+      if (productsNeedingPrimary.length) {
+        await transaction.productCatalogAssignment.updateMany({
+          where: {
+            productId: {
+              in: productsNeedingPrimary.map((product) => product.id),
+            },
+            isPrimary: true,
+          },
+          data: { isPrimary: false },
+        });
+      }
       await transaction.productCatalogAssignment.createMany({ data });
+      await transaction.product.updateMany({
+        where: { id: { in: resolvedProductIds } },
+        data: { updatedAt: new Date() },
+      });
     });
 
     const created = await prisma.productCatalogAssignment.findMany({
@@ -335,16 +468,22 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
         productId: { in: resolvedProductIds },
         catalogNodeId: { in: catalogNodeIds },
       },
-      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }, { id: "asc" }],
       select: {
         id: true,
         productId: true,
         catalogNodeId: true,
+        isPrimary: true,
         isFeatured: true,
         displayOrder: true,
         createdAt: true,
         catalogNode: {
-          select: { id: true, label: true, path: true },
+          select: {
+            id: true,
+            label: true,
+            path: true,
+            productKind: true,
+          },
         },
       },
     });

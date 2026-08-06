@@ -7,7 +7,12 @@ import { withLoggedAdminHandler } from "@/lib/logger";
 import { sanitizeDbError } from '@/lib/utils/errors';
 import { parseProductImages } from "@/lib/utils/parse-images";
 import { requireAdminApiAccess } from "@/lib/admin-route-guard";
-import { archiveProductTags, visibleProductTags } from "@/lib/product-archive";
+import {
+  ARCHIVED_PRODUCT_TAG,
+  archiveProductTags,
+  visibleProductTags,
+} from "@/lib/product-archive";
+import { FEATURE_FLAGS } from "@/lib/feature-flags";
 
 export const dynamic = "force-dynamic";
 
@@ -130,6 +135,27 @@ export const PUT = withLoggedAdminHandler(async (
 
     const { id } = await params;
     const body = await req.json();
+    const compatibilityFields = new Set([
+      "images",
+      "videoUrl",
+      "tags",
+      "inStock",
+      "stockQuantity",
+      "lowStockThreshold",
+    ]);
+    const unsupportedField =
+      body && typeof body === "object"
+        ? Object.keys(body).find((field) => !compatibilityFields.has(field))
+        : null;
+    if (unsupportedField) {
+      return NextResponse.json(
+        {
+          error:
+            "Use the product editor to change product details, classification, pricing, or SEO so all related data is saved together.",
+        },
+        { status: 409 }
+      );
+    }
     const result = updateProductSchema.safeParse(body);
 
     if (!result.success) {
@@ -139,13 +165,51 @@ export const PUT = withLoggedAdminHandler(async (
       );
     }
 
+    if (
+      FEATURE_FLAGS.COMMERCE_PROFILE_V1 &&
+      (result.data.stockQuantity !== undefined || result.data.inStock !== undefined)
+    ) {
+      const profile = await prisma.productCommerceProfile.findUnique({
+        where: { productId: id },
+        select: { requiresSelection: true },
+      });
+      if (profile?.requiresSelection) {
+        return NextResponse.json(
+          {
+            error:
+              "Stock for this product is calculated from its selling options. Update option stock in the product editor.",
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     // Get old product for audit
     const oldProduct = await prisma.product.findUnique({
       where: { id },
-      select: { name: true, sku: true, price: true, inStock: true },
+      select: { name: true, sku: true, price: true, inStock: true, tags: true },
     });
 
-    const updated = await updateAdminProduct(id, result.data);
+    const updateData = {
+      ...result.data,
+      ...(result.data.tags
+        ? {
+            tags: [
+              ...result.data.tags.filter(
+                (tag) => tag !== ARCHIVED_PRODUCT_TAG
+              ),
+              ...(oldProduct?.tags.includes(ARCHIVED_PRODUCT_TAG)
+                ? [ARCHIVED_PRODUCT_TAG]
+                : []),
+            ],
+          }
+        : {}),
+    };
+    const updated = await updateAdminProduct(id, updateData);
+
+    revalidateTag("products", { expire: 0 });
+    revalidateTag("categories", { expire: 0 });
+    revalidateTag("featured-categories", { expire: 0 });
 
     // Audit log — reuse session obtained above, no extra auth() call needed.
     if (session.user) {

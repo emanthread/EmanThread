@@ -61,12 +61,15 @@ import {
 } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { apiFetch } from "@/lib/api-fetch";
+import type { ProductKind } from "@/lib/data";
+import { PRODUCT_KIND_OPTIONS } from "@/lib/catalog-product-classification";
 import { cn } from "@/lib/utils";
 
 interface CatalogNode {
   id: string;
   parentId: string | null;
   nodeType: string;
+  productKind: ProductKind | null;
   label: string;
   slug: string;
   path: string;
@@ -83,6 +86,7 @@ interface ProductAssignment {
   id: string;
   productId: string;
   catalogNodeId: string;
+  isPrimary: boolean;
   isFeatured: boolean;
   displayOrder: number | null;
   createdAt: string;
@@ -92,6 +96,7 @@ interface ProductAssignment {
     label: string;
     path: string;
     nodeType: string;
+    productKind: ProductKind | null;
     isActive: boolean;
     isVisible: boolean;
   };
@@ -112,6 +117,11 @@ interface ProductRow {
 interface ProductResponse {
   products: ProductRow[];
   total: number;
+  stats: {
+    total: number;
+    assigned: number;
+    unassigned: number;
+  };
   page: number;
   limit: number;
   totalPages: number;
@@ -129,27 +139,84 @@ interface AuditLog {
 }
 
 interface CatalogAssignmentClientProps {
+  canManageCatalogPaths: boolean;
   canViewAuditLogs: boolean;
 }
 
-const DEPARTMENT_OVERVIEW = [
-  {
-    name: "Women",
-    description: "Choose a Women catalog path for women-focused products.",
-  },
-  {
-    name: "Men",
-    description: "Choose a Men catalog path for men-focused products.",
-  },
-  {
-    name: "Fragrance & Beauty",
-    description: "Choose a fragrance or beauty path for those products.",
-  },
-  {
-    name: "Teens",
-    description: "Choose a Teens catalog path for teen-focused products.",
-  },
-] as const;
+type CatalogTab = "assign" | "paths" | "bulk" | "audit";
+
+type AssignmentStats = ProductResponse["stats"];
+
+const EMPTY_CATALOG_NODES: CatalogNode[] = [];
+const catalogLabelCache = new WeakMap<
+  CatalogNode[],
+  Map<string, string>
+>();
+
+function catalogPathParts(path: string): string[] {
+  return path.split("/").filter(Boolean);
+}
+
+function humanizeCatalogSlug(value: string): string {
+  return value
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function catalogBreadcrumb(
+  path: string,
+  nodes: CatalogNode[] = EMPTY_CATALOG_NODES
+): string {
+  let labelsByPath = catalogLabelCache.get(nodes);
+  if (!labelsByPath) {
+    labelsByPath = new Map(nodes.map((node) => [node.path, node.label]));
+    catalogLabelCache.set(nodes, labelsByPath);
+  }
+  let currentPath = "";
+
+  return catalogPathParts(path)
+    .map((part) => {
+      currentPath += `/${part}`;
+      return labelsByPath.get(currentPath) || humanizeCatalogSlug(part);
+    })
+    .join(" › ");
+}
+
+function catalogNodeDepth(node: CatalogNode): number {
+  return Math.max(0, catalogPathParts(node.path).length - 1);
+}
+
+function catalogTreeOrder(nodes: CatalogNode[]): CatalogNode[] {
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  const childrenByParent = new Map<string | null, CatalogNode[]>();
+  const compareNodes = (left: CatalogNode, right: CatalogNode) =>
+    left.displayOrder - right.displayOrder ||
+    left.label.localeCompare(right.label);
+
+  for (const node of nodes) {
+    const parentKey =
+      node.parentId && nodeIds.has(node.parentId) ? node.parentId : null;
+    const siblings = childrenByParent.get(parentKey) || [];
+    siblings.push(node);
+    childrenByParent.set(parentKey, siblings);
+  }
+  childrenByParent.forEach((siblings) => siblings.sort(compareNodes));
+
+  const ordered: CatalogNode[] = [];
+  const visited = new Set<string>();
+  const visit = (node: CatalogNode) => {
+    if (visited.has(node.id)) return;
+    visited.add(node.id);
+    ordered.push(node);
+    for (const child of childrenByParent.get(node.id) || []) visit(child);
+  };
+
+  for (const root of childrenByParent.get(null) || []) visit(root);
+  for (const node of [...nodes].sort(compareNodes)) visit(node);
+  return ordered;
+}
 
 async function readApiError(
   response: Response,
@@ -188,6 +255,7 @@ const ROOT_CATALOG_PARENT = "__catalog_root__";
 type CatalogNodeDraft = {
   parentId: string;
   nodeType: string;
+  productKind: ProductKind | null;
   label: string;
   slug: string;
   displayOrder: string;
@@ -199,6 +267,7 @@ function emptyCatalogNodeDraft(): CatalogNodeDraft {
   return {
     parentId: ROOT_CATALOG_PARENT,
     nodeType: "category",
+    productKind: null,
     label: "",
     slug: "",
     displayOrder: "0",
@@ -211,6 +280,7 @@ function catalogNodeDraft(node: CatalogNode): CatalogNodeDraft {
   return {
     parentId: node.parentId || ROOT_CATALOG_PARENT,
     nodeType: node.nodeType,
+    productKind: node.productKind,
     label: node.label,
     slug: node.slug,
     displayOrder: String(node.displayOrder),
@@ -271,20 +341,21 @@ function NodeChecklist({
   maxSelected?: number;
 }) {
   const [search, setSearch] = useState("");
+  const orderedNodes = useMemo(() => catalogTreeOrder(nodes), [nodes]);
   const filteredNodes = useMemo(() => {
     const normalized = search.trim().toLowerCase();
-    if (!normalized) return nodes;
-    return nodes.filter(
+    if (!normalized) return orderedNodes;
+    return orderedNodes.filter(
       (node) =>
         node.label.toLowerCase().includes(normalized) ||
-        node.path.toLowerCase().includes(normalized)
+        catalogBreadcrumb(node.path, nodes).toLowerCase().includes(normalized)
     );
-  }, [nodes, search]);
+  }, [nodes, orderedNodes, search]);
 
   const toggleNode = (nodeId: string, checked: boolean) => {
     if (checked) {
       if (selectedIds.length >= maxSelected) {
-        toast.error(`Select no more than ${maxSelected} catalog nodes`);
+        toast.error(`Select no more than ${maxSelected} placements`);
         return;
       }
       onChange(Array.from(new Set([...selectedIds, nodeId])));
@@ -304,8 +375,8 @@ function NodeChecklist({
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           className="pl-9"
-          placeholder="Filter catalog paths"
-          aria-label="Filter catalog nodes"
+          placeholder="Find a catalog placement"
+          aria-label="Find a catalog placement"
         />
       </div>
       <div className="max-h-64 overflow-y-auto rounded-md border">
@@ -326,21 +397,23 @@ function NodeChecklist({
                     toggleNode(node.id, value === true)
                   }
                   className="mt-0.5"
-                  aria-label={`Select ${node.path}`}
+                  aria-label={`Select ${catalogBreadcrumb(node.path, nodes)}`}
                 />
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium">{node.label}</span>
+                    <span className="text-sm font-medium">
+                      {catalogBreadcrumb(node.path, nodes)}
+                    </span>
                     {!node.isVisible && (
                       <Badge variant="outline">Not visible</Badge>
                     )}
                   </span>
-                  <span className="block truncate font-mono text-xs text-muted-foreground">
-                    {node.path}
-                  </span>
                 </span>
-                <span className="text-xs tabular-nums text-muted-foreground">
-                  {node._count.assignments}
+                <span
+                  className="text-xs tabular-nums text-muted-foreground"
+                  aria-label={`${node._count.assignments} products assigned`}
+                >
+                  {node._count.assignments} products
                 </span>
               </label>
             );
@@ -386,22 +459,25 @@ function CatalogTaxonomyManager({
   );
   const availableParents = useMemo(
     () =>
-      nodes.filter(
-        (node) =>
-          node.id !== editingId && !unavailableParentIds.has(node.id)
+      catalogTreeOrder(
+        nodes.filter(
+          (node) =>
+            node.id !== editingId && !unavailableParentIds.has(node.id)
+        )
       ),
     [editingId, nodes, unavailableParentIds]
   );
+  const orderedNodes = useMemo(() => catalogTreeOrder(nodes), [nodes]);
   const filteredNodes = useMemo(() => {
     const normalized = search.trim().toLowerCase();
-    if (!normalized) return nodes;
-    return nodes.filter(
+    if (!normalized) return orderedNodes;
+    return orderedNodes.filter(
       (node) =>
         node.label.toLowerCase().includes(normalized) ||
-        node.path.toLowerCase().includes(normalized) ||
+        catalogBreadcrumb(node.path, nodes).toLowerCase().includes(normalized) ||
         node.nodeType.toLowerCase().includes(normalized)
     );
-  }, [nodes, search]);
+  }, [nodes, orderedNodes, search]);
 
   useEffect(() => {
     if (editingId && !editingNode) {
@@ -449,6 +525,7 @@ function CatalogTaxonomyManager({
         parentId:
           draft.parentId === ROOT_CATALOG_PARENT ? null : draft.parentId,
         nodeType: draft.nodeType,
+        productKind: draft.productKind,
         label: draft.label,
         slug: draft.slug,
         displayOrder,
@@ -495,7 +572,7 @@ function CatalogTaxonomyManager({
   const remove = async () => {
     if (!editingNode) return;
     const confirmed = window.confirm(
-      `Delete ${editingNode.path}? This is only allowed when it has no child paths and no product assignments. No product will be deleted.`
+      `Delete ${catalogBreadcrumb(editingNode.path, nodes)}? This is only allowed when it has no child paths and no product assignments. No product will be deleted.`
     );
     if (!confirmed) return;
 
@@ -573,7 +650,10 @@ function CatalogTaxonomyManager({
                     </SelectItem>
                     {availableParents.map((node) => (
                       <SelectItem key={node.id} value={node.id}>
-                        {node.path}
+                        {`${" ".repeat(catalogNodeDepth(node))}${catalogBreadcrumb(
+                          node.path,
+                          nodes
+                        )}`}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -608,6 +688,38 @@ function CatalogTaxonomyManager({
                     required
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="catalog-node-product-kind">Product behavior</Label>
+                <Select
+                  value={draft.productKind || "__mixed__"}
+                  onValueChange={(value) =>
+                    setDraft((current) => ({
+                      ...current,
+                      productKind:
+                        value === "__mixed__" ? null : (value as ProductKind),
+                    }))
+                  }
+                >
+                  <SelectTrigger id="catalog-node-product-kind">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__mixed__">
+                      Mixed products / landing page
+                    </SelectItem>
+                    {PRODUCT_KIND_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Controls which fields appear when an admin chooses this as a
+                  product category. Use mixed only for broad landing pages.
+                </p>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
@@ -768,7 +880,12 @@ function CatalogTaxonomyManager({
                       editingId === node.id && "bg-muted/60"
                     )}
                   >
-                    <div className="min-w-0 flex-1">
+                    <div
+                      className="min-w-0 flex-1"
+                      style={{
+                        paddingLeft: `${catalogNodeDepth(node) * 0.75}rem`,
+                      }}
+                    >
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-medium">{node.label}</p>
                         <Badge variant="outline">{node.nodeType}</Badge>
@@ -782,8 +899,8 @@ function CatalogTaxonomyManager({
                           <Badge>Published</Badge>
                         )}
                       </div>
-                      <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
-                        {node.path}
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {catalogBreadcrumb(node.path, nodes)}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {node._count.children} child path(s) /{" "}
@@ -816,9 +933,11 @@ function CatalogTaxonomyManager({
 
 function AssignmentEditor({
   assignment,
+  nodes,
   onChanged,
 }: {
   assignment: ProductAssignment;
+  nodes: CatalogNode[];
   onChanged: () => Promise<void>;
 }) {
   const [isFeatured, setIsFeatured] = useState(assignment.isFeatured);
@@ -868,7 +987,7 @@ function AssignmentEditor({
 
   const remove = async () => {
     const confirmed = window.confirm(
-      `Remove this product from ${assignment.catalogNode.path}? The product itself will not be changed.`
+      `Remove this product from ${catalogBreadcrumb(assignment.catalogNode.path, nodes)}? The product itself will not be changed.`
     );
     if (!confirmed) return;
 
@@ -904,7 +1023,9 @@ function AssignmentEditor({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-medium">{assignment.catalogNode.label}</p>
+            <p className="font-medium">
+              {catalogBreadcrumb(assignment.catalogNode.path, nodes)}
+            </p>
             {!assignment.catalogNode.isActive && (
               <Badge variant="destructive">Inactive</Badge>
             )}
@@ -912,9 +1033,6 @@ function AssignmentEditor({
               <Badge variant="outline">Not visible</Badge>
             )}
           </div>
-          <p className="truncate font-mono text-xs text-muted-foreground">
-            {assignment.catalogNode.path}
-          </p>
         </div>
         <Button
           type="button"
@@ -939,7 +1057,7 @@ function AssignmentEditor({
             onCheckedChange={(value) => setIsFeatured(value === true)}
             disabled={!assignment.catalogNode.isActive}
           />
-          Featured in this node
+          Feature this product
         </label>
         <div className="space-y-1">
           <Label htmlFor={`order-${assignment.id}`}>Display order</Label>
@@ -967,7 +1085,7 @@ function AssignmentEditor({
           ) : (
             <Save className="mr-2 h-4 w-4" />
           )}
-          Save
+          Save changes
         </Button>
       </div>
     </div>
@@ -975,24 +1093,27 @@ function AssignmentEditor({
 }
 
 export default function CatalogAssignmentClient({
+  canManageCatalogPaths,
   canViewAuditLogs,
 }: CatalogAssignmentClientProps) {
+  const [activeTab, setActiveTab] = useState<CatalogTab>("assign");
   const [nodes, setNodes] = useState<CatalogNode[]>([]);
   const [nodesLoading, setNodesLoading] = useState(true);
   const [taxonomyNodes, setTaxonomyNodes] = useState<CatalogNode[]>([]);
-  const [taxonomyLoading, setTaxonomyLoading] = useState(true);
+  const [taxonomyLoading, setTaxonomyLoading] = useState(false);
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState<string | null>(null);
-  const [totalProducts, setTotalProducts] = useState(0);
+  const [assignmentStats, setAssignmentStats] =
+    useState<AssignmentStats | null>(null);
+  const [matchingProducts, setMatchingProducts] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
-  const [nodeFilter, setNodeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<
     "all" | "assigned" | "unassigned"
-  >("all");
+  >("unassigned");
   const [selectedProduct, setSelectedProduct] = useState<ProductRow | null>(
     null
   );
@@ -1012,6 +1133,9 @@ export default function CatalogAssignmentClient({
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
   const productRequestSequence = useRef(0);
+  const taxonomyRequested = useRef(false);
+  const auditRequested = useRef(false);
+  const assignmentPanel = useRef<HTMLDivElement>(null);
 
   const loadNodes = useCallback(async () => {
     setNodesLoading(true);
@@ -1073,9 +1197,6 @@ export default function CatalogAssignmentClient({
         status: statusFilter,
       });
       if (appliedSearch) params.set("search", appliedSearch);
-      if (nodeFilter !== "all") {
-        params.set("catalogNodeId", nodeFilter);
-      }
 
       const response = await fetch(
         `/api/admin/catalog/assignments?${params.toString()}`,
@@ -1090,7 +1211,8 @@ export default function CatalogAssignmentClient({
       if (requestSequence !== productRequestSequence.current) return;
 
       setProducts(data.products || []);
-      setTotalProducts(data.total || 0);
+      setMatchingProducts(data.total || 0);
+      setAssignmentStats(data.stats);
       setTotalPages(data.totalPages || 1);
       setSelectedProduct((current) => {
         if (!current) return null;
@@ -1101,7 +1223,7 @@ export default function CatalogAssignmentClient({
     } catch (error) {
       if (requestSequence !== productRequestSequence.current) return;
       setProducts([]);
-      setTotalProducts(0);
+      setMatchingProducts(0);
       setTotalPages(1);
       setProductsError(
         error instanceof Error ? error.message : "Failed to load products"
@@ -1111,7 +1233,7 @@ export default function CatalogAssignmentClient({
         setProductsLoading(false);
       }
     }
-  }, [appliedSearch, nodeFilter, page, statusFilter]);
+  }, [appliedSearch, page, statusFilter]);
 
   const refreshProduct = useCallback(async (productId: string) => {
     const params = new URLSearchParams({
@@ -1193,16 +1315,8 @@ export default function CatalogAssignmentClient({
   }, [loadNodes]);
 
   useEffect(() => {
-    void loadTaxonomyNodes();
-  }, [loadTaxonomyNodes]);
-
-  useEffect(() => {
     void loadProducts();
   }, [loadProducts]);
-
-  useEffect(() => {
-    void loadAuditLogs();
-  }, [loadAuditLogs]);
 
   useEffect(() => {
     setNewNodeIds([]);
@@ -1212,16 +1326,12 @@ export default function CatalogAssignmentClient({
 
   const refreshAfterMutation = useCallback(async () => {
     const selectedId = selectedProduct?.id;
-    const tasks: Promise<unknown>[] = [
-      loadProducts(),
-      loadNodes(),
-      loadTaxonomyNodes(),
-    ];
+    const tasks: Promise<unknown>[] = [loadProducts(), loadNodes()];
+    if (taxonomyRequested.current) tasks.push(loadTaxonomyNodes());
     if (selectedId) tasks.push(refreshProduct(selectedId));
-    if (canViewAuditLogs) tasks.push(loadAuditLogs());
+    if (auditRequested.current) tasks.push(loadAuditLogs());
     await Promise.all(tasks);
   }, [
-    canViewAuditLogs,
     loadAuditLogs,
     loadNodes,
     loadTaxonomyNodes,
@@ -1229,6 +1339,28 @@ export default function CatalogAssignmentClient({
     refreshProduct,
     selectedProduct?.id,
   ]);
+
+  const changeTab = (value: string) => {
+    const nextTab = value as CatalogTab;
+    setActiveTab(nextTab);
+
+    if (
+      nextTab === "paths" &&
+      canManageCatalogPaths &&
+      !taxonomyRequested.current
+    ) {
+      taxonomyRequested.current = true;
+      void loadTaxonomyNodes();
+    }
+    if (
+      nextTab === "audit" &&
+      canViewAuditLogs &&
+      !auditRequested.current
+    ) {
+      auditRequested.current = true;
+      void loadAuditLogs();
+    }
+  };
 
   const assignedNodeIds = useMemo(
     () =>
@@ -1239,22 +1371,47 @@ export default function CatalogAssignmentClient({
       ),
     [selectedProduct]
   );
+  const selectedHasValidPrimary = useMemo(() => {
+    const primary = selectedProduct?.catalogAssignments.find(
+      (assignment) => assignment.isPrimary
+    );
+    const node = primary
+      ? nodes.find((candidate) => candidate.id === primary.catalogNodeId)
+      : null;
+    return Boolean(
+      node?.isActive &&
+        node.productKind &&
+        node._count.children === 0
+    );
+  }, [nodes, selectedProduct]);
   const availableNodes = useMemo(
     () =>
       nodes.filter(
-        (node) => node.isActive && !assignedNodeIds.has(node.id)
+        (node) =>
+          node.isActive &&
+          !assignedNodeIds.has(node.id) &&
+          (selectedHasValidPrimary
+            ? true
+            : Boolean(node.productKind) && node._count.children === 0)
       ),
-    [assignedNodeIds, nodes]
+    [assignedNodeIds, nodes, selectedHasValidPrimary]
   );
 
   const applySearch = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setPage(1);
     setAppliedSearch(searchInput.trim());
+    setSelectedProduct(null);
   };
 
   const selectProduct = (product: ProductRow) => {
     setSelectedProduct(product);
+    window.requestAnimationFrame(() => {
+      assignmentPanel.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
   };
 
   const addAssignments = async () => {
@@ -1263,7 +1420,7 @@ export default function CatalogAssignmentClient({
       return;
     }
     if (!newNodeIds.length) {
-      toast.error("Select at least one active catalog node");
+      toast.error("Select at least one storefront placement");
       return;
     }
 
@@ -1287,7 +1444,7 @@ export default function CatalogAssignmentClient({
       }
       const data = (await response.json()) as { count?: number };
       toast.success(
-        `${data.count || newNodeIds.length} catalog assignment(s) added`
+        `${data.count || newNodeIds.length} placement(s) added`
       );
       setNewNodeIds([]);
       setNewFeatured(false);
@@ -1320,11 +1477,11 @@ export default function CatalogAssignmentClient({
       return;
     }
     if (!bulkNodeIds.length) {
-      toast.error("Select at least one active catalog node");
+      toast.error("Select at least one storefront placement");
       return;
     }
     if (!bulkReviewed) {
-      toast.error("Confirm that the explicit bulk list has been reviewed");
+      toast.error("Confirm that you have checked the list");
       return;
     }
 
@@ -1348,7 +1505,7 @@ export default function CatalogAssignmentClient({
         );
       }
       const data = (await response.json()) as { count?: number };
-      toast.success(`${data.count || 0} reviewed assignment(s) added`);
+      toast.success(`${data.count || 0} assignment(s) added`);
       setBulkIdentifiers("");
       setBulkNodeIds([]);
       setBulkFeatured(false);
@@ -1370,25 +1527,28 @@ export default function CatalogAssignmentClient({
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold">Catalog Assignment</h1>
-            <Badge variant="outline">Additive catalog</Badge>
-          </div>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            Assign existing products to one or more dedicated catalog paths.
-            Legacy Category and Fabric Type values remain read-only and are
-            never changed here.
+          <h1 className="text-2xl font-semibold">Catalog assignments</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Make sure every product appears in the right storefront section.
           </p>
         </div>
         <Button
           variant="outline"
           onClick={() => void refreshAfterMutation()}
-          disabled={productsLoading || nodesLoading || taxonomyLoading}
+          disabled={
+            productsLoading ||
+            nodesLoading ||
+            taxonomyLoading ||
+            auditLoading
+          }
         >
           <RefreshCw
             className={cn(
               "mr-2 h-4 w-4",
-              (productsLoading || nodesLoading || taxonomyLoading) &&
+              (productsLoading ||
+                nodesLoading ||
+                taxonomyLoading ||
+                auditLoading) &&
                 "animate-spin"
             )}
           />
@@ -1396,86 +1556,65 @@ export default function CatalogAssignmentClient({
         </Button>
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Simple catalog workflow</CardTitle>
-          <CardDescription>
-            For a normal assignment, select an existing product, choose its
-            catalog path, then save. Product details and legacy taxonomy stay
-            unchanged.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <ol className="grid gap-3 md:grid-cols-3">
-            {[
-              ["1", "Select an existing product", "Search by name, SKU, or Product ID."],
-              ["2", "Choose an active catalog path", "Pick the right destination from the list."],
-              ["3", "Save the assignment", "Review the saved path or make an adjustment."],
-            ].map(([step, title, description]) => (
-              <li key={step} className="flex gap-3 rounded-lg border p-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
-                  {step}
-                </span>
-                <div>
-                  <p className="text-sm font-medium">{title}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {description}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ol>
-
-          <section aria-labelledby="department-guide-title">
-            <p id="department-guide-title" className="text-sm font-medium">
-              Department guide
-            </p>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              {DEPARTMENT_OVERVIEW.map((department) => (
-                <div key={department.name} className="rounded-md bg-muted/50 p-3">
-                  <p className="text-sm font-medium">{department.name}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {department.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
-        </CardContent>
-      </Card>
-
-      <Alert>
-        <AlertTriangle aria-hidden="true" />
-        <AlertTitle>Assignments do not change products</AlertTitle>
-        <AlertDescription>
-          Removing a saved path only removes discovery from that path. It does
-          not delete the product or alter its SKU, stock, price, Category, or
-          Fabric Type.
-        </AlertDescription>
-      </Alert>
-
-      <div className="flex flex-wrap gap-2">
-        <Badge variant="secondary">
-          {nodesLoading ? "Loading" : nodes.length} active catalog nodes
-        </Badge>
-        <Badge variant="secondary">
-          {productsLoading ? "Loading" : totalProducts} matching products
-        </Badge>
-        {selectedProduct && (
-          <Badge>{selectedProduct.catalogAssignments.length} current mappings</Badge>
-        )}
+      <div className="grid gap-3 sm:grid-cols-3" aria-label="Assignment health">
+        {[
+          {
+            label: "Total products",
+            value: assignmentStats?.total,
+            status: "all" as const,
+          },
+          {
+            label: "Assigned",
+            value: assignmentStats?.assigned,
+            status: "assigned" as const,
+          },
+          {
+            label: "Needs assignment",
+            value: assignmentStats?.unassigned,
+            status: "unassigned" as const,
+          },
+        ].map((stat) => (
+          <button
+            key={stat.status}
+            type="button"
+            className="rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            onClick={() => {
+              if (stat.status !== statusFilter) setSelectedProduct(null);
+              setStatusFilter(stat.status);
+              setPage(1);
+              setActiveTab("assign");
+            }}
+            aria-pressed={statusFilter === stat.status}
+          >
+            <Card
+              className={cn(
+                "h-full transition-colors hover:border-foreground/30",
+                statusFilter === stat.status && "border-primary bg-primary/5"
+              )}
+            >
+              <CardContent className="p-5">
+                <p className="text-sm text-muted-foreground">{stat.label}</p>
+                <p className="mt-1 text-3xl font-semibold tabular-nums">
+                  {stat.value ?? "—"}
+                </p>
+              </CardContent>
+            </Card>
+          </button>
+        ))}
       </div>
 
-      <Tabs defaultValue="assign" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={changeTab} className="space-y-4">
         <TabsList className="max-w-full overflow-x-auto">
           <TabsTrigger value="assign">
             <Layers className="h-4 w-4" />
-            Assign a product
+            Assignments
           </TabsTrigger>
-          <TabsTrigger value="paths">
-            <Layers className="h-4 w-4" />
-            Manage catalog paths
-          </TabsTrigger>
+          {canManageCatalogPaths && (
+            <TabsTrigger value="paths">
+              <Layers className="h-4 w-4" />
+              Catalog paths
+            </TabsTrigger>
+          )}
           <TabsTrigger value="bulk">
             <ListChecks className="h-4 w-4" />
             Bulk (advanced)
@@ -1491,18 +1630,15 @@ export default function CatalogAssignmentClient({
         <TabsContent value="assign" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">
-                1. Select an existing product
-              </CardTitle>
+              <CardTitle className="text-base">Product assignment queue</CardTitle>
               <CardDescription>
-                Search by Product ID, SKU, or name, then select the product you
-                want to place in a catalog path. Filters are optional.
+                Find a product, then choose Assign or Manage.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <form
                 onSubmit={applySearch}
-                className="grid gap-3 lg:grid-cols-[minmax(15rem,1fr)_minmax(12rem,18rem)_11rem_auto]"
+                className="grid gap-3 sm:grid-cols-[minmax(15rem,1fr)_11rem_auto]"
               >
                 <div className="relative">
                   <Search
@@ -1513,32 +1649,14 @@ export default function CatalogAssignmentClient({
                     value={searchInput}
                     onChange={(event) => setSearchInput(event.target.value)}
                     className="pl-9"
-                    placeholder="Product ID, SKU, or name"
+                    placeholder="Search product name or SKU"
                     aria-label="Search products"
                   />
                 </div>
                 <Select
-                  value={nodeFilter}
-                  onValueChange={(value) => {
-                    setNodeFilter(value);
-                    setPage(1);
-                  }}
-                >
-                  <SelectTrigger aria-label="Catalog node filter">
-                    <SelectValue placeholder="All catalog nodes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All catalog nodes</SelectItem>
-                    {nodes.map((node) => (
-                      <SelectItem key={node.id} value={node.id}>
-                        {node.path}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
                   value={statusFilter}
                   onValueChange={(value) => {
+                    if (value !== statusFilter) setSelectedProduct(null);
                     setStatusFilter(
                       value as "all" | "assigned" | "unassigned"
                     );
@@ -1551,7 +1669,7 @@ export default function CatalogAssignmentClient({
                   <SelectContent>
                     <SelectItem value="all">All products</SelectItem>
                     <SelectItem value="assigned">Assigned</SelectItem>
-                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    <SelectItem value="unassigned">Needs assignment</SelectItem>
                   </SelectContent>
                 </Select>
                 <Button type="submit">
@@ -1573,15 +1691,14 @@ export default function CatalogAssignmentClient({
                   <TableHeader>
                     <TableRow>
                       <TableHead>Product</TableHead>
-                      <TableHead>Legacy context</TableHead>
-                      <TableHead>Mappings</TableHead>
+                      <TableHead>Current placement</TableHead>
                       <TableHead className="text-right">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {productsLoading ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="h-32 text-center">
+                        <TableCell colSpan={3} className="h-32 text-center">
                           <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
                           <span className="mt-2 block text-sm text-muted-foreground">
                             Loading products
@@ -1603,29 +1720,32 @@ export default function CatalogAssignmentClient({
                             <p className="font-mono text-xs text-muted-foreground">
                               {product.sku}
                             </p>
-                            <p
-                              className="max-w-xs truncate font-mono text-[11px] text-muted-foreground"
-                              title={product.id}
-                            >
-                              {product.id}
-                            </p>
                           </TableCell>
                           <TableCell className="whitespace-normal">
-                            <p className="text-sm">{product.category.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              Fabric: {product.fabricType || "—"}
-                            </p>
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                product.catalogAssignments.length
-                                  ? "default"
-                                  : "secondary"
-                              }
-                            >
-                              {product.catalogAssignments.length}
-                            </Badge>
+                            {product.catalogAssignments.length ? (
+                              <div className="space-y-1">
+                                {product.catalogAssignments
+                                  .slice(0, 2)
+                                  .map((assignment) => (
+                                    <p key={assignment.id} className="text-sm">
+                                      {catalogBreadcrumb(
+                                        assignment.catalogNode.path,
+                                        nodes
+                                      )}
+                                    </p>
+                                  ))}
+                                <p className="text-xs text-muted-foreground">
+                                  {product.catalogAssignments.length === 1
+                                    ? "1 placement"
+                                    : `${product.catalogAssignments.length} placements`}
+                                  {product.catalogAssignments.length > 2
+                                    ? ` · ${product.catalogAssignments.length - 2} more`
+                                    : ""}
+                                </p>
+                              </div>
+                            ) : (
+                              <Badge variant="secondary">Needs assignment</Badge>
+                            )}
                           </TableCell>
                           <TableCell className="text-right">
                             <Button
@@ -1638,7 +1758,9 @@ export default function CatalogAssignmentClient({
                               onClick={() => selectProduct(product)}
                               aria-pressed={selectedProduct?.id === product.id}
                             >
-                              Select
+                              {product.catalogAssignments.length
+                                ? "Manage"
+                                : "Assign"}
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -1646,7 +1768,7 @@ export default function CatalogAssignmentClient({
                     ) : (
                       <TableRow>
                         <TableCell
-                          colSpan={4}
+                          colSpan={3}
                           className="h-32 text-center text-muted-foreground"
                         >
                           No products match these filters.
@@ -1659,7 +1781,7 @@ export default function CatalogAssignmentClient({
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-muted-foreground">
-                  Page {page} of {totalPages} · {totalProducts} product(s)
+                  Page {page} of {totalPages} · {matchingProducts} product(s)
                 </p>
                 <div className="flex gap-2">
                   <Button
@@ -1688,53 +1810,33 @@ export default function CatalogAssignmentClient({
           </Card>
 
           {selectedProduct ? (
-            <div className="grid gap-4 xl:grid-cols-2">
+            <div
+              ref={assignmentPanel}
+              className="scroll-mt-4 grid gap-4 xl:grid-cols-2"
+            >
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Package className="h-5 w-5" />
-                    2. Choose catalog path
+                    Assign {selectedProduct.name}
                   </CardTitle>
                   <CardDescription>
-                    The selected product is read-only here. Choose one or more
-                    active paths, then save.
+                    Choose where this product should appear in the storefront.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="rounded-lg bg-muted/40 p-4">
                     <p className="font-medium">{selectedProduct.name}</p>
-                    <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-                      <div>
-                        <dt className="text-muted-foreground">Product ID</dt>
-                        <dd className="break-all font-mono text-xs">
-                          {selectedProduct.id}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-muted-foreground">SKU</dt>
-                        <dd className="font-mono">{selectedProduct.sku}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-muted-foreground">
-                          Legacy Category
-                        </dt>
-                        <dd>{selectedProduct.category.name}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-muted-foreground">
-                          Legacy Fabric Type
-                        </dt>
-                        <dd>{selectedProduct.fabricType || "—"}</dd>
-                      </div>
-                    </dl>
+                    <p className="mt-1 font-mono text-xs text-muted-foreground">
+                      {selectedProduct.sku}
+                    </p>
                   </div>
 
                   <div className="space-y-3">
                     <div>
-                      <Label>Choose active catalog path</Label>
+                      <Label>Storefront placement</Label>
                       <p className="text-xs text-muted-foreground">
-                        Already assigned paths are omitted. You can choose more
-                        than one if needed.
+                        Choose one placement, or select more when needed.
                       </p>
                     </div>
                     {nodesLoading ? (
@@ -1746,36 +1848,41 @@ export default function CatalogAssignmentClient({
                         nodes={availableNodes}
                         selectedIds={newNodeIds}
                         onChange={setNewNodeIds}
-                        emptyMessage="No additional active nodes are available."
+                        emptyMessage="No additional placements are available."
                       />
                     )}
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="flex min-h-10 items-center gap-2 text-sm">
-                        <Checkbox
-                          checked={newFeatured}
-                          onCheckedChange={(value) =>
-                            setNewFeatured(value === true)
-                          }
-                        />
-                        Featured in selected nodes
-                      </label>
-                      <div className="space-y-1">
-                        <Label htmlFor="new-display-order">
-                          Display order
-                        </Label>
-                        <Input
-                          id="new-display-order"
-                          type="number"
-                          min={0}
-                          max={1_000_000}
-                          value={newDisplayOrder}
-                          onChange={(event) =>
-                            setNewDisplayOrder(event.target.value)
-                          }
-                          placeholder="Default"
-                        />
+                    <details className="rounded-lg border px-3 py-2">
+                      <summary className="cursor-pointer text-sm font-medium">
+                        Placement options (optional)
+                      </summary>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <label className="flex min-h-10 items-center gap-2 text-sm">
+                          <Checkbox
+                            checked={newFeatured}
+                            onCheckedChange={(value) =>
+                              setNewFeatured(value === true)
+                            }
+                          />
+                          Feature this product
+                        </label>
+                        <div className="space-y-1">
+                          <Label htmlFor="new-display-order">
+                            Display order
+                          </Label>
+                          <Input
+                            id="new-display-order"
+                            type="number"
+                            min={0}
+                            max={1_000_000}
+                            value={newDisplayOrder}
+                            onChange={(event) =>
+                              setNewDisplayOrder(event.target.value)
+                            }
+                            placeholder="Default"
+                          />
+                        </div>
                       </div>
-                    </div>
+                    </details>
                     <Button
                       onClick={addAssignments}
                       disabled={assigning || !newNodeIds.length}
@@ -1786,7 +1893,7 @@ export default function CatalogAssignmentClient({
                       ) : (
                         <Plus className="mr-2 h-4 w-4" />
                       )}
-                      3. Save {newNodeIds.length || ""} catalog path
+                      Assign to {newNodeIds.length || ""} placement
                       {newNodeIds.length === 1 ? "" : "s"}
                     </Button>
                   </div>
@@ -1796,7 +1903,7 @@ export default function CatalogAssignmentClient({
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">
-                    Saved catalog paths
+                    Current placements
                   </CardTitle>
                   <CardDescription>
                     Featured state and display order are specific to each saved
@@ -1810,12 +1917,13 @@ export default function CatalogAssignmentClient({
                         <AssignmentEditor
                           key={assignment.id}
                           assignment={assignment}
+                          nodes={nodes}
                           onChanged={refreshAfterMutation}
                         />
                       ))
                     ) : (
                       <div className="rounded-lg border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
-                        This product has no saved catalog paths yet.
+                        This product has no placements yet.
                       </div>
                     )}
                   </div>
@@ -1828,31 +1936,32 @@ export default function CatalogAssignmentClient({
                 <Package className="mb-3 h-8 w-8 text-muted-foreground" />
                 <p className="font-medium">Start by selecting a product</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Then choose an active catalog path and save. Its legacy
-                  taxonomy remains read-only.
+                  Choose Assign or Manage from the product queue above.
                 </p>
               </CardContent>
             </Card>
           )}
         </TabsContent>
 
-        <TabsContent value="paths" className="space-y-4">
-          <CatalogTaxonomyManager
-            nodes={taxonomyNodes}
-            loading={taxonomyLoading}
-            onChanged={refreshAfterMutation}
-          />
-        </TabsContent>
+        {canManageCatalogPaths && (
+          <TabsContent value="paths" className="space-y-4">
+            <CatalogTaxonomyManager
+              nodes={taxonomyNodes}
+              loading={taxonomyLoading}
+              onChanged={refreshAfterMutation}
+            />
+          </TabsContent>
+        )}
 
         <TabsContent value="bulk">
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
-                Advanced: reviewed bulk assignment
+                Assign several products
               </CardTitle>
               <CardDescription>
-                Provide an explicit, reviewed list of up to 100 Product IDs or
-                SKUs. No query-based “select all” action is available.
+                Paste up to 100 Product IDs or SKUs, then choose where they
+                should appear.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -1897,10 +2006,9 @@ export default function CatalogAssignmentClient({
 
                 <div className="space-y-4">
                   <div>
-                    <Label>Active destination nodes</Label>
+                    <Label>Storefront placements</Label>
                     <p className="mb-2 text-xs text-muted-foreground">
-                      The request is rejected if any product, node, or duplicate
-                      mapping is invalid.
+                      Every product will be added to every selected placement.
                     </p>
                     {nodesLoading ? (
                       <div className="flex h-24 items-center justify-center rounded-md border">
@@ -1911,7 +2019,7 @@ export default function CatalogAssignmentClient({
                         nodes={nodes.filter((node) => node.isActive)}
                         selectedIds={bulkNodeIds}
                         onChange={setBulkNodeIds}
-                        emptyMessage="No active catalog nodes are available."
+                        emptyMessage="No storefront placements are available."
                       />
                     )}
                   </div>
@@ -1923,7 +2031,7 @@ export default function CatalogAssignmentClient({
                           setBulkFeatured(value === true)
                         }
                       />
-                      Featured in selected nodes
+                      Feature these products
                     </label>
                     <div className="space-y-1">
                       <Label htmlFor="bulk-display-order">
@@ -1955,11 +2063,10 @@ export default function CatalogAssignmentClient({
                 />
                 <span>
                   <span className="block text-sm font-medium">
-                    I reviewed these explicit products and destination nodes
+                    I have checked this list and it is correct
                   </span>
                   <span className="block text-xs text-muted-foreground">
-                    This action creates only ProductCatalogAssignment rows and
-                    is recorded in the audit log.
+                    This change is recorded in the audit log.
                   </span>
                 </span>
               </label>
@@ -1978,7 +2085,7 @@ export default function CatalogAssignmentClient({
                 ) : (
                   <ListChecks className="mr-2 h-4 w-4" />
                 )}
-                Create reviewed assignments
+                Assign products
               </Button>
             </CardContent>
           </Card>
@@ -2044,13 +2151,6 @@ export default function CatalogAssignmentClient({
           </TabsContent>
         )}
       </Tabs>
-
-      {!canViewAuditLogs && (
-        <p className="text-xs text-muted-foreground">
-          Assignment changes are recorded in the central audit log. Viewing
-          that log requires the existing Audit Logs permission.
-        </p>
-      )}
     </div>
   );
 }

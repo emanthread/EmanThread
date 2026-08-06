@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { createAuditLog } from "@/lib/db/audit";
+import { getClientIp } from "@/lib/client-ip";
 import {
   catalogApiError,
   catalogRecordIdSchema,
+  CatalogNodeMutationError,
   requireCatalogAdminApi,
 } from "../../../_shared";
 
@@ -69,10 +72,13 @@ export async function PUT(
         // additive ProductCatalogAssignment table.
         const product = await tx.product.findUnique({
           where: { id: productId },
-          select: { id: true },
+          select: {
+            id: true,
+            commerceProfile: { select: { productKind: true } },
+          },
         });
         if (!product) {
-          throw new Error("Product not found");
+          throw new CatalogNodeMutationError("Product not found", 404);
         }
 
         const [existing, nodes] = await Promise.all([
@@ -80,6 +86,7 @@ export async function PUT(
             where: { productId },
             select: {
               catalogNodeId: true,
+              isPrimary: true,
               isFeatured: true,
               displayOrder: true,
               catalogNode: { select: { isActive: true } },
@@ -87,7 +94,12 @@ export async function PUT(
           }),
           tx.catalogNode.findMany({
             where: { id: { in: Array.from(desired.keys()) } },
-            select: { id: true, isActive: true },
+            select: {
+              id: true,
+              isActive: true,
+              productKind: true,
+              _count: { select: { children: true } },
+            },
           }),
         ]);
 
@@ -95,17 +107,49 @@ export async function PUT(
           existing.map((assignment) => [assignment.catalogNodeId, assignment])
         );
         const nodesById = new Map(nodes.map((node) => [node.id, node]));
+        const primaryCatalogNodeId = parsed.data.assignments[0]?.catalogNodeId;
+        const primaryNode = primaryCatalogNodeId
+          ? nodesById.get(primaryCatalogNodeId)
+          : null;
+        if (
+          primaryCatalogNodeId &&
+          (!primaryNode?.productKind || primaryNode._count.children > 0)
+        ) {
+          throw new CatalogNodeMutationError(
+            "Choose a specific product category first; broad landing pages can only be additional placements",
+            400
+          );
+        }
+        if (
+          primaryNode?.productKind &&
+          product.commerceProfile &&
+          product.commerceProfile.productKind !== primaryNode.productKind
+        ) {
+          throw new CatalogNodeMutationError(
+            "The primary category does not match this product type",
+            409
+          );
+        }
 
         for (const [catalogNodeId, next] of desired) {
           const node = nodesById.get(catalogNodeId);
-          if (!node) throw new Error("One or more catalog nodes were not found");
+          if (!node) {
+            throw new CatalogNodeMutationError(
+              "One or more catalog nodes were not found",
+              400
+            );
+          }
 
           const current = existingByNodeId.get(catalogNodeId);
           const changed = !current ||
             current.isFeatured !== next.isFeatured ||
-            current.displayOrder !== next.displayOrder;
+            current.displayOrder !== next.displayOrder ||
+            current.isPrimary !== (catalogNodeId === primaryCatalogNodeId);
           if (changed && !node.isActive) {
-            throw new Error("Assignments can only be added or changed on active catalog nodes");
+            throw new CatalogNodeMutationError(
+              "Assignments can only be added or changed on active catalog nodes",
+              400
+            );
           }
         }
 
@@ -118,37 +162,48 @@ export async function PUT(
           });
         }
 
+        await tx.productCatalogAssignment.updateMany({
+          where: { productId, isPrimary: true },
+          data: { isPrimary: false },
+        });
+
         for (const [catalogNodeId, next] of desired) {
           const current = existingByNodeId.get(catalogNodeId);
           if (!current) continue;
-          if (
-            current.isFeatured !== next.isFeatured ||
-            current.displayOrder !== next.displayOrder
-          ) {
-            await tx.productCatalogAssignment.update({
-              where: { productId_catalogNodeId: { productId, catalogNodeId } },
-              data: {
-                isFeatured: next.isFeatured,
-                displayOrder: next.displayOrder,
-              },
-            });
-          }
+          await tx.productCatalogAssignment.update({
+            where: { productId_catalogNodeId: { productId, catalogNodeId } },
+            data: {
+              isPrimary: catalogNodeId === primaryCatalogNodeId,
+              isFeatured: next.isFeatured,
+              displayOrder: next.displayOrder,
+            },
+          });
         }
 
         const additions = Array.from(desired.values())
           .filter((assignment) => !existingByNodeId.has(assignment.catalogNodeId))
-          .map((assignment) => ({ ...assignment, productId }));
+          .map((assignment) => ({
+            ...assignment,
+            productId,
+            isPrimary: assignment.catalogNodeId === primaryCatalogNodeId,
+          }));
         if (additions.length) {
           await tx.productCatalogAssignment.createMany({ data: additions });
         }
 
+        await tx.product.update({
+          where: { id: productId },
+          data: { updatedAt: new Date() },
+        });
+
         return tx.productCatalogAssignment.findMany({
           where: { productId },
-          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }, { id: "asc" }],
           select: {
             id: true,
             productId: true,
             catalogNodeId: true,
+            isPrimary: true,
             isFeatured: true,
             displayOrder: true,
             createdAt: true,
@@ -157,6 +212,7 @@ export async function PUT(
               select: {
                 label: true,
                 path: true,
+                productKind: true,
                 isActive: true,
                 isVisible: true,
               },
@@ -166,6 +222,23 @@ export async function PUT(
       },
       { isolationLevel: "Serializable", maxWait: 5_000, timeout: 30_000 }
     );
+
+    createAuditLog({
+      userId: access.session.user.id,
+      userEmail: access.session.user.email || undefined,
+      action: "PRODUCT_UPDATED",
+      entity: "ProductCatalogAssignment",
+      entityId: productId,
+      newValue: {
+        operation: "PRODUCT_CATALOG_ASSIGNMENTS_SYNCED",
+        productId,
+        assignmentCount: assignments.length,
+        primaryCatalogNodeId: assignments.find((item) => item.isPrimary)
+          ?.catalogNodeId,
+      },
+      ipAddress: getClientIp(request),
+      userAgent: request.headers.get("user-agent") || undefined,
+    });
 
     return NextResponse.json({ assignments });
   } catch (error) {

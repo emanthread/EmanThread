@@ -60,6 +60,10 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 import { hasAnyPermission, hasPermission, Permission, type PermissionValue, type RoleValue } from "@/lib/permissions";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
+import {
+  AdminUnsavedChangesProvider,
+  useAdminUnsavedChanges,
+} from "@/components/admin/unsaved-changes-context";
 
 const navItems = [
   { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
@@ -89,7 +93,7 @@ const navItems = [
 
 const navPermissions: Record<string, PermissionValue[]> = {
   "/admin/orders": [Permission.VIEW_ORDERS],
-  "/admin/products": [Permission.VIEW_PRODUCTS],
+  "/admin/products": [Permission.VIEW_PRODUCTS, Permission.MANAGE_PRODUCTS],
   "/admin/catalog": [Permission.MANAGE_PRODUCTS],
   "/admin/customers": [Permission.VIEW_CUSTOMERS],
   "/admin/discounts": [Permission.MANAGE_DISCOUNTS],
@@ -164,9 +168,22 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
+  return (
+    <AdminUnsavedChangesProvider>
+      <AdminLayoutContent>{children}</AdminLayoutContent>
+    </AdminUnsavedChangesProvider>
+  );
+}
+
+function AdminLayoutContent({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
+  const { confirmNavigation } = useAdminUnsavedChanges();
   const { sidebarOpen, setSidebarOpen, toggleSidebar, alertCounts, loadAlerts } = useAdminStore();
 
   // Mobile drawer state — separate from desktop sidebar state
@@ -245,6 +262,7 @@ export default function AdminLayout({
   useAdminPushNotifications();
 
   const handleLogout = () => {
+    if (!confirmNavigation()) return;
     logout();
     router.push("/");
   };
@@ -284,6 +302,25 @@ export default function AdminLayout({
     <div
       className="min-h-screen bg-background"
       style={{ "--radius": "1rem" } as React.CSSProperties}
+      onClickCapture={(event) => {
+        if (
+          event.defaultPrevented ||
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey
+        ) {
+          return;
+        }
+        const target = event.target as HTMLElement;
+        const link = target.closest("a[href]") as HTMLAnchorElement | null;
+        if (!link || link.target === "_blank") return;
+        if (!confirmNavigation()) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
     >
       {/* ── DESKTOP SIDEBAR (hidden on mobile) ── */}
       <aside

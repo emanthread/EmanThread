@@ -7,7 +7,8 @@
  */
 
 import { createHash } from "node:crypto";
-import { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient, type ProductKind } from "@prisma/client";
+import { classifyCatalogPath } from "../lib/catalog-product-classification";
 import {
   catalogMenu,
   sortByMenuOrder,
@@ -17,7 +18,7 @@ import {
   type MenuVisualCard,
 } from "../lib/navigation/catalog-menu";
 
-const MANIFEST_VERSION = 1;
+const MANIFEST_VERSION = 2;
 const APPLY_ACKNOWLEDGEMENT =
   "I_ACKNOWLEDGE_CATALOGNODE_ONLY_WRITES";
 const DISPOSABLE_ACKNOWLEDGEMENT =
@@ -49,6 +50,7 @@ type CatalogNodeManifestEntry = {
   id: string;
   parentId: string | null;
   nodeType: CatalogNodeType;
+  productKind: ProductKind | null;
   label: string;
   slug: string;
   path: string;
@@ -59,6 +61,7 @@ type ExistingCatalogNode = {
   id: string;
   parentId: string | null;
   nodeType: string;
+  productKind: ProductKind | null;
   label: string;
   slug: string;
   path: string;
@@ -69,6 +72,7 @@ type ExistingCatalogNode = {
 type StructuralField =
   | "parentId"
   | "nodeType"
+  | "productKind"
   | "label"
   | "slug"
   | "path"
@@ -117,6 +121,7 @@ type CliOptions = {
 const STRUCTURAL_FIELDS: readonly StructuralField[] = [
   "parentId",
   "nodeType",
+  "productKind",
   "label",
   "slug",
   "path",
@@ -234,7 +239,7 @@ function buildCatalogManifest(): {
   const paths = new Set<string>();
 
   const addEntry = (
-    entry: CatalogNodeManifestEntry,
+    entry: Omit<CatalogNodeManifestEntry, "productKind">,
     context: string,
     departmentRoot: string,
   ): void => {
@@ -249,7 +254,10 @@ function buildCatalogManifest(): {
 
     ids.add(entry.id);
     paths.add(entry.path);
-    entries.push(entry);
+    entries.push({
+      ...entry,
+      productKind: classifyCatalogPath(entry.path)?.productKind ?? null,
+    });
   };
 
   const validateCard = (
@@ -455,7 +463,7 @@ function addSection(
 }
 
 function addManifestEntry(
-  entry: CatalogNodeManifestEntry,
+  entry: Omit<CatalogNodeManifestEntry, "productKind">,
   context: string,
   departmentRoot: string,
   entries: CatalogNodeManifestEntry[],
@@ -474,7 +482,10 @@ function addManifestEntry(
 
   ids.add(entry.id);
   paths.add(entry.path);
-  entries.push(entry);
+  entries.push({
+    ...entry,
+    productKind: classifyCatalogPath(entry.path)?.productKind ?? null,
+  });
 }
 
 function validateSectionCard(
@@ -693,6 +704,7 @@ async function createBootstrapPlan(
       id: true,
       parentId: true,
       nodeType: true,
+      productKind: true,
       label: true,
       slug: true,
       path: true,
@@ -807,6 +819,7 @@ async function applyBootstrapPlan(
           update: {
             parentId: entry.parentId,
             nodeType: entry.nodeType,
+            productKind: entry.productKind,
             label: entry.label,
             slug: entry.slug,
             path: entry.path,

@@ -8,7 +8,12 @@ import { defineConfig } from "@playwright/test";
  */
 export default defineConfig({
   testDir: "./tests",
-  testMatch: ["navigation.spec.ts"],
+  testMatch: [
+    "navigation.spec.ts",
+    "product-classification.spec.ts",
+    "product-admin-policy.spec.ts",
+    "product-editor-serialization.spec.ts",
+  ],
   fullyParallel: true,
   workers: 1,
   reporter: "list",

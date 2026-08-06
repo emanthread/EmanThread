@@ -19,6 +19,7 @@ const nodeSummarySelect = {
   id: true,
   parentId: true,
   nodeType: true,
+  productKind: true,
   label: true,
   slug: true,
   path: true,
@@ -106,6 +107,7 @@ export const GET = withLoggedAdminHandler(
           id: true,
           parentId: true,
           nodeType: true,
+          productKind: true,
           label: true,
           slug: true,
           path: true,
@@ -125,6 +127,7 @@ export const GET = withLoggedAdminHandler(
               label: true,
               path: true,
               nodeType: true,
+              productKind: true,
               displayOrder: true,
               isActive: true,
               isVisible: true,
@@ -183,6 +186,23 @@ export const PATCH = withLoggedAdminHandler(
             throw new CatalogNodeMutationError("Catalog node not found", 404);
           }
 
+          if (
+            input.productKind !== undefined &&
+            input.productKind !== existing.productKind
+          ) {
+            const primaryAssignment =
+              await transaction.productCatalogAssignment.findFirst({
+                where: { catalogNodeId: id, isPrimary: true },
+                select: { id: true },
+              });
+            if (primaryAssignment) {
+              throw new CatalogNodeMutationError(
+                "Move products to a different primary category before changing this category's product behavior.",
+                409
+              );
+            }
+          }
+
           const targetParentId =
             input.parentId === undefined ? existing.parentId : input.parentId;
           const targetSlug =
@@ -191,6 +211,26 @@ export const PATCH = withLoggedAdminHandler(
             input.isActive === undefined ? existing.isActive : input.isActive;
           const targetVisible =
             input.isVisible === undefined ? existing.isVisible : input.isVisible;
+
+          if (
+            targetParentId &&
+            targetParentId !== existing.parentId
+          ) {
+            const parentPrimaryAssignment =
+              await transaction.productCatalogAssignment.findFirst({
+                where: {
+                  catalogNodeId: targetParentId,
+                  isPrimary: true,
+                },
+                select: { id: true },
+              });
+            if (parentPrimaryAssignment) {
+              throw new CatalogNodeMutationError(
+                "This parent is a product's primary leaf category. Reassign that product before adding child paths.",
+                409
+              );
+            }
+          }
 
           if (targetVisible && !targetActive) {
             throw new CatalogNodeMutationError(
@@ -288,6 +328,9 @@ export const PATCH = withLoggedAdminHandler(
               ...(input.nodeType === undefined
                 ? {}
                 : { nodeType: input.nodeType }),
+              ...(input.productKind === undefined
+                ? {}
+                : { productKind: input.productKind }),
               ...(input.label === undefined ? {} : { label: input.label }),
               ...(input.slug === undefined ? {} : { slug: targetSlug }),
               ...(pathChanged ? { path: targetPath } : {}),
@@ -323,6 +366,7 @@ export const PATCH = withLoggedAdminHandler(
           operation: "CATALOG_NODE_UPDATED",
           parentId: existing.parentId,
           nodeType: existing.nodeType,
+          productKind: existing.productKind,
           label: existing.label,
           slug: existing.slug,
           path: existing.path,
@@ -334,6 +378,7 @@ export const PATCH = withLoggedAdminHandler(
           operation: "CATALOG_NODE_UPDATED",
           parentId: updated.parentId,
           nodeType: updated.nodeType,
+          productKind: updated.productKind,
           label: updated.label,
           slug: updated.slug,
           path: updated.path,

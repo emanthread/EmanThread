@@ -24,6 +24,11 @@ export default async function CatalogAssignmentPage() {
 
   return (
     <CatalogAssignmentClient
+      canManageCatalogPaths={hasPermission(
+        role,
+        Permission.MANAGE_SETTINGS,
+        permissions
+      )}
       canViewAuditLogs={hasPermission(
         role,
         Permission.VIEW_AUDIT_LOGS,
@@ -32,4 +37,3 @@ export default async function CatalogAssignmentPage() {
     />
   );
 }
-

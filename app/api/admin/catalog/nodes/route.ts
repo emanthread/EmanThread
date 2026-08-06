@@ -100,6 +100,7 @@ export const GET = withLoggedAdminHandler(async (request: Request) => {
         id: true,
         parentId: true,
         nodeType: true,
+        productKind: true,
         label: true,
         slug: true,
         path: true,
@@ -147,6 +148,20 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
           );
         }
 
+        if (parent) {
+          const parentPrimaryAssignment =
+            await transaction.productCatalogAssignment.findFirst({
+              where: { catalogNodeId: parent.id, isPrimary: true },
+              select: { id: true },
+            });
+          if (parentPrimaryAssignment) {
+            throw new CatalogNodeMutationError(
+              "This parent is a product's primary leaf category. Reassign that product before adding child paths.",
+              409
+            );
+          }
+        }
+
         if (
           input.isVisible &&
           input.parentId &&
@@ -163,6 +178,7 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
           data: {
             parentId: input.parentId,
             nodeType: input.nodeType,
+            productKind: input.productKind ?? null,
             label: input.label,
             slug: input.slug,
             path,
@@ -174,6 +190,7 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
             id: true,
             parentId: true,
             nodeType: true,
+            productKind: true,
             label: true,
             slug: true,
             path: true,
@@ -201,6 +218,7 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
         operation: "CATALOG_NODE_CREATED",
         parentId: node.parentId,
         nodeType: node.nodeType,
+        productKind: node.productKind,
         label: node.label,
         slug: node.slug,
         path: node.path,

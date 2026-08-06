@@ -8,7 +8,12 @@ export default defineConfig({
   testDir: "./tests",
   // Pure catalog configuration checks use playwright.navigation.config.ts so
   // they never start this database-backed application server.
-  testIgnore: ["navigation.spec.ts"],
+  testIgnore: [
+    "navigation.spec.ts",
+    "product-classification.spec.ts",
+    "product-admin-policy.spec.ts",
+    "product-editor-serialization.spec.ts",
+  ],
   fullyParallel: false, // Sequential: tests share SQLite DB state
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

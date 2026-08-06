@@ -18,9 +18,15 @@ import { adminFetch } from "@/lib/admin-fetch";
 import {
   PRODUCT_KINDS,
   PRODUCT_KIND_VALUES,
-  productKindRequiresSelection,
 } from "@/lib/commerce";
 import type { ProductKind } from "@/lib/data";
+import {
+  defaultOptionLabelForKind,
+  isProductEditorFieldVisible,
+  productEditorSchemaForKind,
+  type CatalogProductClassification,
+  type ProductOptionPreset,
+} from "@/lib/catalog-product-classification";
 
 export type ProductVariantDraft = {
   id?: string;
@@ -80,7 +86,7 @@ export function emptyCommerceProfileDraft(): CommerceProfileDraft {
     productKind: "UNSTITCHED_FABRIC",
     stitchingEligible: true,
     requiresSelection: false,
-    optionLabel: "Size",
+    optionLabel: defaultOptionLabelForKind("UNSTITCHED_FABRIC"),
     sizeGuideUrl: "",
     details: [],
     variants: [],
@@ -92,17 +98,18 @@ function isProductKind(value: string): value is ProductKind {
 }
 
 function toDraft(profile: CommerceProfileResponse): CommerceProfileDraft {
+  const editorSchema = productEditorSchemaForKind(profile.productKind);
   return {
     productKind: profile.productKind,
     // The storefront and order path enforce this too. Keeping the draft
     // normalized means a historical or manually-edited profile can never make
     // a non-fabric product look tailorable in the admin form.
     stitchingEligible:
-      profile.productKind === "UNSTITCHED_FABRIC"
+      isProductEditorFieldVisible(editorSchema.fields.stitching)
         ? profile.stitchingEligible
         : false,
     requiresSelection:
-      productKindRequiresSelection(profile.productKind) || profile.requiresSelection,
+      editorSchema.options.mode === "required" || profile.requiresSelection,
     optionLabel: profile.optionLabel || "",
     sizeGuideUrl: profile.sizeGuideUrl || "",
     details: Array.isArray(profile.details) ? profile.details : [],
@@ -126,8 +133,9 @@ function toDraft(profile: CommerceProfileResponse): CommerceProfileDraft {
 export function serializeCommerceProfile(
   draft: CommerceProfileDraft
 ): CommerceProfilePayload {
+  const editorSchema = productEditorSchemaForKind(draft.productKind);
   const requiresSelection =
-    productKindRequiresSelection(draft.productKind) || draft.requiresSelection;
+    editorSchema.options.mode === "required" || draft.requiresSelection;
   const seenKeys = new Set<string>();
   const seenSkus = new Set<string>();
   const variants = draft.variants.map((variant, index) => {
@@ -173,11 +181,34 @@ export function serializeCommerceProfile(
 
   if (requiresSelection && variants.length === 0) {
     throw new Error(
-      productKindRequiresSelection(draft.productKind)
-        ? "Add at least one size or option before saving ready-to-wear or teens merchandise"
+      editorSchema.options.mode === "required"
+        ? `Add at least one ${editorSchema.options.label.toLocaleLowerCase()} before saving this product`
         : "Add at least one option before requiring a customer selection"
     );
   }
+
+  const optionLabel = draft.optionLabel.trim();
+  if ((requiresSelection || variants.length > 0) && !optionLabel) {
+    throw new Error("Enter a name for the product options");
+  }
+  const sizeGuideUrl = draft.sizeGuideUrl.trim();
+  if (
+    sizeGuideUrl &&
+    !sizeGuideUrl.startsWith("/") &&
+    !/^https?:\/\//i.test(sizeGuideUrl)
+  ) {
+    throw new Error("Size guide URL must begin with /, http://, or https://");
+  }
+
+
+  const details = draft.details.map((detail, index) => {
+    const label = detail.label.trim();
+    const value = detail.value.trim();
+    if ((label && !value) || (!label && value)) {
+      throw new Error(`Detail ${index + 1} needs both a label and a value`);
+    }
+    return { label, value };
+  }).filter((detail) => detail.label && detail.value);
 
   return {
     productKind: draft.productKind,
@@ -185,41 +216,15 @@ export function serializeCommerceProfile(
     // normalized by the protected API, so this UI value is never the only
     // enforcement point.
     stitchingEligible:
-      draft.productKind === "UNSTITCHED_FABRIC"
+      isProductEditorFieldVisible(editorSchema.fields.stitching)
         ? draft.stitchingEligible
         : false,
     requiresSelection,
-    optionLabel: draft.optionLabel.trim(),
-    sizeGuideUrl: draft.sizeGuideUrl.trim(),
-    details: draft.details
-      .map((detail) => ({ label: detail.label.trim(), value: detail.value.trim() }))
-      .filter((detail) => detail.label || detail.value),
+    optionLabel,
+    sizeGuideUrl,
+    details,
     variants,
   };
-}
-
-const DEFAULT_OPTION_LABELS: Record<ProductKind, string> = {
-  UNSTITCHED_FABRIC: "Size",
-  READY_TO_WEAR: "Size",
-  FRAGRANCE: "Volume",
-  BEAUTY: "Shade / option",
-  TEENS: "Size",
-  GIFT: "Gift option",
-  GIFT_BOX: "Gift option",
-  ACCESSORY: "Option",
-};
-
-const COMMON_APPAREL_SIZE_PRESETS = [
-  { optionKey: "xs", label: "XS" },
-  { optionKey: "s", label: "S" },
-  { optionKey: "m", label: "M" },
-  { optionKey: "l", label: "L" },
-  { optionKey: "xl", label: "XL" },
-  { optionKey: "xxl", label: "XXL" },
-] as const;
-
-function isSizeBasedProduct(kind: ProductKind): boolean {
-  return kind === "READY_TO_WEAR" || kind === "TEENS";
 }
 
 function normalizedOptionValue(value: string): string {
@@ -227,7 +232,7 @@ function normalizedOptionValue(value: string): string {
 }
 
 function suggestedOptionLabel(kind: ProductKind): string {
-  return DEFAULT_OPTION_LABELS[kind];
+  return defaultOptionLabelForKind(kind);
 }
 
 function newOptionDraft(optionKey = "", label = ""): ProductVariantDraft {
@@ -237,41 +242,36 @@ function newOptionDraft(optionKey = "", label = ""): ProductVariantDraft {
     sku: "",
     priceAdjustment: "0",
     stockQuantity: "0",
-    inStock: true,
+    inStock: false,
     isActive: true,
   };
 }
 
-function canAddCommonApparelSizes(variants: ProductVariantDraft[]): boolean {
-  if (variants.length >= 50) return false;
+function optionKeyFromLabel(value: string): string {
+  return value
+    .trim()
+    .toLocaleLowerCase("en-US")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
+function canAddOptionPresets(
+  variants: ProductVariantDraft[],
+  presets: readonly ProductOptionPreset[]
+): boolean {
+  if (variants.length >= 50 || presets.length === 0) return false;
   const existingValues = new Set(
     variants.flatMap((variant) => [
       normalizedOptionValue(variant.optionKey),
       normalizedOptionValue(variant.label),
     ])
   );
-  return COMMON_APPAREL_SIZE_PRESETS.some(
+  return presets.some(
     (preset) =>
       !existingValues.has(normalizedOptionValue(preset.optionKey)) &&
       !existingValues.has(normalizedOptionValue(preset.label))
   );
-}
-
-function suggestedOptionLabelLegacy(kind: ProductKind): string {
-  switch (kind) {
-    case "READY_TO_WEAR":
-    case "TEENS":
-      return "Size";
-    case "FRAGRANCE":
-      return "Volume";
-    case "BEAUTY":
-      return "Shade / option";
-    case "GIFT":
-    case "GIFT_BOX":
-      return "Gift option";
-    default:
-      return "Size";
-  }
 }
 
 function readApiError(payload: unknown, fallback: string): string {
@@ -289,6 +289,9 @@ export function ProductCommerceProfileSection({
   onLoadingChange,
   onLoadError,
   saveError,
+  classification,
+  showProductType = true,
+  productTypeLocked = false,
 }: {
   productId?: string;
   draft: CommerceProfileDraft;
@@ -298,6 +301,9 @@ export function ProductCommerceProfileSection({
   onLoadingChange: (loading: boolean) => void;
   onLoadError: (error: string | null) => void;
   saveError?: string | null;
+  classification?: CatalogProductClassification | null;
+  showProductType?: boolean;
+  productTypeLocked?: boolean;
 }) {
   useEffect(() => {
     let cancelled = false;
@@ -365,41 +371,85 @@ export function ProductCommerceProfileSection({
   };
 
   const changeKind = (value: string) => {
+    if (productTypeLocked) return;
     if (!isProductKind(value)) return;
-    const supportsStitching = value === "UNSTITCHED_FABRIC";
+    const nextSchema = productEditorSchemaForKind(value);
+    const supportsStitching = isProductEditorFieldVisible(
+      nextSchema.fields.stitching
+    );
+    const kindChanged = value !== draft.productKind;
+    const previousDefault = defaultOptionLabelForKind(draft.productKind);
     update({
       productKind: value,
       stitchingEligible: supportsStitching,
-      requiresSelection: productKindRequiresSelection(value),
-      optionLabel: draft.optionLabel || suggestedOptionLabel(value),
+      requiresSelection: nextSchema.options.mode === "required",
+      optionLabel:
+        !draft.optionLabel || draft.optionLabel === previousDefault
+          ? suggestedOptionLabel(value)
+          : draft.optionLabel,
+      sizeGuideUrl: isProductEditorFieldVisible(nextSchema.fields.sizeGuide)
+        ? draft.sizeGuideUrl
+        : "",
+      variants: kindChanged ? [] : draft.variants,
     });
   };
 
-  const supportsStitching = draft.productKind === "UNSTITCHED_FABRIC";
-  const kindRequiresSelection = productKindRequiresSelection(draft.productKind);
+  const effectiveKind = classification?.productKind || draft.productKind;
+  const effectiveSchema =
+    classification?.editorSchema || productEditorSchemaForKind(effectiveKind);
+  const supportsStitching = isProductEditorFieldVisible(
+    effectiveSchema.fields.stitching
+  );
+  const kindRequiresSelection = effectiveSchema.options.mode === "required";
+  const showOptions =
+    kindRequiresSelection || draft.requiresSelection || draft.variants.length > 0;
+
+  const addOptionPresets = () => {
+    const existingValues = new Set(
+      draft.variants.flatMap((variant) => [
+        normalizedOptionValue(variant.optionKey),
+        normalizedOptionValue(variant.label),
+      ])
+    );
+    const additions = effectiveSchema.options.presets.filter(
+      (preset) =>
+        !existingValues.has(normalizedOptionValue(preset.optionKey)) &&
+        !existingValues.has(normalizedOptionValue(preset.label))
+    ).map((preset) => newOptionDraft(preset.optionKey, preset.label));
+    update({ variants: [...draft.variants, ...additions].slice(0, 50) });
+  };
 
   return (
-    <section className="space-y-4 rounded-lg border border-dashed p-4">
+    <section
+      id="commerce-section"
+      tabIndex={-1}
+      className="space-y-5 rounded-xl border bg-card p-5"
+    >
       <div>
-        <h3 className="font-medium">Merchandise type & sellable options</h3>
+        <h2 className="font-semibold">Selling options</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Use this only for the new catalog. The legacy category, fabric type, stock,
-          and existing listings above remain intact. Removed options are archived, not deleted.
+          {kindRequiresSelection
+            ? `Add the ${draft.optionLabel.toLocaleLowerCase() || "options"} customers can choose.`
+            : "Add sizes, volumes, shades, or formats only when this product has them."}
         </p>
       </div>
 
       {saveError && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Product saved; merchandise settings need attention</AlertTitle>
+          <AlertTitle>Selling settings need attention</AlertTitle>
           <AlertDescription>{saveError}</AlertDescription>
         </Alert>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      {showProductType && (
         <div className="space-y-2">
           <Label htmlFor="commerce-product-kind">Product type</Label>
-          <Select value={draft.productKind} onValueChange={changeKind}>
+          <Select
+            value={draft.productKind}
+            onValueChange={changeKind}
+            disabled={productTypeLocked}
+          >
             <SelectTrigger id="commerce-product-kind">
               <SelectValue placeholder="Choose a product type" />
             </SelectTrigger>
@@ -411,54 +461,85 @@ export function ProductCommerceProfileSection({
               ))}
             </SelectContent>
           </Select>
+          {productTypeLocked && (
+            <p className="text-xs text-muted-foreground">
+              Enable catalog assignments before changing the product type.
+            </p>
+          )}
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="commerce-option-label">Customer option label</Label>
-          <Input
-            id="commerce-option-label"
-            value={draft.optionLabel}
-            onChange={(event) => update({ optionLabel: event.target.value })}
-            placeholder={suggestedOptionLabel(draft.productKind)}
-          />
-        </div>
-      </div>
+      )}
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      {supportsStitching && (
         <label className="flex min-h-10 items-center gap-2 text-sm">
           <Checkbox
             checked={draft.stitchingEligible}
-            disabled={!supportsStitching}
             onCheckedChange={(value) => update({ stitchingEligible: value === true })}
           />
-          {supportsStitching
-            ? "Offer stitching for this product"
-            : "Stitching is available only for unstitched fabric"}
+          <span>
+            <span className="block font-medium">
+              Offer {effectiveSchema.fields.stitching.label.toLocaleLowerCase()}
+            </span>
+            <span className="block text-xs text-muted-foreground">
+              Customers can submit measurements and request tailoring when adding it to cart.
+            </span>
+          </span>
         </label>
+      )}
+
+      {showOptions && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="commerce-option-label">Option name</Label>
+            <Input
+              id="commerce-option-label"
+              value={draft.optionLabel}
+              onChange={(event) => update({ optionLabel: event.target.value })}
+              placeholder={suggestedOptionLabel(effectiveKind)}
+            />
+          </div>
+          {!kindRequiresSelection && (
         <label className="flex min-h-10 items-center gap-2 text-sm">
           <Checkbox
-            checked={kindRequiresSelection || draft.requiresSelection}
-            disabled={kindRequiresSelection || draft.variants.length === 0}
+            checked={draft.requiresSelection}
+            disabled={draft.variants.length === 0}
             onCheckedChange={(value) => update({ requiresSelection: value === true })}
           />
-          {kindRequiresSelection
-            ? "A size or option is required before this product can be added to cart"
-            : "Require a customer option before cart"}
+          Customers must choose an option
         </label>
-      </div>
+          )}
+        </div>
+      )}
 
-      {(draft.productKind === "READY_TO_WEAR" || draft.productKind === "TEENS") && (
+      {kindRequiresSelection && (
+        <p className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+          A {draft.optionLabel.toLocaleLowerCase() || "size"} is required before this product can be added to cart.
+        </p>
+      )}
+
+      {isProductEditorFieldVisible(effectiveSchema.fields.sizeGuide) && (
         <div className="space-y-2">
-          <Label htmlFor="commerce-size-guide">Size guide URL (optional)</Label>
+          <Label htmlFor="commerce-size-guide">
+            {effectiveSchema.fields.sizeGuide.label} (optional)
+          </Label>
           <Input
             id="commerce-size-guide"
             value={draft.sizeGuideUrl}
             onChange={(event) => update({ sizeGuideUrl: event.target.value })}
-            placeholder="/size-guide or https://…"
+            placeholder={effectiveSchema.fields.sizeGuide.placeholder}
           />
         </div>
       )}
 
-      <div className="space-y-3">
+      <details className="rounded-lg border bg-muted/10">
+        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium">
+          Additional product details (optional)
+          <span className="ml-2 font-normal text-muted-foreground">
+            {draft.details.length
+              ? `${draft.details.length} added`
+              : "Notes, material, age range, or box contents"}
+          </span>
+        </summary>
+        <div className="space-y-3 border-t p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
             <Label>Product details</Label>
@@ -476,7 +557,7 @@ export function ProductCommerceProfileSection({
           </Button>
         </div>
         {draft.details.map((detail, index) => (
-          <div key={`${index}-${detail.label}`} className="grid gap-2 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)_auto]">
+          <div key={index} className="grid gap-2 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)_auto]">
             <Input
               aria-label={`Detail ${index + 1} label`}
               value={detail.label}
@@ -501,65 +582,67 @@ export function ProductCommerceProfileSection({
             </Button>
           </div>
         ))}
-      </div>
-
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <Label>Sizes, volumes, shades, or gift options</Label>
-            <p className="text-xs text-muted-foreground">
-              Each option has independent stock and a possible price adjustment. Leave this empty for one-format products.
-            </p>
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() =>
-              update({
-                variants: [
-                  ...draft.variants,
-                  {
-                    optionKey: "",
-                    label: "",
-                    sku: "",
-                    priceAdjustment: "0",
-                    stockQuantity: "0",
-                    inStock: true,
-                    isActive: true,
-                  },
-                ],
-              })
-            }
-            disabled={draft.variants.length >= 50}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add option
-          </Button>
         </div>
+      </details>
 
-        {draft.variants.map((variant, index) => (
-          <div key={variant.id || `new-option-${index}`} className="space-y-3 rounded-md border p-3">
-            <div className="grid gap-3 sm:grid-cols-2">
+      {!showOptions ? (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => update({ variants: [newOptionDraft()] })}
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          This product has options
+        </Button>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <Label>{draft.optionLabel || "Options"}</Label>
+              <p className="text-xs text-muted-foreground">
+                Each option can have its own SKU, stock, and price adjustment.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {canAddOptionPresets(
+                draft.variants,
+                effectiveSchema.options.presets
+              ) && (
+                <Button type="button" size="sm" variant="outline" onClick={addOptionPresets}>
+                  Add common {effectiveSchema.options.label.toLocaleLowerCase()}s
+                </Button>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => update({ variants: [...draft.variants, newOptionDraft()] })}
+                disabled={draft.variants.length >= 50}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add option
+              </Button>
+            </div>
+          </div>
+
+          {draft.variants.map((variant, index) => (
+            <div key={variant.id || `new-option-${index}`} className="space-y-3 rounded-md border p-3">
               <div className="space-y-1">
-                <Label htmlFor={`commerce-option-key-${index}`}>Internal option key</Label>
-                <Input
-                  id={`commerce-option-key-${index}`}
-                  value={variant.optionKey}
-                  onChange={(event) => updateVariant(index, { optionKey: event.target.value })}
-                  placeholder="small, 50ml, gift-wrap"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor={`commerce-option-label-${index}`}>Customer label</Label>
+                <Label htmlFor={`commerce-option-label-${index}`}>
+                  {draft.optionLabel || "Option"} label
+                </Label>
                 <Input
                   id={`commerce-option-label-${index}`}
                   value={variant.label}
-                  onChange={(event) => updateVariant(index, { label: event.target.value })}
-                  placeholder="Small, 50 ml, With gift wrap"
+                  onChange={(event) =>
+                    updateVariant(index, {
+                      label: event.target.value,
+                      optionKey: optionKeyFromLabel(event.target.value),
+                    })
+                  }
+                  placeholder={effectiveSchema.options.itemPlaceholder}
                 />
               </div>
-            </div>
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="space-y-1">
                 <Label htmlFor={`commerce-option-sku-${index}`}>Option SKU</Label>
@@ -587,7 +670,13 @@ export function ProductCommerceProfileSection({
                   min="0"
                   step="1"
                   value={variant.stockQuantity}
-                  onChange={(event) => updateVariant(index, { stockQuantity: event.target.value })}
+                  onChange={(event) => {
+                    const stockQuantity = event.target.value;
+                    updateVariant(index, {
+                      stockQuantity,
+                      inStock: Number(stockQuantity) > 0,
+                    });
+                  }}
                 />
               </div>
             </div>
@@ -616,12 +705,13 @@ export function ProductCommerceProfileSection({
                 onClick={() => update({ variants: draft.variants.filter((_, variantIndex) => variantIndex !== index) })}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Archive option
+                {variant.id ? "Retire option" : "Remove option"}
               </Button>
             </div>
           </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
+import { syncProductsAfterVariantStockChange } from "@/lib/db/product-inventory";
 
 // ── Payment Transaction helpers ───────────────────────────────────
 
@@ -342,6 +343,7 @@ export async function verifyManualPayment(
       throw new Error('Order is already paid or cancelled');
     }
 
+    const changedVariantProductIds = new Set<string>();
     for (const item of submission.order.items) {
       const variantId = variantByOrderItemId.get(item.id);
       if (variantId) {
@@ -365,6 +367,7 @@ export async function verifyManualPayment(
             data: { inStock: false },
           });
         }
+        changedVariantProductIds.add(item.productId);
         continue;
       }
 
@@ -389,6 +392,10 @@ export async function verifyManualPayment(
         });
       }
     }
+    await syncProductsAfterVariantStockChange(
+      tx,
+      changedVariantProductIds
+    );
 
     // 4. Audit log
     await tx.auditLog.create({

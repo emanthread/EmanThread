@@ -1,18 +1,15 @@
-import { isAdminRole } from "@/lib/permissions";
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { createAuditLog } from "@/lib/db-queries";
 import { withLoggedAdminHandler } from "@/lib/logger";
+import { requireAdminApiAccess } from "@/lib/admin-route-guard";
 import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
 
 export const POST = withLoggedAdminHandler(async (req: Request) => {
-  const session = await auth();
-  if (!session?.user || !isAdminRole(session.user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const access = await requireAdminApiAccess(req);
+  if (!access.ok) return access.response;
 
   try {
     const formData = await req.formData();
@@ -53,8 +50,8 @@ export const POST = withLoggedAdminHandler(async (req: Request) => {
     });
 
     void createAuditLog({
-      userId: session.user.id,
-      userEmail: session.user.email || undefined,
+      userId: access.session.user.id,
+      userEmail: access.session.user.email || undefined,
       action: "PRODUCT_CREATED",
       entity: "Media",
       entityId: result.publicId,

@@ -39,9 +39,21 @@ export const catalogNodeLabelSchema = z
   .min(1, "Name is required")
   .max(120, "Name must be 120 characters or fewer");
 
+export const catalogProductKindSchema = z.enum([
+  "UNSTITCHED_FABRIC",
+  "READY_TO_WEAR",
+  "FRAGRANCE",
+  "BEAUTY",
+  "TEENS",
+  "GIFT",
+  "GIFT_BOX",
+  "ACCESSORY",
+]);
+
 const catalogNodeMutableFields = {
   parentId: catalogRecordIdSchema.nullable(),
   nodeType: catalogNodeTypeSchema,
+  productKind: catalogProductKindSchema.nullable().optional(),
   label: catalogNodeLabelSchema,
   slug: catalogNodeSlugSchema,
   displayOrder: z.number().int().min(0).max(1_000_000),
@@ -61,6 +73,7 @@ export const updateCatalogNodeSchema = z
   .object({
     parentId: catalogNodeMutableFields.parentId.optional(),
     nodeType: catalogNodeMutableFields.nodeType.optional(),
+    productKind: catalogNodeMutableFields.productKind,
     label: catalogNodeMutableFields.label.optional(),
     slug: catalogNodeMutableFields.slug.optional(),
     displayOrder: catalogNodeMutableFields.displayOrder.optional(),

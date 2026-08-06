@@ -157,6 +157,7 @@ model CatalogNode {
   id                String                     @id @default(cuid())
   parentId          String?
   nodeType          String
+  productKind       ProductKind?
   label             String
   slug              String
   path              String                     @unique
@@ -180,6 +181,7 @@ model CatalogNode {
   @@index([parentId])
   @@index([parentId, displayOrder])
   @@index([nodeType, displayOrder])
+  @@index([productKind])
   @@index([isActive, isVisible])
 }
 
@@ -187,6 +189,7 @@ model ProductCatalogAssignment {
   id            String      @id @default(cuid())
   productId     String
   catalogNodeId String
+  isPrimary     Boolean     @default(false)
   isFeatured    Boolean     @default(false)
   displayOrder  Int?
   createdAt     DateTime    @default(now())
@@ -196,6 +199,7 @@ model ProductCatalogAssignment {
 
   @@unique([productId, catalogNodeId])
   @@index([productId])
+  @@index([productId, isPrimary])
   @@index([catalogNodeId])
   @@index([catalogNodeId, isFeatured, displayOrder])
 }

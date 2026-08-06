@@ -9,6 +9,7 @@ import { sanitizeDbError } from "@/lib/utils/errors";
 import { createAuditLog } from "@/lib/db-queries";
 import { withGuard } from "@/lib/api-guards";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
+import { syncProductsAfterVariantStockChange } from "@/lib/db/product-inventory";
 export const dynamic = "force-dynamic";
 
 const cancelOrderSchema = z.object({
@@ -96,6 +97,7 @@ export const PATCH = withGuard(
       });
 
       // Restore stock
+      const changedVariantProductIds = new Set<string>();
       for (const item of order.items) {
         const variantId = variantByOrderItemId.get(item.id);
         if (variantId) {
@@ -109,6 +111,7 @@ export const PATCH = withGuard(
                 inStock: true,
               },
             });
+            changedVariantProductIds.add(item.productId);
           }
           continue;
         }
@@ -121,6 +124,10 @@ export const PATCH = withGuard(
           },
         });
       }
+      await syncProductsAfterVariantStockChange(
+        tx,
+        changedVariantProductIds
+      );
 
       return updated;
     });

@@ -35,6 +35,7 @@ const assignmentSelect = {
   id: true,
   productId: true,
   catalogNodeId: true,
+  isPrimary: true,
   isFeatured: true,
   displayOrder: true,
   createdAt: true,
@@ -46,6 +47,7 @@ const assignmentSelect = {
       name: true,
       fabricType: true,
       category: { select: { id: true, name: true } },
+      commerceProfile: { select: { productKind: true } },
     },
   },
   catalogNode: {
@@ -54,6 +56,7 @@ const assignmentSelect = {
       label: true,
       path: true,
       nodeType: true,
+      productKind: true,
       isActive: true,
       isVisible: true,
     },
@@ -139,17 +142,24 @@ export const PATCH = withLoggedAdminHandler(
         );
       }
 
-      const updated = await prisma.productCatalogAssignment.update({
-        where: { id },
-        data: {
-          ...(parsed.data.isFeatured === undefined
-            ? {}
-            : { isFeatured: parsed.data.isFeatured }),
-          ...(parsed.data.displayOrder === undefined
-            ? {}
-            : { displayOrder: parsed.data.displayOrder }),
-        },
-        select: assignmentSelect,
+      const updated = await prisma.$transaction(async (tx) => {
+        const assignment = await tx.productCatalogAssignment.update({
+          where: { id },
+          data: {
+            ...(parsed.data.isFeatured === undefined
+              ? {}
+              : { isFeatured: parsed.data.isFeatured }),
+            ...(parsed.data.displayOrder === undefined
+              ? {}
+              : { displayOrder: parsed.data.displayOrder }),
+          },
+          select: assignmentSelect,
+        });
+        await tx.product.update({
+          where: { id: existing.productId },
+          data: { updatedAt: new Date() },
+        });
+        return assignment;
       });
 
       createAuditLog({
@@ -211,7 +221,35 @@ export const DELETE = withLoggedAdminHandler(
         );
       }
 
-      await prisma.productCatalogAssignment.delete({ where: { id } });
+      await prisma.$transaction(async (tx) => {
+        await tx.productCatalogAssignment.delete({ where: { id } });
+        if (existing.isPrimary) {
+          const nextAssignment = await tx.productCatalogAssignment.findFirst({
+            where: {
+              productId: existing.productId,
+              catalogNode: {
+                isActive: true,
+                productKind: existing.product.commerceProfile
+                  ? existing.product.commerceProfile.productKind
+                  : { not: null },
+                children: { none: {} },
+              },
+            },
+            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+            select: { id: true },
+          });
+          if (nextAssignment) {
+            await tx.productCatalogAssignment.update({
+              where: { id: nextAssignment.id },
+              data: { isPrimary: true },
+            });
+          }
+        }
+        await tx.product.update({
+          where: { id: existing.productId },
+          data: { updatedAt: new Date() },
+        });
+      });
 
       createAuditLog({
         userId: access.session.user.id,
@@ -242,4 +280,3 @@ export const DELETE = withLoggedAdminHandler(
     }
   }
 );
-

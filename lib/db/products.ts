@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 import type { Product, Category } from "@/lib/data";
 import type { ProductCommerceProfile } from "@/lib/data";
 import { normalizeCommerceDetails } from "@/lib/commerce";
@@ -323,16 +324,20 @@ async function _getFilteredProducts(filter: ProductFilterInput) {
   const where: any = {
     AND: [
       { NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } } },
-      {
-        OR: [
-          { commerceProfile: { is: null } },
-          {
-            commerceProfile: {
-              is: { productKind: "UNSTITCHED_FABRIC" },
+      ...(FEATURE_FLAGS.COMMERCE_PROFILE_V1
+        ? [
+            {
+              OR: [
+                { commerceProfile: { is: null } },
+                {
+                  commerceProfile: {
+                    is: { productKind: "UNSTITCHED_FABRIC" },
+                  },
+                },
+              ],
             },
-          },
-        ],
-      },
+          ]
+        : []),
     ],
   };
   if (filter.category) {
@@ -914,7 +919,10 @@ export async function getAdminProducts(
   const pageSize = limit ?? 50;
   const skip = (currentPage - 1) * pageSize;
 
-  const where: any = { NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } } };
+  const productScope: Prisma.ProductWhereInput = {
+    NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } },
+  };
+  const where: Prisma.ProductWhereInput = { ...productScope };
   if (search) {
     where.OR = [
       { name: { contains: search, mode: "insensitive" } },
@@ -928,24 +936,34 @@ export async function getAdminProducts(
 
   if (stock && stock !== "all") {
     if (stock === "in-stock") {
-      // Products with stockQuantity above their own lowStockThreshold
-      // BUG FIX: was hardcoded to gt:10 ignoring per-product lowStockThreshold
-      where.AND = [{ stockQuantity: { gt: 0 } }, { inStock: true }];
+      where.AND = [
+        { inStock: true },
+        {
+          stockQuantity: {
+            gt: prisma.product.fields.lowStockThreshold,
+          },
+        },
+      ];
     } else if (stock === "low-stock") {
-      // stockQuantity > 0 but <= their individual threshold
-      // Prisma can't compare two columns directly, so we use a raw-safe
-      // approach: fetch where inStock=true and stockQuantity lte a reference.
-      // Best approximation without raw SQL: use the DB default threshold (5)
-      // while ensuring the result matches what the frontend card shows.
-      where.stockQuantity = { lte: 10, gt: 0 };
-      where.inStock = true;
+      where.AND = [
+        { inStock: true },
+        {
+          stockQuantity: {
+            gt: 0,
+            lte: prisma.product.fields.lowStockThreshold,
+          },
+        },
+      ];
     } else if (stock === "out-of-stock") {
-      where.stockQuantity = 0;
+      where.AND = [
+        { OR: [{ stockQuantity: { lte: 0 } }, { inStock: false }] },
+      ];
     }
   }
 
-  // Limit each admin list request to one active DB operation at a time.
-  const products = await prisma.product.findMany({
+  const [products, total, catalogTotal, inStockTotal, lowStockTotal, outOfStockTotal] =
+    await prisma.$transaction([
+      prisma.product.findMany({
       where,
       select: {
         id: true,
@@ -962,6 +980,24 @@ export async function getAdminProducts(
         inStock: true,
         stockQuantity: true,
         lowStockThreshold: true,
+        ...(FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1
+          ? {
+              catalogAssignments: {
+                where: { isPrimary: true },
+                take: 1,
+                select: {
+                  catalogNode: { select: { label: true, path: true } },
+                },
+              },
+            }
+          : {}),
+        ...(FEATURE_FLAGS.COMMERCE_PROFILE_V1
+          ? {
+              commerceProfile: {
+                select: { requiresSelection: true },
+              },
+            }
+          : {}),
         description: true,
         longDescription: true,
         categoryId: true,
@@ -975,8 +1011,33 @@ export async function getAdminProducts(
       orderBy: { createdAt: "desc" },
       skip,
       take: pageSize,
-    });
-  const total = await prisma.product.count({ where });
+      }),
+      prisma.product.count({ where }),
+      prisma.product.count({ where: productScope }),
+      prisma.product.count({
+        where: {
+          ...productScope,
+          inStock: true,
+          stockQuantity: { gt: prisma.product.fields.lowStockThreshold },
+        },
+      }),
+      prisma.product.count({
+        where: {
+          ...productScope,
+          inStock: true,
+          stockQuantity: {
+            gt: 0,
+            lte: prisma.product.fields.lowStockThreshold,
+          },
+        },
+      }),
+      prisma.product.count({
+        where: {
+          ...productScope,
+          OR: [{ stockQuantity: { lte: 0 } }, { inStock: false }],
+        },
+      }),
+    ]);
 
   return {
     products: products.map((p) => ({
@@ -993,6 +1054,26 @@ export async function getAdminProducts(
       badge: p.badge ? badgeMap[p.badge] : undefined,
       inStock: p.inStock,
       stockQuantity: p.stockQuantity,
+      lowStockThreshold: p.lowStockThreshold,
+      primaryCatalogCategory:
+        FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1
+          ? (
+              p as unknown as {
+                catalogAssignments: Array<{
+                  catalogNode: { label: string; path: string };
+                }>;
+              }
+            ).catalogAssignments[0]?.catalogNode
+          : undefined,
+      usesVariantInventory:
+        FEATURE_FLAGS.COMMERCE_PROFILE_V1 &&
+        Boolean(
+          (
+            p as unknown as {
+              commerceProfile: { requiresSelection: boolean } | null;
+            }
+          ).commerceProfile?.requiresSelection
+        ),
       description: p.description,
       longDescription: p.longDescription || "",
       categoryId: p.categoryId,
@@ -1004,6 +1085,12 @@ export async function getAdminProducts(
       updatedAt: p.updatedAt.toISOString(),
     })),
     total,
+    stats: {
+      total: catalogTotal,
+      inStock: inStockTotal,
+      lowStock: lowStockTotal,
+      outOfStock: outOfStockTotal,
+    },
     page: currentPage,
     limit: pageSize,
     totalPages: Math.ceil(total / pageSize),

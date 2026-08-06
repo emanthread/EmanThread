@@ -5,17 +5,14 @@ import type {
   ProductKind,
   ProductVariant,
 } from "@/lib/data";
+import {
+  PRODUCT_KIND_OPTIONS,
+  isProductEditorFieldVisible,
+  productEditorSchemaForKind,
+} from "@/lib/catalog-product-classification";
 
-export const PRODUCT_KINDS: Array<{ value: ProductKind; label: string }> = [
-  { value: "UNSTITCHED_FABRIC", label: "Unstitched fabric" },
-  { value: "READY_TO_WEAR", label: "Ready to wear" },
-  { value: "FRAGRANCE", label: "Fragrance" },
-  { value: "BEAUTY", label: "Beauty" },
-  { value: "TEENS", label: "Teens / kids" },
-  { value: "GIFT", label: "Gift" },
-  { value: "GIFT_BOX", label: "Gift box" },
-  { value: "ACCESSORY", label: "Accessory" },
-];
+export const PRODUCT_KINDS: Array<{ value: ProductKind; label: string }> =
+  PRODUCT_KIND_OPTIONS.map((item) => ({ ...item }));
 
 export const PRODUCT_KIND_VALUES = PRODUCT_KINDS.map((kind) => kind.value) as [
   ProductKind,
@@ -28,7 +25,9 @@ export const PRODUCT_KIND_VALUES = PRODUCT_KINDS.map((kind) => kind.value) as [
  * product line by carrying a stale `requiresSelection: false` value.
  */
 export function productKindRequiresSelection(kind: ProductKind | null | undefined): boolean {
-  return kind === "READY_TO_WEAR" || kind === "TEENS";
+  return Boolean(
+    kind && productEditorSchemaForKind(kind).options.mode === "required"
+  );
 }
 
 export type ProductOptionSelection = {
@@ -159,7 +158,9 @@ export function isProductStitchingEligible(product: Product): boolean {
   const commerce = product.commerce;
   if (commerce) {
     return (
-      commerce.productKind === "UNSTITCHED_FABRIC" && commerce.stitchingEligible
+      isProductEditorFieldVisible(
+        productEditorSchemaForKind(commerce.productKind).fields.stitching
+      ) && commerce.stitchingEligible
     );
   }
   

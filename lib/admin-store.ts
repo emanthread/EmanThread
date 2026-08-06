@@ -63,6 +63,11 @@ export interface AdminProduct {
   inStock: boolean;
   stockQuantity: number;
   lowStockThreshold: number;
+  primaryCatalogCategory?: {
+    label: string;
+    path: string;
+  };
+  usesVariantInventory?: boolean;
   description: string;
   longDescription?: string;
   metaTitle?: string;
@@ -71,6 +76,13 @@ export interface AdminProduct {
   categoryId?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ProductListStats {
+  total: number;
+  inStock: number;
+  lowStock: number;
+  outOfStock: number;
 }
 
 export interface Discount {
@@ -211,6 +223,7 @@ interface AdminState {
   ordersTotalPages: number;
   products: AdminProduct[];
   productsTotal: number;
+  productStats: ProductListStats;
   productsPage: number;
   productsTotalPages: number;
   customers: Customer[];
@@ -234,7 +247,7 @@ interface AdminState {
 
   // Loaders
   loadOrders: (status?: string, page?: number, limit?: number, search?: string) => Promise<void>;
-  loadProducts: (page?: number, limit?: number, search?: string, category?: string, stock?: string, signal?: AbortSignal) => Promise<void>;
+  loadProducts: (page?: number, limit?: number, search?: string, category?: string, stock?: string, signal?: AbortSignal) => Promise<boolean>;
   loadCustomers: () => Promise<void>;
   loadStats: () => Promise<void>;
   /** Fetches alert counts from /api/admin/alerts — shared between layout & dashboard */
@@ -343,6 +356,7 @@ export const useAdminStore = create<AdminState>()(
       ordersTotalPages: 0,
       products: [],
       productsTotal: 0,
+      productStats: { total: 0, inStock: 0, lowStock: 0, outOfStock: 0 },
       productsPage: 1,
       productsTotalPages: 0,
       customers: [],
@@ -404,14 +418,22 @@ export const useAdminStore = create<AdminState>()(
           set({ 
             products: data.products || [],
             productsTotal: data.total || 0,
+            productStats: data.stats || {
+              total: data.total || 0,
+              inStock: 0,
+              lowStock: 0,
+              outOfStock: 0,
+            },
             productsPage: data.page || 1,
             productsTotalPages: data.totalPages || 0
           });
+          return true;
         } catch (err) {
           // Silently ignore intentional aborts (AbortController fired on filter change)
-          if (err instanceof DOMException && err.name === "AbortError") return;
+          if (err instanceof DOMException && err.name === "AbortError") return false;
           console.error("Failed to load products:", err);
           toast.error(err instanceof Error ? err.message : "Failed to load products");
+          return false;
         }
       },
 
@@ -690,6 +712,7 @@ export const useAdminStore = create<AdminState>()(
         } catch (err) {
           console.error("Delete product error:", err);
           toast.error(err instanceof Error ? err.message : "Failed to delete product");
+          throw err;
         }
       },
 

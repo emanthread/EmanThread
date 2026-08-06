@@ -25,6 +25,7 @@ import {
   resolveStitchingPriceKey,
 } from "@/lib/stitching-price";
 import { catalogPlacementBlocksStitching } from "@/lib/commerce";
+import { ARCHIVED_PRODUCT_TAG } from "@/lib/product-archive";
 
 export const dynamic = "force-dynamic";
 
@@ -226,7 +227,7 @@ export async function POST(req: Request) {
     const productIds = items.map((item) => item.productId);
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } },
-      select: { id: true, price: true, stockQuantity: true, name: true, fabricType: true, inStock: true },
+      select: { id: true, price: true, stockQuantity: true, name: true, fabricType: true, inStock: true, tags: true },
     });
     const productMap = new Map(products.map((p) => [p.id, p]));
 
@@ -290,6 +291,13 @@ export async function POST(req: Request) {
         );
       }
 
+      if (product.tags.includes(ARCHIVED_PRODUCT_TAG)) {
+        return NextResponse.json(
+          { error: `Product is no longer available: ${product.name}` },
+          { status: 400 }
+        );
+      }
+
       if (item.variantId) {
         // Never query additive tables before the reviewed migration/flag is
         // live. createOrder performs variant/product/price/stock validation
@@ -301,17 +309,17 @@ export async function POST(req: Request) {
           );
         }
       } else {
-        const dbPrice = Number(product.price);
-        if (Math.abs(dbPrice - item.price) > 0.01) {
+        if (!product.inStock) {
           return NextResponse.json(
-            { error: `Price mismatch for product ${product.name}` },
+            { error: `Product out of stock: ${product.name}` },
             { status: 400 }
           );
         }
 
-        if (!product.inStock) {
+        const dbPrice = Number(product.price);
+        if (Math.abs(dbPrice - item.price) > 0.01) {
           return NextResponse.json(
-            { error: `Product out of stock: ${product.name}` },
+            { error: `Price mismatch for product ${product.name}` },
             { status: 400 }
           );
         }

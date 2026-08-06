@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { parseProductImages } from "@/lib/utils/parse-images";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
+import { syncProductsAfterVariantStockChange } from "@/lib/db/product-inventory";
+import { ARCHIVED_PRODUCT_TAG } from "@/lib/product-archive";
 import type { Prisma, OrderStatus, PaymentMethod } from "@prisma/client";
 
 // ── Interfaces ──────────────────────────────────────────────────
@@ -159,10 +161,19 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
     for (const [index, item] of data.items.entries()) {
       const product = await tx.product.findUnique({
         where: { id: item.productId },
-        select: { stockQuantity: true, name: true, price: true },
+        select: {
+          stockQuantity: true,
+          name: true,
+          price: true,
+          inStock: true,
+          tags: true,
+        },
       });
       if (!product) {
         throw new Error(`Product not found: ${item.productId}`);
+      }
+      if (product.tags.includes(ARCHIVED_PRODUCT_TAG)) {
+        throw new Error(`Product is no longer available: ${product.name}`);
       }
 
       if (item.variantId) {
@@ -217,6 +228,10 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
 
       if (commerceProfileByProductId.get(item.productId)?.requiresSelection) {
         throw new Error(`Please choose an option for ${product.name}`);
+      }
+
+      if (!product.inStock) {
+        throw new Error(`Product is out of stock: ${product.name}`);
       }
 
       if (product.stockQuantity < item.quantity) {
@@ -308,6 +323,7 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
     // Deduct stock for each product (skip when awaiting manual payment verification)
     // Also marks product as out of stock if stock reaches 0
     if (!skipStockDeduction) {
+      const changedVariantProductIds = new Set<string>();
       for (const [index, item] of data.items.entries()) {
         const variant = resolvedVariants[index];
         if (variant) {
@@ -333,8 +349,7 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
               data: { inStock: false },
             });
           }
-          // Variant inventory deliberately does not mutate the legacy Product
-          // quantity. This keeps existing listings and stock reports intact.
+          changedVariantProductIds.add(item.productId);
           continue;
         }
 
@@ -363,6 +378,10 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
           });
         }
       }
+      await syncProductsAfterVariantStockChange(
+        tx,
+        changedVariantProductIds
+      );
     }
 
     return created;
@@ -651,6 +670,7 @@ export async function updateOrderStatus(id: string, status: string) {
 
     if (shouldRestoreStock) {
       const variantByOrderItemId = new Map<string, string>();
+      const changedVariantProductIds = new Set<string>();
       if (FEATURE_FLAGS.COMMERCE_PROFILE_V1 && updated.items.length > 0) {
         const configurations = await tx.orderItemConfiguration.findMany({
           where: { orderItemId: { in: updated.items.map((item) => item.id) } },
@@ -675,6 +695,7 @@ export async function updateOrderStatus(id: string, status: string) {
               inStock: true,
             },
           });
+          changedVariantProductIds.add(item.productId);
           continue;
         }
 
@@ -686,6 +707,10 @@ export async function updateOrderStatus(id: string, status: string) {
           },
         });
       }
+      await syncProductsAfterVariantStockChange(
+        tx,
+        changedVariantProductIds
+      );
     }
 
     return updated;
