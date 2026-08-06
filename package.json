@@ -9,9 +9,12 @@
     "lint": "eslint .",
     "test:e2e": "playwright test",
     "test:navigation": "playwright test --config=playwright.navigation.config.ts",
+    "vercel-build": "prisma generate && prisma migrate status && next build",
     "postinstall": "prisma generate --schema=prisma/schema.prisma",
     "db:seed": "tsx prisma/seed.ts",
-    "db:migrate-safe": "node -e \"require('child_process').execSync('npx prisma migrate deploy',{stdio:'inherit',env:{...process.env}})\" 2>&1; echo '⚠️  To backup first run: npm run db:backup'",
+    "db:migrate:status": "prisma migrate status",
+    "db:migrate-safe": "prisma migrate deploy",
+    "db:verify-catalog": "tsx scripts/verify-product-catalog-schema.ts",
     "db:backup": "node -e \"const d=new Date();const ts=d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)+'_'+('0'+d.getHours()).slice(-2)+('0'+d.getMinutes()).slice(-2)+('0'+d.getSeconds()).slice(-2);const{execSync}=require('child_process');execSync('pg_dump '+process.env.DATABASE_URL+'>backup_'+ts+'.sql',{stdio:'inherit'})\""
   },
   "dependencies": {

@@ -13,6 +13,7 @@ export default defineConfig({
     "product-classification.spec.ts",
     "product-admin-policy.spec.ts",
     "product-editor-serialization.spec.ts",
+    "deployment-database-safety.spec.ts",
   ],
   fullyParallel: true,
   workers: 1,
