@@ -79,7 +79,7 @@ export default function CartPage() {
                 Looks like you haven&apos;t added any items to your cart yet.
               </p>
               <Button size="lg" asChild>
-                <Link href="/shop">Continue Shopping</Link>
+                <Link href="/women">Continue Shopping</Link>
               </Button>
             </div>
           ) : (
@@ -243,7 +243,7 @@ export default function CartPage() {
                 {/* Cart Actions */}
                 <div className="flex flex-wrap justify-between gap-4">
                   <Button variant="outline" asChild>
-                    <Link href="/shop">Continue Shopping</Link>
+                    <Link href="/women">Continue Shopping</Link>
                   </Button>
                   <Button variant="ghost" onClick={clearCart}>
                     Clear Cart

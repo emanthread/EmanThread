@@ -57,7 +57,7 @@ export type MenuDepartment = {
 };
 
 export type CatalogUtilityLink = {
-  id: "shop-all" | "stitching";
+  id: "stitching";
   label: string;
   href: string;
   status: MenuStatus;
@@ -89,20 +89,12 @@ export const catalogStoreIndicator: CatalogStoreIndicator = {
 
 export const catalogUtilityLinks: CatalogUtilityLink[] = [
   {
-    id: "shop-all",
-    label: "Shop All",
-    href: "/shop",
-    status: "active",
-    visibility: "visible",
-    order: 1,
-  },
-  {
     id: "stitching",
     label: "Stitching",
     href: "/account/measurements",
     status: "active",
     visibility: "visible",
-    order: 2,
+    order: 1,
   },
 ];
 
@@ -571,7 +563,7 @@ export const catalogMenu: MenuDepartment[] = [
         order: 1,
         groups: [
           {
-            id: "fragrance-beauty.new-in.new-arrivals",
+            id: "fragrance-beauty.new-in.new-arrivals-group",
             label: "NEW ARRIVALS",
             order: 1,
             items: [
@@ -902,4 +894,3 @@ export function resolveMenuVisualCards(
     ? sectionCards
     : getVisibleMenuEntries(department.visualCards);
 }
-

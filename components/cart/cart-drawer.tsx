@@ -67,7 +67,7 @@ export function CartDrawer() {
               Add some premium fabrics to get started
             </p>
             <Button className="mt-6" onClick={closeCart} asChild>
-              <Link href="/shop">Continue Shopping</Link>
+              <Link href="/women">Continue Shopping</Link>
             </Button>
           </div>
         ) : (

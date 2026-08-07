@@ -168,7 +168,7 @@ export const DEFAULT_HERO_SLIDES: HeroSlide[] = [
     description:
       "Discover our curated selection of premium unstitched fabrics, crafted for the distinguished gentleman.",
     cta: "Shop Collection",
-    link: "/shop",
+    link: "/women",
   },
   {
     image: "/images/fabrics/hero_fabric_boski_1780066040016.png",
@@ -177,7 +177,7 @@ export const DEFAULT_HERO_SLIDES: HeroSlide[] = [
     description:
       "Experience the luxurious silk-cotton blend that defines sophistication.",
     cta: "Explore Boski",
-    link: "/shop?category=boski",
+    link: "/men/unstitched/boski",
   },
   {
     image: "/images/fabrics/hero_fabric_wash_wear_1780066058724.png",
@@ -186,7 +186,7 @@ export const DEFAULT_HERO_SLIDES: HeroSlide[] = [
     description:
       "Effortless elegance with easy care - perfect for the modern lifestyle.",
     cta: "Shop Now",
-    link: "/shop?category=wash-wear",
+    link: "/men/unstitched",
   },
 ];
 

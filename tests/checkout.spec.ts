@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test.describe("Checkout Flow", () => {
   test("guest user can place a COD order end-to-end", async ({ page }) => {
     // 1. Navigate to shop
-    await page.goto("/shop");
+    await page.goto("/women");
     await expect(page.locator("text=Shop Collection")).toBeVisible();
 
     // Wait for products to load

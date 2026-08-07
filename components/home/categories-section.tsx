@@ -14,7 +14,7 @@ interface CategoriesSectionProps {
 }
 
 function getCategoryHref(category: FeaturedCategory) {
-  return category.href?.trim() || `/shop?category=${encodeURIComponent(category.id)}`;
+  return category.href?.trim() || `/women?category=${encodeURIComponent(category.id)}`;
 }
 
 export function CategoriesSection({

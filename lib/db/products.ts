@@ -800,7 +800,7 @@ function resolveFeaturedCategories(
     );
 
     // Keep the configured id when no database category matches. This lets a
-    // legacy card continue to link to /shop?category=<id>, while cards with a
+    // legacy card continue to filter /women by category id, while cards with a
     // custom href can point to a new catalog route.
     const resolvedId = dbMatch?.id || id || name;
     if (!resolvedId) return [];
@@ -873,7 +873,7 @@ async function _getFeaturedCategoriesSection(): Promise<FeaturedCategoriesSectio
     }
 
     // Existing installations store only an array at featured_categories. Keep
-    // it fully supported and retain its id -> /shop?category behavior.
+    // it fully supported and retain its id -> /women?category behavior.
     const legacyRow = await prisma.storeConfig.findUnique({
       where: { key: FEATURED_CATEGORIES_LEGACY_KEY },
     });

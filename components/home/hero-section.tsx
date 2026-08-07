@@ -246,7 +246,7 @@ export function HeroSection({ initialSlides }: HeroSectionProps) {
               className="border-white/70 bg-black/25 text-white hover:bg-white/15 hover:border-white"
               asChild
             >
-              <Link href="/shop">View All Products</Link>
+              <Link href="/women">View Collections</Link>
             </Button>
           </div>
         </div>

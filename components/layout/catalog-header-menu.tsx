@@ -29,6 +29,7 @@ type CatalogHeaderMenuProps = {
   mark: ReactNode;
   utilities: ReactNode;
   linksEnabled: boolean;
+  showNavigation: boolean;
 };
 
 const byOrder = <T extends { order: number }>(items: readonly T[]) =>
@@ -53,6 +54,7 @@ export function CatalogHeaderMenu({
   mark,
   utilities,
   linksEnabled,
+  showNavigation,
 }: CatalogHeaderMenuProps) {
   const pathname = usePathname();
   const departments = useMemo(() => byOrder(catalogMenu), []);
@@ -124,7 +126,7 @@ export function CatalogHeaderMenu({
 
   useEffect(() => {
     closeMegaPanel(false);
-  }, [pathname, closeMegaPanel]);
+  }, [pathname, showNavigation, closeMegaPanel]);
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -226,31 +228,35 @@ export function CatalogHeaderMenu({
       onPointerLeave={schedulePointerClose}
     >
       <div className={styles.primaryRow}>
-        <nav
-          className={styles.departmentNav}
-          aria-label="Catalog departments"
-        >
-          {departments.map((department, index) => (
-            <button
-              key={department.id}
-              ref={(node) => {
-                if (node) departmentRefs.current.set(department.id, node);
-                else departmentRefs.current.delete(department.id);
-              }}
-              type="button"
-              className={styles.departmentButton}
-              data-active={activeDepartment?.id === department.id}
-              aria-pressed={activeDepartment?.id === department.id}
-              aria-expanded={
-                activeDepartment?.id === department.id && isMegaPanelOpen
-              }
-              onClick={() => selectDepartment(department)}
-              onKeyDown={(event) => handleDepartmentKeyDown(event, index)}
-            >
-              {department.label}
-            </button>
-          ))}
-        </nav>
+        {showNavigation ? (
+          <nav
+            className={styles.departmentNav}
+            aria-label="Catalog departments"
+          >
+            {departments.map((department, index) => (
+              <button
+                key={department.id}
+                ref={(node) => {
+                  if (node) departmentRefs.current.set(department.id, node);
+                  else departmentRefs.current.delete(department.id);
+                }}
+                type="button"
+                className={styles.departmentButton}
+                data-active={activeDepartment?.id === department.id}
+                aria-pressed={activeDepartment?.id === department.id}
+                aria-expanded={
+                  activeDepartment?.id === department.id && isMegaPanelOpen
+                }
+                onClick={() => selectDepartment(department)}
+                onKeyDown={(event) => handleDepartmentKeyDown(event, index)}
+              >
+                {department.label}
+              </button>
+            ))}
+          </nav>
+        ) : (
+          <div aria-hidden="true" />
+        )}
 
         <div
           className={styles.mark}
@@ -266,7 +272,7 @@ export function CatalogHeaderMenu({
         </div>
       </div>
 
-      <div className={styles.secondaryRow}>
+      {showNavigation ? <div className={styles.secondaryRow}>
         {catalogStoreIndicator.visibility === "visible" ? (
           <div className={styles.storeIndicator}>
             <span className={styles.flag} aria-hidden="true">
@@ -311,9 +317,9 @@ export function CatalogHeaderMenu({
         </nav>
 
         <div className={styles.secondarySpacer} aria-hidden="true" />
-      </div>
+      </div> : null}
 
-      {isMegaPanelOpen && activeDepartment && activeSection ? (
+      {showNavigation && isMegaPanelOpen && activeDepartment && activeSection ? (
         <div
           id="catalog-mega-panel"
           className={styles.megaPanel}

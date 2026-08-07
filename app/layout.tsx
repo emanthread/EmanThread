@@ -42,7 +42,7 @@ const websiteJsonLd = {
   "image": `${siteUrl}/logo-circle.png`,
   "potentialAction": {
     "@type": "SearchAction",
-    "target": `${siteUrl}/shop?q={search_term_string}`,
+    "target": `${siteUrl}/women?q={search_term_string}`,
     "query-input": "required name=search_term_string"
   }
 };

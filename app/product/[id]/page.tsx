@@ -149,8 +149,8 @@ export default async function ProductPage({ params }: Props) {
       {
         "@type": "ListItem",
         "position": 2,
-        "name": "Shop",
-        "item": `${siteUrl}/shop`,
+        "name": "Collections",
+        "item": `${siteUrl}/women`,
       },
       {
         "@type": "ListItem",

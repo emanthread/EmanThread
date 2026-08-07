@@ -23,7 +23,7 @@ export function NewArrivalsSection({ products }: { products: Product[] }) {
             </p>
           </div>
           <Button variant="outline" asChild className="group shrink-0">
-            <Link href="/shop?sort=newest">
+            <Link href="/women/new-in">
               Shop New Arrivals
               <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>

@@ -2,10 +2,11 @@
 // Set MANUAL_PAYMENT_MODE = false to re-enable online payment gateways
 
 export const FEATURE_FLAGS = {
-  // Approved catalog rollout — keep each layer independently reversible.
-  // These stay disabled until catalog content, assignments, and routes are approved.
-  CATALOG_HEADER_V1: process.env.NEXT_PUBLIC_CATALOG_HEADER_V1 === "true",
-  CATALOG_PAGES_V1: process.env.NEXT_PUBLIC_CATALOG_PAGES_V1 === "true",
+  // The customer catalog rollout is approved and is now the default storefront.
+  // An explicit `false` remains a deployment-level kill switch, while a missing
+  // environment variable can no longer turn `/shop` into a redirect to a 404.
+  CATALOG_HEADER_V1: process.env.NEXT_PUBLIC_CATALOG_HEADER_V1 !== "false",
+  CATALOG_PAGES_V1: process.env.NEXT_PUBLIC_CATALOG_PAGES_V1 !== "false",
   CATALOG_ADMIN_ASSIGNMENTS_V1:
     process.env.NEXT_PUBLIC_CATALOG_ADMIN_ASSIGNMENTS_V1 === "true",
 

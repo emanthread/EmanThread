@@ -101,7 +101,7 @@ export default function ProductPageClient({
             </Link>
             <ChevronRight className="h-4 w-4" />
             <Link
-              href="/shop"
+              href="/women"
               className="hover:text-foreground transition-colors"
             >
               Shop

@@ -17,11 +17,10 @@ interface SocialLinks {
 
 const footerLinks = {
   shop: [
-    { label: "All Products", href: "/shop" },
-    { label: "Cotton", href: "/shop?category=cotton" },
-    { label: "Wash & Wear", href: "/shop?category=wash-wear" },
-    { label: "Boski", href: "/shop?category=boski" },
-    { label: "Wool Blend", href: "/shop?category=wool-blend" },
+    { label: "Women", href: "/women" },
+    { label: "Men", href: "/men" },
+    { label: "Fragrance & Beauty", href: "/fragrance-beauty" },
+    { label: "Teens", href: "/teens" },
     { label: "Stitching", href: "/account/measurements" },
   ],
   support: [

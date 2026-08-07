@@ -106,7 +106,7 @@ export default function MyReviewsPage() {
                 <p className="text-lg font-medium">No reviews yet</p>
                 <p className="text-sm mt-1">Your product reviews will appear here.</p>
                 <Button asChild className="mt-4" variant="outline">
-                  <Link href="/shop">Browse Products</Link>
+                  <Link href="/women">Browse Products</Link>
                 </Button>
               </CardContent>
             </Card>

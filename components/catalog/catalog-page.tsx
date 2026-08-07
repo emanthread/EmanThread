@@ -2,20 +2,15 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  ChevronLeft,
-  ChevronRight,
-  PackageOpen,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { CartDrawer } from "@/components/cart/cart-drawer";
-import { CatalogFilters, CatalogSort } from "@/components/catalog/catalog-filters";
+import { CatalogFilters } from "@/components/catalog/catalog-filters";
+import { CatalogProductResults } from "@/components/catalog/catalog-product-results";
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
-import { ProductCard } from "@/components/product/product-card";
 import { Button } from "@/components/ui/button";
 import {
   getCatalogPageData,
-  getPublishedCatalogSidebarNavigation,
   hasCatalogQueryParams,
   parseCatalogSearchParams,
   resolveActiveCatalogNode,
@@ -367,8 +362,6 @@ export async function CatalogPage({
 
   if (!data) notFound();
 
-  const sidebarNavigation = await getPublishedCatalogSidebarNavigation();
-
   const breadcrumbData = breadcrumbJsonLd(data);
   const bannerImage = supportedImageSource(data.node.bannerImage)
     ? data.node.bannerImage
@@ -487,66 +480,18 @@ export async function CatalogPage({
 
           <section aria-labelledby="catalog-products-heading" className="pt-8">
             <div className="flex flex-col gap-5 lg:flex-row lg:gap-8">
-              <CatalogFilters data={data} navigationOptions={sidebarNavigation} />
+              <CatalogFilters data={data} />
 
               <div className="min-w-0 flex-1">
-            <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <h2
-                  id="catalog-products-heading"
-                  className="font-serif text-2xl font-semibold"
-                >
-                  Products
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {data.total} {data.total === 1 ? "product" : "products"}
-                </p>
-              </div>
-              <div className="w-full sm:w-52">
-                <CatalogSort data={data} />
-              </div>
-              {process.env.NODE_ENV === "development" && !data.node.indexable && (
-                <p className="text-xs text-muted-foreground">
-                  Preview collection — not indexed
-                </p>
-              )}
-            </div>
-
-            {data.products.length ? (
-              <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 xl:grid-cols-4">
-                {data.products.map((product, index) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    priority={index < 4}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-border px-6 py-16 text-center">
-                <PackageOpen
-                  aria-hidden="true"
-                  className="mx-auto mb-4 size-10 text-muted-foreground"
+                <CatalogProductResults
+                  path={data.node.path}
+                  products={data.products}
+                  query={data.query}
+                  total={data.total}
+                  hasFilters={hasFilters}
+                  indexable={data.node.indexable}
                 />
-                <h3 className="font-serif text-xl font-semibold">
-                  {hasFilters
-                    ? "No products match these filters"
-                    : "This collection is being prepared"}
-                </h3>
-                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-                  {hasFilters
-                    ? "Try clearing one or more filters to see other assigned products."
-                    : "Products will appear here after they are assigned to this collection in the catalog."}
-                </p>
-                {hasFilters && (
-                  <Button variant="outline" asChild className="mt-5">
-                    <Link href={data.node.path}>Clear filters</Link>
-                  </Button>
-                )}
-              </div>
-            )}
-
-            <Pagination data={data} />
+                <Pagination data={data} />
               </div>
             </div>
           </section>

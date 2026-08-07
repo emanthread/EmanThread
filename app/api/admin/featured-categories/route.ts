@@ -59,7 +59,7 @@ const featuredCategorySchema = z.object({
   href: optionalText()
     .refine(
       (value) => !value || (value.startsWith("/") && !value.startsWith("//")),
-      "Destination must be a site-relative path, such as /women or /shop?category=readywear"
+      "Destination must be a site-relative path, such as /women or /women/ready-to-wear"
     ),
 });
 
@@ -186,7 +186,7 @@ export const PUT = withLoggedAdminHandler(async (req: Request) => {
     revalidateTag("featured-categories", "max");
     revalidateTag("categories", "max");
     revalidatePath("/", "page");
-    revalidatePath("/shop", "page");
+    revalidatePath("/women", "page");
 
     return NextResponse.json({ success: true, ...parsedSection, source: "v2", department });
   } catch (error) {

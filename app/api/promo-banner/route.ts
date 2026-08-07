@@ -15,7 +15,7 @@ const DEFAULT_PROMO_BANNER = {
     { value: "Free", label: "Shipping Over PKR 5,000" },
   ],
   cta: "Shop the Sale",
-  link: "/shop?sale=true",
+  link: "/women/sale",
 };
 
 export async function GET() {

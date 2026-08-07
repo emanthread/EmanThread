@@ -135,7 +135,7 @@ export default function AccountWishlistPage() {
                   Looks like you haven't added any items to your wishlist yet.
                 </p>
                 <Button asChild>
-                  <Link href="/shop">Continue Shopping</Link>
+                  <Link href="/women">Continue Shopping</Link>
                 </Button>
               </CardContent>
             </Card>

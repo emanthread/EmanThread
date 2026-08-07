@@ -378,7 +378,7 @@ function SlideEditor({
             <Input
               value={slide.link ?? ""}
               onChange={(e) => update("link", e.target.value)}
-              placeholder="/shop"
+              placeholder="/women"
             />
           </div>
         </div>
@@ -500,7 +500,7 @@ function PromoBannerEditor({
             <Input
               value={promo.link}
               onChange={(e) => updateField("link", e.target.value)}
-              placeholder="/shop?sale=true"
+              placeholder="/women/sale"
             />
           </div>
         </div>
@@ -520,7 +520,7 @@ const DEFAULT_PROMO: PromoBanner = {
     { value: "Free", label: "Shipping Over PKR 5,000" },
   ],
   cta: "Shop the Sale",
-  link: "/shop?sale=true",
+  link: "/women/sale",
 };
 
 export default function HeroSlidesPage() {
@@ -582,7 +582,7 @@ export default function HeroSlidesPage() {
         subtitle: "Subtitle",
         description: "Description",
         cta: "Shop Now",
-        link: "/shop",
+        link: "/women",
       },
     ]);
   };

@@ -20,7 +20,7 @@ import { toast } from "@/hooks/use-toast";
 import { catalogMenu } from "@/lib/navigation/catalog-menu";
 
 interface FeaturedCategory {
-  id: string; // Used for the legacy /shop?category fallback
+  id: string; // Used for the /women?category fallback
   name: string;
   description: string;
   image: string;
@@ -219,7 +219,7 @@ function CategoryEditor({
               <SelectValue placeholder="Select a destination..." />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="default">Default (/shop?category=...)</SelectItem>
+              <SelectItem value="default">Default (/women?category=...)</SelectItem>
               {availablePaths.map((path) => (
                 <SelectItem key={path.href} value={path.href}>
                   {path.label}
@@ -234,13 +234,13 @@ function CategoryEditor({
               <Input
                 value={category.href || ""}
                 onChange={(e) => update("href", e.target.value)}
-                placeholder="e.g. /promo-page or /shop?category=readywear"
+                placeholder="e.g. /women/ready-to-wear"
               />
             </div>
           )}
 
           <p className="text-xs text-muted-foreground">
-            Leave as Default to use <code>/shop?category=</code> with the Filter ID above.
+            Leave as Default to use <code>/women?category=</code> with the Filter ID above.
           </p>
         </div>
 

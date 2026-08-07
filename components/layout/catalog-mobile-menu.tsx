@@ -43,6 +43,7 @@ type MobileUtilityLink = {
 type CatalogMobileMenuProps = {
   isAuthenticated: boolean;
   linksEnabled: boolean;
+  showNavigation: boolean;
   user: MobileMenuUser | null;
   utilityLinks: readonly MobileUtilityLink[];
   wishlistCount: number;
@@ -66,6 +67,7 @@ const isLeafEnabled = (item: MenuLeaf, linksEnabled: boolean) =>
 export function CatalogMobileMenu({
   isAuthenticated,
   linksEnabled,
+  showNavigation,
   user,
   utilityLinks,
   wishlistCount,
@@ -217,7 +219,7 @@ export function CatalogMobileMenu({
               </button>
             </div>
 
-            <nav className={styles.drawerNav} aria-label="Mobile catalog">
+            {showNavigation ? <nav className={styles.drawerNav} aria-label="Mobile catalog">
               {departments.map((department) => {
                 const departmentOpen =
                   openDepartmentId === department.id;
@@ -375,7 +377,7 @@ export function CatalogMobileMenu({
                   </div>
                 );
               })}
-            </nav>
+            </nav> : null}
 
             <div className={styles.drawerUtilities}>
               {utilityLinks.map((link) => (

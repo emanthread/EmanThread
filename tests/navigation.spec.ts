@@ -19,7 +19,15 @@ const expectedHierarchy = [
   {
     label: "WOMEN",
     sections: [
-      { label: "NEW IN", groups: [] },
+      {
+        label: "NEW IN",
+        groups: [
+          {
+            label: "SHOP BY CATEGORY",
+            items: ["UNSTITCHED COLLECTION", "READY TO WEAR", "KURTA COLLECTION"],
+          },
+        ],
+      },
       {
         label: "READY TO WEAR",
         groups: [
@@ -117,7 +125,7 @@ const expectedHierarchy = [
         label: "NEW IN",
         groups: [
           {
-            label: "NEW IN",
+            label: "NEW ARRIVALS",
             items: [
               "NEW ARRIVALS",
               "ENIGMA NOIR",
@@ -127,6 +135,11 @@ const expectedHierarchy = [
               "JANAN PEARL",
               "JANAN ONYX",
               "WHISPER",
+            ],
+          },
+          {
+            label: "COLLECTIONS",
+            items: [
               "TRISCENT POUR HOMME - GIFTSET",
               "WASIM AKRAM 502 HIM & HER - GIFT SET",
               "LUMIERE",
@@ -135,6 +148,11 @@ const expectedHierarchy = [
               "JANAN FRAGRANCES",
               "EXTRAIT SERIES - CAST & CREW",
               "THE VALOR COLLECTION",
+            ],
+          },
+          {
+            label: "MORE",
+            items: [
               "WASIM AKRAM SERIES",
               "AROMA OIL & DIFFUSERS",
               "AIR FRESHENERS",
@@ -205,7 +223,7 @@ const expectedHierarchy = [
         groups: [
           {
             label: "SHOP BY CATEGORY",
-            items: ["TEEN GIRLS", "TEEN BOYS", "KID GIRLS", "KID BOYS", "INFANT GIRLS", "INFANT BOYS"],
+            items: ["TEEN GIRLS", "TEEN BOYS"],
           },
         ],
       },
@@ -281,7 +299,7 @@ test.describe("catalog navigation configuration", () => {
     expect(configuredHierarchy).toEqual(expectedHierarchy);
     expect(catalogMenu).toHaveLength(4);
     expect(catalogMenu.flatMap((department) => department.sections)).toHaveLength(18);
-    expect(allLeaves()).toHaveLength(120);
+    expect(allLeaves()).toHaveLength(119);
 
     for (const department of catalogMenu) {
       expectSequentialOrder(department.sections);
@@ -309,7 +327,9 @@ test.describe("catalog navigation configuration", () => {
       group.items.map((item) => item.label),
     );
 
-    expect(labels).toEqual(expectedHierarchy[2].sections[0].groups[0].items);
+    expect(labels).toEqual(
+      expectedHierarchy[2].sections[0].groups.flatMap((group) => group.items)
+    );
     expect(labels).toHaveLength(23);
   });
 
@@ -377,7 +397,7 @@ test.describe("catalog navigation configuration", () => {
     }
   });
 
-  test("does not publish unapproved Women New In or Sale child destinations", () => {
+  test("publishes approved Women New In links while keeping Sale sections leafless", () => {
     const women = catalogMenu.find((department) => department.id === "women");
     const womenNewIn = women?.sections.find(
       (section) => section.id === "women.new-in",
@@ -386,9 +406,11 @@ test.describe("catalog navigation configuration", () => {
     expect(womenNewIn).toBeDefined();
     expect(
       womenNewIn?.groups.flatMap((group) =>
-        group.items.filter((item) => item.visibility === "visible"),
+        group.items
+          .filter((item) => item.visibility === "visible")
+          .map((item) => item.label),
       ),
-    ).toEqual([]);
+    ).toEqual(["UNSTITCHED COLLECTION", "READY TO WEAR", "KURTA COLLECTION"]);
 
     const saleSections = catalogMenu.flatMap((department) =>
       department.sections.filter((section) => section.label === "SALE"),
@@ -438,20 +460,12 @@ test.describe("catalog navigation configuration", () => {
     });
     expect(catalogUtilityLinks).toEqual([
       {
-        id: "shop-all",
-        label: "Shop All",
-        href: "/shop",
-        status: "active",
-        visibility: "visible",
-        order: 1,
-      },
-      {
         id: "stitching",
         label: "Stitching",
         href: "/account/measurements",
         status: "active",
         visibility: "visible",
-        order: 2,
+        order: 1,
       },
     ]);
   });

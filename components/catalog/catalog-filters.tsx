@@ -1,23 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import type { ChangeEvent } from "react";
-import { Search, SlidersHorizontal } from "lucide-react";
-import { productKindLabel } from "@/lib/commerce";
-import type {
-  CatalogPageData,
-  CatalogSidebarNavigationOption,
-} from "@/lib/db/catalog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useRef, useState, type ChangeEvent } from "react";
+import { ChevronDown, ChevronUp, SlidersHorizontal } from "lucide-react";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  CATALOG_PRICE_MAX,
+  CATALOG_PRICE_MIN,
+  CATALOG_PRICE_STEP,
+  CATALOG_SEASON_OPTIONS,
+  supportsSeasonFilter,
+} from "@/lib/catalog-filter-options";
+import { productKindLabel } from "@/lib/commerce";
+import type { CatalogPageData } from "@/lib/db/catalog";
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import {
   Sheet,
   SheetContent,
@@ -29,7 +25,6 @@ import {
 
 type CatalogFiltersProps = {
   data: CatalogPageData;
-  navigationOptions: CatalogSidebarNavigationOption[];
 };
 
 type CatalogDataProps = Pick<CatalogFiltersProps, "data">;
@@ -61,36 +56,102 @@ function currentValue(
     : values;
 }
 
-/** Mirrors the Department & Collection control on the established /shop sidebar. */
-function CatalogSidebarNavigation({
-  data,
-  navigationOptions,
-}: CatalogFiltersProps) {
-  const router = useRouter();
+function formatCatalogPrice(value: number): string {
+  return `PKR ${value.toLocaleString("en-PK")}`;
+}
 
-  if (!navigationOptions.length) return null;
+function CatalogPriceRange({
+  query,
+}: {
+  query: CatalogPageData["query"];
+}) {
+  const initialMinimum = Math.min(
+    CATALOG_PRICE_MAX,
+    Math.max(CATALOG_PRICE_MIN, query.minPrice ?? CATALOG_PRICE_MIN)
+  );
+  const initialMaximum = Math.min(
+    CATALOG_PRICE_MAX,
+    Math.max(initialMinimum, query.maxPrice ?? CATALOG_PRICE_MAX)
+  );
+  const [range, setRange] = useState<[number, number]>([
+    initialMinimum,
+    initialMaximum,
+  ]);
 
   return (
-    <div>
-      <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider">
-        Department &amp; Collection
-      </h3>
-      <Select value={data.node.path} onValueChange={(path) => router.push(path)}>
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="All departments" />
-        </SelectTrigger>
-        <SelectContent>
-          {navigationOptions.map((option) => (
-            <SelectItem key={option.path} value={option.path}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <p className="mt-2 text-xs text-muted-foreground">
-        Select a new department or subcategory without leaving the catalog.
-      </p>
-    </div>
+    <fieldset>
+      <legend className="mb-4 text-sm font-semibold uppercase tracking-wider">
+        Price range
+      </legend>
+      <Slider
+        value={range}
+        onValueChange={(value) => setRange(value as [number, number])}
+        min={CATALOG_PRICE_MIN}
+        max={CATALOG_PRICE_MAX}
+        step={CATALOG_PRICE_STEP}
+        minStepsBetweenThumbs={1}
+        thumbLabels={["Minimum price", "Maximum price"]}
+        formatValue={formatCatalogPrice}
+      />
+      {range[0] > CATALOG_PRICE_MIN ? (
+        <input type="hidden" name="minPrice" value={range[0]} />
+      ) : null}
+      {range[1] < CATALOG_PRICE_MAX ? (
+        <input type="hidden" name="maxPrice" value={range[1]} />
+      ) : null}
+      <div className="mt-3 flex justify-between text-sm text-muted-foreground">
+        <span>{formatCatalogPrice(range[0])}</span>
+        <span>{formatCatalogPrice(range[1])}</span>
+      </div>
+    </fieldset>
+  );
+}
+
+function CatalogSeasonChoices({
+  idPrefix,
+  selectedValue,
+}: {
+  idPrefix: string;
+  selectedValue: string | undefined;
+}) {
+  const [selectedSeason, setSelectedSeason] = useState(selectedValue || "");
+
+  return (
+    <fieldset>
+      <legend className="mb-4 text-sm font-semibold uppercase tracking-wider">
+        Season
+      </legend>
+      <div className="space-y-3">
+        {CATALOG_SEASON_OPTIONS.map((season) => {
+          const id = `${idPrefix}-season-${season
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")}`;
+
+          return (
+            <label
+              key={season}
+              htmlFor={id}
+              className="flex min-h-7 cursor-pointer items-center gap-3 text-sm"
+            >
+              <input
+                id={id}
+                type="checkbox"
+                name="season"
+                value={season}
+                checked={selectedSeason === season}
+                onChange={(event) => {
+                  const form = event.currentTarget.form;
+                  setSelectedSeason(event.currentTarget.checked ? season : "");
+                  window.setTimeout(() => form?.requestSubmit(), 0);
+                }}
+                className="size-5 rounded border-input accent-primary"
+              />
+              <span>{season}</span>
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
   );
 }
 
@@ -101,7 +162,7 @@ function CatalogFilterFields({
   const { facets, node, query } = data;
   const department = node.path.split("/")[1];
   const showFabric = department !== "fragrance-beauty" && facets.fabrics.length > 1;
-  const showSeason = department !== "fragrance-beauty" && facets.seasons.length > 0;
+  const showSeason = supportsSeasonFilter(node.path, facets.productKinds);
   const showKinds = facets.productKinds.length > 1;
   const optionValues = facets.optionGroups.flatMap((group) => group.values);
   const optionLabel =
@@ -117,33 +178,12 @@ function CatalogFilterFields({
       {query.sort !== "featured" && (
         <input type="hidden" name="sort" value={query.sort} />
       )}
+      {query.search ? (
+        <input type="hidden" name="q" value={query.search} />
+      ) : null}
       {query.categoryIds?.length ? (
         <input type="hidden" name="category" value={query.categoryIds.join(",")} />
       ) : null}
-
-      <div className="space-y-2">
-        <label
-          htmlFor={`${idPrefix}-search`}
-          className="text-sm font-semibold uppercase tracking-wider"
-        >
-          Search
-        </label>
-        <div className="relative">
-          <Search
-            aria-hidden="true"
-            className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            id={`${idPrefix}-search`}
-            type="search"
-            name="q"
-            defaultValue={query.search}
-            maxLength={100}
-            placeholder="Name or SKU"
-            className="pl-9"
-          />
-        </div>
-      </div>
 
       {showKinds ? (
         <div className="space-y-2">
@@ -215,6 +255,13 @@ function CatalogFilterFields({
         </div>
       ) : null}
 
+      <CatalogPriceRange
+        key={`${query.minPrice ?? CATALOG_PRICE_MIN}-${
+          query.maxPrice ?? CATALOG_PRICE_MAX
+        }`}
+        query={query}
+      />
+
       {facets.colors.length > 1 ? (
         <div className="space-y-2">
           <label htmlFor={`${idPrefix}-color`} className="text-sm font-semibold uppercase tracking-wider">
@@ -238,52 +285,12 @@ function CatalogFilterFields({
       ) : null}
 
       {showSeason ? (
-        <div className="space-y-2">
-          <label htmlFor={`${idPrefix}-season`} className="text-sm font-semibold uppercase tracking-wider">
-            Season
-          </label>
-          <select
-            id={`${idPrefix}-season`}
-            name="season"
-            defaultValue={query.season || ""}
-            onChange={submitSelection}
-            className={selectClassName}
-          >
-            <option value="">All seasons</option>
-            {currentValue(facets.seasons, query.season).map((season) => (
-              <option key={season} value={season}>
-                {season}
-              </option>
-            ))}
-          </select>
-        </div>
+        <CatalogSeasonChoices
+          key={query.season || "all-seasons"}
+          idPrefix={idPrefix}
+          selectedValue={query.season}
+        />
       ) : null}
-
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-semibold uppercase tracking-wider">
-          Price range
-        </legend>
-        <div className="grid grid-cols-2 gap-2">
-          <Input
-            aria-label="Minimum price"
-            type="number"
-            name="minPrice"
-            min={0}
-            step="1"
-            defaultValue={query.minPrice}
-            placeholder="Min"
-          />
-          <Input
-            aria-label="Maximum price"
-            type="number"
-            name="maxPrice"
-            min={0}
-            step="1"
-            defaultValue={query.maxPrice}
-            placeholder="Max"
-          />
-        </div>
-      </fieldset>
 
       <label className="flex min-h-9 cursor-pointer items-center gap-2 text-sm">
         <input
@@ -326,35 +333,67 @@ function CatalogFilterForm({
 }
 
 /** Desktop sidebar plus an equivalent left-hand drawer on smaller screens. */
-export function CatalogFilters({ data, navigationOptions }: CatalogFiltersProps) {
+export function CatalogFilters({ data }: CatalogFiltersProps) {
   const count = activeFilterCount(data.query);
+  const desktopScrollRef = useRef<HTMLDivElement>(null);
+  const scrollFilters = (direction: -1 | 1) => {
+    desktopScrollRef.current?.scrollBy({
+      top: direction * 320,
+      behavior: "smooth",
+    });
+  };
 
   return (
     <>
       <aside className="hidden w-64 shrink-0 lg:block" aria-label="Catalog filters">
-        <div className="sticky top-28 space-y-8">
-          {count ? (
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="font-serif text-xl font-semibold">Filters</h2>
-              <Link
-                href={data.node.path}
-                className="text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
+        <div className="sticky top-[calc(var(--catalog-header-height,7rem)+1rem)] flex max-h-[calc(100dvh-var(--catalog-header-height,7rem)-2rem)] flex-col overflow-hidden rounded-xl border border-border bg-card/40">
+          <div className="flex items-center justify-between border-b border-border px-3 py-2">
+            <span className="text-xs font-medium text-muted-foreground">
+              Scroll filters
+            </span>
+            <div className="flex items-center gap-1" role="group" aria-label="Scroll filter panel">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                aria-label="Scroll filters up"
+                onClick={() => scrollFilters(-1)}
               >
-                Clear all
-              </Link>
+                <ChevronUp aria-hidden="true" className="size-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                aria-label="Scroll filters down"
+                onClick={() => scrollFilters(1)}
+              >
+                <ChevronDown aria-hidden="true" className="size-4" />
+              </Button>
             </div>
-          ) : null}
-
-          <CatalogSidebarNavigation
-            data={data}
-            navigationOptions={navigationOptions}
-          />
-
-          <div className="border-t border-border pt-8">
-            {!count ? (
-              <h2 className="mb-5 font-serif text-xl font-semibold">Filters</h2>
-            ) : null}
-            <CatalogFilterForm data={data} idPrefix="catalog-desktop" />
+          </div>
+          <div
+            ref={desktopScrollRef}
+            tabIndex={0}
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 [scrollbar-width:thin]"
+            aria-label="Scrollable product filters"
+          >
+            <div className="space-y-7">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="font-serif text-xl font-semibold">Filters</h2>
+                {count ? (
+                  <Link
+                    href={data.node.path}
+                    className="text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                  >
+                    Clear all
+                  </Link>
+                ) : null}
+              </div>
+              <CatalogFilterForm data={data} idPrefix="catalog-desktop" />
+            </div>
           </div>
         </div>
       </aside>
@@ -377,61 +416,12 @@ export function CatalogFilters({ data, navigationOptions }: CatalogFiltersProps)
                 Refine {data.node.label} without leaving this collection.
               </SheetDescription>
             </SheetHeader>
-            <div className="space-y-6 p-5">
-              <CatalogSidebarNavigation
-                data={data}
-                navigationOptions={navigationOptions}
-              />
+            <div className="p-5">
               <CatalogFilterForm data={data} idPrefix="catalog-mobile" compact />
             </div>
           </SheetContent>
         </Sheet>
       </div>
     </>
-  );
-}
-
-function SortPreservedFields({ query }: { query: CatalogPageData["query"] }) {
-  return (
-    <>
-      {query.search ? <input type="hidden" name="q" value={query.search} /> : null}
-      {query.fabricType ? <input type="hidden" name="fabric" value={query.fabricType} /> : null}
-      {query.color ? <input type="hidden" name="color" value={query.color} /> : null}
-      {query.season ? <input type="hidden" name="season" value={query.season} /> : null}
-      {query.productKind ? <input type="hidden" name="kind" value={query.productKind} /> : null}
-      {query.option ? <input type="hidden" name="option" value={query.option} /> : null}
-      {query.minPrice !== undefined ? <input type="hidden" name="minPrice" value={query.minPrice} /> : null}
-      {query.maxPrice !== undefined ? <input type="hidden" name="maxPrice" value={query.maxPrice} /> : null}
-      {query.inStock ? <input type="hidden" name="inStock" value="true" /> : null}
-      {query.categoryIds?.length ? (
-        <input type="hidden" name="category" value={query.categoryIds.join(",")} />
-      ) : null}
-    </>
-  );
-}
-
-/** Sorting is kept beside the product grid; it never replaces the grid. */
-export function CatalogSort({ data }: CatalogDataProps) {
-  return (
-    <form action={data.node.path} method="get">
-      <SortPreservedFields query={data.query} />
-      <label className="sr-only" htmlFor="catalog-sort">
-        Sort products
-      </label>
-      <select
-        id="catalog-sort"
-        name="sort"
-        defaultValue={data.query.sort}
-        onChange={(event) => event.currentTarget.form?.requestSubmit()}
-        className={selectClassName}
-      >
-        <option value="featured">Featured</option>
-        <option value="newest">Newest</option>
-        <option value="trending">Trending</option>
-        <option value="price-asc">Price: low to high</option>
-        <option value="price-desc">Price: high to low</option>
-        <option value="name-asc">Name: A to Z</option>
-      </select>
-    </form>
   );
 }

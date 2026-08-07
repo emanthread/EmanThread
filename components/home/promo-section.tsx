@@ -32,7 +32,7 @@ const DEFAULT_PROMO: PromoData = {
     { value: "Free", label: "Shipping Over PKR 5,000" },
   ],
   cta: "Shop the Sale",
-  link: "/shop?sale=true",
+  link: "/women/sale",
 };
 
 export function PromoSection() {

@@ -35,6 +35,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
 import { catalogUtilityLinks } from "@/lib/navigation/catalog-menu";
+import { shouldShowCatalogNavigation } from "@/lib/navigation/storefront-routes";
 import { CatalogHeaderMenu } from "./catalog-header-menu";
 import { CatalogMobileMenu } from "./catalog-mobile-menu";
 import { StitchingNoticeBanner } from "./stitching-notice-banner";
@@ -42,19 +43,18 @@ import catalogStyles from "./catalog-header-menu.module.css";
 
 const navLinks = [
   { href: "/", label: "Home" },
-  { href: "/shop", label: "Shop" },
-  { href: "/shop?category=cotton", label: "Cotton" },
-  { href: "/shop?category=wash-wear", label: "Wash & Wear" },
-  { href: "/shop?category=boski", label: "Boski" },
+  { href: "/women", label: "Women" },
+  { href: "/men", label: "Men" },
+  { href: "/fragrance-beauty", label: "Fragrance & Beauty" },
+  { href: "/teens", label: "Teens" },
   { href: "/account/measurements", label: "Stitching" },
 ];
 
 const categories = [
-  { href: "/shop?category=cotton", label: "Cotton", description: "Breathable comfort" },
-  { href: "/shop?category=wash-wear", label: "Wash & Wear", description: "Easy care elegance" },
-  { href: "/shop?category=boski", label: "Boski", description: "Silk-cotton luxury" },
-  { href: "/shop?category=wool-blend", label: "Wool Blend", description: "Winter warmth" },
-  { href: "/shop?category=khaddar", label: "Khaddar", description: "Traditional excellence" },
+  { href: "/women", label: "Women", description: "Ready to wear and unstitched" },
+  { href: "/men", label: "Men", description: "Tailoring and wardrobe essentials" },
+  { href: "/fragrance-beauty", label: "Fragrance & Beauty", description: "Scents, makeup, and care" },
+  { href: "/teens", label: "Teens", description: "Styles for younger wardrobes" },
 ];
 
 function LegacyHeader() {
@@ -168,8 +168,8 @@ function LegacyHeader() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-[240px] p-1.5 rounded-xl border-border/50 shadow-xl">
                   <DropdownMenuItem asChild className="px-3 py-2.5 mb-1 cursor-pointer rounded-lg group">
-                    <Link href="/shop" className="font-bold text-[14px] flex items-center justify-between w-full">
-                      <span>All Products</span>
+                    <Link href="/women" className="font-bold text-[14px] flex items-center justify-between w-full">
+                      <span>Women</span>
                       <ShoppingBag className="h-4 w-4 text-muted-foreground/50 group-hover:text-primary transition-colors" />
                     </Link>
                   </DropdownMenuItem>
@@ -194,7 +194,7 @@ function LegacyHeader() {
               </DropdownMenu>
 
               <Link
-                href="/shop?badge=new"
+                href="/women/new-in"
                 className={cn(
                   "text-sm font-medium tracking-wide uppercase transition-colors",
                   isScrolled ? "hover:text-accent" : "text-white hover:text-accent"
@@ -502,6 +502,7 @@ function CatalogHeaderV1() {
   const totalItems = mounted ? getTotalItems() : 0;
   const wishlistReady = mounted && isWishlistIdentityResolved;
   const wishlistItems = wishlistReady ? getWishlistTotal() : 0;
+  const showCatalogNavigation = shouldShowCatalogNavigation(pathname);
   const utilityLinks = catalogUtilityLinks
     .filter(
       (link) =>
@@ -741,6 +742,7 @@ function CatalogHeaderV1() {
             }
             utilities={desktopUtilities}
             linksEnabled={FEATURE_FLAGS.CATALOG_PAGES_V1}
+            showNavigation={showCatalogNavigation}
           />
 
           <div className={cn(catalogStyles.mobileBar, isHeroMode && catalogStyles.heroMode)}>
@@ -748,6 +750,7 @@ function CatalogHeaderV1() {
               <CatalogMobileMenu
                 isAuthenticated={isAuthenticated}
                 linksEnabled={FEATURE_FLAGS.CATALOG_PAGES_V1}
+                showNavigation={showCatalogNavigation}
                 user={user}
                 utilityLinks={utilityLinks}
                 wishlistCount={wishlistItems}

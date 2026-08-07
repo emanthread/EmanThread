@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import { Search, X, TrendingUp, Clock, ArrowRight } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice, type Product } from "@/lib/data";
 import { cn, getProductImage } from "@/lib/utils";
+import { catalogSearchHref } from "@/lib/navigation/storefront-routes";
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ const recentSearches = ["Black Cotton", "Premium Fabric", "Khaddar"];
 
 export function SearchModal({ isOpen, onClose }: SearchModalProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Product[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
@@ -96,7 +98,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
   };
 
   const handleViewAll = () => {
-    router.push(`/shop?search=${encodeURIComponent(query)}`);
+    router.push(catalogSearchHref(pathname, query));
     onClose();
     setQuery("");
   };

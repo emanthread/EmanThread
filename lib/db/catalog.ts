@@ -61,7 +61,6 @@ export interface CatalogFilterOptionGroup {
 export interface CatalogFilterFacets {
   fabrics: string[];
   colors: string[];
-  seasons: string[];
   productKinds: ProductKind[];
   optionGroups: CatalogFilterOptionGroup[];
 }
@@ -673,17 +672,6 @@ function productWhereForCatalog(
   return { AND: conditions };
 }
 
-const CATALOG_SEASONS = [
-  "Summer",
-  "Winter",
-  "Eid",
-  "Festive",
-  "All Season",
-  "Casual",
-  "Formal",
-  "Wedding",
-] as const;
-
 function normalizedFacetValues(values: Iterable<string | null | undefined>) {
   const unique = new Map<string, string>();
 
@@ -728,7 +716,6 @@ async function getCatalogFilterFacets(
     select: {
       fabricType: true,
       color: true,
-      tags: true,
       commerceProfile: {
         select: {
           productKind: true,
@@ -769,13 +756,6 @@ async function getCatalogFilterFacets(
   return {
     fabrics: normalizedFacetValues(products.map((product) => product.fabricType)),
     colors: normalizedFacetValues(products.map((product) => product.color)),
-    seasons: CATALOG_SEASONS.filter((season) =>
-      products.some((product) =>
-        visibleProductTags(product.tags).some(
-          (tag) => tag.toLocaleLowerCase("en-US") === season.toLocaleLowerCase("en-US")
-        )
-      )
-    ),
     productKinds: PRODUCT_KIND_VALUES.filter((kind) => productKinds.has(kind)),
     optionGroups: [...optionGroups.entries()]
       .map(([label, values]) => ({

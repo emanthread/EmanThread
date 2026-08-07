@@ -666,7 +666,7 @@ export default function CheckoutPage() {
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 text-center">
             <h1 className="text-2xl font-semibold mb-4">Your cart is empty</h1>
             <p className="text-muted-foreground mb-8">Add some products before checking out.</p>
-            <Button asChild><Link href="/shop">Continue Shopping</Link></Button>
+            <Button asChild><Link href="/women">Continue Shopping</Link></Button>
           </div>
         </main>
         <Footer />
@@ -705,7 +705,7 @@ export default function CheckoutPage() {
               </div>
             )}
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button asChild><Link href="/shop">Continue Shopping</Link></Button>
+              <Button asChild><Link href="/women">Continue Shopping</Link></Button>
               <Button variant="outline" asChild><Link href="/">Back to Home</Link></Button>
             </div>
           </div>

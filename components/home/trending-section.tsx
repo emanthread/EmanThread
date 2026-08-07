@@ -83,7 +83,7 @@ export function TrendingSection({ products }: { products: Product[] }) {
               asChild
               className="group bg-background text-foreground border-border shadow-sm hover:bg-primary hover:text-primary-foreground hover:border-primary"
             >
-              <Link href="/shop?sort=trending">
+              <Link href="/women?sort=trending">
                 View All
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Link>

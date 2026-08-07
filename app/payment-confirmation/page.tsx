@@ -260,7 +260,7 @@ function PaymentConfirmationContent() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button asChild>
-              <Link href="/shop">Continue Shopping</Link>
+              <Link href="/women">Continue Shopping</Link>
             </Button>
             <Button variant="outline" asChild>
               <Link href="/">Back to Home</Link>

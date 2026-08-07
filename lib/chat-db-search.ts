@@ -277,6 +277,7 @@ export async function getStoreConfigContext(): Promise<string> {
 // ── Product search ───────────────────────────────────────────────
 // ── Shared product selection fields (includes images) ─────────────
 const PRODUCT_SELECT = {
+  id: true,
   name: true,
   slug: true,
   sku: true,
@@ -294,6 +295,7 @@ const PRODUCT_SELECT = {
 } as const
 
 function rawProductToCard(p: {
+  id: string
   name: string
   slug: string | null
   sku: string
@@ -309,7 +311,7 @@ function rawProductToCard(p: {
 }): ProductCard {
   const productUrl = p.slug
     ? `${siteUrl}/product/${p.slug}`
-    : `${siteUrl}/shop`
+    : `${siteUrl}/product/${p.id}`
   const imagesArr: string[] = (() => {
     try {
       const parsed = JSON.parse(p.images)

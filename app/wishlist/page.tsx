@@ -117,7 +117,7 @@ export default function WishlistPage() {
                 Looks like you haven&apos;t added any items to your wishlist yet.
               </p>
               <Button size="lg" asChild>
-                <Link href="/shop">Continue Shopping</Link>
+                <Link href="/women">Continue Shopping</Link>
               </Button>
             </div>
           ) : (

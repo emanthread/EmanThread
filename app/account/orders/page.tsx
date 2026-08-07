@@ -262,7 +262,7 @@ export default function OrdersPage() {
                     You haven&apos;t placed any orders yet.
                   </p>
                   <Button asChild>
-                    <Link href="/shop">Start Shopping</Link>
+                    <Link href="/women">Start Shopping</Link>
                   </Button>
                 </CardContent>
               </Card>
