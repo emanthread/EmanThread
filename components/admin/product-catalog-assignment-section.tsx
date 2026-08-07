@@ -120,6 +120,12 @@ export function catalogNodePickerResults(
   return { nodes: matchingNodes.slice(0, limit), total: matchingNodes.length };
 }
 
+/** Strip the department prefix from a breadcrumb string for display in the category dropdown. */
+function stripDepartmentPrefix(breadcrumb: string, departmentLabel: string): string {
+  const prefix = departmentLabel + " > ";
+  return breadcrumb.startsWith(prefix) ? breadcrumb.slice(prefix.length) : breadcrumb;
+}
+
 function CatalogNodeCombobox({
   id,
   value,
@@ -130,6 +136,7 @@ function CatalogNodeCombobox({
   placeholder,
   searchPlaceholder,
   ariaLabel,
+  stripPrefixPath,
 }: {
   id?: string;
   value: string;
@@ -140,6 +147,8 @@ function CatalogNodeCombobox({
   placeholder: string;
   searchPlaceholder: string;
   ariaLabel?: string;
+  /** When set, the department segment is stripped from displayed labels so the category box only shows subcategory paths. */
+  stripPrefixPath?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -152,6 +161,17 @@ function CatalogNodeCombobox({
     () => catalogNodePickerResults(nodes, allNodes, search),
     [allNodes, nodes, search]
   );
+
+  // Label of the department node to strip (e.g. "FRAGRANCE & BEAUTY")
+  const departmentLabel = useMemo(
+    () => (stripPrefixPath ? (labelsByPath.get(stripPrefixPath) ?? "") : ""),
+    [stripPrefixPath, labelsByPath]
+  );
+
+  const formatLabel = (path: string) => {
+    const full = catalogNodeBreadcrumb(path, labelsByPath);
+    return departmentLabel ? stripDepartmentPrefix(full, departmentLabel) : full;
+  };
 
   return (
     <Popover
@@ -173,9 +193,7 @@ function CatalogNodeCombobox({
           className="w-full justify-between font-normal"
         >
           <span className="truncate text-left">
-            {selected
-              ? catalogNodeBreadcrumb(selected.path, labelsByPath)
-              : placeholder}
+            {selected ? formatLabel(selected.path) : placeholder}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -208,7 +226,7 @@ function CatalogNodeCombobox({
                     )}
                   />
                   <span className="truncate">
-                    {catalogNodeBreadcrumb(node.path, labelsByPath)}
+                    {formatLabel(node.path)}
                   </span>
                 </CommandItem>
               ))
@@ -618,6 +636,7 @@ export function ProductCatalogAssignmentSection({
             placeholder={departmentPath ? "Choose category" : "Choose department first"}
             searchPlaceholder="Search categories..."
             ariaLabel="Product category"
+            stripPrefixPath={departmentPath || undefined}
           />
         </div>
       </div>
