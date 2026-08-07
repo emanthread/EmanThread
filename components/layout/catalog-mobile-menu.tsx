@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   ChevronDown,
   Heart,
@@ -78,6 +79,7 @@ export function CatalogMobileMenu({
   const pathname = usePathname();
   const departments = useMemo(() => byOrder(catalogMenu), []);
   const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [openDepartmentId, setOpenDepartmentId] = useState<string | null>(
     departments[0]?.id ?? null,
   );
@@ -85,6 +87,10 @@ export function CatalogMobileMenu({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     setIsOpen(false);
@@ -160,26 +166,13 @@ export function CatalogMobileMenu({
     }
   };
 
-  return (
-    <>
-      <button
-        ref={triggerRef}
-        type="button"
-        className={styles.mobileIconButton}
-        aria-label="Open catalog menu"
-        aria-haspopup="dialog"
-        aria-expanded={isOpen}
-        onClick={() => setIsOpen(true)}
-      >
-        <Menu aria-hidden="true" size={21} />
-      </button>
-
-      <div
-        className={styles.drawerLayer}
-        data-open={isOpen}
-        aria-hidden={!isOpen}
-        inert={!isOpen}
-      >
+  const drawerLayerContent = (
+    <div
+      className={styles.drawerLayer}
+      data-open={isOpen}
+      aria-hidden={!isOpen}
+      inert={!isOpen}
+    >
         <button
           type="button"
           className={styles.drawerOverlay}
@@ -466,7 +459,24 @@ export function CatalogMobileMenu({
             </div>
           </div>
         </aside>
-      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        className={styles.mobileIconButton}
+        aria-label="Open catalog menu"
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen(true)}
+      >
+        <Menu aria-hidden="true" size={21} />
+      </button>
+
+      {mounted ? createPortal(drawerLayerContent, document.body) : null}
     </>
   );
 }

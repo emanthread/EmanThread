@@ -50,6 +50,24 @@ const isLinkEnabled = (item: MenuLeaf, linksEnabled: boolean) =>
   Boolean(item.href) &&
   !item.comingSoon;
 
+/** Derive the active department ID from a pathname, or null if none matches. */
+function departmentFromPathname(
+  pathname: string,
+  departments: readonly { id: string }[]
+): string | null {
+  // Sort longest id first so "fragrance-beauty" is checked before any shorter id
+  const sorted = [...departments].sort((a, b) => b.id.length - a.id.length);
+  for (const dept of sorted) {
+    if (
+      pathname === `/${dept.id}` ||
+      pathname.startsWith(`/${dept.id}/`)
+    ) {
+      return dept.id;
+    }
+  }
+  return null;
+}
+
 export function CatalogHeaderMenu({
   mark,
   utilities,
@@ -58,9 +76,14 @@ export function CatalogHeaderMenu({
 }: CatalogHeaderMenuProps) {
   const pathname = usePathname();
   const departments = useMemo(() => byOrder(catalogMenu), []);
-  const [activeDepartmentId, setActiveDepartmentId] = useState(
-    departments[0]?.id ?? "women",
-  );
+
+  const [activeDepartmentId, setActiveDepartmentId] = useState(() => {
+    return (
+      departmentFromPathname(pathname, departments) ??
+      departments[0]?.id ??
+      "women"
+    );
+  });
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [isMegaPanelOpen, setIsMegaPanelOpen] = useState(false);
   const [cardConfig, setCardConfig] = useState<CatalogHeaderCardConfig>(
@@ -147,7 +170,10 @@ export function CatalogHeaderMenu({
 
   useEffect(() => {
     closeMegaPanel(false);
-  }, [pathname, showNavigation, closeMegaPanel]);
+    // Keep the underline on the correct department tab as the user navigates.
+    const deptFromUrl = departmentFromPathname(pathname, departments);
+    if (deptFromUrl) setActiveDepartmentId(deptFromUrl);
+  }, [pathname, showNavigation, closeMegaPanel, departments]);
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
