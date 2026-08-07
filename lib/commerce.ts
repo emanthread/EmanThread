@@ -56,7 +56,33 @@ export function getProductCommerce(product: Product): ProductCommerceProfile {
   return product.commerce ?? defaultCommerceProfile();
 }
 
+export function isUnstitchedCatalogPath(path: string): boolean {
+  return /(?:^|\/)unstitched(?:[-/]|$)/i.test(path.trim());
+}
+
+export function hasOnlyUnstitchedCatalogPaths(
+  catalogPaths: readonly string[] | undefined,
+): boolean {
+  return Boolean(
+    catalogPaths?.length && catalogPaths.every(isUnstitchedCatalogPath),
+  );
+}
+
+/**
+ * Catalog assignment is the repair source for older products whose generated
+ * commerce profile was accidentally saved as ready-to-wear. Requiring every
+ * known placement to be unstitched prevents a promotional placement from
+ * changing a genuine ready-to-wear product's purchase rules.
+ */
+export function isEffectivelyUnstitchedProduct(product: Product): boolean {
+  return (
+    product.commerce?.productKind === "UNSTITCHED_FABRIC" ||
+    hasOnlyUnstitchedCatalogPaths(product.catalogPaths)
+  );
+}
+
 export function getActiveVariants(product: Product): ProductVariant[] {
+  if (isEffectivelyUnstitchedProduct(product)) return [];
   return getProductCommerce(product).variants.filter((variant) => variant.isActive);
 }
 
@@ -65,6 +91,7 @@ export function isVariantAvailable(variant: ProductVariant): boolean {
 }
 
 export function requiresProductSelection(product: Product): boolean {
+  if (isEffectivelyUnstitchedProduct(product)) return false;
   // A required profile remains required even if an admin has temporarily
   // deactivated every option. This lets the storefront show an honest
   // unavailable state instead of adding an impossible line to the cart.
@@ -137,6 +164,7 @@ const NON_STITCHING_CATALOG_PATH_MARKERS = [
 export function catalogPlacementBlocksStitching(
   catalogPaths: readonly string[] | undefined
 ): boolean {
+  if (hasOnlyUnstitchedCatalogPaths(catalogPaths)) return false;
   return Boolean(
     catalogPaths?.some((path) => {
       const normalized = path.toLocaleLowerCase("en-US");
@@ -156,6 +184,13 @@ export function catalogPlacementBlocksStitching(
  */
 export function isProductStitchingEligible(product: Product): boolean {
   const commerce = product.commerce;
+  if (isEffectivelyUnstitchedProduct(product)) {
+    // Respect an intentional opt-out on correctly classified fabric. A stale
+    // ready-to-wear profile is repaired by its all-unstitched assignments.
+    return commerce?.productKind === "UNSTITCHED_FABRIC"
+      ? commerce.stitchingEligible
+      : true;
+  }
   if (commerce) {
     return (
       isProductEditorFieldVisible(

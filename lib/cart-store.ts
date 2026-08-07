@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Product } from "./data";
 import {
+  isEffectivelyUnstitchedProduct,
   isProductStitchingEligible,
   type CartVariantSnapshot,
   type ProductOptionSelection,
@@ -97,20 +98,21 @@ interface CartState {
   hasStitching: () => boolean;
 }
 
-const CART_STORAGE_VERSION = 4;
+const CART_STORAGE_VERSION = 5;
 
 export function getCartLineId(productId: string, variantId?: string | null): string {
   return variantId ? `${productId}:${variantId}` : productId;
 }
 
 export function getCartItemUnitPrice(item: CartItem): number {
+  if (isEffectivelyUnstitchedProduct(item.product)) return item.product.price;
   return typeof item.unitPrice === "number" && Number.isFinite(item.unitPrice)
     ? item.unitPrice
     : item.product.price;
 }
 
 export function isCartItemAvailable(item: CartItem): boolean {
-  if (item.variant) {
+  if (item.variant && !isEffectivelyUnstitchedProduct(item.product)) {
     // A cart stores only the immutable purchase snapshot. Fresh availability
     // lives on the product's optional commerce profile when present; a legacy
     // persisted snapshot without that profile must not be incorrectly marked
@@ -167,16 +169,19 @@ function normalizeCartItem(value: unknown): CartItem | null {
   if (!candidate.product || typeof candidate.product !== "object" || !candidate.product.id) return null;
 
   const product = candidate.product as Product;
-  const variant = normalizeVariant(candidate.variant);
+  const unstitched = isEffectivelyUnstitchedProduct(product);
+  const variant = unstitched ? null : normalizeVariant(candidate.variant);
   const quantity =
     typeof candidate.quantity === "number" && Number.isFinite(candidate.quantity)
       ? Math.max(1, Math.floor(candidate.quantity))
       : 1;
-  const unitPrice =
+  const unitPrice = !unstitched &&
     typeof candidate.unitPrice === "number" && Number.isFinite(candidate.unitPrice)
       ? candidate.unitPrice
       : undefined;
-  const selectedOptions = normalizeSelectedOptions(candidate.selectedOptions);
+  const selectedOptions = unstitched
+    ? undefined
+    : normalizeSelectedOptions(candidate.selectedOptions);
 
   return {
     product,
@@ -366,11 +371,14 @@ export const useCartStore = create<CartState>()(
       deferredStitchingSelections: null,
 
       addItem: (product, quantity = 1, stitchingOptions, selection) => {
-        const variant = normalizeVariant(selection?.variant);
+        const unstitched = isEffectivelyUnstitchedProduct(product);
+        const variant = unstitched ? null : normalizeVariant(selection?.variant);
         const lineId = getCartLineId(product.id, variant?.id);
-        const selectedOptions = normalizeSelectedOptions(selection?.selectedOptions);
+        const selectedOptions = unstitched
+          ? undefined
+          : normalizeSelectedOptions(selection?.selectedOptions);
         const unitPrice =
-          typeof selection?.unitPrice === "number" && Number.isFinite(selection.unitPrice)
+          !unstitched && typeof selection?.unitPrice === "number" && Number.isFinite(selection.unitPrice)
             ? selection.unitPrice
             : undefined;
 

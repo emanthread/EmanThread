@@ -110,6 +110,16 @@ test.describe("storefront catalog UX", () => {
     expect(productDetail).toContain("Show next product image");
   });
 
+  test("keeps unstitched measurement selection at checkout", () => {
+    const productDetail = source("app/product/[id]/product-page-client.tsx");
+    const checkout = source("app/checkout/page.tsx");
+
+    expect(productDetail).toContain("At checkout you can choose a saved measurement profile");
+    expect(productDetail).not.toContain('placeholder="Select Stitching Option"');
+    expect(checkout).toContain("+ Create New Profile");
+    expect(checkout).toContain("isStitchingEligible(item)");
+  });
+
   test("retires the generic shop page without breaking old bookmarks", () => {
     const retiredShop = source("app/shop/page.tsx");
     const sitemap = source("app/sitemap.ts");

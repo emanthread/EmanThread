@@ -15,6 +15,8 @@ export default defineConfig({
     "product-editor-serialization.spec.ts",
     "deployment-database-safety.spec.ts",
     "storefront-catalog-ux.spec.ts",
+    "catalog-header-cards.spec.ts",
+    "unstitched-commerce.spec.ts",
   ],
   fullyParallel: true,
   workers: 1,

@@ -94,6 +94,7 @@ export interface ResolvedCatalogNode {
   id: string;
   parentId: string | null;
   nodeType: string;
+  productKind: ProductKind | null;
   label: string;
   slug: string;
   path: string;
@@ -127,6 +128,7 @@ const catalogNodeSelect = {
   id: true,
   parentId: true,
   nodeType: true,
+  productKind: true,
   label: true,
   slug: true,
   path: true,
@@ -831,7 +833,8 @@ function productOrderBy(
 
 function transformCatalogProduct(
   product: CatalogAssignmentWithProduct["product"],
-  commerce?: Product["commerce"]
+  commerce?: Product["commerce"],
+  catalogPath?: string,
 ): Product {
   return {
     id: product.id,
@@ -859,6 +862,7 @@ function transformCatalogProduct(
     sku: product.sku,
     metaTitle: product.metaTitle || undefined,
     metaDescription: product.metaDescription || undefined,
+    ...(catalogPath ? { catalogPaths: [catalogPath] } : {}),
     commerce,
   };
 }
@@ -894,7 +898,12 @@ export async function getCatalogPageData(
   const node = await resolveActiveCatalogNode(canonicalPath);
   if (!node) return null;
 
-  const query = normalizeQuery(input);
+  const normalizedQuery = normalizeQuery(input);
+  // Size/product-kind facets are not meaningful inside an explicitly
+  // unstitched node. Ignore stale bookmarked filters as well as hiding them.
+  const query = node.productKind === "UNSTITCHED_FABRIC"
+    ? { ...normalizedQuery, option: undefined, productKind: undefined }
+    : normalizedQuery;
   // Keep catalog-path filtering identical to the longstanding /shop category
   // behavior, including aliases such as "wash-wear" and "Wash And Wear".
   const categoryFabricTypes = query.categoryIds?.length
@@ -935,9 +944,15 @@ export async function getCatalogPageData(
 
     return {
       node,
-      facets,
+      facets: node.productKind === "UNSTITCHED_FABRIC"
+        ? { ...facets, productKinds: ["UNSTITCHED_FABRIC"], optionGroups: [] }
+        : facets,
       products: products.map((product) =>
-        transformCatalogProduct(product, commerceByProductId.get(product.id))
+        transformCatalogProduct(
+          product,
+          commerceByProductId.get(product.id),
+          node.path,
+        )
       ),
       query,
       total,
@@ -974,11 +989,14 @@ export async function getCatalogPageData(
 
   return {
     node,
-    facets,
+    facets: node.productKind === "UNSTITCHED_FABRIC"
+      ? { ...facets, productKinds: ["UNSTITCHED_FABRIC"], optionGroups: [] }
+      : facets,
     products: assignments.map((assignment) =>
       transformCatalogProduct(
         assignment.product,
-        commerceByProductId.get(assignment.productId)
+        commerceByProductId.get(assignment.productId),
+        node.path,
       )
     ),
     query,

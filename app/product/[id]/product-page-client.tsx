@@ -22,11 +22,8 @@ import { ProductReviews } from "@/components/product/product-reviews";
 import { getProductImage } from "@/lib/utils";
 import { useCartStore } from "@/lib/cart-store";
 import { useWishlistStore } from "@/lib/wishlist-store";
-import { useAuthStore } from "@/lib/auth-store";
 import { formatPrice, type Product, type ProductVariant } from "@/lib/data";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Ruler } from "lucide-react";
-import { DEFAULT_STITCHING_FEE } from "@/lib/feature-flags";
 import {
   getActiveVariants,
   getVariantUnitPrice,
@@ -69,13 +66,6 @@ type CartSelection = {
   selectedOptions: Array<{ label: string; value: string }>;
   unitPrice: number;
 };
-
-type AddItemWithSelection = (
-  item: Product,
-  itemQuantity?: number,
-  stitchingOptions?: { price: number; profileId: string; profileName: string },
-  selection?: CartSelection
-) => void;
 
 export default function ProductPageClient({
   product,
@@ -192,21 +182,17 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
   const [zoomPosition, setZoomPosition] = useState({ x: 50, y: 50 });
   const [whatsappNumber, setWhatsappNumber] = useState<string>("");
   const [mounted, setMounted] = useState(false);
-  const [selectedMeasurement, setSelectedMeasurement] = useState("none");
-  const [stitchingPriceMap, setStitchingPriceMap] = useState<Record<string, number>>({});
-  const [measurementProfiles, setMeasurementProfiles] = useState<Array<{ id: string; profileName: string; garmentType: string }>>([]);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [optionError, setOptionError] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const router = useRouter();
   const { addItem } = useCartStore();
   const { toggleItem, isInWishlist, isIdentityResolved } = useWishlistStore();
-  const { isAuthenticated } = useAuthStore();
   const productImages = product.images.length > 0 ? product.images : [getProductImage(product.images)];
   const activeVariants = getActiveVariants(product);
   const selectedVariant = activeVariants.find((variant) => variant.id === selectedVariantId) ?? null;
-  const hasOptions = Boolean(product.commerce && (activeVariants.length > 0 || product.commerce.requiresSelection));
   const selectionRequired = requiresVariantSelectionForPurchase(product);
+  const hasOptions = Boolean(product.commerce && (activeVariants.length > 0 || selectionRequired));
   const requiredSelectionUnavailable = hasUnavailableRequiredSelection(product);
   const productAvailable = isProductAvailableForPurchase(product);
   const displayedPrice = getVariantUnitPrice(product, selectedVariant);
@@ -226,7 +212,6 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
     setIsZoomed(false);
     setSelectedVariantId(null);
     setOptionError(false);
-    setSelectedMeasurement("none");
   }, [product.id]);
 
   const wishlistReady = mounted && isIdentityResolved;
@@ -239,50 +224,6 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
     });
     return () => { cancelled = true; };
   }, []);
-
-
-
-  // Fetch stitching data only for products that still offer fabric stitching.
-  useEffect(() => {
-    if (!supportsStitching) {
-      setMeasurementProfiles([]);
-      setStitchingPriceMap({});
-      return;
-    }
-
-    fetch("/api/stitching-prices")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data && typeof data === "object") {
-          setStitchingPriceMap(data);
-        }
-      })
-      .catch(() => {});
-    if (isAuthenticated) {
-      fetch("/api/measurements")
-        .then((r) => r.json())
-        .then((data) => {
-          if (data?.profiles) {
-            setMeasurementProfiles(data.profiles.map((p: { id: string; profileName: string; garmentType: string }) => ({
-              id: p.id,
-              profileName: p.profileName,
-              garmentType: p.garmentType,
-            })));
-          }
-        })
-        .catch(() => {});
-    }
-  }, [isAuthenticated, supportsStitching]);
-
-  // Get stitching price for this product's fabric type
-  const productStitchingPrice = stitchingPriceMap[(product.fabricType || "").toLowerCase()] ?? DEFAULT_STITCHING_FEE;
-  const hasStitchingSelected = supportsStitching && selectedMeasurement !== "none" && selectedMeasurement !== "";
-
-  // Get the selected profile name
-  const selectedProfileName = hasStitchingSelected
-    ? (measurementProfiles.find((p) => p.id === selectedMeasurement)?.profileName ?? "Stitching Required")
-    : "";
-
   const addConfiguredItem = () => {
     if (!productAvailable) return false;
 
@@ -303,15 +244,7 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
           unitPrice: displayedPrice,
         }
       : undefined;
-    const stitchingOptions = hasStitchingSelected
-      ? {
-          price: productStitchingPrice,
-          profileId: selectedMeasurement,
-          profileName: selectedProfileName,
-        }
-      : undefined;
-
-    (addItem as AddItemWithSelection)(product, quantity, stitchingOptions, selection);
+    addItem(product, quantity, undefined, selection);
     setQuantity(1);
     return true;
   };
@@ -593,85 +526,17 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
               )}
             </div>
           )}
-          {/* Stitching Service Selector */}
+          {/* Stitching remains a checkout decision so product purchase stays simple. */}
           {supportsStitching && <div className="bg-secondary/30 rounded-lg border border-border/60 p-4 space-y-3">
             <div className="flex items-center gap-2">
               <Ruler className="h-5 w-5 text-accent" />
-              <span className="font-semibold text-sm">Stitching Service</span>
+              <span className="font-semibold text-sm">Optional Stitching Service</span>
               <Badge variant="secondary" className="text-xs bg-accent/10 text-accent">Optional</Badge>
             </div>
-            {isAuthenticated ? (
-              <div className="space-y-2">
-                <Select
-                  value={selectedMeasurement}
-                  onValueChange={setSelectedMeasurement}
-                >
-                  <SelectTrigger className="h-10 text-sm">
-                    <SelectValue placeholder="Select Stitching Option" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No stitching — fabric only</SelectItem>
-                    {measurementProfiles.length === 0 ? (
-                      <SelectItem value="create_new" disabled>
-                        No measurement profiles yet
-                      </SelectItem>
-                    ) : (
-                      measurementProfiles.map((profile) => (
-                        <SelectItem key={profile.id} value={profile.id}>
-                          {profile.profileName}
-                        </SelectItem>
-                      ))
-                    )}
-                    {measurementProfiles.length > 0 && (
-                      <SelectItem value="create_new" disabled>
-                        + Create New Measurement Profile
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-                {hasStitchingSelected && productStitchingPrice > 0 && (
-                  <div className="p-2 bg-amber-50 dark:bg-amber-950/20 rounded-md border border-amber-200">
-                    <p className="text-sm text-amber-800 dark:text-amber-300">
-                      + <strong>{formatPrice(productStitchingPrice)}</strong> Stitching fee
-                      <span className="text-xs ml-1">(paid on delivery)</span>
-                    </p>
-                  </div>
-                )}
-                {measurementProfiles.length === 0 && hasStitchingSelected && (
-                  <p className="text-xs text-amber-600">
-                    You don't have any measurement profiles yet.{' '}
-                    <Link href="/account/measurements" className="underline font-medium">
-                      Create one here
-                    </Link>
-                  </p>
-                )}
-                {!hasStitchingSelected && (
-                  <p className="text-xs text-muted-foreground">
-                    Select a saved fit so we stitch your fabric to your exact measurements.
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between p-3 bg-background/80 rounded-md border border-dashed border-border">
-                  <div>
-                    <p className="text-sm font-medium">Get this fabric stitched?</p>
-                    <p className="text-xs text-muted-foreground">Save your measurements for one-click reuse.</p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0 text-xs"
-                    onClick={() => router.push(`/register?redirect=/product/${product.id}`)}
-                  >
-                    Sign up free
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground italic">
-                  Save this fit with an account → reuse it forever.
-                </p>
-              </div>
-            )}
+            <p className="text-sm text-muted-foreground">
+              Add the fabric to your cart. At checkout you can choose a saved measurement profile,
+              create a new one, or continue with fabric only.
+            </p>
           </div>}
 
           <div className="flex flex-col sm:flex-row gap-4">

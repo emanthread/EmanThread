@@ -3,6 +3,7 @@ import { parseProductImages } from "@/lib/utils/parse-images";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
 import { syncProductsAfterVariantStockChange } from "@/lib/db/product-inventory";
 import { ARCHIVED_PRODUCT_TAG } from "@/lib/product-archive";
+import { hasOnlyUnstitchedCatalogPaths } from "@/lib/commerce";
 import type { Prisma, OrderStatus, PaymentMethod } from "@prisma/client";
 
 // ── Interfaces ──────────────────────────────────────────────────
@@ -144,14 +145,42 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
     // the order. Products without a variant follow the exact legacy stock path.
     const resolvedVariants: Array<ResolvedVariant | null> = [];
     const variantQuantityById = new Map<string, number>();
-    const commerceProfileByProductId = new Map<string, { requiresSelection: boolean }>();
+    const commerceProfileByProductId = new Map<string, {
+      requiresSelection: boolean;
+      productKind: string;
+      stitchingEligible: boolean;
+    }>();
+    const inferredUnstitchedProductIds = new Set<string>();
+
+    if (FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1) {
+      const assignments = await tx.productCatalogAssignment.findMany({
+        where: { productId: { in: data.items.map((item) => item.productId) } },
+        select: { productId: true, catalogNode: { select: { path: true } } },
+      });
+      const pathsByProductId = new Map<string, string[]>();
+      for (const assignment of assignments) {
+        const paths = pathsByProductId.get(assignment.productId) ?? [];
+        paths.push(assignment.catalogNode.path);
+        pathsByProductId.set(assignment.productId, paths);
+      }
+      for (const [productId, paths] of pathsByProductId) {
+        if (hasOnlyUnstitchedCatalogPaths(paths)) {
+          inferredUnstitchedProductIds.add(productId);
+        }
+      }
+    }
 
     // This is intentionally gated before it references the additive table.
     // A profile's required option is a server-side rule, not just a UI hint.
     if (FEATURE_FLAGS.COMMERCE_PROFILE_V1) {
       const profiles = await tx.productCommerceProfile.findMany({
         where: { productId: { in: data.items.map((item) => item.productId) } },
-        select: { productId: true, requiresSelection: true },
+        select: {
+          productId: true,
+          requiresSelection: true,
+          productKind: true,
+          stitchingEligible: true,
+        },
       });
       for (const profile of profiles) {
         commerceProfileByProductId.set(profile.productId, profile);
@@ -226,7 +255,10 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
         continue;
       }
 
-      if (commerceProfileByProductId.get(item.productId)?.requiresSelection) {
+      if (
+        commerceProfileByProductId.get(item.productId)?.requiresSelection &&
+        !inferredUnstitchedProductIds.has(item.productId)
+      ) {
         throw new Error(`Please choose an option for ${product.name}`);
       }
 
@@ -243,18 +275,13 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
     // New profiles can explicitly disable tailoring. This lookup is entirely
     // behind the flag so pre-migration production never touches new tables.
     if (FEATURE_FLAGS.COMMERCE_PROFILE_V1 && data.stitchingItems?.length) {
-      const profiles = await tx.productCommerceProfile.findMany({
-        where: { productId: { in: data.stitchingItems.map((item) => item.productId) } },
-        select: { productId: true, productKind: true, stitchingEligible: true },
-      });
-      const disallowedIds = new Set(
-        profiles
-          .filter(
-            (profile) =>
-              profile.productKind !== "UNSTITCHED_FABRIC" || !profile.stitchingEligible,
-          )
-          .map((profile) => profile.productId),
-      );
+      const disallowedIds = new Set<string>();
+      for (const [productId, profile] of commerceProfileByProductId) {
+        const disallowed = profile.productKind === "UNSTITCHED_FABRIC"
+          ? !profile.stitchingEligible
+          : !inferredUnstitchedProductIds.has(productId);
+        if (disallowed) disallowedIds.add(productId);
+      }
       if (data.stitchingItems.some((item) => disallowedIds.has(item.productId))) {
         throw new Error("Stitching is not available for one or more selected products");
       }

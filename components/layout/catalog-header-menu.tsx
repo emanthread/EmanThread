@@ -21,8 +21,14 @@ import {
   type MenuDepartment,
   type MenuLeaf,
   type MenuSection,
-  type MenuVisualCard,
 } from "@/lib/navigation/catalog-menu";
+import {
+  EMPTY_CATALOG_HEADER_CARD_CONFIG,
+  getResolvedCatalogHeaderCards,
+  parseCatalogHeaderCardConfig,
+  resolveCatalogHeaderCardHref,
+  type CatalogHeaderCardConfig,
+} from "@/lib/navigation/catalog-header-cards";
 import styles from "./catalog-header-menu.module.css";
 
 type CatalogHeaderMenuProps = {
@@ -38,13 +44,7 @@ const byOrder = <T extends { order: number }>(items: readonly T[]) =>
 const visibleLeaves = (items: readonly MenuLeaf[]) =>
   byOrder(items.filter((item) => item.visibility === "visible"));
 
-const visibleCards = (items: readonly MenuVisualCard[]) =>
-  byOrder(items.filter((item) => item.visibility === "visible")).slice(0, 3);
-
-const isLinkEnabled = (
-  item: MenuLeaf | MenuVisualCard,
-  linksEnabled: boolean,
-) =>
+const isLinkEnabled = (item: MenuLeaf, linksEnabled: boolean) =>
   linksEnabled &&
   item.status === "active" &&
   Boolean(item.href) &&
@@ -63,6 +63,9 @@ export function CatalogHeaderMenu({
   );
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [isMegaPanelOpen, setIsMegaPanelOpen] = useState(false);
+  const [cardConfig, setCardConfig] = useState<CatalogHeaderCardConfig>(
+    EMPTY_CATALOG_HEADER_CARD_CONFIG,
+  );
   const rootRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // A mouse click leaves its trigger focused, so focus alone cannot tell us
@@ -123,6 +126,24 @@ export function CatalogHeaderMenu({
     },
     [cancelScheduledClose],
   );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/store/header-cards", {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((value) => {
+        if (value) setCardConfig(parseCatalogHeaderCardConfig(value));
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        // The static catalog cards remain the safe presentation fallback.
+        console.warn("Unable to load catalog header card customizations", error);
+      });
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     closeMegaPanel(false);
@@ -212,12 +233,7 @@ export function CatalogHeaderMenu({
 
   const cards =
     activeDepartment && activeSection
-      ? (() => {
-          const sectionCards = visibleCards(activeSection.visualCards);
-          return sectionCards.length > 0
-            ? sectionCards
-            : visibleCards(activeDepartment.visualCards);
-        })()
+      ? getResolvedCatalogHeaderCards(activeDepartment, activeSection, cardConfig)
       : [];
 
   return (
@@ -410,29 +426,33 @@ export function CatalogHeaderMenu({
             {cards.length > 0 ? (
               <div className={styles.visualGrid} aria-label="Featured catalog">
                 {cards.map((card) => {
+                  const href = resolveCatalogHeaderCardHref(card.destinationId);
                   const content = (
                     <>
                       <Image
                         className={styles.visualImage}
-                        src={card.image ?? catalogVisualCardFallbackImage}
+                        src={card.image || catalogVisualCardFallbackImage}
                         alt=""
                         fill
                         sizes="(min-width: 1024px) 16vw, 0px"
                       />
                       <span className={styles.visualScrim} aria-hidden="true" />
                       <span className={styles.visualCaption}>
-                        <span>{card.label}</span>
-                        {card.badge ? (
-                          <span className={styles.badge}>{card.badge}</span>
+                        <span className={styles.visualTitle}>{card.title}</span>
+                        {card.subtitle ? (
+                          <span className={styles.visualSubtitle}>{card.subtitle}</span>
+                        ) : null}
+                        {card.cta ? (
+                          <span className={styles.visualCta}>{card.cta}</span>
                         ) : null}
                       </span>
                     </>
                   );
 
-                  return isLinkEnabled(card, linksEnabled) && card.href ? (
+                  return linksEnabled && href ? (
                     <Link
                       key={card.id}
-                      href={card.href}
+                      href={href}
                       className={styles.visualCard}
                       onClick={() => closeMegaPanel(false)}
                     >

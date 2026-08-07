@@ -295,10 +295,10 @@ export function classifyCatalogPath(
     kind = "GIFT";
   } else if (path.includes("accessor")) {
     kind = "ACCESSORY";
-  } else if (path.startsWith("/teens")) {
-    kind = "TEENS";
   } else if (path.includes("unstitched")) {
     kind = "UNSTITCHED_FABRIC";
+  } else if (path.startsWith("/teens")) {
+    kind = "TEENS";
   } else if (
     path.includes("ready-to-wear") ||
     path.includes("/rtw-") ||

@@ -24,7 +24,10 @@ import {
   normalizeStitchingPriceKey,
   resolveStitchingPriceKey,
 } from "@/lib/stitching-price";
-import { catalogPlacementBlocksStitching } from "@/lib/commerce";
+import {
+  catalogPlacementBlocksStitching,
+  hasOnlyUnstitchedCatalogPaths,
+} from "@/lib/commerce";
 import { ARCHIVED_PRODUCT_TAG } from "@/lib/product-archive";
 
 export const dynamic = "force-dynamic";
@@ -266,12 +269,12 @@ export async function POST(req: Request) {
       for (const productId of requestedStitchingProductIds) {
         const profile = commerceProfileByProductId.get(productId);
         const catalogPaths = catalogPathsByProductId.get(productId);
-        const profileBlocksStitching = Boolean(
-          profile && (
-            profile.productKind !== "UNSTITCHED_FABRIC" ||
-            !profile.stitchingEligible
-          )
-        );
+        const inferredUnstitched = hasOnlyUnstitchedCatalogPaths(catalogPaths);
+        const profileBlocksStitching = profile
+          ? profile.productKind === "UNSTITCHED_FABRIC"
+            ? !profile.stitchingEligible
+            : !inferredUnstitched
+          : false;
         if (profileBlocksStitching || (!profile && catalogPlacementBlocksStitching(catalogPaths))) {
           return NextResponse.json(
             { error: "Stitching is available only for unstitched fabric." },

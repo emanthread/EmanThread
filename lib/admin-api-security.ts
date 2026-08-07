@@ -72,6 +72,11 @@ const ADMIN_API_POLICIES: AdminApiPolicy[] = [
     write: [Permission.MANAGE_PRODUCTS],
   },
   {
+    prefix: "/api/admin/header-cards",
+    read: [Permission.VIEW_PRODUCTS],
+    write: [Permission.MANAGE_PRODUCTS],
+  },
+  {
     prefix: "/api/admin/hero-slides",
     read: [Permission.VIEW_PRODUCTS],
     write: [Permission.MANAGE_PRODUCTS],
