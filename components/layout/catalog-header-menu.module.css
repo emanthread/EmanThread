@@ -77,6 +77,8 @@
 
 .departmentButton,
 .sectionButton {
+  display: flex;
+  align-items: center;
   position: relative;
   border: 0;
   border-radius: 0;
@@ -89,7 +91,6 @@
 
 .departmentButton {
   height: 100%;
-  padding: 1px 0 0;
   font-size: clamp(0.68rem, 0.85vw, 0.78rem);
   font-weight: 700;
   letter-spacing: 0.105em;
@@ -231,7 +232,6 @@
 .sectionButton {
   flex: 0 0 auto;
   height: 100%;
-  padding: 1px 0 0;
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.115em;
