@@ -230,13 +230,6 @@ export function CatalogMobileMenu({
                           departmentOpen ? null : department.id,
                         );
                         setOpenSectionId(null);
-                        if (!departmentOpen) {
-                          window.dispatchEvent(
-                            new CustomEvent("eman-thread:hero-department", {
-                              detail: { department: department.id },
-                            })
-                          );
-                        }
                       }}
                     >
                       <span className={styles.drawerButtonLabel}>
@@ -255,6 +248,15 @@ export function CatalogMobileMenu({
                         id={`mobile-department-${department.id}`}
                         className={styles.drawerSections}
                       >
+                        {linksEnabled ? (
+                          <Link
+                            href={`/${department.id}`}
+                            className={styles.drawerLanding}
+                            onClick={() => setIsOpen(false)}
+                          >
+                            Shop All {department.label}
+                          </Link>
+                        ) : null}
                         {byOrder(department.sections).map((section) => {
                           const sectionOpen = openSectionId === section.id;
 

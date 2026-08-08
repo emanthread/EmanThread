@@ -6,6 +6,9 @@ import {
   CATALOG_PRICE_MIN,
   CATALOG_PRICE_STEP,
   CATALOG_SEASON_OPTIONS,
+  colorFilterCopy,
+  supportsColorFilter,
+  supportsOptionsFilter,
   supportsSeasonFilter,
 } from "../lib/catalog-filter-options";
 import {
@@ -51,6 +54,42 @@ test.describe("storefront catalog UX", () => {
     ).toBe(false);
   });
 
+  test("applies explicit color and option filter policy by catalog type", () => {
+    expect(supportsColorFilter("/women/ready-to-wear", "READY_TO_WEAR")).toBe(
+      true
+    );
+    expect(
+      supportsColorFilter(
+        "/fragrance-beauty/fragrances/men/perfume",
+        "FRAGRANCE"
+      )
+    ).toBe(false);
+    expect(supportsColorFilter("/fragrance-beauty/skincare/face", "BEAUTY")).toBe(
+      false
+    );
+    expect(
+      supportsColorFilter("/fragrance-beauty/makeup/accessories", "ACCESSORY")
+    ).toBe(false);
+    expect(
+      supportsColorFilter("/fragrance-beauty/makeup/lips/lipstick", "BEAUTY")
+    ).toBe(true);
+    expect(supportsColorFilter("/fragrance-beauty/new-in")).toBe(false);
+    expect(supportsColorFilter("/fragrance-beauty")).toBe(true);
+    expect(supportsColorFilter("/men/unstitched/exclusive-gift-box")).toBe(
+      false
+    );
+    expect(supportsOptionsFilter("/men/unstitched/exclusive-gift-box")).toBe(
+      false
+    );
+    expect(supportsOptionsFilter("/fragrance-beauty/fragrances/men/perfume")).toBe(
+      true
+    );
+    expect(colorFilterCopy("/fragrance-beauty/makeup/lips/lipstick")).toEqual({
+      label: "Shade",
+      allLabel: "All shades",
+    });
+  });
+
   test("hides catalog navigation throughout account, stitching, and checkout flows", () => {
     for (const pathname of [
       "/account",
@@ -86,6 +125,22 @@ test.describe("storefront catalog UX", () => {
     expect(filters).toContain("overflow-y-auto");
     expect(filters).toContain('aria-label="Scroll filters up"');
     expect(filters).toContain('aria-label="Scroll filters down"');
+  });
+
+  test("routes header departments to catalog pages without changing hero tabs", () => {
+    const desktopMenu = source("components/layout/catalog-header-menu.tsx");
+    const mobileMenu = source("components/layout/catalog-mobile-menu.tsx");
+    const hero = source("components/home/hero-section.tsx");
+
+    expect(desktopMenu).toContain('href={`/${department.id}`}');
+    expect(desktopMenu).toContain("onPointerEnter");
+    expect(desktopMenu).not.toContain("eman-thread:hero-department");
+    expect(mobileMenu).toContain("Shop All {department.label}");
+    expect(mobileMenu).toContain('href={`/${department.id}`}');
+    expect(mobileMenu).not.toContain("eman-thread:hero-department");
+    expect(hero).toContain("window.addEventListener(\"eman-thread:hero-department\"");
+    expect(hero).toContain("const selectDepartment = useCallback(");
+    expect(hero).toContain("setActiveDepartment(department);");
   });
 
   test("puts search, grid density, and sorting together above results", () => {

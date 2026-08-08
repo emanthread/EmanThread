@@ -8,6 +8,9 @@ import {
   CATALOG_PRICE_MIN,
   CATALOG_PRICE_STEP,
   CATALOG_SEASON_OPTIONS,
+  colorFilterCopy,
+  supportsColorFilter,
+  supportsOptionsFilter,
   supportsSeasonFilter,
 } from "@/lib/catalog-filter-options";
 import { productKindLabel } from "@/lib/commerce";
@@ -169,6 +172,11 @@ function CatalogFilterFields({
     facets.optionGroups.length === 1
       ? facets.optionGroups[0].label
       : "Size, volume & options";
+  const showColor =
+    supportsColorFilter(node.path, node.productKind) && facets.colors.length > 1;
+  const showOptions =
+    supportsOptionsFilter(node.path, node.productKind) && optionValues.length > 0;
+  const colorCopy = colorFilterCopy(node.path);
   const submitSelection = (
     event: ChangeEvent<HTMLSelectElement | HTMLInputElement>
   ) => event.currentTarget.form?.requestSubmit();
@@ -229,7 +237,7 @@ function CatalogFilterFields({
         </div>
       ) : null}
 
-      {optionValues.length ? (
+      {showOptions ? (
         <div className="space-y-2">
           <label htmlFor={`${idPrefix}-option`} className="text-sm font-semibold uppercase tracking-wider">
             {optionLabel}
@@ -262,10 +270,10 @@ function CatalogFilterFields({
         query={query}
       />
 
-      {facets.colors.length > 1 ? (
+      {showColor ? (
         <div className="space-y-2">
           <label htmlFor={`${idPrefix}-color`} className="text-sm font-semibold uppercase tracking-wider">
-            Color
+            {colorCopy.label}
           </label>
           <select
             id={`${idPrefix}-color`}
@@ -274,7 +282,7 @@ function CatalogFilterFields({
             onChange={submitSelection}
             className={selectClassName}
           >
-            <option value="">All colors</option>
+            <option value="">{colorCopy.allLabel}</option>
             {currentValue(facets.colors, query.color).map((color) => (
               <option key={color} value={color}>
                 {color}

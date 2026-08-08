@@ -312,6 +312,38 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
     Featured: "bg-purple-600 text-white",
   };
 
+  const colorSelectionBlock = (
+    <div>
+      <p className="text-sm font-medium mb-3">
+        Color: <span className="font-normal">{product.color}</span>
+      </p>
+      <div className="flex flex-wrap gap-3">
+        {variations.length > 0 ? (
+          variations.map((variant) => (
+            <Link
+              key={variant.id}
+              href={`/product/${variant.id}`}
+              className={cn(
+                "w-10 h-10 rounded-full border-2 transition-all block",
+                variant.id === product.id
+                  ? "border-accent ring-2 ring-accent/20 ring-offset-2"
+                  : "border-border hover:scale-110"
+              )}
+              style={{ backgroundColor: variant.colorHex }}
+              title={variant.color}
+            />
+          ))
+        ) : (
+          <div
+            className="w-10 h-10 rounded-full border-2 border-border block"
+            style={{ backgroundColor: product.colorHex }}
+            title={product.color}
+          />
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="grid lg:grid-cols-2 gap-12 lg:gap-16">
       {/* Image Gallery */}
@@ -457,6 +489,11 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
             </p>
             <p className="text-sm text-muted-foreground">Code: {product.sku}</p>
           </div>
+
+          <div className="md:hidden">
+            {colorSelectionBlock}
+          </div>
+
           <h1 className="text-3xl sm:text-4xl font-semibold leading-tight">
             {product.name}
           </h1>
@@ -477,34 +514,8 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
           <p className="text-muted-foreground leading-relaxed">
             {product.description}
           </p>
-          <div>
-            <p className="text-sm font-medium mb-3">
-              Color: <span className="font-normal">{product.color}</span>
-            </p>
-            <div className="flex flex-wrap gap-3">
-              {variations.length > 0 ? (
-                variations.map((variant) => (
-                  <Link
-                    key={variant.id}
-                    href={`/product/${variant.id}`}
-                    className={cn(
-                      "w-10 h-10 rounded-full border-2 transition-all block",
-                      variant.id === product.id
-                        ? "border-accent ring-2 ring-accent/20 ring-offset-2"
-                        : "border-border hover:scale-110"
-                    )}
-                    style={{ backgroundColor: variant.colorHex }}
-                    title={variant.color}
-                  />
-                ))
-              ) : (
-                <div
-                  className="w-10 h-10 rounded-full border-2 border-border block"
-                  style={{ backgroundColor: product.colorHex }}
-                  title={product.color}
-                />
-              )}
-            </div>
+          <div className="hidden md:block">
+            {colorSelectionBlock}
           </div>
           {hasOptions && (
             <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
@@ -558,8 +569,16 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
                 <Plus className="h-4 w-4" />
               </button>
             </div>
-            <Button size="lg" className="flex-1" onClick={handleAddToCart} disabled={!productAvailable}>
-              <Plus className="h-4 w-4 mr-2" />
+            <Button 
+              size="lg" 
+              className={cn(
+                "flex-1 transition-all",
+                !productAvailable && "disabled:opacity-100 disabled:bg-destructive disabled:text-destructive-foreground"
+              )} 
+              onClick={handleAddToCart} 
+              disabled={!productAvailable}
+            >
+              {productAvailable && <Plus className="h-4 w-4 mr-2" />}
               {requiredSelectionUnavailable ? "Option Unavailable" : productAvailable ? "Add to Cart" : "Out of Stock"}
             </Button>
             <Button size="lg" variant="secondary" className="flex-1" onClick={handleBuyNow} disabled={!productAvailable}>

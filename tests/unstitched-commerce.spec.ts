@@ -56,6 +56,8 @@ test.describe("unstitched fabric purchase flow", () => {
       "/women/unstitched/2-piece",
       "/men/new-in/unstitched-collection",
       "/teens/unstitched/3-piece",
+      "/women/partywear",
+      "/women/bridal-wear",
     ]) {
       const product = staleUnstitchedProduct([path]);
       expect(isEffectivelyUnstitchedProduct(product), path).toBe(true);

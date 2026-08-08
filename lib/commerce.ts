@@ -7,6 +7,7 @@ import type {
 } from "@/lib/data";
 import {
   PRODUCT_KIND_OPTIONS,
+  classifyCatalogPath,
   isProductEditorFieldVisible,
   productEditorSchemaForKind,
 } from "@/lib/catalog-product-classification";
@@ -57,7 +58,10 @@ export function getProductCommerce(product: Product): ProductCommerceProfile {
 }
 
 export function isUnstitchedCatalogPath(path: string): boolean {
-  return /(?:^|\/)unstitched(?:[-/]|$)/i.test(path.trim());
+  return (
+    classifyCatalogPath(path)?.productKind === "UNSTITCHED_FABRIC" ||
+    /(?:^|\/)unstitched(?:[-/]|$)/i.test(path.trim())
+  );
 }
 
 export function hasOnlyUnstitchedCatalogPaths(

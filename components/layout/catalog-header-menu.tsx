@@ -95,7 +95,7 @@ export function CatalogHeaderMenu({
   // whether the panel should remain open after the pointer leaves. Start in
   // keyboard mode to keep focus-driven navigation safe by default.
   const interactionModeRef = useRef<"keyboard" | "pointer">("keyboard");
-  const departmentRefs = useRef(new Map<string, HTMLButtonElement>());
+  const departmentRefs = useRef(new Map<string, HTMLAnchorElement>());
   const sectionRefs = useRef(new Map<string, HTMLButtonElement>());
 
   const activeDepartment =
@@ -207,14 +207,6 @@ export function CatalogHeaderMenu({
     setActiveDepartmentId(department.id);
     setActiveSectionId(null);
     setIsMegaPanelOpen(false);
-    // On the homepage the hero listens for this small UI event and swaps to
-    // the department's media. The header itself keeps its established menu
-    // behavior and does not navigate or change catalog state.
-    window.dispatchEvent(
-      new CustomEvent("eman-thread:hero-department", {
-        detail: { department: department.id },
-      })
-    );
   };
 
   const openSection = (section: MenuSection) => {
@@ -223,7 +215,7 @@ export function CatalogHeaderMenu({
   };
 
   const handleDepartmentKeyDown = (
-    event: ReactKeyboardEvent<HTMLButtonElement>,
+    event: ReactKeyboardEvent<HTMLAnchorElement>,
     departmentIndex: number,
   ) => {
     if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
@@ -276,24 +268,28 @@ export function CatalogHeaderMenu({
             aria-label="Catalog departments"
           >
             {departments.map((department, index) => (
-              <button
+              <Link
                 key={department.id}
                 ref={(node) => {
                   if (node) departmentRefs.current.set(department.id, node);
                   else departmentRefs.current.delete(department.id);
                 }}
-                type="button"
+                href={`/${department.id}`}
                 className={styles.departmentButton}
                 data-active={activeDepartment?.id === department.id}
-                aria-pressed={activeDepartment?.id === department.id}
-                aria-expanded={
-                  activeDepartment?.id === department.id && isMegaPanelOpen
+                aria-current={
+                  activeDepartment?.id === department.id ? "page" : undefined
                 }
-                onClick={() => selectDepartment(department)}
+                onPointerEnter={() => {
+                  interactionModeRef.current = "pointer";
+                  selectDepartment(department);
+                }}
+                onFocus={() => selectDepartment(department)}
                 onKeyDown={(event) => handleDepartmentKeyDown(event, index)}
+                onClick={() => closeMegaPanel(false)}
               >
                 {department.label}
-              </button>
+              </Link>
             ))}
           </nav>
         ) : (

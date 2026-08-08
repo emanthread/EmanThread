@@ -55,6 +55,8 @@ const expectedHierarchy = [
           { label: "SHOP BY COLLECTION", items: ["FESTIVE '26"] },
         ],
       },
+      { label: "PARTYWEAR", groups: [] },
+      { label: "BRIDAL WEAR", groups: [] },
       { label: "SALE", groups: [] },
     ],
   },
@@ -298,7 +300,7 @@ test.describe("catalog navigation configuration", () => {
 
     expect(configuredHierarchy).toEqual(expectedHierarchy);
     expect(catalogMenu).toHaveLength(4);
-    expect(catalogMenu.flatMap((department) => department.sections)).toHaveLength(18);
+    expect(catalogMenu.flatMap((department) => department.sections)).toHaveLength(20);
     expect(allLeaves()).toHaveLength(119);
 
     for (const department of catalogMenu) {

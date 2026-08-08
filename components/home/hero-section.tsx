@@ -139,9 +139,8 @@ export function HeroSection({ initialSlides }: HeroSectionProps) {
 
   useEffect(() => clearTransition, [clearTransition]);
 
-  // The header's four main-category buttons emit this local UI event when the
-  // visitor is already on the homepage. It keeps header navigation unchanged
-  // while making its category choice immediately visible in the hero too.
+  // Keep this local event listener for homepage promotional controls. Primary
+  // catalog navigation routes directly to department pages instead.
   useEffect(() => {
     const handleDepartmentChange = (event: Event) => {
       const department = (event as CustomEvent<{ department?: unknown }>).detail

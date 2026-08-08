@@ -102,7 +102,6 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
             />
           </Link>
 
-          {/* Badge */}
           {product.badge && (
             <Badge
               className={cn(
@@ -119,7 +118,29 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
             </Badge>
           )}
 
-          {/* Quick Actions */}
+          {/* Wishlist — floating top-right corner */}
+          {wishlistReady && (
+            <button
+              type="button"
+              aria-label={inWishlist ? "Remove from wishlist" : "Save to wishlist"}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                toggleItem(product);
+              }}
+              className={cn(
+                "absolute right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-background/85 shadow-md backdrop-blur-sm transition-all duration-200",
+                "hover:bg-background hover:scale-110 active:scale-95",
+                // Show below Premium Pick badge if present, otherwise align with left badge
+                displayedPrice >= 6000 ? "top-14" : "top-3",
+                inWishlist ? "text-red-500" : "text-foreground"
+              )}
+            >
+              <Heart className={cn("h-4 w-4", inWishlist && "fill-current")} />
+            </button>
+          )}
+
+          {/* Quick Actions — View Product + Quick View only */}
           <div className="absolute bottom-0 left-0 right-0 flex gap-2 p-4 opacity-95 transition-all duration-300 lg:translate-y-0 lg:group-hover:opacity-100">
             {selectionRequired && productAvailable && !requiredSelectionUnavailable ? (
               <Button
@@ -135,11 +156,16 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
             ) : (
               <Button
                 size="sm"
-                className="flex-1 bg-background/95 text-foreground backdrop-blur-sm hover:bg-background"
+                className={cn(
+                  "flex-1 backdrop-blur-sm transition-all",
+                  !productAvailable 
+                    ? "disabled:opacity-100 disabled:bg-destructive disabled:text-destructive-foreground" 
+                    : "bg-background/95 text-foreground hover:bg-background"
+                )}
                 onClick={handleAddToCart}
                 disabled={!productAvailable}
               >
-                <ShoppingBag className="mr-2 h-4 w-4" />
+                {productAvailable && <ShoppingBag className="mr-2 h-4 w-4" />}
                 {requiredSelectionUnavailable ? "Option Unavailable" : productAvailable ? "Add to Cart" : "Out of Stock"}
               </Button>
             )}
@@ -157,25 +183,6 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
             >
               <Eye className="h-4 w-4" />
               <span className="sr-only">Quick view</span>
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className={cn(
-                "border-0 bg-background/95 backdrop-blur-sm hover:bg-background",
-                inWishlist && "text-red-500",
-                !wishlistReady && "invisible"
-              )}
-              disabled={!wishlistReady}
-              aria-hidden={!wishlistReady}
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                toggleItem(product);
-              }}
-            >
-              <Heart className={cn("h-4 w-4", inWishlist && "fill-current")} />
-              <span className="sr-only">Save to wishlist</span>
             </Button>
           </div>
         </div>

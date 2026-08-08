@@ -29,6 +29,29 @@ test.describe("catalog-driven product classification", () => {
     expect(
       classifyCatalogPath("/men/ready-to-wear/exclusive-gift-box")?.productKind
     ).toBe("GIFT_BOX");
+    expect(classifyCatalogPath("/women/partywear")?.productKind).toBe(
+      "UNSTITCHED_FABRIC"
+    );
+    expect(classifyCatalogPath("/women/bridal-wear")?.productKind).toBe(
+      "UNSTITCHED_FABRIC"
+    );
+  });
+
+  test("keeps partywear and bridal in the unstitched fabric purchase model", () => {
+    for (const path of ["/women/partywear", "/women/bridal-wear"]) {
+      expect(classifyCatalogPath(path)).toMatchObject({
+        productKind: "UNSTITCHED_FABRIC",
+        editorSchema: {
+          fields: {
+            fabric: { mode: "required" },
+            sizeGuide: { mode: "hidden" },
+            stitching: { mode: "optional" },
+          },
+          inventorySource: "product",
+          options: { mode: "optional" },
+        },
+      });
+    }
   });
 
   test("uses catalog subtype for beauty color and accessories", () => {

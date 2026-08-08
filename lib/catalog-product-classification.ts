@@ -295,6 +295,13 @@ export function classifyCatalogPath(
     kind = "GIFT";
   } else if (path.includes("accessor")) {
     kind = "ACCESSORY";
+  } else if (
+    path.startsWith("/women/partywear") ||
+    path.startsWith("/women/bridal-wear")
+  ) {
+    // Partywear and bridal are catalog collections, not merchandise kinds.
+    // They are sold as fabric with optional stitching and measurements.
+    kind = "UNSTITCHED_FABRIC";
   } else if (path.includes("unstitched")) {
     kind = "UNSTITCHED_FABRIC";
   } else if (path.startsWith("/teens")) {
