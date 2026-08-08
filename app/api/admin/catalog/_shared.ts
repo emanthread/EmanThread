@@ -39,6 +39,39 @@ export const catalogNodeLabelSchema = z
   .min(1, "Name is required")
   .max(120, "Name must be 120 characters or fewer");
 
+const optionalCatalogText = (maxLength: number) =>
+  z
+    .string()
+    .trim()
+    .max(maxLength, `Must be ${maxLength} characters or fewer`)
+    .transform((value) => value || null)
+    .nullable()
+    .optional();
+
+function isAllowedCatalogBannerImage(value: string): boolean {
+  if (value.startsWith("/") && !value.startsWith("//")) return true;
+
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      (url.hostname === "res.cloudinary.com" ||
+        url.hostname === "images.unsplash.com")
+    );
+  } catch {
+    return false;
+  }
+}
+
+export const catalogNodeDescriptionSchema = optionalCatalogText(1_000);
+
+export const catalogNodeBannerImageSchema = optionalCatalogText(2_000).refine(
+  (value) => value === undefined || value === null || isAllowedCatalogBannerImage(value),
+  "Banner image must be a local path or an approved HTTPS image URL"
+);
+
+export const catalogNodeBannerAltSchema = optionalCatalogText(240);
+
 export const catalogProductKindSchema = z.enum([
   "UNSTITCHED_FABRIC",
   "READY_TO_WEAR",
@@ -56,6 +89,9 @@ const catalogNodeMutableFields = {
   productKind: catalogProductKindSchema.nullable().optional(),
   label: catalogNodeLabelSchema,
   slug: catalogNodeSlugSchema,
+  description: catalogNodeDescriptionSchema,
+  bannerImage: catalogNodeBannerImageSchema,
+  bannerAlt: catalogNodeBannerAltSchema,
   displayOrder: z.number().int().min(0).max(1_000_000),
   isActive: z.boolean(),
   isVisible: z.boolean(),
@@ -76,6 +112,9 @@ export const updateCatalogNodeSchema = z
     productKind: catalogNodeMutableFields.productKind,
     label: catalogNodeMutableFields.label.optional(),
     slug: catalogNodeMutableFields.slug.optional(),
+    description: catalogNodeMutableFields.description,
+    bannerImage: catalogNodeMutableFields.bannerImage,
+    bannerAlt: catalogNodeMutableFields.bannerAlt,
     displayOrder: catalogNodeMutableFields.displayOrder.optional(),
     isActive: catalogNodeMutableFields.isActive.optional(),
     isVisible: catalogNodeMutableFields.isVisible.optional(),

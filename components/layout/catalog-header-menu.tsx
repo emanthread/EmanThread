@@ -76,6 +76,7 @@ export function CatalogHeaderMenu({
 }: CatalogHeaderMenuProps) {
   const pathname = usePathname();
   const departments = useMemo(() => byOrder(catalogMenu), []);
+  const routeDepartmentId = departmentFromPathname(pathname, departments);
 
   const [activeDepartmentId, setActiveDepartmentId] = useState(() => {
     return (
@@ -170,10 +171,10 @@ export function CatalogHeaderMenu({
 
   useEffect(() => {
     closeMegaPanel(false);
-    // Keep the underline on the correct department tab as the user navigates.
-    const deptFromUrl = departmentFromPathname(pathname, departments);
-    if (deptFromUrl) setActiveDepartmentId(deptFromUrl);
-  }, [pathname, showNavigation, closeMegaPanel, departments]);
+    // Keep menu content aligned with a department route. The underline itself
+    // is derived from routeDepartmentId, so the homepage starts neutral.
+    if (routeDepartmentId) setActiveDepartmentId(routeDepartmentId);
+  }, [pathname, showNavigation, closeMegaPanel, routeDepartmentId]);
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -276,9 +277,9 @@ export function CatalogHeaderMenu({
                 }}
                 href={`/${department.id}`}
                 className={styles.departmentButton}
-                data-active={activeDepartment?.id === department.id}
+                data-active={routeDepartmentId === department.id}
                 aria-current={
-                  activeDepartment?.id === department.id ? "page" : undefined
+                  routeDepartmentId === department.id ? "page" : undefined
                 }
                 onPointerEnter={() => {
                   interactionModeRef.current = "pointer";

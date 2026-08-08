@@ -23,6 +23,9 @@ const nodeSummarySelect = {
   label: true,
   slug: true,
   path: true,
+  description: true,
+  bannerImage: true,
+  bannerAlt: true,
   displayOrder: true,
   isActive: true,
   isVisible: true,
@@ -112,6 +115,8 @@ export const GET = withLoggedAdminHandler(
           slug: true,
           path: true,
           description: true,
+          bannerImage: true,
+          bannerAlt: true,
           displayOrder: true,
           isActive: true,
           isVisible: true,
@@ -334,6 +339,15 @@ export const PATCH = withLoggedAdminHandler(
               ...(input.label === undefined ? {} : { label: input.label }),
               ...(input.slug === undefined ? {} : { slug: targetSlug }),
               ...(pathChanged ? { path: targetPath } : {}),
+              ...(input.description === undefined
+                ? {}
+                : { description: input.description }),
+              ...(input.bannerImage === undefined
+                ? {}
+                : { bannerImage: input.bannerImage }),
+              ...(input.bannerAlt === undefined
+                ? {}
+                : { bannerAlt: input.bannerAlt }),
               ...(input.displayOrder === undefined
                 ? {}
                 : { displayOrder: input.displayOrder }),
@@ -370,6 +384,9 @@ export const PATCH = withLoggedAdminHandler(
           label: existing.label,
           slug: existing.slug,
           path: existing.path,
+          description: existing.description,
+          bannerImage: existing.bannerImage,
+          bannerAlt: existing.bannerAlt,
           displayOrder: existing.displayOrder,
           isActive: existing.isActive,
           isVisible: existing.isVisible,
@@ -382,6 +399,9 @@ export const PATCH = withLoggedAdminHandler(
           label: updated.label,
           slug: updated.slug,
           path: updated.path,
+          description: updated.description,
+          bannerImage: updated.bannerImage,
+          bannerAlt: updated.bannerAlt,
           displayOrder: updated.displayOrder,
           isActive: updated.isActive,
           isVisible: updated.isVisible,

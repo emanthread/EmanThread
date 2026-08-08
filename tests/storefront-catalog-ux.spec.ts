@@ -143,6 +143,27 @@ test.describe("storefront catalog UX", () => {
     expect(hero).toContain("setActiveDepartment(department);");
   });
 
+  test("keeps catalog department heroes configurable and above product controls", () => {
+    const catalogPage = source("components/catalog/catalog-page.tsx");
+    const catalogAdminSchema = source("app/api/admin/catalog/_shared.ts");
+    const catalogAdmin = source(
+      "app/admin/(dashboard)/catalog/catalog-assignment-client.tsx"
+    );
+    const headerMenu = source("components/layout/catalog-header-menu.tsx");
+
+    expect(catalogAdminSchema).toContain("catalogNodeBannerImageSchema");
+    expect(catalogAdminSchema).toContain("catalogNodeBannerAltSchema");
+    expect(catalogAdmin).toContain("Collection banner (optional)");
+    expect(catalogAdmin).toContain("Banner image");
+    expect(catalogPage.indexOf("{bannerImage ? (")).toBeLessThan(
+      catalogPage.indexOf("<CatalogFilters data={data} />")
+    );
+    expect(headerMenu).toContain("const routeDepartmentId = departmentFromPathname");
+    expect(headerMenu).toContain(
+      "data-active={routeDepartmentId === department.id}"
+    );
+  });
+
   test("puts search, grid density, and sorting together above results", () => {
     const results = source("components/catalog/catalog-product-results.tsx");
 

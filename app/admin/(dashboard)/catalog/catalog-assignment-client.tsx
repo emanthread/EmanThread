@@ -73,6 +73,9 @@ interface CatalogNode {
   label: string;
   slug: string;
   path: string;
+  description: string | null;
+  bannerImage: string | null;
+  bannerAlt: string | null;
   displayOrder: number;
   isActive: boolean;
   isVisible: boolean;
@@ -258,6 +261,9 @@ type CatalogNodeDraft = {
   productKind: ProductKind | null;
   label: string;
   slug: string;
+  description: string;
+  bannerImage: string;
+  bannerAlt: string;
   displayOrder: string;
   isActive: boolean;
   isVisible: boolean;
@@ -270,6 +276,9 @@ function emptyCatalogNodeDraft(): CatalogNodeDraft {
     productKind: null,
     label: "",
     slug: "",
+    description: "",
+    bannerImage: "",
+    bannerAlt: "",
     displayOrder: "0",
     isActive: false,
     isVisible: false,
@@ -283,6 +292,9 @@ function catalogNodeDraft(node: CatalogNode): CatalogNodeDraft {
     productKind: node.productKind,
     label: node.label,
     slug: node.slug,
+    description: node.description || "",
+    bannerImage: node.bannerImage || "",
+    bannerAlt: node.bannerAlt || "",
     displayOrder: String(node.displayOrder),
     isActive: node.isActive,
     isVisible: node.isVisible,
@@ -528,6 +540,9 @@ function CatalogTaxonomyManager({
         productKind: draft.productKind,
         label: draft.label,
         slug: draft.slug,
+        description: draft.description,
+        bannerImage: draft.bannerImage,
+        bannerAlt: draft.bannerAlt,
         displayOrder,
         isActive: draft.isActive,
         isVisible: draft.isVisible,
@@ -762,6 +777,67 @@ function CatalogTaxonomyManager({
                   />
                 </div>
               </div>
+
+              <details className="rounded-lg border bg-muted/20">
+                <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
+                  Collection banner (optional)
+                </summary>
+                <div className="space-y-4 border-t p-4">
+                  <p className="text-xs text-muted-foreground">
+                    Department paths use this banner above their catalog filters
+                    and products. It can also be used for a focused collection.
+                  </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="catalog-node-description">Banner description</Label>
+                    <Textarea
+                      id="catalog-node-description"
+                      value={draft.description}
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          description: event.target.value,
+                        }))
+                      }
+                      placeholder="Introduce this collection for shoppers"
+                      rows={3}
+                      maxLength={1_000}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="catalog-node-banner-image">Banner image</Label>
+                    <Input
+                      id="catalog-node-banner-image"
+                      value={draft.bannerImage}
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          bannerImage: event.target.value,
+                        }))
+                      }
+                      placeholder="/images/collections/women.jpg or approved HTTPS URL"
+                      maxLength={2_000}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Use a local image path or an approved Cloudinary/Unsplash HTTPS URL.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="catalog-node-banner-alt">Banner image alt text</Label>
+                    <Input
+                      id="catalog-node-banner-alt"
+                      value={draft.bannerAlt}
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          bannerAlt: event.target.value,
+                        }))
+                      }
+                      placeholder="Women wearing the latest Eman Thread collection"
+                      maxLength={240}
+                    />
+                  </div>
+                </div>
+              </details>
 
               <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 sm:grid-cols-2">
                 <label className="flex items-start gap-3 text-sm">
