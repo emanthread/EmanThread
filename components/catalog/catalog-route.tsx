@@ -52,8 +52,10 @@ export async function renderDepartmentCatalogPage(
 
   if (!canonicalPath) notFound();
 
+  const isDepartmentRoot = !catalogPath || catalogPath.length === 0;
+
   return (
-    <Suspense fallback={<CatalogPageSkeleton />}>
+    <Suspense fallback={<CatalogPageSkeleton isDepartmentRoot={isDepartmentRoot} />}>
       <CatalogPage
         canonicalPath={canonicalPath}
         searchParams={resolvedSearchParams}

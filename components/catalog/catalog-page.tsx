@@ -9,6 +9,10 @@ import { CatalogProductResults } from "@/components/catalog/catalog-product-resu
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
+import { HeroSection } from "@/components/home/hero-section";
+import type { HeroDepartment } from "@/lib/db/store-config";
+import { getHeroSlides } from "@/lib/db/store-config";
+import { cn } from "@/lib/utils";
 import {
   getCatalogPageData,
   hasCatalogQueryParams,
@@ -313,13 +317,13 @@ function Pagination({ data }: { data: CatalogPageData }) {
   );
 }
 
-export function CatalogPageSkeleton() {
+export function CatalogPageSkeleton({ isDepartmentRoot }: { isDepartmentRoot?: boolean }) {
   return (
     <>
       <Header />
       <CartDrawer />
       <main
-        className="min-h-screen bg-background pb-16 pt-28"
+        className={cn("min-h-screen bg-background pb-16", !isDepartmentRoot && "pt-28")}
         aria-busy="true"
         aria-label="Loading collection"
       >
@@ -379,11 +383,14 @@ export async function CatalogPage({
       data.query.inStock
   );
 
+  const isDepartmentRoot = ["women", "men", "teens", "fragrance-beauty"].includes(data.node.path);
+  const heroSlides = isDepartmentRoot ? await getHeroSlides() : [];
+  
   return (
     <>
       <Header />
       <CartDrawer />
-      <main className="min-h-screen bg-background pb-16 pt-28">
+      <main className={cn("min-h-screen bg-background pb-16", !isDepartmentRoot && "pt-28")}>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -391,7 +398,15 @@ export async function CatalogPage({
           }}
         />
 
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        {isDepartmentRoot && heroSlides.length > 0 && (
+          <HeroSection
+            initialSlides={heroSlides}
+            initialDepartment={data.node.path as HeroDepartment}
+            locked
+          />
+        )}
+
+        <div className={cn("mx-auto max-w-7xl px-4 sm:px-6 lg:px-8", isDepartmentRoot && "pt-12")}>
           <nav
             aria-label="Breadcrumb"
             className="mb-5 overflow-x-auto py-1 text-xs uppercase tracking-[0.14em] text-muted-foreground"
@@ -432,7 +447,7 @@ export async function CatalogPage({
             </ol>
           </nav>
 
-          {bannerImage ? (
+          {!isDepartmentRoot && bannerImage ? (
             <section className="relative isolate flex min-h-64 items-end overflow-hidden rounded-xl bg-muted sm:min-h-80">
               <Image
                 src={bannerImage}
@@ -460,7 +475,7 @@ export async function CatalogPage({
                 )}
               </div>
             </section>
-          ) : (
+          ) : !isDepartmentRoot && (
             <section className="border-y border-border py-12 text-center sm:py-16">
               <p className="mb-3 text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
                 {data.node.nodeType}

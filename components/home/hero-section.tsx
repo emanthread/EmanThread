@@ -13,6 +13,8 @@ import type {
 
 interface HeroSectionProps {
   initialSlides: HeroSlide[];
+  initialDepartment?: HeroDepartment;
+  locked?: boolean;
 }
 
 const HERO_DEPARTMENTS: { id: HeroDepartment; label: string }[] = [
@@ -89,9 +91,9 @@ function HeroVideo({
   );
 }
 
-export function HeroSection({ initialSlides }: HeroSectionProps) {
+export function HeroSection({ initialSlides, initialDepartment = "all", locked = false }: HeroSectionProps) {
   const [activeDepartment, setActiveDepartment] =
-    useState<HeroDepartment>("all");
+    useState<HeroDepartment>(initialDepartment);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const transitionTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -142,6 +144,7 @@ export function HeroSection({ initialSlides }: HeroSectionProps) {
   // Keep this local event listener for homepage promotional controls. Primary
   // catalog navigation routes directly to department pages instead.
   useEffect(() => {
+    if (locked) return;
     const handleDepartmentChange = (event: Event) => {
       const department = (event as CustomEvent<{ department?: unknown }>).detail
         ?.department;
@@ -153,7 +156,7 @@ export function HeroSection({ initialSlides }: HeroSectionProps) {
     window.addEventListener("eman-thread:hero-department", handleDepartmentChange);
     return () =>
       window.removeEventListener("eman-thread:hero-department", handleDepartmentChange);
-  }, [selectDepartment]);
+  }, [selectDepartment, locked]);
 
   // Auto-advance within the selected department only.
   useEffect(() => {

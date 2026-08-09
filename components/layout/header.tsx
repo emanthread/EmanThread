@@ -523,7 +523,8 @@ function CatalogHeaderV1() {
   }, []);
 
   // Hero mode: homepage + not scrolled → transparent navbar overlapping hero
-  const isHeroMode = pathname === "/" && !isScrolled;
+  const isDepartmentRoot = ["/women", "/men", "/teens", "/fragrance-beauty"].includes(pathname || "");
+  const isHeroMode = (pathname === "/" || isDepartmentRoot) && !isScrolled;
 
   useEffect(() => {
     const header = headerRef.current;
