@@ -12,6 +12,8 @@ import { useWishlistStore } from "@/lib/wishlist-store";
 import { formatPrice, type Product } from "@/lib/data";
 import {
   getVariantUnitPrice,
+  getActiveVariants,
+  getProductOptions,
   hasUnavailableRequiredSelection,
   isProductAvailableForPurchase,
   requiresVariantSelectionForPurchase,
@@ -42,10 +44,17 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
   const selectionRequired = requiresVariantSelectionForPurchase(product);
   const requiredSelectionUnavailable = hasUnavailableRequiredSelection(product);
   const productAvailable = isProductAvailableForPurchase(product);
-  const displayedPrice = getVariantUnitPrice(product);
+  const activeVariants = getActiveVariants(product);
+  const variantPrices = activeVariants.map((variant) => getVariantUnitPrice(product, variant));
+  const displayedPrice = variantPrices.length ? Math.min(...variantPrices) : getVariantUnitPrice(product);
+  const maximumPrice = variantPrices.length ? Math.max(...variantPrices) : displayedPrice;
   const displayedOriginalPrice = product.originalPrice
     ? product.originalPrice
     : undefined;
+  const colorValues = getProductOptions(product)
+    .filter((option) => option.type === "COLOR" || option.type === "SHADE")
+    .flatMap((option) => option.values)
+    .filter((value) => value.isActive && /^#[0-9a-f]{6}$/i.test(value.swatchHex || ""));
 
   useEffect(() => {
     setMounted(true);
@@ -198,13 +207,28 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
             </h3>
           </Link>
           <div className="flex items-center gap-2">
-            <span className="font-semibold">{formatPrice(displayedPrice)}</span>
+            <span className="font-semibold">{maximumPrice !== displayedPrice ? "From " : ""}{formatPrice(displayedPrice)}</span>
             {displayedOriginalPrice && (
               <span className="text-sm text-muted-foreground line-through">
                 {formatPrice(displayedOriginalPrice)}
               </span>
             )}
           </div>
+          {colorValues.length > 0 && (
+            <div className="flex items-center gap-1.5 pt-1" aria-label={`${colorValues.length} available colors or shades`}>
+              {colorValues.slice(0, 6).map((value) => (
+                <span
+                  key={value.id}
+                  className="h-4 w-4 rounded-full border border-black/15 shadow-sm"
+                  style={{ backgroundColor: value.swatchHex }}
+                  title={value.label}
+                />
+              ))}
+              {colorValues.length > 6 && (
+                <span className="text-[10px] text-muted-foreground">+{colorValues.length - 6}</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

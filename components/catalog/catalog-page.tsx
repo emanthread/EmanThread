@@ -10,8 +10,9 @@ import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { HeroSection } from "@/components/home/hero-section";
-import type { HeroDepartment } from "@/lib/db/store-config";
 import { getHeroSlides } from "@/lib/db/store-config";
+import { selectHeroSlidesForDepartment } from "@/lib/hero-slide-targeting";
+import { catalogDepartmentFromRootPath } from "@/lib/navigation/storefront-routes";
 import { cn } from "@/lib/utils";
 import {
   getCatalogPageData,
@@ -383,8 +384,11 @@ export async function CatalogPage({
       data.query.inStock
   );
 
-  const isDepartmentRoot = ["women", "men", "teens", "fragrance-beauty"].includes(data.node.path);
-  const heroSlides = isDepartmentRoot ? await getHeroSlides() : [];
+  const heroDepartment = catalogDepartmentFromRootPath(data.node.path);
+  const isDepartmentRoot = heroDepartment !== null;
+  const heroSlides = heroDepartment
+    ? selectHeroSlidesForDepartment(await getHeroSlides(), heroDepartment)
+    : [];
   
   return (
     <>
@@ -401,7 +405,7 @@ export async function CatalogPage({
         {isDepartmentRoot && heroSlides.length > 0 && (
           <HeroSection
             initialSlides={heroSlides}
-            initialDepartment={data.node.path as HeroDepartment}
+            initialDepartment={heroDepartment}
             locked
           />
         )}
@@ -448,7 +452,10 @@ export async function CatalogPage({
           </nav>
 
           {!isDepartmentRoot && bannerImage ? (
-            <section className="relative isolate flex min-h-64 items-end overflow-hidden rounded-xl bg-muted sm:min-h-80">
+            <section
+              data-testid="catalog-node-banner"
+              className="relative isolate flex min-h-64 items-end overflow-hidden rounded-xl bg-muted sm:min-h-80"
+            >
               <Image
                 src={bannerImage}
                 alt={data.node.bannerAlt || data.node.label}
@@ -476,7 +483,10 @@ export async function CatalogPage({
               </div>
             </section>
           ) : !isDepartmentRoot && (
-            <section className="border-y border-border py-12 text-center sm:py-16">
+            <section
+              data-testid="catalog-node-banner"
+              className="border-y border-border py-12 text-center sm:py-16"
+            >
               <p className="mb-3 text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
                 {data.node.nodeType}
               </p>

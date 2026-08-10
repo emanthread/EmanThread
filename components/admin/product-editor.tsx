@@ -307,7 +307,7 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
 
     const productKindChanged =
       commerceProfile.productKind !== nextClassification.productKind;
-    if (productKindChanged && commerceProfile.variants.length > 0) {
+    if (productKindChanged && (commerceProfile.variants.length > 0 || commerceProfile.options.length > 0)) {
       toast.info(
         "Selling options were cleared because the product type changed"
       );
@@ -330,6 +330,7 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
             ? current.sizeGuideUrl
             : "",
         variants: productKindChanged ? [] : current.variants,
+        options: productKindChanged ? [] : current.options,
       };
     });
 
@@ -363,6 +364,10 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
     classificationReady &&
     (selectedEditorSchema.inventorySource === "variant" ||
       commerceProfile.requiresSelection);
+  const hasUnstitchedColorVariants =
+    selectedClassification.productKind === "UNSTITCHED_FABRIC" &&
+    (commerceProfile.options.some((option) => option.type === "COLOR") ||
+      commerceProfile.variants.length > 0);
 
   const contextualTags = useMemo(
     () =>
@@ -417,6 +422,30 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
     }
   };
 
+  const uploadVariantImage = async (file: File): Promise<string> => {
+    setUploadingImage(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("resourceType", "image");
+    try {
+      const response = await adminFetch("/api/admin/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error || "Upload failed");
+      setIsDirty(true);
+      setServerSaveError(null);
+      toast.success("Color image uploaded");
+      return String(data.url);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Upload failed");
+      return "";
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const validate = (): EditorErrors => {
     const next: EditorErrors = {};
     if (catalogEnabled && (!primaryCatalogPath || !classification || assignments.length === 0)) {
@@ -447,14 +476,22 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
     }
     if (
       isProductEditorFieldRequired(selectedEditorSchema.fields.color) &&
-      !product.color.trim()
+      !(hasUnstitchedColorVariants
+        ? commerceProfile.variants[0]?.label.trim()
+        : product.color.trim())
     ) {
       next.color = "Enter the product color";
     }
     if (
       isProductEditorFieldVisible(selectedEditorSchema.fields.color) &&
-      product.color.trim() &&
-      !/^#[0-9a-f]{6}$/i.test(product.colorHex.trim())
+      (hasUnstitchedColorVariants
+        ? commerceProfile.variants[0]?.label.trim()
+        : product.color.trim()) &&
+      !/^#[0-9a-f]{6}$/i.test(
+        hasUnstitchedColorVariants
+          ? commerceProfile.variants[0]?.colorHex.trim() || ""
+          : product.colorHex.trim()
+      )
     ) {
       next.colorHex = "Choose a valid color";
     }
@@ -530,6 +567,12 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
             variants: isEdit
               ? commerceProfile.variants
               : commerceProfile.variants.map(({ id: _id, ...variant }) => variant),
+            options: isEdit
+              ? commerceProfile.options
+              : commerceProfile.options.map(({ id: _id, ...option }) => ({
+                  ...option,
+                  values: option.values.map(({ id: _valueId, ...value }) => value),
+                })),
             productKind: selectedClassification.productKind,
             stitchingEligible:
               selectedEditorSchema.fields.stitching.mode !== "hidden" &&
@@ -547,7 +590,16 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
       return;
     }
 
-    const compatibility = normalizeCatalogCompatibilityFields(selectedClassification, product);
+    const firstColorVariant = commerceProfile.options
+      .find((option) => option.type === "COLOR" || option.type === "SHADE")
+      ?.values.find((value) => value.isActive) ||
+      (hasUnstitchedColorVariants ? commerceProfile.variants[0] : undefined);
+    const compatibility = normalizeCatalogCompatibilityFields(selectedClassification, {
+      ...product,
+      ...(firstColorVariant
+        ? { color: firstColorVariant.label, colorHex: "swatchHex" in firstColorVariant ? firstColorVariant.swatchHex : firstColorVariant.colorHex }
+        : {}),
+    });
     const matchingCategory = categories.find(
       (category) =>
         normalizeName(category.name) === normalizeName(compatibility.fabricType)
@@ -780,14 +832,14 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
                   {index === 0 && <Badge className="absolute bottom-1 left-1">Cover</Badge>}
                 </div>
               ))}
-              {product.images.length < 3 && (
+              {product.images.length < 10 && (
                 <label htmlFor="product-image-upload" className={cn("flex h-28 w-28 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed text-sm text-muted-foreground hover:border-primary hover:text-foreground", uploadingImage && "pointer-events-none opacity-60")}>
                   {uploadingImage ? <Loader2 className="mb-2 h-5 w-5 animate-spin" /> : <ImageIcon className="mb-2 h-5 w-5" />}
                   Add images
                 </label>
               )}
-              <input id="product-image-upload" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={uploadingImage || product.images.length >= 3} onChange={async (event) => {
-                const files = Array.from(event.target.files || []).slice(0, 3 - product.images.length);
+              <input id="product-image-upload" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={uploadingImage || product.images.length >= 10} onChange={async (event) => {
+                const files = Array.from(event.target.files || []).slice(0, 10 - product.images.length);
                 for (const file of files) await upload(file, "image");
                 event.target.value = "";
               }} />
@@ -888,7 +940,7 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
                 <FieldError message={errors.fabricType} />
               </div>
             )}
-            {isProductEditorFieldVisible(selectedEditorSchema.fields.color) && (
+            {isProductEditorFieldVisible(selectedEditorSchema.fields.color) && !hasUnstitchedColorVariants && (
               <div className="space-y-2">
                 <Label htmlFor="color">
                   {selectedEditorSchema.fields.color.label}{" "}
@@ -924,10 +976,17 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
                 }
                 const duplicateProfile = {
                   ...nextProfile,
+                  options: nextProfile.options.map(({ id: _id, ...option }) => ({
+                    ...option,
+                    values: option.values.map(({ id: _valueId, ...value }) => ({
+                      ...value,
+                    })),
+                  })),
                   variants: nextProfile.variants.map(
                     ({ id: _id, ...variant }) => ({
                       ...variant,
                       sku: "",
+                      images: [],
                     })
                   ),
                 };
@@ -943,6 +1002,7 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
                           "UNSTITCHED_FABRIC"
                         ),
                         sizeGuideUrl: "",
+                        options: [],
                         variants: [],
                       }
                 );
@@ -963,6 +1023,7 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
               classification={selectedClassification}
               showProductType={!catalogEnabled}
               productTypeLocked={!catalogEnabled}
+              onUploadVariantImage={uploadVariantImage}
             />
           </fieldset>
           {sourceProductId && commerceLoading && (

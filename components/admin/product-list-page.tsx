@@ -634,6 +634,11 @@ export default function ProductListPage({
                           {product.usesVariantInventory && (
                             <Badge variant="outline">By option</Badge>
                           )}
+                          {Boolean(product.lowStockVariantCount) && (
+                            <Badge variant="outline" className="border-amber-400 text-amber-700">
+                              {product.lowStockVariantCount} low combination{product.lowStockVariantCount === 1 ? "" : "s"}
+                            </Badge>
+                          )}
                         </div>
                       </td>
                       <td className="p-4">

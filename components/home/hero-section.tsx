@@ -10,6 +10,7 @@ import type {
   HeroDepartment,
   HeroSlide,
 } from "@/lib/db/store-config";
+import { selectHeroSlidesForDepartment } from "@/lib/hero-slide-targeting";
 
 interface HeroSectionProps {
   initialSlides: HeroSlide[];
@@ -24,31 +25,6 @@ const HERO_DEPARTMENTS: { id: HeroDepartment; label: string }[] = [
   { id: "fragrance-beauty", label: "Fragrance & Beauty" },
   { id: "teens", label: "Teens" },
 ];
-
-function getDepartmentSlides(
-  slides: HeroSlide[],
-  department: HeroDepartment
-) {
-  const sharedSlides = slides.filter(
-    (slide) => (slide.department ?? "all") === "all"
-  );
-
-  if (department === "all") {
-    return sharedSlides.length > 0 ? sharedSlides : slides;
-  }
-
-  const dedicatedSlides = slides.filter(
-    (slide) => slide.department === department
-  );
-
-  // A department without its own slide keeps using the shared hero set. This
-  // lets admins add categories gradually without ever leaving the hero blank.
-  return dedicatedSlides.length > 0
-    ? dedicatedSlides
-    : sharedSlides.length > 0
-      ? sharedSlides
-      : slides;
-}
 
 function HeroVideo({
   slide,
@@ -99,7 +75,7 @@ export function HeroSection({ initialSlides, initialDepartment = "all", locked =
   const transitionTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const slides = useMemo(
-    () => getDepartmentSlides(initialSlides, activeDepartment),
+    () => selectHeroSlidesForDepartment(initialSlides, activeDepartment),
     [activeDepartment, initialSlides]
   );
   const displayedSlideIndex = Math.min(
@@ -180,7 +156,10 @@ export function HeroSection({ initialSlides, initialDepartment = "all", locked =
   };
 
   return (
-    <section className="relative h-[60vh] min-h-[450px] md:h-screen md:min-h-[700px] max-h-[900px] overflow-hidden">
+    <section
+      data-testid="hero-section"
+      className="relative h-[60vh] min-h-[450px] md:h-screen md:min-h-[700px] max-h-[900px] overflow-hidden"
+    >
       {/* Background image or video */}
       {slides.map((backgroundSlide, index) => {
         const isActive = displayedSlideIndex === index;

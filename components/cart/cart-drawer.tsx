@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { X, Plus, Minus, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getCartItemUnitPrice, isCartItemAvailable, useCartStore } from "@/lib/cart-store";
+import { getCartItemImages, getCartItemUnitPrice, isCartItemAvailable, useCartStore } from "@/lib/cart-store";
 import { formatPrice } from "@/lib/data";
 import { getProductImage } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -80,7 +80,7 @@ export function CartDrawer() {
                 >
                   <div className="relative w-24 h-32 bg-secondary rounded overflow-hidden shrink-0">
                     <Image
-                      src={getProductImage(item.product.images)}
+                      src={getProductImage(getCartItemImages(item))}
                       alt={item.product.name}
                       fill
                       className="object-cover"

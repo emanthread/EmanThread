@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { AlertTriangle, Plus, Trash2 } from "lucide-react";
+import Image from "next/image";
+import { AlertTriangle, ImagePlus, Plus, Trash2, X } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -19,7 +20,7 @@ import {
   PRODUCT_KINDS,
   PRODUCT_KIND_VALUES,
 } from "@/lib/commerce";
-import type { ProductKind } from "@/lib/data";
+import type { ProductKind, ProductOptionType } from "@/lib/data";
 import {
   defaultOptionLabelForKind,
   isProductEditorFieldVisible,
@@ -37,6 +38,27 @@ export type ProductVariantDraft = {
   stockQuantity: string;
   inStock: boolean;
   isActive: boolean;
+  colorHex: string;
+  images: string[];
+  selections?: Array<{ optionKey: string; valueKey: string }>;
+};
+
+export type ProductOptionValueDraft = {
+  id?: string;
+  key: string;
+  label: string;
+  swatchHex: string;
+  images: string[];
+  isActive: boolean;
+};
+
+export type ProductOptionDraft = {
+  id?: string;
+  key: string;
+  label: string;
+  type: ProductOptionType;
+  isRequired: boolean;
+  values: ProductOptionValueDraft[];
 };
 
 export type CommerceProfileDraft = {
@@ -46,10 +68,26 @@ export type CommerceProfileDraft = {
   optionLabel: string;
   sizeGuideUrl: string;
   details: Array<{ label: string; value: string }>;
+  options: ProductOptionDraft[];
   variants: ProductVariantDraft[];
 };
 
-type CommerceProfilePayload = Omit<CommerceProfileDraft, "variants"> & {
+type CommerceProfilePayload = Omit<CommerceProfileDraft, "variants" | "options"> & {
+  options?: Array<{
+    id?: string;
+    key: string;
+    label: string;
+    type: ProductOptionType;
+    isRequired: boolean;
+    values: Array<{
+      id?: string;
+      key: string;
+      label: string;
+      swatchHex?: string;
+      images: string[];
+      isActive: boolean;
+    }>;
+  }>;
   variants: Array<{
     id?: string;
     optionKey: string;
@@ -59,6 +97,9 @@ type CommerceProfilePayload = Omit<CommerceProfileDraft, "variants"> & {
     stockQuantity: number;
     inStock: boolean;
     isActive: boolean;
+    colorHex?: string;
+    images: string[];
+    selections?: Array<{ optionKey: string; valueKey: string }>;
   }>;
 };
 
@@ -69,6 +110,7 @@ type CommerceProfileResponse = {
   optionLabel?: string;
   sizeGuideUrl?: string;
   details?: Array<{ label: string; value: string }>;
+  options?: ProductOptionDraft[];
   variants?: Array<{
     id: string;
     optionKey: string;
@@ -78,6 +120,9 @@ type CommerceProfileResponse = {
     stockQuantity: number;
     inStock: boolean;
     isActive: boolean;
+    colorHex?: string;
+    images?: string[];
+    selections?: Array<{ optionKey: string; valueKey: string }>;
   }>;
 };
 
@@ -89,6 +134,7 @@ export function emptyCommerceProfileDraft(): CommerceProfileDraft {
     optionLabel: defaultOptionLabelForKind("UNSTITCHED_FABRIC"),
     sizeGuideUrl: "",
     details: [],
+    options: [],
     variants: [],
   };
 }
@@ -113,6 +159,14 @@ function toDraft(profile: CommerceProfileResponse): CommerceProfileDraft {
     optionLabel: profile.optionLabel || "",
     sizeGuideUrl: profile.sizeGuideUrl || "",
     details: Array.isArray(profile.details) ? profile.details : [],
+    options: Array.isArray(profile.options) ? profile.options.map((option) => ({
+      ...option,
+      values: option.values.map((value) => ({
+        ...value,
+        swatchHex: value.swatchHex || "#000000",
+        images: Array.isArray(value.images) ? value.images : [],
+      })),
+    })) : [],
     variants: (profile.variants || []).map((variant) => ({
       id: variant.id,
       optionKey: variant.optionKey,
@@ -122,6 +176,9 @@ function toDraft(profile: CommerceProfileResponse): CommerceProfileDraft {
       stockQuantity: String(variant.stockQuantity),
       inStock: variant.inStock,
       isActive: variant.isActive,
+      colorHex: variant.colorHex || "#000000",
+      images: Array.isArray(variant.images) ? variant.images : [],
+      selections: variant.selections,
     })),
   };
 }
@@ -144,6 +201,8 @@ export function serializeCommerceProfile(
     const sku = variant.sku.trim();
     const priceAdjustment = Number(variant.priceAdjustment || "0");
     const stockQuantity = Number(variant.stockQuantity || "0");
+    const colorHex = variant.colorHex.trim();
+    const images = variant.images.map((image) => image.trim()).filter(Boolean);
 
     if (!optionKey || !label) {
       throw new Error(`Option ${index + 1} needs both a key and customer label`);
@@ -153,6 +212,9 @@ export function serializeCommerceProfile(
     }
     if (!Number.isInteger(stockQuantity) || stockQuantity < 0) {
       throw new Error(`Option ${index + 1} stock must be a whole number of 0 or more`);
+    }
+    if (draft.options.length > 0 && variant.isActive && !sku) {
+      throw new Error(`Combination ${label || index + 1} needs its own SKU`);
     }
 
     const normalizedKey = optionKey.toLocaleLowerCase();
@@ -167,6 +229,15 @@ export function serializeCommerceProfile(
     }
     if (normalizedSku) seenSkus.add(normalizedSku);
 
+    if (draft.options.length === 0 && draft.productKind === "UNSTITCHED_FABRIC") {
+      if (!/^#[0-9a-f]{6}$/i.test(colorHex)) {
+        throw new Error(`Color ${index + 1} needs a valid swatch color`);
+      }
+      if (images.length === 0) {
+        throw new Error(`Color ${index + 1} needs at least one image`);
+      }
+    }
+
     return {
       ...(variant.id ? { id: variant.id } : {}),
       optionKey,
@@ -176,6 +247,8 @@ export function serializeCommerceProfile(
       stockQuantity,
       inStock: variant.inStock,
       isActive: variant.isActive,
+      ...(draft.options.length === 0 && draft.productKind === "UNSTITCHED_FABRIC" ? { colorHex, images } : { images: [] }),
+      ...(draft.options.length ? { selections: variant.selections || [] } : {}),
     };
   });
 
@@ -187,7 +260,10 @@ export function serializeCommerceProfile(
     );
   }
 
-  const optionLabel = draft.optionLabel.trim();
+  const optionLabel =
+    draft.options.length === 0 && draft.productKind === "UNSTITCHED_FABRIC" && variants.length > 0
+      ? "Color"
+      : draft.optionLabel.trim();
   if ((requiresSelection || variants.length > 0) && !optionLabel) {
     throw new Error("Enter a name for the product options");
   }
@@ -210,6 +286,25 @@ export function serializeCommerceProfile(
     return { label, value };
   }).filter((detail) => detail.label && detail.value);
 
+  draft.options.forEach((option, axisIndex) => {
+    if (!option.key.trim() || !option.label.trim() || option.values.length === 0) {
+      throw new Error(`Option axis ${axisIndex + 1} needs a name and at least one value`);
+    }
+    option.values.forEach((value, valueIndex) => {
+      if (!value.key.trim() || !value.label.trim()) {
+        throw new Error(`${option.label} value ${valueIndex + 1} needs a label`);
+      }
+      if (option.type === "COLOR" || option.type === "SHADE") {
+        if (!/^#[0-9a-f]{6}$/i.test(value.swatchHex.trim())) {
+          throw new Error(`${value.label} needs a valid swatch color`);
+        }
+        if (value.images.length === 0) {
+          throw new Error(`${value.label} needs at least one image`);
+        }
+      }
+    });
+  });
+
   return {
     productKind: draft.productKind,
     // Tailoring is intentionally limited to unstitched fabric. This is also
@@ -219,10 +314,29 @@ export function serializeCommerceProfile(
       isProductEditorFieldVisible(editorSchema.fields.stitching)
         ? draft.stitchingEligible
         : false,
-    requiresSelection,
+    requiresSelection:
+      requiresSelection ||
+      (draft.productKind === "UNSTITCHED_FABRIC" && variants.length > 0),
     optionLabel,
     sizeGuideUrl,
     details,
+    ...(draft.options.length ? {
+      options: draft.options.map((option) => ({
+        ...(option.id ? { id: option.id } : {}),
+        key: option.key.trim(),
+        label: option.label.trim(),
+        type: option.type,
+        isRequired: option.isRequired,
+        values: option.values.map((value) => ({
+          ...(value.id ? { id: value.id } : {}),
+          key: value.key.trim(),
+          label: value.label.trim(),
+          swatchHex: value.swatchHex.trim() || undefined,
+          images: value.images,
+          isActive: value.isActive,
+        })),
+      })),
+    } : {}),
     variants,
   };
 }
@@ -244,6 +358,8 @@ function newOptionDraft(optionKey = "", label = ""): ProductVariantDraft {
     stockQuantity: "0",
     inStock: false,
     isActive: true,
+    colorHex: "#000000",
+    images: [],
   };
 }
 
@@ -274,6 +390,192 @@ function canAddOptionPresets(
   );
 }
 
+function draftKey(value: string): string {
+  return value.trim().toLocaleLowerCase("en-US").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+}
+
+function rebuildCombinationDrafts(
+  options: ProductOptionDraft[],
+  existing: ProductVariantDraft[],
+): ProductVariantDraft[] {
+  const combinations = options.reduce<Array<Array<{ optionKey: string; valueKey: string; label: string }>>>(
+    (rows, option) => rows.flatMap((row) => option.values.filter((value) => value.isActive).map((value) => [
+      ...row,
+      { optionKey: option.key, valueKey: value.key, label: value.label },
+    ])),
+    [[]],
+  ).slice(0, 300);
+  const existingByCombination = new Map(existing.map((variant) => [
+    (variant.selections || []).map((selection) => `${selection.optionKey}:${selection.valueKey}`).join("|"),
+    variant,
+  ]));
+  const usedVariantIds = new Set<string>();
+
+  return combinations.map((combination) => {
+    const key = combination.map((selection) => `${selection.optionKey}:${selection.valueKey}`).join("|");
+    const legacyMatch = options.length === 1
+      ? existing.find((variant) => variant.optionKey === combination[0]?.valueKey)
+      : undefined;
+    const subsetMatch = existing.find((variant) => {
+      if (variant.id && usedVariantIds.has(variant.id)) return false;
+      const selections = variant.selections || [];
+      return selections.length > 0 && selections.every((selection) =>
+        combination.some((candidate) => candidate.optionKey === selection.optionKey && candidate.valueKey === selection.valueKey)
+      );
+    });
+    const previous = existingByCombination.get(key) || legacyMatch || subsetMatch;
+    if (previous?.id) usedVariantIds.add(previous.id);
+    return {
+      ...(previous || newOptionDraft()),
+      optionKey: key,
+      label: combination.map((selection) => selection.label).join(" / "),
+      selections: combination.map(({ optionKey, valueKey }) => ({ optionKey, valueKey })),
+      colorHex: "",
+      images: [],
+    };
+  });
+}
+
+function initialNormalizedOptions(
+  kind: ProductKind,
+  presets: readonly ProductOptionPreset[],
+): ProductOptionDraft[] {
+  const values = presets.map((preset) => ({
+    key: preset.optionKey,
+    label: preset.label,
+    swatchHex: "",
+    images: [],
+    isActive: true,
+  }));
+  if (kind === "READY_TO_WEAR" || kind === "TEENS") {
+    return [{ key: "size", label: "Size", type: "SIZE", isRequired: true, values }];
+  }
+  if (kind === "BEAUTY") {
+    return [{ key: "shade", label: "Shade", type: "SHADE", isRequired: true, values: [] }];
+  }
+  if (kind === "FRAGRANCE") {
+    return [{ key: "volume", label: "Volume", type: "VOLUME", isRequired: true, values: [] }];
+  }
+  if (kind === "GIFT" || kind === "GIFT_BOX") {
+    return [{ key: "format", label: "Gift option", type: "FORMAT", isRequired: true, values: [] }];
+  }
+  return [{ key: "color", label: "Color", type: "COLOR", isRequired: true, values: [] }];
+}
+
+function NormalizedOptionEditor({
+  draft,
+  update,
+  onUploadVariantImage,
+}: {
+  draft: CommerceProfileDraft;
+  update: (changes: Partial<CommerceProfileDraft>) => void;
+  onUploadVariantImage?: (file: File) => Promise<string | null>;
+}) {
+  const updateOptions = (options: ProductOptionDraft[], variants = rebuildCombinationDrafts(options, draft.variants)) => {
+    update({ options, variants, requiresSelection: options.length > 0, optionLabel: options[0]?.label || "Option" });
+  };
+  const updateOption = (axisIndex: number, changes: Partial<ProductOptionDraft>) => {
+    updateOptions(draft.options.map((option, index) => index === axisIndex ? { ...option, ...changes } : option));
+  };
+  const updateValue = (axisIndex: number, valueIndex: number, changes: Partial<ProductOptionValueDraft>) => {
+    const options = draft.options.map((option, index) => index === axisIndex ? {
+      ...option,
+      values: option.values.map((value, candidate) => candidate === valueIndex ? { ...value, ...changes } : value),
+    } : option);
+    updateOptions(options);
+  };
+  const visualAxisExists = draft.options.some((option) => option.type === "COLOR" || option.type === "SHADE");
+  const canAddColor = (draft.productKind === "READY_TO_WEAR" || draft.productKind === "TEENS" || draft.productKind === "ACCESSORY") && !visualAxisExists;
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <Label>Variant options</Label>
+          <p className="text-xs text-muted-foreground">Every matrix row below is a real SKU and inventory combination.</p>
+        </div>
+        {canAddColor && (
+          <Button type="button" size="sm" variant="outline" onClick={() => {
+            const options = [{
+              key: "color",
+              label: "Color",
+              type: "COLOR" as const,
+              isRequired: true,
+              values: [{ key: "color-1", label: "", swatchHex: "#000000", images: [], isActive: true }],
+            }, ...draft.options];
+            updateOptions(options);
+          }}><Plus className="mr-2 h-4 w-4" />Add color axis</Button>
+        )}
+      </div>
+
+      {draft.options.map((option, axisIndex) => {
+        const visual = option.type === "COLOR" || option.type === "SHADE";
+        return (
+          <div key={option.id || option.key} className="space-y-3 rounded-lg border p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="font-medium">{option.label}</p>
+                <p className="text-xs text-muted-foreground">{option.type.toLocaleLowerCase().replace("_", " ")} axis</p>
+              </div>
+              {canAddColor === false && visual && draft.options.length > 1 && (
+                <Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={() => updateOptions(draft.options.filter((_, index) => index !== axisIndex))}>Remove axis</Button>
+              )}
+            </div>
+            {option.values.map((value, valueIndex) => (
+              <div key={value.id || `${option.key}-${valueIndex}`} className="space-y-2 rounded-md bg-muted/30 p-3">
+                <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                  <Input value={value.label} placeholder={visual ? option.label : `${option.label} value`} onChange={(event) => {
+                    const oldKey = value.key;
+                    const key = draftKey(event.target.value);
+                    const variants = draft.variants.map((variant) => ({
+                      ...variant,
+                      selections: variant.selections?.map((selection) => selection.optionKey === option.key && selection.valueKey === oldKey ? { ...selection, valueKey: key } : selection),
+                    }));
+                    const options = draft.options.map((candidate, candidateAxis) => candidateAxis === axisIndex ? {
+                      ...candidate,
+                      values: candidate.values.map((candidateValue, candidateValueIndex) => candidateValueIndex === valueIndex ? { ...candidateValue, label: event.target.value, key } : candidateValue),
+                    } : candidate);
+                    updateOptions(options, rebuildCombinationDrafts(options, variants));
+                  }} />
+                  <Button type="button" size="icon" variant="ghost" className="text-destructive" onClick={() => updateOption(axisIndex, { values: option.values.filter((_, index) => index !== valueIndex) })}><Trash2 className="h-4 w-4" /></Button>
+                </div>
+                {visual && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input type="color" value={/^#[0-9a-f]{6}$/i.test(value.swatchHex) ? value.swatchHex : "#000000"} onChange={(event) => updateValue(axisIndex, valueIndex, { swatchHex: event.target.value })} className="h-10 w-14 rounded border p-1" />
+                      <Input value={value.swatchHex} onChange={(event) => updateValue(axisIndex, valueIndex, { swatchHex: event.target.value })} placeholder="#000000" className="max-w-36" />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {value.images.map((url, imageIndex) => (
+                        <div key={`${url}-${imageIndex}`} className="relative h-20 w-16 overflow-hidden rounded border"><Image src={url} alt="" fill sizes="64px" className="object-cover" /><button type="button" className="absolute right-1 top-1 rounded-full bg-background p-1" onClick={() => updateValue(axisIndex, valueIndex, { images: value.images.filter((_, index) => index !== imageIndex) })}><X className="h-3 w-3" /></button></div>
+                      ))}
+                      {value.images.length < 10 && onUploadVariantImage && <label className="flex h-20 w-16 cursor-pointer items-center justify-center rounded border-2 border-dashed"><ImagePlus className="h-4 w-4" /><input type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" onChange={async (event) => { let images = [...value.images]; for (const file of Array.from(event.target.files || []).slice(0, 10 - images.length)) { const url = await onUploadVariantImage(file); if (url) images.push(url); } updateValue(axisIndex, valueIndex, { images }); event.target.value = ""; }} /></label>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+            <Button type="button" size="sm" variant="outline" onClick={() => updateOption(axisIndex, { values: [...option.values, { key: `value-${option.values.length + 1}`, label: "", swatchHex: visual ? "#000000" : "", images: [], isActive: true }] })}><Plus className="mr-2 h-4 w-4" />Add {option.label.toLocaleLowerCase()}</Button>
+          </div>
+        );
+      })}
+
+      <div className="space-y-2">
+        <Label>Sellable combinations ({draft.variants.length})</Label>
+        {draft.variants.length === 0 ? <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-900">Add at least one value to every option axis.</p> : draft.variants.map((variant, index) => (
+          <div key={variant.id || variant.optionKey} className="grid gap-2 rounded-md border p-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_8rem_8rem_auto]">
+            <div className="self-center text-sm font-medium">{variant.label}</div>
+            <Input aria-label={`${variant.label} SKU`} value={variant.sku} placeholder="SKU" onChange={(event) => update({ variants: draft.variants.map((candidate, candidateIndex) => candidateIndex === index ? { ...candidate, sku: event.target.value } : candidate) })} />
+            <Input aria-label={`${variant.label} price adjustment`} type="number" value={variant.priceAdjustment} onChange={(event) => update({ variants: draft.variants.map((candidate, candidateIndex) => candidateIndex === index ? { ...candidate, priceAdjustment: event.target.value } : candidate) })} />
+            <Input aria-label={`${variant.label} stock`} type="number" min="0" step="1" value={variant.stockQuantity} onChange={(event) => { const stockQuantity = event.target.value; update({ variants: draft.variants.map((candidate, candidateIndex) => candidateIndex === index ? { ...candidate, stockQuantity, inStock: Number(stockQuantity) > 0 } : candidate) }); }} />
+            <Checkbox aria-label={`${variant.label} active`} checked={variant.isActive} onCheckedChange={(checked) => update({ variants: draft.variants.map((candidate, candidateIndex) => candidateIndex === index ? { ...candidate, isActive: checked === true } : candidate) })} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function readApiError(payload: unknown, fallback: string): string {
   return payload && typeof payload === "object" && "error" in payload
     ? String(payload.error)
@@ -292,6 +594,7 @@ export function ProductCommerceProfileSection({
   classification,
   showProductType = true,
   productTypeLocked = false,
+  onUploadVariantImage,
 }: {
   productId?: string;
   draft: CommerceProfileDraft;
@@ -304,6 +607,7 @@ export function ProductCommerceProfileSection({
   classification?: CatalogProductClassification | null;
   showProductType?: boolean;
   productTypeLocked?: boolean;
+  onUploadVariantImage?: (file: File) => Promise<string>;
 }) {
   useEffect(() => {
     let cancelled = false;
@@ -390,6 +694,7 @@ export function ProductCommerceProfileSection({
       sizeGuideUrl: isProductEditorFieldVisible(nextSchema.fields.sizeGuide)
         ? draft.sizeGuideUrl
         : "",
+      options: kindChanged ? [] : draft.options,
       variants: kindChanged ? [] : draft.variants,
     });
   };
@@ -403,6 +708,27 @@ export function ProductCommerceProfileSection({
   const kindRequiresSelection = effectiveSchema.options.mode === "required";
   const showOptions =
     kindRequiresSelection || draft.requiresSelection || draft.variants.length > 0;
+  const usesColorVariants = effectiveKind === "UNSTITCHED_FABRIC";
+  const usesNormalizedOptions = draft.options.length > 0;
+
+  const startNormalizedOptions = () => {
+    const options = initialNormalizedOptions(effectiveKind, effectiveSchema.options.presets);
+    if (options[0] && options[0].values.length === 0) {
+      options[0].values.push({
+        key: "value-1",
+        label: "",
+        swatchHex: options[0].type === "COLOR" || options[0].type === "SHADE" ? "#000000" : "",
+        images: [],
+        isActive: true,
+      });
+    }
+    update({
+      options,
+      variants: rebuildCombinationDrafts(options, draft.variants),
+      optionLabel: options[0]?.label || "Option",
+      requiresSelection: true,
+    });
+  };
 
   const addOptionPresets = () => {
     const existingValues = new Set(
@@ -486,7 +812,7 @@ export function ProductCommerceProfileSection({
         </label>
       )}
 
-      {showOptions && (
+      {showOptions && !usesColorVariants && (
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="commerce-option-label">Option name</Label>
@@ -585,22 +911,38 @@ export function ProductCommerceProfileSection({
         </div>
       </details>
 
-      {!showOptions ? (
+      {usesNormalizedOptions ? (
+        <NormalizedOptionEditor
+          draft={draft}
+          update={update}
+          onUploadVariantImage={onUploadVariantImage}
+        />
+      ) : effectiveKind === "BEAUTY" && effectiveSchema.fields.color.mode === "hidden" ? (
+        <p className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+          This beauty category does not use shade variants. Skincare remains a single purchasable product.
+        </p>
+      ) : !showOptions || draft.variants.length === 0 ? (
         <Button
           type="button"
           variant="outline"
-          onClick={() => update({ variants: [newOptionDraft()] })}
+          onClick={startNormalizedOptions}
         >
           <Plus className="mr-2 h-4 w-4" />
-          This product has options
+          {effectiveKind === "READY_TO_WEAR" || effectiveKind === "TEENS"
+            ? "Create size combinations"
+            : usesColorVariants
+              ? "This product has multiple colors"
+              : "This product has options"}
         </Button>
       ) : (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <Label>{draft.optionLabel || "Options"}</Label>
+              <Label>{usesColorVariants ? "Colors" : (draft.optionLabel || "Options")}</Label>
               <p className="text-xs text-muted-foreground">
-                Each option can have its own SKU, stock, and price adjustment.
+                {usesColorVariants
+                  ? "Each color has its own gallery, SKU, stock, and price adjustment."
+                  : "Each option can have its own SKU, stock, and price adjustment."}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -616,11 +958,15 @@ export function ProductCommerceProfileSection({
                 type="button"
                 size="sm"
                 variant="outline"
-                onClick={() => update({ variants: [...draft.variants, newOptionDraft()] })}
+                onClick={() => update({
+                  optionLabel: usesColorVariants ? "Color" : draft.optionLabel,
+                  requiresSelection: usesColorVariants ? true : draft.requiresSelection,
+                  variants: [...draft.variants, newOptionDraft()],
+                })}
                 disabled={draft.variants.length >= 50}
               >
                 <Plus className="mr-2 h-4 w-4" />
-                Add option
+                {usesColorVariants ? "Add color" : "Add option"}
               </Button>
             </div>
           </div>
@@ -629,7 +975,7 @@ export function ProductCommerceProfileSection({
             <div key={variant.id || `new-option-${index}`} className="space-y-3 rounded-md border p-3">
               <div className="space-y-1">
                 <Label htmlFor={`commerce-option-label-${index}`}>
-                  {draft.optionLabel || "Option"} label
+                  {usesColorVariants ? "Color name" : `${draft.optionLabel || "Option"} label`}
                 </Label>
                 <Input
                   id={`commerce-option-label-${index}`}
@@ -643,6 +989,72 @@ export function ProductCommerceProfileSection({
                   placeholder={effectiveSchema.options.itemPlaceholder}
                 />
               </div>
+            {usesColorVariants && (
+              <div className="space-y-3 rounded-md bg-muted/30 p-3">
+                <div className="space-y-1">
+                  <Label htmlFor={`commerce-option-color-${index}`}>Swatch color</Label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      id={`commerce-option-color-${index}`}
+                      type="color"
+                      value={/^#[0-9a-f]{6}$/i.test(variant.colorHex) ? variant.colorHex : "#000000"}
+                      onChange={(event) => updateVariant(index, { colorHex: event.target.value })}
+                      className="h-10 w-14 cursor-pointer rounded border p-1"
+                    />
+                    <Input
+                      aria-label={`Color ${index + 1} hex value`}
+                      value={variant.colorHex}
+                      onChange={(event) => updateVariant(index, { colorHex: event.target.value })}
+                      placeholder="#000000"
+                      className="max-w-36"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Color gallery (1–10 images)</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {variant.images.map((image, imageIndex) => (
+                      <div key={`${image}-${imageIndex}`} className="relative h-24 w-20 overflow-hidden rounded-md border bg-background">
+                        <Image src={image} alt={`${variant.label || `Color ${index + 1}`} image ${imageIndex + 1}`} fill sizes="80px" className="object-cover" />
+                        <button
+                          type="button"
+                          aria-label={`Remove image ${imageIndex + 1} from ${variant.label || `color ${index + 1}`}`}
+                          onClick={() => updateVariant(index, { images: variant.images.filter((_, candidate) => candidate !== imageIndex) })}
+                          className="absolute right-1 top-1 rounded-full bg-background/90 p-1 shadow"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                    {variant.images.length < 10 && onUploadVariantImage && (
+                      <label className="flex h-24 w-20 cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed text-center text-xs text-muted-foreground hover:border-primary hover:text-foreground">
+                        <ImagePlus className="mb-1 h-4 w-4" />
+                        Add images
+                        <input
+                          className="sr-only"
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          multiple
+                          onChange={async (event) => {
+                            const files = Array.from(event.target.files || []).slice(0, 10 - variant.images.length);
+                            let images = [...variant.images];
+                            for (const file of files) {
+                              const url = await onUploadVariantImage(file);
+                              if (url) images = [...images, url].slice(0, 10);
+                            }
+                            updateVariant(index, { images });
+                            event.target.value = "";
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+                  {variant.images.length === 0 && (
+                    <p className="text-xs text-amber-700">Add at least one image for this color.</p>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="space-y-1">
                 <Label htmlFor={`commerce-option-sku-${index}`}>Option SKU</Label>
@@ -702,7 +1114,18 @@ export function ProductCommerceProfileSection({
                 variant="ghost"
                 size="sm"
                 className="text-destructive hover:text-destructive"
-                onClick={() => update({ variants: draft.variants.filter((_, variantIndex) => variantIndex !== index) })}
+                onClick={() => {
+                  const variants = draft.variants.filter((_, variantIndex) => variantIndex !== index);
+                  update({
+                    variants,
+                    ...(usesColorVariants && variants.length === 0
+                      ? {
+                          requiresSelection: false,
+                          optionLabel: defaultOptionLabelForKind("UNSTITCHED_FABRIC"),
+                        }
+                      : {}),
+                  });
+                }}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 {variant.id ? "Retire option" : "Remove option"}

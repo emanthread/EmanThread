@@ -1,4 +1,4 @@
-import type { ProductKind } from "@/lib/data";
+import type { ProductKind, ProductOptionType } from "@/lib/data";
 
 export type CatalogProductClassification = {
   productKind: ProductKind;
@@ -28,6 +28,10 @@ export type ProductEditorSchema = {
     stitching: ProductEditorFieldSchema;
   };
   inventorySource: "product" | "variant";
+  optionAxes: {
+    required: readonly ProductOptionType[];
+    optional: readonly ProductOptionType[];
+  };
   options: {
     mode: "optional" | "required";
     label: string;
@@ -67,6 +71,7 @@ const CLASSIFICATIONS: Record<ProductKind, Omit<CatalogProductClassification, "p
         stitching: { mode: "optional", label: "Custom stitching" },
       },
       inventorySource: "product",
+      optionAxes: { required: [], optional: ["COLOR"] },
       options: {
         mode: "optional",
         label: "Option",
@@ -91,6 +96,7 @@ const CLASSIFICATIONS: Record<ProductKind, Omit<CatalogProductClassification, "p
         stitching: hiddenField("Custom stitching"),
       },
       inventorySource: "variant",
+      optionAxes: { required: ["SIZE"], optional: ["COLOR"] },
       options: {
         mode: "required",
         label: "Size",
@@ -111,6 +117,7 @@ const CLASSIFICATIONS: Record<ProductKind, Omit<CatalogProductClassification, "p
         stitching: hiddenField("Custom stitching"),
       },
       inventorySource: "product",
+      optionAxes: { required: [], optional: ["VOLUME"] },
       options: {
         mode: "optional",
         label: "Volume",
@@ -131,6 +138,7 @@ const CLASSIFICATIONS: Record<ProductKind, Omit<CatalogProductClassification, "p
         stitching: hiddenField("Custom stitching"),
       },
       inventorySource: "product",
+      optionAxes: { required: [], optional: [] },
       options: {
         mode: "optional",
         label: "Shade / option",
@@ -155,6 +163,7 @@ const CLASSIFICATIONS: Record<ProductKind, Omit<CatalogProductClassification, "p
         stitching: hiddenField("Custom stitching"),
       },
       inventorySource: "variant",
+      optionAxes: { required: ["SIZE"], optional: ["COLOR"] },
       options: {
         mode: "required",
         label: "Size",
@@ -175,6 +184,7 @@ const CLASSIFICATIONS: Record<ProductKind, Omit<CatalogProductClassification, "p
         stitching: hiddenField("Custom stitching"),
       },
       inventorySource: "product",
+      optionAxes: { required: [], optional: ["FORMAT", "STYLE", "CUSTOM"] },
       options: {
         mode: "optional",
         label: "Gift option",
@@ -195,6 +205,7 @@ const CLASSIFICATIONS: Record<ProductKind, Omit<CatalogProductClassification, "p
         stitching: hiddenField("Custom stitching"),
       },
       inventorySource: "product",
+      optionAxes: { required: [], optional: ["FORMAT", "STYLE", "CUSTOM"] },
       options: {
         mode: "optional",
         label: "Gift option",
@@ -215,6 +226,7 @@ const CLASSIFICATIONS: Record<ProductKind, Omit<CatalogProductClassification, "p
         stitching: hiddenField("Custom stitching"),
       },
       inventorySource: "product",
+      optionAxes: { required: [], optional: ["COLOR", "SIZE", "STYLE", "FORMAT", "CUSTOM"] },
       options: {
         mode: "optional",
         label: "Option",
@@ -325,6 +337,7 @@ export function classifyCatalogPath(
       ...classification,
       editorSchema: {
         ...classification.editorSchema,
+        optionAxes: { required: [], optional: ["SHADE"] },
         fields: {
           ...classification.editorSchema.fields,
           color: { mode: "optional", label: "Shade / color" },
@@ -362,6 +375,7 @@ export function classifyCatalogNode(node: {
       ...classification,
       editorSchema: {
         ...classification.editorSchema,
+        optionAxes: legacyClassification.editorSchema.optionAxes,
         fields: {
           ...classification.editorSchema.fields,
           color: legacyClassification.editorSchema.fields.color,

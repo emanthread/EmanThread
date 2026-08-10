@@ -96,6 +96,23 @@ export async function resolveCategoryFabricTypes(categoryParam: string): Promise
 }
 
 function mapCommerceProfile(profile: any): ProductCommerceProfile {
+  const options = (profile.options || []).map((option: any) => ({
+    id: option.id,
+    key: option.key,
+    label: option.label,
+    type: option.type,
+    isRequired: option.isRequired,
+    displayOrder: option.displayOrder,
+    values: (option.values || []).map((value: any) => ({
+      id: value.id,
+      key: value.key,
+      label: value.label,
+      swatchHex: value.swatchHex || undefined,
+      images: value.images ? parseProductImages(value.images) : undefined,
+      isActive: value.isActive,
+      displayOrder: value.displayOrder,
+    })),
+  }));
   return {
     productKind: profile.productKind,
     stitchingEligible: profile.stitchingEligible,
@@ -103,6 +120,7 @@ function mapCommerceProfile(profile: any): ProductCommerceProfile {
     optionLabel: profile.optionLabel || undefined,
     sizeGuideUrl: profile.sizeGuideUrl || undefined,
     details: normalizeCommerceDetails(profile.details),
+    ...(options.length ? { options } : {}),
     variants: (profile.variants || []).map((variant: any) => ({
       id: variant.id,
       optionKey: variant.optionKey,
@@ -112,6 +130,17 @@ function mapCommerceProfile(profile: any): ProductCommerceProfile {
       stockQuantity: variant.stockQuantity,
       inStock: variant.inStock,
       isActive: variant.isActive,
+      colorHex: variant.colorHex || undefined,
+      images: variant.images ? parseProductImages(variant.images) : undefined,
+      selections: (variant.selections || []).map((selection: any) => ({
+        optionId: selection.option.id,
+        optionKey: selection.option.key,
+        optionLabel: selection.option.label,
+        optionType: selection.option.type,
+        valueId: selection.optionValue.id,
+        valueKey: selection.optionValue.key,
+        valueLabel: selection.optionValue.label,
+      })),
     })),
   };
 }
@@ -125,9 +154,26 @@ export async function getCommerceProfilesByProductId(productIds: string[]) {
   const profiles = await prisma.productCommerceProfile.findMany({
     where: { productId: { in: productIds } },
     include: {
+      options: {
+        orderBy: [{ displayOrder: "asc" }, { label: "asc" }],
+        include: {
+          values: {
+            where: {
+              isActive: true,
+              selections: { some: { variant: { isActive: true } } },
+            },
+            orderBy: [{ displayOrder: "asc" }, { label: "asc" }],
+          },
+        },
+      },
       variants: {
         where: { isActive: true },
         orderBy: [{ displayOrder: "asc" }, { label: "asc" }],
+        include: {
+          selections: {
+            include: { option: true, optionValue: true },
+          },
+        },
       },
     },
   });
@@ -994,7 +1040,13 @@ export async function getAdminProducts(
         ...(FEATURE_FLAGS.COMMERCE_PROFILE_V1
           ? {
               commerceProfile: {
-                select: { requiresSelection: true },
+                select: {
+                  requiresSelection: true,
+                  variants: {
+                    where: { isActive: true, inStock: true },
+                    select: { stockQuantity: true },
+                  },
+                },
               },
             }
           : {}),
@@ -1074,6 +1126,11 @@ export async function getAdminProducts(
             }
           ).commerceProfile?.requiresSelection
         ),
+      lowStockVariantCount:
+        FEATURE_FLAGS.COMMERCE_PROFILE_V1
+          ? ((p as unknown as { commerceProfile: { variants: Array<{ stockQuantity: number }> } | null }).commerceProfile?.variants || [])
+              .filter((variant) => variant.stockQuantity > 0 && variant.stockQuantity <= p.lowStockThreshold).length
+          : 0,
       description: p.description,
       longDescription: p.longDescription || "",
       categoryId: p.categoryId,

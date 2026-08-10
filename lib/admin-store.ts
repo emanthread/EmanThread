@@ -68,6 +68,7 @@ export interface AdminProduct {
     path: string;
   };
   usesVariantInventory?: boolean;
+  lowStockVariantCount?: number;
   description: string;
   longDescription?: string;
   metaTitle?: string;

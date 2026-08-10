@@ -72,13 +72,15 @@ type ResolvedVariant = {
   id: string;
   sku: string | null;
   label: string;
-  optionLabel: string | null;
+  selectedOptions: Array<{ label: string; value: string }>;
+  variantImage: string | null;
 };
 
 type OrderItemOptionSnapshot = {
   productVariantId: string | null;
   variantSku: string | null;
   variantLabel: string | null;
+  variantImage: string | null;
   selectedOptions: unknown;
 };
 
@@ -100,6 +102,7 @@ async function getOptionSnapshotsByOrderItemId(orderItemIds: string[]) {
       productVariantId: true,
       variantSku: true,
       variantLabel: true,
+      variantImage: true,
       selectedOptions: true,
     },
   });
@@ -196,6 +199,7 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
           price: true,
           inStock: true,
           tags: true,
+          images: true,
         },
       });
       if (!product) {
@@ -220,10 +224,18 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
             stockQuantity: true,
             inStock: true,
             isActive: true,
+            images: true,
             commerceProfile: {
               select: {
                 productId: true,
                 optionLabel: true,
+                options: { where: { isRequired: true }, select: { id: true } },
+              },
+            },
+            selections: {
+              include: {
+                option: { select: { label: true, type: true, displayOrder: true } },
+                optionValue: { select: { label: true, images: true } },
               },
             },
           },
@@ -231,6 +243,12 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
 
         if (!variant || variant.commerceProfile.productId !== item.productId) {
           throw new Error(`Selected option is not available for ${product.name}`);
+        }
+        if (
+          variant.commerceProfile.options.length > 0 &&
+          variant.selections.length !== variant.commerceProfile.options.length
+        ) {
+          throw new Error(`Selected combination is incomplete for ${product.name}`);
         }
         if (!variant.isActive || !variant.inStock) {
           throw new Error(`Selected option is out of stock for ${product.name}`);
@@ -246,18 +264,42 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
           throw new Error(`Insufficient stock for selected option of ${product.name}. Available: ${variant.stockQuantity}`);
         }
         variantQuantityById.set(variant.id, totalVariantQuantity);
+        const visualSelection = variant.selections.find((selection) =>
+          selection.option.type === "COLOR" || selection.option.type === "SHADE"
+        );
         resolvedVariants[index] = {
           id: variant.id,
           sku: variant.sku,
           label: variant.label,
-          optionLabel: variant.commerceProfile.optionLabel,
+          selectedOptions: variant.selections.length > 0
+            ? [...variant.selections]
+                .sort((left, right) => left.option.displayOrder - right.option.displayOrder)
+                .map((selection) => ({
+                  label: selection.option.label,
+                  value: selection.optionValue.label,
+                }))
+            : [{
+                label: variant.commerceProfile.optionLabel?.trim() || "Option",
+                value: variant.label,
+              }],
+          variantImage:
+            (variant.images ? parseProductImages(variant.images)[0] : undefined) ||
+            (visualSelection?.optionValue.images
+              ? parseProductImages(visualSelection.optionValue.images)[0]
+              : undefined) ||
+            parseProductImages(product.images)[0] ||
+            null,
         };
         continue;
       }
 
+      const itemCommerceProfile = commerceProfileByProductId.get(item.productId);
+      const isRepairedStaleUnstitchedProfile =
+        inferredUnstitchedProductIds.has(item.productId) &&
+        itemCommerceProfile?.productKind !== "UNSTITCHED_FABRIC";
       if (
-        commerceProfileByProductId.get(item.productId)?.requiresSelection &&
-        !inferredUnstitchedProductIds.has(item.productId)
+        itemCommerceProfile?.requiresSelection &&
+        !isRepairedStaleUnstitchedProfile
       ) {
         throw new Error(`Please choose an option for ${product.name}`);
       }
@@ -328,18 +370,14 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
           const variant = resolvedVariants[index];
           if (!variant) return [];
           // The server, not browser storage, determines the option snapshot.
-          const selectedOptions = [
-            {
-              label: variant.optionLabel?.trim() || "Option",
-              value: variant.label,
-            },
-          ];
+          const selectedOptions = variant.selectedOptions;
           return tx.orderItemConfiguration.create({
             data: {
               orderItemId: orderItem.id,
               productVariantId: variant.id,
               variantSku: variant.sku,
               variantLabel: variant.label,
+              variantImage: variant.variantImage,
               selectedOptions: JSON.parse(JSON.stringify(selectedOptions)) as Prisma.InputJsonValue,
             },
           });
@@ -463,9 +501,9 @@ export async function getOrdersByUser(userId: string) {
       return {
         id: item.id,
         name: item.product?.name || "Unknown Product",
-        image: item.product?.images
+        image: optionSnapshot?.variantImage || (item.product?.images
           ? parseProductImages(item.product.images)[0] || "/placeholder.jpg"
-          : "/placeholder.jpg",
+          : "/placeholder.jpg"),
         quantity: item.quantity,
         price: Number(item.priceAtTimeOfPurchase),
         ...(optionSnapshot?.variantLabel ? { variantLabel: optionSnapshot.variantLabel } : {}),
@@ -515,9 +553,9 @@ export async function getOrderById(id: string) {
       return {
         id: item.id,
         name: item.product?.name || "Unknown Product",
-        image: item.product?.images
+        image: optionSnapshot?.variantImage || (item.product?.images
           ? parseProductImages(item.product.images)[0] || "/placeholder.jpg"
-          : "/placeholder.jpg",
+          : "/placeholder.jpg"),
         quantity: item.quantity,
         price: Number(item.priceAtTimeOfPurchase),
         ...(optionSnapshot?.variantLabel ? { variantLabel: optionSnapshot.variantLabel } : {}),
@@ -617,9 +655,9 @@ export async function getAdminOrders(options: {
         return {
           productId: item.productId,
           productName: item.product?.name || "Unknown Product",
-          productImage: item.product?.images
+          productImage: optionSnapshot?.variantImage || (item.product?.images
             ? parseProductImages(item.product.images)[0] || "/placeholder.jpg"
-            : "/placeholder.jpg",
+            : "/placeholder.jpg"),
           quantity: item.quantity,
           price: Number(item.priceAtTimeOfPurchase),
           sku: optionSnapshot?.variantSku || item.product?.sku || "N/A",

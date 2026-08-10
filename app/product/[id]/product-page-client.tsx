@@ -26,12 +26,15 @@ import { formatPrice, type Product, type ProductVariant } from "@/lib/data";
 import { Ruler } from "lucide-react";
 import {
   getActiveVariants,
+  getProductOptions,
+  getVariantImages,
   getVariantUnitPrice,
   hasUnavailableRequiredSelection,
   isProductAvailableForPurchase,
   isProductStitchingEligible,
+  isUnstitchedColorVariantProduct,
   isVariantAvailable,
-  productOptionForVariant,
+  productOptionsForVariant,
   requiresVariantSelectionForPurchase,
 } from "@/lib/commerce";
 import { cn } from "@/lib/utils";
@@ -188,9 +191,17 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
   const router = useRouter();
   const { addItem } = useCartStore();
   const { toggleItem, isInWishlist, isIdentityResolved } = useWishlistStore();
-  const productImages = product.images.length > 0 ? product.images : [getProductImage(product.images)];
   const activeVariants = getActiveVariants(product);
   const selectedVariant = activeVariants.find((variant) => variant.id === selectedVariantId) ?? null;
+  const usesColorVariants = isUnstitchedColorVariantProduct(product) ||
+    getProductOptions(product).some((option) => option.type === "COLOR" || option.type === "SHADE");
+  const defaultColorVariantId = usesColorVariants
+    ? activeVariants.find(isVariantAvailable)?.id || null
+    : null;
+  const selectedGallery = selectedVariant ? getVariantImages(product, selectedVariant) : product.images;
+  const productImages = selectedGallery.length > 0
+    ? selectedGallery
+    : [getProductImage(product.images)];
   const selectionRequired = requiresVariantSelectionForPurchase(product);
   const hasOptions = Boolean(product.commerce && (activeVariants.length > 0 || selectionRequired));
   const requiredSelectionUnavailable = hasUnavailableRequiredSelection(product);
@@ -210,9 +221,9 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
     setSelectedImage(0);
     setIsVideoSelected(false);
     setIsZoomed(false);
-    setSelectedVariantId(null);
+    setSelectedVariantId(defaultColorVariantId);
     setOptionError(false);
-  }, [product.id]);
+  }, [product.id, defaultColorVariantId]);
 
   const wishlistReady = mounted && isIdentityResolved;
   const inWishlist = wishlistReady && isInWishlist(product.id);
@@ -240,7 +251,7 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
             sku: selectedVariant.sku,
             priceAdjustment: selectedVariant.priceAdjustment,
           },
-          selectedOptions: [productOptionForVariant(product, selectedVariant)],
+          selectedOptions: productOptionsForVariant(product, selectedVariant),
           unitPrice: displayedPrice,
         }
       : undefined;
@@ -312,7 +323,20 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
     Featured: "bg-purple-600 text-white",
   };
 
-  const colorSelectionBlock = (
+  const colorSelectionBlock = usesColorVariants ? (
+    <ProductOptionPicker
+      product={product}
+      selectedVariantId={selectedVariantId}
+      onSelect={(variant: ProductVariant) => {
+        setSelectedVariantId(variant.id);
+        setSelectedImage(0);
+        setIsVideoSelected(false);
+        setIsZoomed(false);
+        setOptionError(false);
+      }}
+      invalid={optionError}
+    />
+  ) : (
     <div>
       <p className="text-sm font-medium mb-3">
         Color: <span className="font-normal">{product.color}</span>
@@ -490,13 +514,12 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
             <p className="text-sm text-muted-foreground">Code: {product.sku}</p>
           </div>
 
-          <div className="md:hidden">
-            {colorSelectionBlock}
-          </div>
-
           <h1 className="text-3xl sm:text-4xl font-semibold leading-tight">
             {product.name}
           </h1>
+          <div>
+            {colorSelectionBlock}
+          </div>
           <ProductDetailFlashSale />
           <div className="flex items-center gap-3">
             <span className="text-3xl font-bold">{formatPrice(displayedPrice)}</span>
@@ -514,10 +537,7 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
           <p className="text-muted-foreground leading-relaxed">
             {product.description}
           </p>
-          <div className="hidden md:block">
-            {colorSelectionBlock}
-          </div>
-          {hasOptions && (
+          {hasOptions && !usesColorVariants && (
             <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
               {requiredSelectionUnavailable ? (
                 <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">

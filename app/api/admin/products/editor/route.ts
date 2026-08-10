@@ -98,15 +98,43 @@ const detailSchema = z.object({
   value: z.string().trim().min(1).max(500),
 });
 
+const optionTypeSchema = z.enum([
+  "COLOR", "SIZE", "SHADE", "VOLUME", "STYLE", "FORMAT", "CUSTOM",
+]);
+
+const optionValueSchema = z.object({
+  id: recordIdSchema.optional(),
+  key: z.string().trim().min(1).max(80),
+  label: z.string().trim().min(1).max(120),
+  swatchHex: z.string().trim().max(20).optional(),
+  images: z.array(safeMediaUrlSchema).max(10).default([]),
+  isActive: z.boolean().default(true),
+});
+
+const optionAxisSchema = z.object({
+  id: recordIdSchema.optional(),
+  key: z.string().trim().min(1).max(80),
+  label: z.string().trim().min(1).max(60),
+  type: optionTypeSchema,
+  isRequired: z.boolean().default(true),
+  values: z.array(optionValueSchema).min(1).max(40),
+});
+
 const variantSchema = z.object({
   id: recordIdSchema.optional(),
-  optionKey: z.string().trim().min(1).max(80),
+  optionKey: z.string().trim().min(1).max(400),
   label: z.string().trim().min(1).max(120),
   sku: z.string().trim().max(120).optional(),
   priceAdjustment: z.number().min(-1_000_000).max(1_000_000),
   stockQuantity: z.number().int().min(0).max(10_000_000),
   inStock: z.boolean(),
   isActive: z.boolean(),
+  colorHex: z.string().trim().max(20).optional(),
+  images: z.array(safeMediaUrlSchema).max(10).default([]),
+  selections: z.array(z.object({
+    optionKey: z.string().trim().min(1).max(80),
+    valueKey: z.string().trim().min(1).max(80),
+  })).max(4).optional(),
 });
 
 const commerceProfileSchema = z
@@ -117,12 +145,38 @@ const commerceProfileSchema = z
     optionLabel: z.string().trim().max(60).optional(),
     sizeGuideUrl: z.string().trim().max(2_048).optional(),
     details: z.array(detailSchema).max(12),
-    variants: z.array(variantSchema).max(50),
+    options: z.array(optionAxisSchema).max(4).optional(),
+    variants: z.array(variantSchema).max(300),
   })
   .superRefine((profile, context) => {
     const optionKeys = new Set<string>();
     const skus = new Set<string>();
     const variantIds = new Set<string>();
+    const axes = profile.options || [];
+    const axisKeys = new Set<string>();
+    const visualAxes = axes.filter((axis) => axis.type === "COLOR" || axis.type === "SHADE");
+    axes.forEach((axis, axisIndex) => {
+      const axisKey = axis.key.toLocaleLowerCase("en-US");
+      if (axisKeys.has(axisKey)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ["options", axisIndex, "key"], message: "Each option axis must be unique" });
+      }
+      axisKeys.add(axisKey);
+      const valueKeys = new Set<string>();
+      axis.values.forEach((value, valueIndex) => {
+        const key = value.key.toLocaleLowerCase("en-US");
+        if (valueKeys.has(key)) {
+          context.addIssue({ code: z.ZodIssueCode.custom, path: ["options", axisIndex, "values", valueIndex, "key"], message: "Each value in an option must be unique" });
+        }
+        valueKeys.add(key);
+        if ((axis.type === "COLOR" || axis.type === "SHADE") && !/^#[0-9a-f]{6}$/i.test(value.swatchHex || "")) {
+          context.addIssue({ code: z.ZodIssueCode.custom, path: ["options", axisIndex, "values", valueIndex, "swatchHex"], message: "Colors and shades need a valid swatch" });
+        }
+      });
+    });
+    if (visualAxes.length > 1) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["options"], message: "Use only one visual Color or Shade axis" });
+    }
+    const combinations = new Set<string>();
     if (
       (profile.requiresSelection || profile.variants.length > 0) &&
       !profile.optionLabel?.trim()
@@ -171,7 +225,65 @@ const commerceProfileSchema = z
         });
       }
       if (sku) skus.add(sku);
+
+      if (axes.length > 0) {
+        if (variant.isActive && !variant.sku?.trim()) {
+          context.addIssue({ code: z.ZodIssueCode.custom, path: ["variants", index, "sku"], message: "Every active combination needs its own SKU" });
+        }
+        const selections = variant.selections || [];
+        if (selections.length !== axes.length) {
+          context.addIssue({ code: z.ZodIssueCode.custom, path: ["variants", index, "selections"], message: "Each SKU must select exactly one value from every option axis" });
+        }
+        const byAxis = new Map(selections.map((selection) => [selection.optionKey.toLocaleLowerCase("en-US"), selection.valueKey.toLocaleLowerCase("en-US")]));
+        const combination = axes.map((axis) => {
+          const valueKey = byAxis.get(axis.key.toLocaleLowerCase("en-US"));
+          const valid = axis.values.some((value) => value.key.toLocaleLowerCase("en-US") === valueKey);
+          if (!valid) {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ["variants", index, "selections"], message: `Choose a valid ${axis.label}` });
+          }
+          return `${axis.key.toLocaleLowerCase("en-US")}:${valueKey || ""}`;
+        }).join("|");
+        if (combinations.has(combination)) {
+          context.addIssue({ code: z.ZodIssueCode.custom, path: ["variants", index, "selections"], message: "Each option combination must be unique" });
+        }
+        combinations.add(combination);
+      }
+
+      if (axes.length === 0 && profile.productKind === "UNSTITCHED_FABRIC") {
+        if (!/^#[0-9a-f]{6}$/i.test(variant.colorHex || "")) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["variants", index, "colorHex"],
+            message: `Color ${index + 1} needs a valid swatch color`,
+          });
+        }
+        if (variant.images.length === 0) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["variants", index, "images"],
+            message: `Color ${index + 1} needs at least one image`,
+          });
+        }
+      } else if (axes.length === 0 && (variant.colorHex || variant.images.length > 0)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["variants", index],
+          message: "Per-color galleries are currently available only for unstitched fabric",
+        });
+      }
     });
+
+    if (
+      axes.length === 0 && profile.productKind === "UNSTITCHED_FABRIC" &&
+      profile.variants.length > 0 &&
+      profile.optionLabel?.trim().toLocaleLowerCase("en-US") !== "color"
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["optionLabel"],
+        message: "Unstitched selling options must be colors",
+      });
+    }
   });
 
 const editorSchema = z
@@ -323,9 +435,9 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
           existing &&
           (FEATURE_FLAGS.COMMERCE_PROFILE_V1 ||
             FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1)
-            ? await tx.productCommerceProfile.findUnique({
+              ? await tx.productCommerceProfile.findUnique({
                 where: { productId: existing.id },
-                include: { variants: true },
+                include: { options: { include: { values: true } }, variants: true },
               })
             : null;
         const existingCatalogAssignments =
@@ -426,12 +538,34 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
           );
         }
 
+        const submittedProductKind =
+          classification?.productKind || input.commerceProfile?.productKind;
+        const submittedVisualValue = input.commerceProfile?.options
+          ?.find((option) => option.type === "COLOR" || option.type === "SHADE")
+          ?.values.find((value) => value.isActive);
+        const firstSubmittedColor =
+          !submittedVisualValue && submittedProductKind === "UNSTITCHED_FABRIC"
+            ? input.commerceProfile?.variants[0]
+            : undefined;
+        const compatibilityInput = submittedVisualValue
+          ? {
+              ...input.product,
+              color: submittedVisualValue.label,
+              colorHex: submittedVisualValue.swatchHex || "",
+            }
+          : firstSubmittedColor
+          ? {
+              ...input.product,
+              color: firstSubmittedColor.label,
+              colorHex: firstSubmittedColor.colorHex || "",
+            }
+          : input.product;
         const compatibility = classification
-          ? normalizeCatalogCompatibilityFields(classification, input.product)
+          ? normalizeCatalogCompatibilityFields(classification, compatibilityInput)
           : {
-              fabricType: input.product.fabricType.trim(),
-              color: input.product.color.trim(),
-              colorHex: input.product.colorHex.trim(),
+              fabricType: compatibilityInput.fabricType.trim(),
+              color: compatibilityInput.color.trim(),
+              colorHex: compatibilityInput.colorHex.trim(),
             };
         if (
           classification &&
@@ -538,8 +672,49 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
               commerce.stitchingEligible,
             requiresSelection:
               editorSchema.options.mode === "required" ||
-              commerce.requiresSelection,
+              commerce.requiresSelection ||
+              commerce.variants.length > 0 ||
+              Boolean(commerce.options?.length),
+            optionLabel:
+              productKind === "UNSTITCHED_FABRIC" && commerce.variants.length > 0
+                ? "Color"
+                : commerce.optionLabel,
           };
+          const axes = commerce.options || [];
+          if (axes.length > 0) {
+            const types = new Set(axes.map((axis) => axis.type));
+            const allowedTypes = new Set([
+              ...editorSchema.optionAxes.required,
+              ...editorSchema.optionAxes.optional,
+            ]);
+            const missingRequired = editorSchema.optionAxes.required.find((type) => !types.has(type));
+            if (missingRequired || [...types].some((type) => !allowedTypes.has(type))) {
+              throw new ProductEditorError(`These option axes are not valid for ${classification?.label || productKind}`);
+            }
+            const visualAxis = axes.find((axis) => axis.type === "COLOR" || axis.type === "SHADE");
+            if (visualAxis?.values.some((value) => value.images.length === 0)) {
+              throw new ProductEditorError(`${visualAxis.label} values need at least one image each`);
+            }
+          } else if (productKind === "UNSTITCHED_FABRIC" && commerce.variants.length > 0) {
+            const invalidColorIndex = commerce.variants.findIndex(
+              (variant) =>
+                !/^#[0-9a-f]{6}$/i.test(variant.colorHex || "") ||
+                variant.images.length === 0
+            );
+            if (invalidColorIndex >= 0) {
+              throw new ProductEditorError(
+                `Color ${invalidColorIndex + 1} needs a valid swatch and at least one image`
+              );
+            }
+          } else if (
+            commerce.variants.some(
+              (variant) => variant.colorHex || variant.images.length > 0
+            )
+          ) {
+            throw new ProductEditorError(
+              "Per-color galleries are currently available only for unstitched fabric"
+            );
+          }
           if (commerce.requiresSelection && commerce.variants.length === 0) {
             throw new ProductEditorError(
               `${classification?.label || "This product"} needs at least one ${
@@ -547,6 +722,32 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
               }`
             );
           }
+        }
+
+        const submittedVariantSkus = commerce?.variants
+          .map((variant) => variant.sku?.trim())
+          .filter((sku): sku is string => Boolean(sku)) || [];
+        if (submittedVariantSkus.some((sku) => sku.toLocaleLowerCase("en-US") === input.product.sku.toLocaleLowerCase("en-US"))) {
+          throw new ProductEditorError("A combination SKU cannot match the parent product code");
+        }
+        if (submittedVariantSkus.length > 0) {
+          const conflictingProduct = await tx.product.findFirst({
+            where: {
+              ...(existing ? { id: { not: existing.id } } : {}),
+              OR: submittedVariantSkus.map((sku) => ({ sku: { equals: sku, mode: "insensitive" as const } })),
+            },
+            select: { sku: true },
+          });
+          if (conflictingProduct) {
+            throw new ProductEditorError(`Combination SKU ${conflictingProduct.sku} is already used by a product`);
+          }
+        }
+        const parentSkuVariant = await tx.productVariant.findFirst({
+          where: { sku: { equals: input.product.sku, mode: "insensitive" } },
+          select: { sku: true },
+        });
+        if (parentSkuVariant) {
+          throw new ProductEditorError(`Product code ${input.product.sku} is already used by a combination`);
         }
 
         const variantInventory =
@@ -644,6 +845,11 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
             );
           }
 
+          const activeVariantPrices = commerce.variants
+            .filter((variant) => variant.isActive)
+            .map((variant) => input.product.price + variant.priceAdjustment);
+          const minPrice = activeVariantPrices.length ? Math.min(...activeVariantPrices) : null;
+          const maxPrice = activeVariantPrices.length ? Math.max(...activeVariantPrices) : null;
           const profile = await tx.productCommerceProfile.upsert({
             where: { productId: savedProduct.id },
             create: {
@@ -654,6 +860,8 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
               optionLabel: commerce.optionLabel?.trim() || null,
               sizeGuideUrl: commerce.sizeGuideUrl?.trim() || null,
               details: commerce.details,
+              minPrice,
+              maxPrice,
             },
             update: {
               productKind: commerce.productKind,
@@ -662,8 +870,73 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
               optionLabel: commerce.optionLabel?.trim() || null,
               sizeGuideUrl: commerce.sizeGuideUrl?.trim() || null,
               details: commerce.details,
+              minPrice,
+              maxPrice,
             },
           });
+
+          const savedOptionByKey = new Map<string, {
+            id: string;
+            valuesByKey: Map<string, string>;
+          }>();
+          if (commerce.options?.length) {
+            const existingOptionIds = new Set(existingCommerceProfile?.options.map((option) => option.id) || []);
+            const existingValueIds = new Set(existingCommerceProfile?.options.flatMap((option) => option.values.map((value) => value.id)) || []);
+            for (const option of commerce.options) {
+              if (option.id && !existingOptionIds.has(option.id)) {
+                throw new ProductEditorError("One option axis changed elsewhere. Reload and try again.", 409);
+              }
+              if (option.values.some((value) => value.id && !existingValueIds.has(value.id))) {
+                throw new ProductEditorError("One option value changed elsewhere. Reload and try again.", 409);
+              }
+            }
+
+            const retainedOptionIds: string[] = [];
+            for (const [displayOrder, option] of commerce.options.entries()) {
+              const existingOption = option.id
+                ? existingCommerceProfile?.options.find((candidate) => candidate.id === option.id)
+                : existingCommerceProfile?.options.find((candidate) => candidate.key.toLocaleLowerCase("en-US") === option.key.toLocaleLowerCase("en-US"));
+              const savedOption = existingOption
+                ? await tx.productOption.update({
+                    where: { id: existingOption.id },
+                    data: { key: option.key, label: option.label, type: option.type, isRequired: option.isRequired, displayOrder },
+                  })
+                : await tx.productOption.create({
+                    data: { commerceProfileId: profile.id, key: option.key, label: option.label, type: option.type, isRequired: option.isRequired, displayOrder },
+                  });
+              retainedOptionIds.push(savedOption.id);
+
+              const previousValues = existingOption?.values || [];
+              const retainedValueIds: string[] = [];
+              const valuesByKey = new Map<string, string>();
+              for (const [valueOrder, value] of option.values.entries()) {
+                const previousValue = value.id
+                  ? previousValues.find((candidate) => candidate.id === value.id)
+                  : previousValues.find((candidate) => candidate.key.toLocaleLowerCase("en-US") === value.key.toLocaleLowerCase("en-US"));
+                const valueData = {
+                  key: value.key,
+                  label: value.label,
+                  swatchHex: value.swatchHex?.trim() || null,
+                  images: value.images.length ? JSON.stringify(value.images) : null,
+                  isActive: value.isActive,
+                  displayOrder: valueOrder,
+                };
+                const savedValue = previousValue
+                  ? await tx.productOptionValue.update({ where: { id: previousValue.id }, data: valueData })
+                  : await tx.productOptionValue.create({ data: { optionId: savedOption.id, ...valueData } });
+                retainedValueIds.push(savedValue.id);
+                valuesByKey.set(value.key.toLocaleLowerCase("en-US"), savedValue.id);
+              }
+              await tx.productOptionValue.updateMany({
+                where: { optionId: savedOption.id, id: { notIn: retainedValueIds } },
+                data: { isActive: false },
+              });
+              savedOptionByKey.set(option.key.toLocaleLowerCase("en-US"), { id: savedOption.id, valuesByKey });
+            }
+            await tx.productOption.deleteMany({
+              where: { commerceProfileId: profile.id, id: { notIn: retainedOptionIds } },
+            });
+          }
 
           const retainedVariantIds = commerce.variants.flatMap((variant) =>
             variant.id ? [variant.id] : []
@@ -688,9 +961,12 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
               inStock: variant.inStock && variant.stockQuantity > 0,
               isActive: variant.isActive,
               displayOrder,
+              colorHex: variant.colorHex?.trim() || null,
+              images: variant.images.length ? JSON.stringify(variant.images) : null,
             };
+            let savedVariant;
             if (variant.id) {
-              await tx.productVariant.update({ where: { id: variant.id }, data: variantData });
+              savedVariant = await tx.productVariant.update({ where: { id: variant.id }, data: variantData });
             } else {
               const reusableVariant = existingCommerceProfile?.variants.find(
                 (candidate) =>
@@ -698,13 +974,26 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
                   variant.optionKey.toLocaleLowerCase("en-US")
               );
               if (reusableVariant) {
-                await tx.productVariant.update({
+                savedVariant = await tx.productVariant.update({
                   where: { id: reusableVariant.id },
                   data: variantData,
                 });
               } else {
-                await tx.productVariant.create({
+                savedVariant = await tx.productVariant.create({
                   data: { commerceProfileId: profile.id, ...variantData },
+                });
+              }
+            }
+            if (commerce.options?.length) {
+              await tx.productVariantSelection.deleteMany({ where: { variantId: savedVariant.id } });
+              for (const selection of variant.selections || []) {
+                const option = savedOptionByKey.get(selection.optionKey.toLocaleLowerCase("en-US"));
+                const optionValueId = option?.valuesByKey.get(selection.valueKey.toLocaleLowerCase("en-US"));
+                if (!option || !optionValueId) {
+                  throw new ProductEditorError("A variant contains an invalid option combination");
+                }
+                await tx.productVariantSelection.create({
+                  data: { variantId: savedVariant.id, optionId: option.id, optionValueId },
                 });
               }
             }

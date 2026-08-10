@@ -19,6 +19,45 @@ export interface ProductCommerceDetail {
   value: string;
 }
 
+export type ProductOptionType =
+  | "COLOR"
+  | "SIZE"
+  | "SHADE"
+  | "VOLUME"
+  | "STYLE"
+  | "FORMAT"
+  | "CUSTOM";
+
+export interface ProductOptionValue {
+  id: string;
+  key: string;
+  label: string;
+  swatchHex?: string;
+  images?: string[];
+  isActive: boolean;
+  displayOrder: number;
+}
+
+export interface ProductOption {
+  id: string;
+  key: string;
+  label: string;
+  type: ProductOptionType;
+  isRequired: boolean;
+  displayOrder: number;
+  values: ProductOptionValue[];
+}
+
+export interface ProductVariantSelection {
+  optionId: string;
+  optionKey: string;
+  optionLabel: string;
+  optionType: ProductOptionType;
+  valueId: string;
+  valueKey: string;
+  valueLabel: string;
+}
+
 export interface ProductVariant {
   id: string;
   optionKey: string;
@@ -28,6 +67,12 @@ export interface ProductVariant {
   stockQuantity: number;
   inStock: boolean;
   isActive: boolean;
+  /** Present when this sellable SKU includes a customer-visible color choice. */
+  colorHex?: string;
+  /** Variant gallery; absent means the product-level gallery is the fallback. */
+  images?: string[];
+  /** Normalized values which together identify this concrete SKU. */
+  selections?: ProductVariantSelection[];
 }
 
 export interface ProductCommerceProfile {
@@ -37,6 +82,8 @@ export interface ProductCommerceProfile {
   optionLabel?: string;
   sizeGuideUrl?: string;
   details: ProductCommerceDetail[];
+  /** Normalized customer-facing axes. Absent on pre-migration payloads. */
+  options?: ProductOption[];
   variants: ProductVariant[];
 }
 

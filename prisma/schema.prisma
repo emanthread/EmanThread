@@ -121,10 +121,13 @@ model ProductCommerceProfile {
   optionLabel        String?
   sizeGuideUrl       String?
   details            Json?
+  minPrice           Decimal?
+  maxPrice           Decimal?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   product            Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
   variants           ProductVariant[]
+  options            ProductOption[]
 
   @@index([productKind])
   @@index([stitchingEligible])
@@ -144,13 +147,80 @@ model ProductVariant {
   inStock            Boolean                @default(true)
   isActive           Boolean                @default(true)
   displayOrder       Int                    @default(0)
+  // Optional color metadata is populated only when this concrete SKU includes
+  // a color choice. It is not a variant "type" flag: the row remains the
+  // purchasable SKU/combination and can grow into a color x size SKU later.
+  colorHex           String?
+  images             String?                // JSON array; null falls back to Product.images
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
   commerceProfile    ProductCommerceProfile @relation(fields: [commerceProfileId], references: [id], onDelete: Cascade)
+  selections          ProductVariantSelection[]
 
   @@unique([commerceProfileId, optionKey])
   @@index([commerceProfileId, isActive, displayOrder])
   @@index([inStock, stockQuantity])
+}
+
+// Customer-facing axes are separate from sellable SKU rows. A Color + Size
+// product has two options, while ProductVariant continues to represent each
+// concrete inventory combination (for example Black + Medium).
+model ProductOption {
+  id                String                    @id @default(cuid())
+  commerceProfileId String
+  key               String
+  label             String
+  type              ProductOptionType         @default(CUSTOM)
+  isRequired        Boolean                   @default(true)
+  displayOrder      Int                       @default(0)
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  commerceProfile   ProductCommerceProfile    @relation(fields: [commerceProfileId], references: [id], onDelete: Cascade)
+  values            ProductOptionValue[]
+  selections        ProductVariantSelection[]
+
+  @@unique([commerceProfileId, key])
+  @@index([commerceProfileId, displayOrder])
+  @@index([type])
+}
+
+// Visual media belongs to a color/shade value rather than being duplicated on
+// every Color x Size SKU. ProductVariant.images remains a safe legacy/override
+// fallback during the additive rollout.
+model ProductOptionValue {
+  id           String                    @id @default(cuid())
+  optionId     String
+  key          String
+  label        String
+  swatchHex    String?
+  images       String?                   // JSON array; null falls back to Product/variant media
+  isActive     Boolean                   @default(true)
+  displayOrder Int                       @default(0)
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  option       ProductOption             @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  selections   ProductVariantSelection[]
+
+  @@unique([optionId, key])
+  @@unique([id, optionId])
+  @@index([optionId, isActive, displayOrder])
+}
+
+// optionId is intentionally present as well as optionValueId so the database
+// can enforce at most one selected value per axis for a concrete SKU. The API
+// additionally verifies that the value belongs to that option.
+model ProductVariantSelection {
+  id            String             @id @default(cuid())
+  variantId     String
+  optionId      String
+  optionValueId String
+  variant       ProductVariant     @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  option        ProductOption      @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  optionValue   ProductOptionValue @relation(fields: [optionValueId, optionId], references: [id, optionId], onDelete: Cascade)
+
+  @@unique([variantId, optionId])
+  @@index([optionValueId, variantId])
+  @@index([optionId, optionValueId])
 }
 
 model CatalogNode {
@@ -303,6 +373,7 @@ model OrderItemConfiguration {
   productVariantId String?
   variantSku       String?
   variantLabel     String?
+  variantImage     String?
   selectedOptions  Json?
   createdAt        DateTime  @default(now())
   orderItem        OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
@@ -754,6 +825,16 @@ enum Badge {
   HOT
   LIMITED
   FEATURED
+}
+
+enum ProductOptionType {
+  COLOR
+  SIZE
+  SHADE
+  VOLUME
+  STYLE
+  FORMAT
+  CUSTOM
 }
 
 enum ProductKind {

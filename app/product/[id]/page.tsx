@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getProductById, getProductBySlug, getProductRecommendations, getProductVariations } from "@/lib/db-queries";
 import { prisma } from "@/lib/db";
 import ProductPageClient from "./product-page-client";
+import { getActiveVariants, getVariantUnitPrice, isVariantAvailable } from "@/lib/commerce";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://emaanthreads.com";
 
@@ -52,6 +53,25 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     product.metaDescription ||
     product.description ||
     "Premium men's unstitched fabric from Emaan Thread.";
+  const activeVariants = getActiveVariants(product);
+  const prices = activeVariants.map((variant) => getVariantUnitPrice(product, variant));
+  const structuredOffers = activeVariants.length > 0 ? {
+    "@type": "AggregateOffer",
+    lowPrice: Math.min(...prices),
+    highPrice: Math.max(...prices),
+    offerCount: activeVariants.length,
+    priceCurrency: "PKR",
+    availability: activeVariants.some(isVariantAvailable)
+      ? "https://schema.org/InStock"
+      : "https://schema.org/OutOfStock",
+    url: `${siteUrl}/product/${product.id}`,
+  } : {
+    "@type": "Offer",
+    price: product.price,
+    priceCurrency: "PKR",
+    availability: product.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+    url: `${siteUrl}/product/${product.id}`,
+  };
 
   return {
     title,
@@ -90,15 +110,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         image: product.images,
         sku: product.sku,
         brand: { "@type": "Brand", name: "Emaan Threads" },
-        offers: {
-          "@type": "Offer",
-          price: product.price,
-          priceCurrency: "PKR",
-          availability: product.inStock
-            ? "https://schema.org/InStock"
-            : "https://schema.org/OutOfStock",
-          url: `${siteUrl}/product/${product.id}`,
-        },
+        offers: structuredOffers,
       }),
     },
   };

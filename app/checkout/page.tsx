@@ -15,7 +15,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 
 import { getProductImage } from "@/lib/utils";
-import { getCartItemUnitPrice, isCartItemAvailable, type CartItem, useCartStore } from "@/lib/cart-store";
+import { getCartItemImages, getCartItemUnitPrice, isCartItemAvailable, type CartItem, useCartStore } from "@/lib/cart-store";
 import { formatPrice } from "@/lib/data";
 import { isProductStitchingEligible } from "@/lib/commerce";
 import { cn } from "@/lib/utils";
@@ -835,7 +835,7 @@ export default function CheckoutPage() {
                         <div key={item.lineId} className={cn("flex items-start gap-3 pb-3 border-b border-border last:border-0 transition-opacity", !isSelected && "opacity-50")}>
                           <Checkbox checked={isSelected} onCheckedChange={() => toggleItem(item.lineId)} className="mt-4" />
                           <div className="relative w-14 h-16 bg-secondary rounded overflow-hidden shrink-0">
-                            <Image src={getProductImage(item.product.images)} alt={item.product.name} fill className="object-cover" sizes="80px" />
+                            <Image src={getProductImage(getCartItemImages(item))} alt={item.product.name} fill className="object-cover" sizes="80px" />
                             <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">{item.quantity}</span>
                           </div>
                           <div className="flex-1 min-w-0">

@@ -605,6 +605,15 @@ function productWhereForCatalog(
             mode: "insensitive" as const,
           },
         },
+        {
+          commerceProfile: {
+            is: {
+              options: {
+                some: { values: { some: { label: { contains: query.search, mode: "insensitive" as const } } } },
+              },
+            },
+          },
+        },
       ],
     });
   }
@@ -613,10 +622,27 @@ function productWhereForCatalog(
 
   if (query.color) {
     conditions.push({
-      color: {
-        equals: query.color,
-        mode: "insensitive" as const,
-      },
+      OR: [
+        { color: { equals: query.color, mode: "insensitive" as const } },
+        {
+          commerceProfile: {
+            is: {
+              options: {
+                some: {
+                  type: { in: ["COLOR", "SHADE"] },
+                  values: {
+                    some: {
+                      isActive: true,
+                      label: { equals: query.color, mode: "insensitive" as const },
+                      selections: { some: { variant: { isActive: true } } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      ],
     });
   }
 
@@ -654,21 +680,29 @@ function productWhereForCatalog(
     conditions.push({
       commerceProfile: {
         is: {
-          variants: {
-            some: {
-              isActive: true,
-              label: {
-                equals: query.option,
-                mode: "insensitive" as const,
-              },
-            },
-          },
+          OR: [
+            { variants: { some: { isActive: true, label: { equals: query.option, mode: "insensitive" as const } } } },
+            { options: { some: { values: { some: { isActive: true, label: { equals: query.option, mode: "insensitive" as const }, selections: { some: { variant: { isActive: true } } } } } } } },
+          ],
         },
       },
     });
   }
 
-  if (price) conditions.push({ price });
+  if (price) {
+    const variantRange: Prisma.ProductCommerceProfileWhereInput = {
+      requiresSelection: true,
+      ...(query.maxPrice !== undefined ? { minPrice: { lte: query.maxPrice } } : {}),
+      ...(query.minPrice !== undefined ? { maxPrice: { gte: query.minPrice } } : {}),
+    };
+    conditions.push({
+      OR: [
+        { commerceProfile: { is: null }, price },
+        { commerceProfile: { is: { requiresSelection: false } }, price },
+        { commerceProfile: { is: variantRange } },
+      ],
+    });
+  }
   if (query.inStock === true) conditions.push({ inStock: true });
 
   return { AND: conditions };
@@ -726,6 +760,17 @@ async function getCatalogFilterFacets(
             where: { isActive: true },
             select: { label: true },
           },
+          options: {
+            orderBy: { displayOrder: "asc" },
+            select: {
+              label: true,
+              type: true,
+              values: {
+                where: { isActive: true, selections: { some: { variant: { isActive: true } } } },
+                select: { label: true },
+              },
+            },
+          },
         },
       },
     },
@@ -743,7 +788,14 @@ async function getCatalogFilterFacets(
 
     const profile = product.commerceProfile;
     productKinds.add(profile.productKind as ProductKind);
+    for (const option of profile.options) {
+      const values = optionGroups.get(option.label) || [];
+      values.push(...option.values.map((value) => value.label));
+      optionGroups.set(option.label, values);
+    }
     if (!profile.variants.length) continue;
+
+    if (profile.options.length) continue;
 
     const label = profile.optionLabel?.trim() || fallbackOptionLabel(
       profile.productKind as ProductKind
@@ -757,7 +809,12 @@ async function getCatalogFilterFacets(
 
   return {
     fabrics: normalizedFacetValues(products.map((product) => product.fabricType)),
-    colors: normalizedFacetValues(products.map((product) => product.color)),
+    colors: normalizedFacetValues([
+      ...products.map((product) => product.color),
+      ...products.flatMap((product) => product.commerceProfile?.options
+        .filter((option) => option.type === "COLOR" || option.type === "SHADE")
+        .flatMap((option) => option.values.map((value) => value.label)) || []),
+    ]),
     productKinds: PRODUCT_KIND_VALUES.filter((kind) => productKinds.has(kind)),
     optionGroups: [...optionGroups.entries()]
       .map(([label, values]) => ({

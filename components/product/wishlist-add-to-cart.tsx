@@ -10,7 +10,7 @@ import {
   getVariantUnitPrice,
   isProductAvailableForPurchase,
   isVariantAvailable,
-  productOptionForVariant,
+  productOptionsForVariant,
   requiresVariantSelectionForPurchase,
 } from "@/lib/commerce";
 import type { Product, ProductVariant } from "@/lib/data";
@@ -67,7 +67,7 @@ export function WishlistAddToCart({
         sku: variant.sku,
         priceAdjustment: variant.priceAdjustment,
       },
-      selectedOptions: [productOptionForVariant(product, variant)],
+      selectedOptions: productOptionsForVariant(product, variant),
       unitPrice: getVariantUnitPrice(product, variant),
     };
     addItem(product, 1, undefined, selection);

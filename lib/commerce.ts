@@ -3,6 +3,8 @@ import type {
   ProductCommerceDetail,
   ProductCommerceProfile,
   ProductKind,
+  ProductOption,
+  ProductOptionType,
   ProductVariant,
 } from "@/lib/data";
 import {
@@ -85,8 +87,119 @@ export function isEffectivelyUnstitchedProduct(product: Product): boolean {
   );
 }
 
+/**
+ * Phase-one color products are explicit unstitched commerce profiles. Their
+ * concrete SKU rows carry color metadata. Stale ready-to-wear size profiles
+ * repaired by catalog placement must never be mistaken for color choices.
+ */
+export function isUnstitchedColorVariantProduct(product: Product): boolean {
+  return Boolean(
+    isEffectivelyUnstitchedProduct(product) &&
+    product.commerce?.productKind === "UNSTITCHED_FABRIC" &&
+    (product.commerce.options?.some((option) => option.type === "COLOR") ||
+      product.commerce.optionLabel?.trim().toLocaleLowerCase("en-US") === "color")
+  );
+}
+
+function legacyOptionType(product: Product): ProductOptionType {
+  const label = product.commerce?.optionLabel?.toLocaleLowerCase("en-US") || "";
+  if (label.includes("color")) return "COLOR";
+  if (label.includes("shade")) return "SHADE";
+  if (label.includes("size")) return "SIZE";
+  if (label.includes("volume")) return "VOLUME";
+  return "CUSTOM";
+}
+
+/** Normalized axes with an in-memory adapter for pre-migration payloads. */
+export function getProductOptions(product: Product): ProductOption[] {
+  const commerce = product.commerce;
+  if (!commerce) return [];
+  if (commerce.options?.length) return commerce.options;
+  if (!commerce.variants.length) return [];
+
+  const label = commerce.optionLabel?.trim() || "Option";
+  const type = legacyOptionType(product);
+  return [{
+    id: `legacy:${product.id}:${label.toLocaleLowerCase("en-US")}`,
+    key: label.toLocaleLowerCase("en-US").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "option",
+    label,
+    type,
+    isRequired: commerce.requiresSelection,
+    displayOrder: 0,
+    values: commerce.variants.map((variant, displayOrder) => ({
+      id: `legacy:${variant.id}`,
+      key: variant.optionKey,
+      label: variant.label,
+      swatchHex: variant.colorHex,
+      images: variant.images,
+      isActive: variant.isActive,
+      displayOrder,
+    })),
+  }];
+}
+
+export function getVariantSelections(product: Product, variant: ProductVariant) {
+  if (variant.selections?.length) {
+    const order = new Map(getProductOptions(product).map((option, index) => [option.id, index]));
+    return [...variant.selections].sort(
+      (left, right) => (order.get(left.optionId) ?? 999) - (order.get(right.optionId) ?? 999),
+    );
+  }
+
+  const option = getProductOptions(product)[0];
+  if (!option) return [];
+  const value = option.values.find((candidate) =>
+    candidate.key === variant.optionKey || candidate.label === variant.label
+  );
+  return value ? [{
+    optionId: option.id,
+    optionKey: option.key,
+    optionLabel: option.label,
+    optionType: option.type,
+    valueId: value.id,
+    valueKey: value.key,
+    valueLabel: value.label,
+  }] : [];
+}
+
+export function productOptionsForVariant(
+  product: Product,
+  variant: ProductVariant,
+): ProductOptionSelection[] {
+  const selections = getVariantSelections(product, variant);
+  return selections.length
+    ? selections.map((selection) => ({
+        label: selection.optionLabel,
+        value: selection.valueLabel,
+      }))
+    : [{
+        label: getProductCommerce(product).optionLabel?.trim() || "Option",
+        value: variant.label,
+      }];
+}
+
+export function getVisualValueForVariant(product: Product, variant: ProductVariant) {
+  const visualSelection = getVariantSelections(product, variant).find(
+    (selection) => selection.optionType === "COLOR" || selection.optionType === "SHADE",
+  );
+  if (!visualSelection) return undefined;
+  return getProductOptions(product)
+    .find((option) => option.id === visualSelection.optionId)
+    ?.values.find((value) => value.id === visualSelection.valueId);
+}
+
+export function getVariantImages(product: Product, variant: ProductVariant): string[] {
+  return variant.images?.length
+    ? variant.images
+    : getVisualValueForVariant(product, variant)?.images?.length
+      ? getVisualValueForVariant(product, variant)!.images!
+      : product.images;
+}
+
 export function getActiveVariants(product: Product): ProductVariant[] {
-  if (isEffectivelyUnstitchedProduct(product)) return [];
+  if (isEffectivelyUnstitchedProduct(product) && !isUnstitchedColorVariantProduct(product)) {
+    return [];
+  }
   return getProductCommerce(product).variants.filter((variant) => variant.isActive);
 }
 
@@ -95,6 +208,7 @@ export function isVariantAvailable(variant: ProductVariant): boolean {
 }
 
 export function requiresProductSelection(product: Product): boolean {
+  if (isUnstitchedColorVariantProduct(product)) return true;
   if (isEffectivelyUnstitchedProduct(product)) return false;
   // A required profile remains required even if an admin has temporarily
   // deactivated every option. This lets the storefront show an honest
@@ -225,11 +339,7 @@ export function productOptionForVariant(
   product: Product,
   variant: ProductVariant
 ): ProductOptionSelection {
-  const commerce = getProductCommerce(product);
-  return {
-    label: commerce.optionLabel?.trim() || "Option",
-    value: variant.label,
-  };
+  return productOptionsForVariant(product, variant)[0];
 }
 
 export function productKindLabel(kind: ProductKind): string {

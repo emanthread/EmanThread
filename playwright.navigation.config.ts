@@ -17,6 +17,7 @@ export default defineConfig({
     "storefront-catalog-ux.spec.ts",
     "catalog-header-cards.spec.ts",
     "unstitched-commerce.spec.ts",
+    "product-variant-matrix.spec.ts",
   ],
   fullyParallel: true,
   workers: 1,

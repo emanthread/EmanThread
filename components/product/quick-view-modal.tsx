@@ -11,11 +11,14 @@ import { useCartStore } from "@/lib/cart-store";
 import { formatPrice, type Product, type ProductVariant } from "@/lib/data";
 import {
   getActiveVariants,
+  getProductOptions,
+  getVariantImages,
   getVariantUnitPrice,
   hasUnavailableRequiredSelection,
   isProductAvailableForPurchase,
   isVariantAvailable,
-  productOptionForVariant,
+  isUnstitchedColorVariantProduct,
+  productOptionsForVariant,
   requiresVariantSelectionForPurchase,
 } from "@/lib/commerce";
 import { cn, getProductImage } from "@/lib/utils";
@@ -56,9 +59,15 @@ export function QuickViewModal({
   const [optionError, setOptionError] = useState(false);
   const { addItem } = useCartStore();
 
-  const images = product.images.length > 0 ? product.images : [getProductImage(product.images)];
   const activeVariants = getActiveVariants(product);
   const selectedVariant = activeVariants.find((variant) => variant.id === selectedVariantId) ?? null;
+  const usesColorVariants = isUnstitchedColorVariantProduct(product) ||
+    getProductOptions(product).some((option) => option.type === "COLOR" || option.type === "SHADE");
+  const defaultColorVariantId = usesColorVariants
+    ? activeVariants.find(isVariantAvailable)?.id || null
+    : null;
+  const selectedGallery = selectedVariant ? getVariantImages(product, selectedVariant) : product.images;
+  const images = selectedGallery.length > 0 ? selectedGallery : [getProductImage(product.images)];
   const selectionRequired = requiresVariantSelectionForPurchase(product);
   const hasOptions = Boolean(product.commerce && (activeVariants.length > 0 || selectionRequired));
   const requiredSelectionUnavailable = hasUnavailableRequiredSelection(product);
@@ -72,9 +81,9 @@ export function QuickViewModal({
     if (!isOpen) return;
     setQuantity(1);
     setSelectedImage(0);
-    setSelectedVariantId(null);
+    setSelectedVariantId(defaultColorVariantId);
     setOptionError(false);
-  }, [isOpen, product.id]);
+  }, [isOpen, product.id, defaultColorVariantId]);
 
   const handleAddToCart = () => {
     if (!productAvailable) return;
@@ -92,7 +101,7 @@ export function QuickViewModal({
             sku: selectedVariant.sku,
             priceAdjustment: selectedVariant.priceAdjustment,
           },
-          selectedOptions: [productOptionForVariant(product, selectedVariant)],
+          selectedOptions: productOptionsForVariant(product, selectedVariant),
           unitPrice: displayedPrice,
         }
       : undefined;
@@ -209,13 +218,13 @@ export function QuickViewModal({
             </p>
 
             {/* Color */}
-            <div className="mt-6">
+            {!usesColorVariants && <div className="mt-6">
               <p className="text-sm font-medium mb-2">Color: {product.color}</p>
               <div
                 className="w-8 h-8 rounded-full border border-border"
                 style={{ backgroundColor: product.colorHex }}
               />
-            </div>
+            </div>}
 
             {hasOptions && (
               <ProductOptionPicker
@@ -223,6 +232,7 @@ export function QuickViewModal({
                 selectedVariantId={selectedVariantId}
                 onSelect={(variant: ProductVariant) => {
                   setSelectedVariantId(variant.id);
+                  setSelectedImage(0);
                   setOptionError(false);
                 }}
                 invalid={optionError}

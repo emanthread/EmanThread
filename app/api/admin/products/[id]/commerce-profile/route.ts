@@ -14,6 +14,7 @@ import {
   productEditorSchemaForKind,
 } from "@/lib/catalog-product-classification";
 import { sanitizeDbError } from "@/lib/utils/errors";
+import { parseProductImages } from "@/lib/utils/parse-images";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,16 @@ const detailSchema = z.object({
   value: z.string().trim().min(1).max(500),
 });
 
+const safeMediaUrlSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(2_048)
+  .refine(
+    (value) => value.startsWith("/") || /^https?:\/\//i.test(value),
+    "Media URLs must begin with /, http://, or https://"
+  );
+
 const variantSchema = z.object({
   id: z.string().min(1).optional(),
   optionKey: z.string().trim().min(1).max(80),
@@ -42,6 +53,8 @@ const variantSchema = z.object({
   stockQuantity: z.number().int().min(0).max(10_000_000),
   inStock: z.boolean(),
   isActive: z.boolean(),
+  colorHex: z.string().trim().max(20).optional(),
+  images: z.array(safeMediaUrlSchema).max(10).default([]),
 });
 
 const commerceProfileSchema = z
@@ -121,11 +134,49 @@ const commerceProfileSchema = z
         });
       }
       if (sku) skus.add(sku);
+
+      if (profile.productKind === "UNSTITCHED_FABRIC") {
+        if (!/^#[0-9a-f]{6}$/i.test(variant.colorHex || "")) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["variants", index, "colorHex"],
+            message: `Color ${index + 1} needs a valid swatch color`,
+          });
+        }
+        if (variant.images.length === 0) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["variants", index, "images"],
+            message: `Color ${index + 1} needs at least one image`,
+          });
+        }
+      } else if (variant.colorHex || variant.images.length > 0) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["variants", index],
+          message: "Per-color galleries are currently available only for unstitched fabric",
+        });
+      }
     });
+
+    if (
+      profile.productKind === "UNSTITCHED_FABRIC" &&
+      profile.variants.length > 0 &&
+      profile.optionLabel?.trim().toLocaleLowerCase("en-US") !== "color"
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["optionLabel"],
+        message: "Unstitched selling options must be colors",
+      });
+    }
   });
 
 type CommerceProfileWithVariants = Prisma.ProductCommerceProfileGetPayload<{
-  include: { variants: true };
+  include: {
+    options: { include: { values: true } };
+    variants: { include: { selections: { include: { option: true; optionValue: true } } } };
+  };
 }>;
 
 function serializeProfile(profile: CommerceProfileWithVariants | null) {
@@ -138,6 +189,21 @@ function serializeProfile(profile: CommerceProfileWithVariants | null) {
     optionLabel: profile.optionLabel || undefined,
     sizeGuideUrl: profile.sizeGuideUrl || undefined,
     details: Array.isArray(profile.details) ? profile.details : [],
+    options: profile.options.map((option) => ({
+      id: option.id,
+      key: option.key,
+      label: option.label,
+      type: option.type,
+      isRequired: option.isRequired,
+      values: option.values.filter((value) => value.isActive).map((value) => ({
+        id: value.id,
+        key: value.key,
+        label: value.label,
+        swatchHex: value.swatchHex || undefined,
+        images: value.images ? parseProductImages(value.images) : [],
+        isActive: value.isActive,
+      })),
+    })),
     variants: profile.variants.filter((variant) => variant.isActive).map((variant) => ({
       id: variant.id,
       optionKey: variant.optionKey,
@@ -147,6 +213,12 @@ function serializeProfile(profile: CommerceProfileWithVariants | null) {
       stockQuantity: variant.stockQuantity,
       inStock: variant.inStock,
       isActive: variant.isActive,
+      colorHex: variant.colorHex || undefined,
+      images: variant.images ? parseProductImages(variant.images) : [],
+      selections: variant.selections.map((selection) => ({
+        optionKey: selection.option.key,
+        valueKey: selection.optionValue.key,
+      })),
     })),
   };
 }
@@ -175,7 +247,13 @@ export const GET = withLoggedAdminHandler(async (
       where: { id: productId },
       select: {
         commerceProfile: {
-          include: { variants: { orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }] } },
+          include: {
+            options: { include: { values: { orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }] } }, orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }] },
+            variants: {
+              include: { selections: { include: { option: true, optionValue: true } } },
+              orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
+            },
+          },
         },
       },
     });
@@ -183,7 +261,6 @@ export const GET = withLoggedAdminHandler(async (
     if (!product) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
-
     return NextResponse.json({ profile: serializeProfile(product.commerceProfile) });
   } catch (error) {
     console.error("Get commerce profile error:", error);
@@ -212,11 +289,22 @@ export const PUT = withLoggedAdminHandler(async (
       select: {
         id: true,
         price: true,
-        commerceProfile: { include: { variants: true } },
+        commerceProfile: {
+          include: {
+            options: { include: { values: true } },
+            variants: { include: { selections: { include: { option: true, optionValue: true } } } },
+          },
+        },
       },
     });
     if (!product) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    }
+    if (product.commerceProfile?.options.length) {
+      return NextResponse.json(
+        { error: "Use the product editor to update normalized option matrices." },
+        { status: 409 },
+      );
     }
     if (
       !FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1 &&
@@ -300,19 +388,31 @@ export const PUT = withLoggedAdminHandler(async (
     // crafted admin request cannot enable stitching for readywear, fragrance,
     // beauty, teens, gifts, or accessories.
     const editorSchema = productEditorSchemaForKind(parsed.data.productKind);
+    const hasUnstitchedColors =
+      parsed.data.productKind === "UNSTITCHED_FABRIC" &&
+      parsed.data.variants.length > 0;
     const data = {
       ...parsed.data,
       // Client input must never downgrade ready-to-wear or teens into a
       // generic product line. This keeps the persisted API contract aligned
       // with the storefront even for handcrafted admin requests.
       requiresSelection:
-        productKindRequiresSelection(parsed.data.productKind) || parsed.data.requiresSelection,
+        productKindRequiresSelection(parsed.data.productKind) ||
+        parsed.data.requiresSelection ||
+        hasUnstitchedColors,
+      optionLabel: hasUnstitchedColors ? "Color" : parsed.data.optionLabel,
       stitchingEligible:
         isProductEditorFieldVisible(editorSchema.fields.stitching)
           ? parsed.data.stitchingEligible
           : false,
     };
     const savedProfile = await prisma.$transaction(async (tx) => {
+      const baseProduct = await tx.product.findUniqueOrThrow({ where: { id: productId }, select: { price: true } });
+      const activeVariantPrices = data.variants
+        .filter((variant) => variant.isActive)
+        .map((variant) => Number(baseProduct.price) + variant.priceAdjustment);
+      const minPrice = activeVariantPrices.length ? Math.min(...activeVariantPrices) : null;
+      const maxPrice = activeVariantPrices.length ? Math.max(...activeVariantPrices) : null;
       const profile = await tx.productCommerceProfile.upsert({
         where: { productId },
         create: {
@@ -323,6 +423,8 @@ export const PUT = withLoggedAdminHandler(async (
           optionLabel: data.optionLabel?.trim() || null,
           sizeGuideUrl: data.sizeGuideUrl?.trim() || null,
           details: data.details,
+          minPrice,
+          maxPrice,
         },
         update: {
           productKind: data.productKind,
@@ -331,6 +433,8 @@ export const PUT = withLoggedAdminHandler(async (
           optionLabel: data.optionLabel?.trim() || null,
           sizeGuideUrl: data.sizeGuideUrl?.trim() || null,
           details: data.details,
+          minPrice,
+          maxPrice,
         },
       });
 
@@ -358,6 +462,8 @@ export const PUT = withLoggedAdminHandler(async (
           inStock: variant.inStock && variant.stockQuantity > 0,
           isActive: variant.isActive,
           displayOrder,
+          colorHex: variant.colorHex?.trim() || null,
+          images: variant.images.length ? JSON.stringify(variant.images) : null,
         };
 
         if (variant.id) {
@@ -396,11 +502,16 @@ export const PUT = withLoggedAdminHandler(async (
           _sum: { stockQuantity: true },
         });
         const stockQuantity = aggregate._sum.stockQuantity || 0;
+        const firstColor =
+          data.productKind === "UNSTITCHED_FABRIC" ? data.variants[0] : undefined;
         await tx.product.update({
           where: { id: productId },
           data: {
             stockQuantity,
             inStock: stockQuantity > 0,
+            ...(firstColor
+              ? { color: firstColor.label, colorHex: firstColor.colorHex || "" }
+              : {}),
             updatedAt: new Date(),
           },
         });
@@ -413,7 +524,13 @@ export const PUT = withLoggedAdminHandler(async (
 
       return tx.productCommerceProfile.findUniqueOrThrow({
         where: { id: profile.id },
-        include: { variants: { orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }] } },
+        include: {
+          options: { include: { values: true } },
+          variants: {
+            include: { selections: { include: { option: true, optionValue: true } } },
+            orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
+          },
+        },
       });
     });
 

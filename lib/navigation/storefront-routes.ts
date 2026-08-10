@@ -7,6 +7,37 @@ export const CATALOG_ROOT_PATHS = [
   "/teens",
 ] as const;
 
+export type CatalogDepartment =
+  (typeof CATALOG_ROOT_PATHS)[number] extends `/${infer Department}`
+    ? Department
+    : never;
+
+/**
+ * Resolve only department roots, never their descendants. CatalogNode paths
+ * are persisted with a leading slash, while route-level department values do
+ * not have one. Keeping that conversion here prevents the two representations
+ * from drifting apart in hero/header checks.
+ */
+export function catalogDepartmentFromRootPath(
+  pathname: string | null | undefined
+): CatalogDepartment | null {
+  const trimmedPath = pathname?.trim();
+  if (!trimmedPath) return null;
+
+  const pathWithLeadingSlash = trimmedPath.startsWith("/")
+    ? trimmedPath
+    : `/${trimmedPath}`;
+  const normalizedPath =
+    pathWithLeadingSlash.length > 1
+      ? pathWithLeadingSlash.replace(/\/+$/, "")
+      : pathWithLeadingSlash;
+  const rootPath = CATALOG_ROOT_PATHS.find(
+    (candidate) => candidate === normalizedPath
+  );
+
+  return rootPath ? (rootPath.slice(1) as CatalogDepartment) : null;
+}
+
 const NAVIGATION_FREE_ROUTE_PREFIXES = [
   "/account",
   "/checkout",

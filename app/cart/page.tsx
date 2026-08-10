@@ -10,7 +10,7 @@ import { CartDrawer } from "@/components/cart/cart-drawer";
 import { ProductCard } from "@/components/product/product-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getCartItemUnitPrice, isCartItemAvailable, useCartStore } from "@/lib/cart-store";
+import { getCartItemImages, getCartItemUnitPrice, isCartItemAvailable, useCartStore } from "@/lib/cart-store";
 import { formatPrice, type Product } from "@/lib/data";
 import { DEFAULT_STITCHING_FEE } from "@/lib/feature-flags";
 import { Plus, Minus, X, ShoppingBag, Truck } from "lucide-react";
@@ -138,7 +138,7 @@ export default function CartPage() {
                       <div className="col-span-12 sm:col-span-6 flex gap-4">
                         <div className="relative w-20 h-24 sm:w-24 sm:h-32 bg-secondary rounded overflow-hidden shrink-0">
                           <Image
-                            src={getProductImage(item.product.images)}
+                            src={getProductImage(getCartItemImages(item))}
                             alt={item.product.name}
                             fill
                             className="object-cover"

@@ -35,7 +35,10 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
 import { catalogUtilityLinks } from "@/lib/navigation/catalog-menu";
-import { shouldShowCatalogNavigation } from "@/lib/navigation/storefront-routes";
+import {
+  catalogDepartmentFromRootPath,
+  shouldShowCatalogNavigation,
+} from "@/lib/navigation/storefront-routes";
 import { CatalogHeaderMenu } from "./catalog-header-menu";
 import { CatalogMobileMenu } from "./catalog-mobile-menu";
 import { StitchingNoticeBanner } from "./stitching-notice-banner";
@@ -523,7 +526,7 @@ function CatalogHeaderV1() {
   }, []);
 
   // Hero mode: homepage + not scrolled → transparent navbar overlapping hero
-  const isDepartmentRoot = ["/women", "/men", "/teens", "/fragrance-beauty"].includes(pathname || "");
+  const isDepartmentRoot = catalogDepartmentFromRootPath(pathname) !== null;
   const isHeroMode = (pathname === "/" || isDepartmentRoot) && !isScrolled;
 
   useEffect(() => {

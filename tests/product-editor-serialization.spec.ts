@@ -27,6 +27,7 @@ test.describe("product editor draft validation", () => {
     expect(() =>
       serializeCommerceProfile({
         ...emptyCommerceProfileDraft(),
+        productKind: "FRAGRANCE",
         optionLabel: "",
         variants: [
           {
@@ -37,6 +38,8 @@ test.describe("product editor draft validation", () => {
             stockQuantity: "5",
             inStock: true,
             isActive: true,
+            colorHex: "#000000",
+            images: ["/placeholder.jpg"],
           },
         ],
       })

@@ -72,10 +72,11 @@ function transformReturnRequestWithOrderItems(req: any) {
         id: item.id,
         productId: item.productId,
         productName: item.product.name,
-        productImage: parseProductImages(item.product.images)[0] || "/placeholder.jpg",
+        productImage: item.configuration?.variantImage || parseProductImages(item.product.images)[0] || "/placeholder.jpg",
         quantity: item.quantity,
         price: Number(item.priceAtTimeOfPurchase),
-        sku: item.product.sku,
+        sku: item.configuration?.variantSku || item.product.sku,
+        selectedOptions: item.configuration?.selectedOptions || undefined,
       })) || [],
   };
 }
@@ -199,7 +200,7 @@ export async function getReturnRequestById(id: string) {
   const request = await prisma.returnRequest.findUnique({
     where: { id },
     include: {
-      order: { include: { items: { include: { product: { select: { name: true, images: true, sku: true } } } } } },
+      order: { include: { items: { include: { product: { select: { name: true, images: true, sku: true } }, configuration: true } } } },
       user: true,
       items: true,
     },

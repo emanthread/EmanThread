@@ -9,6 +9,7 @@ import {
   isProductAvailableForPurchase,
   isProductStitchingEligible,
   requiresVariantSelectionForPurchase,
+  isUnstitchedColorVariantProduct,
 } from "../lib/commerce";
 import { classifyCatalogPath } from "../lib/catalog-product-classification";
 import type { Product } from "../lib/data";
@@ -108,5 +109,46 @@ test.describe("unstitched fabric purchase flow", () => {
     expect(classifyCatalogPath("/teens/unstitched/3-piece")?.productKind).toBe(
       "UNSTITCHED_FABRIC",
     );
+  });
+
+  test("uses concrete color SKUs for an explicit unstitched color profile", () => {
+    const product: Product = {
+      ...staleUnstitchedProduct(["/women/unstitched/2-piece"]),
+      commerce: {
+        productKind: "UNSTITCHED_FABRIC",
+        stitchingEligible: true,
+        requiresSelection: true,
+        optionLabel: "Color",
+        details: [],
+        variants: [
+          {
+            id: "navy",
+            optionKey: "navy",
+            label: "Navy",
+            colorHex: "#000080",
+            images: ["/navy.jpg"],
+            priceAdjustment: 250,
+            stockQuantity: 4,
+            inStock: true,
+            isActive: true,
+          },
+        ],
+      },
+    };
+
+    expect(isUnstitchedColorVariantProduct(product)).toBe(true);
+    expect(getActiveVariants(product)).toHaveLength(1);
+    expect(requiresVariantSelectionForPurchase(product)).toBe(true);
+    expect(getVariantUnitPrice(product, product.commerce?.variants[0])).toBe(3_250);
+
+    const [item] = normalizeCartItems([{
+      product,
+      quantity: 1,
+      variant: { id: "navy", label: "Navy", priceAdjustment: 250 },
+      selectedOptions: [{ label: "Color", value: "Navy" }],
+      unitPrice: 3_250,
+    }]);
+    expect(item.lineId).toBe("fabric-1:navy");
+    expect(item.selectedOptions).toEqual([{ label: "Color", value: "Navy" }]);
   });
 });

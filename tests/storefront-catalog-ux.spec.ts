@@ -12,14 +12,59 @@ import {
   supportsSeasonFilter,
 } from "../lib/catalog-filter-options";
 import {
+  catalogDepartmentFromRootPath,
   catalogSearchHref,
   shouldShowCatalogNavigation,
 } from "../lib/navigation/storefront-routes";
+import { selectHeroSlidesForDepartment } from "../lib/hero-slide-targeting";
+import type { HeroSlide } from "../lib/db/store-config";
 
 const source = (path: string) =>
   readFileSync(resolve(process.cwd(), path), "utf8");
 
 test.describe("storefront catalog UX", () => {
+  test("resolves all department roots without treating subcategories as roots", () => {
+    expect(catalogDepartmentFromRootPath("/women")).toBe("women");
+    expect(catalogDepartmentFromRootPath("/men")).toBe("men");
+    expect(catalogDepartmentFromRootPath("/teens")).toBe("teens");
+    expect(catalogDepartmentFromRootPath("/fragrance-beauty")).toBe(
+      "fragrance-beauty"
+    );
+
+    expect(catalogDepartmentFromRootPath("teens/")).toBe("teens");
+    expect(catalogDepartmentFromRootPath("/teens/teen-girls")).toBeNull();
+    expect(catalogDepartmentFromRootPath("/women/ready-to-wear")).toBeNull();
+  });
+
+  test("selects dedicated hero slides and only falls back to shared slides", () => {
+    const slide = (
+      id: string,
+      department: HeroSlide["department"]
+    ): HeroSlide => ({
+      id,
+      department,
+      mediaType: "image",
+      image: `/${id}.jpg`,
+      title: id,
+      subtitle: id,
+      description: id,
+      cta: "Shop",
+      link: "/",
+    });
+    const shared = slide("shared", "all");
+    const women = slide("women", "women");
+    const teens = slide("teens", "teens");
+    const slides = [shared, women, teens];
+
+    expect(selectHeroSlidesForDepartment(slides, "women")).toEqual([women]);
+    expect(selectHeroSlidesForDepartment(slides, "teens")).toEqual([teens]);
+    expect(selectHeroSlidesForDepartment(slides, "men")).toEqual([shared]);
+    expect(selectHeroSlidesForDepartment(slides, "fragrance-beauty")).toEqual([
+      shared,
+    ]);
+    expect(selectHeroSlidesForDepartment([teens], "women")).toEqual([]);
+  });
+
   test("uses the approved price range and complete clothing season list", () => {
     expect([CATALOG_PRICE_MIN, CATALOG_PRICE_MAX, CATALOG_PRICE_STEP]).toEqual([
       0,
@@ -155,7 +200,13 @@ test.describe("storefront catalog UX", () => {
     expect(catalogAdminSchema).toContain("catalogNodeBannerAltSchema");
     expect(catalogAdmin).toContain("Collection banner (optional)");
     expect(catalogAdmin).toContain("Banner image");
-    expect(catalogPage.indexOf("{bannerImage ? (")).toBeLessThan(
+    expect(catalogPage).toContain(
+      "const heroDepartment = catalogDepartmentFromRootPath(data.node.path)"
+    );
+    expect(catalogPage).toContain("initialDepartment={heroDepartment}");
+    expect(catalogPage).toContain("!isDepartmentRoot && bannerImage");
+    expect(catalogPage).toContain(") : !isDepartmentRoot && (");
+    expect(catalogPage.indexOf("{!isDepartmentRoot && bannerImage ? (")).toBeLessThan(
       catalogPage.indexOf("<CatalogFilters data={data} />")
     );
     expect(headerMenu).toContain("const routeDepartmentId = departmentFromPathname");
