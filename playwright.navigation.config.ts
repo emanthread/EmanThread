@@ -24,6 +24,7 @@ export default defineConfig({
     "catalog-published-navigation.spec.ts",
     "chatbot-email-modernization.spec.ts",
     "email-delivery-compliance.spec.ts",
+    "stitching-profile-flow.spec.ts",
   ],
   fullyParallel: true,
   workers: 1,

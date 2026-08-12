@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/data";
 import { MeasurementProfileManager } from "@/components/measurements/MeasurementProfileManager";
+import type { ProfileSummary } from "@/components/measurements/MeasurementProfileManager";
+import { safeInternalReturnPath, withQueryValue } from "@/lib/internal-return-path";
 
 import { Ruler } from "lucide-react";
 
@@ -101,6 +103,20 @@ export default function MeasurementsPage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuthStore();
   const [stitchingPrices, setStitchingPrices] = useState<StitchingPrices>({ male: {}, female: {} });
+  const [createMode, setCreateMode] = useState(false);
+  const [returnTo, setReturnTo] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setCreateMode(params.get("create") === "1");
+    const requestedReturn = params.get("returnTo");
+    setReturnTo(requestedReturn ? safeInternalReturnPath(requestedReturn) : null);
+  }, []);
+
+  const handleProfileCreated = useCallback((profile: ProfileSummary) => {
+    if (!returnTo) return;
+    router.push(withQueryValue(returnTo, "measurementProfileId", profile.id));
+  }, [returnTo, router]);
 
   const fetchStitchingPrices = useCallback(async () => {
     try {
@@ -167,7 +183,10 @@ export default function MeasurementsPage() {
 
           {/* ── Measurement Profiles ── */}
           <div className="mb-8 bg-background rounded-lg border p-6 shadow-sm">
-            <MeasurementProfileManager />
+            <MeasurementProfileManager
+              defaultCreateMode={createMode}
+              onCreated={handleProfileCreated}
+            />
           </div>
 
           {/* ── Tailor Request Note ── */}

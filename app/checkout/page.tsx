@@ -341,26 +341,6 @@ export default function CheckoutPage() {
               trouserdata1: p.trouserdata1,
             }));
             setMeasurementProfiles(profiles);
-
-            // Auto-select default profile for all stitching items
-            const defaultProfile = profiles.find((p: { isDefault: boolean }) => p.isDefault);
-            if (defaultProfile) {
-              items.forEach((item) => {
-                if (!isStitchingEligible(item)) return;
-                const hasStitching = item.stitchingProfileId != null && item.stitchingProfileId !== "none";
-                if (!hasStitching) {
-                  // Use the profile's garmentType to look up the correct stitching price,
-                  // falling back to DEFAULT_STITCHING_FEE if no matching price is configured.
-                  const priceKey = garmentTypeToPriceKey(defaultProfile.garmentType);
-                  const price = stitchingPriceMap[priceKey] ?? DEFAULT_STITCHING_FEE;
-                  updateStitching(item.lineId, {
-                    price,
-                    profileId: defaultProfile.id,
-                    profileName: defaultProfile.profileName,
-                  });
-                }
-              });
-            }
           }
         })
         .catch((error) => {
@@ -368,6 +348,32 @@ export default function CheckoutPage() {
         });
     }
   }, [isAuthenticated]);
+
+  // A newly created profile returns to the exact checkout line that requested it.
+  // Ownership is still enforced by /api/measurements and again by order creation.
+  useEffect(() => {
+    if (typeof window === "undefined" || measurementProfiles.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const profileId = params.get("measurementProfileId");
+    const lineId = params.get("stitchingLineId");
+    if (!profileId || !lineId) return;
+
+    const profile = measurementProfiles.find((candidate) => candidate.id === profileId);
+    const item = items.find((candidate) => candidate.lineId === lineId);
+    if (profile && item && isStitchingEligible(item)) {
+      const priceKey = garmentTypeToPriceKey(profile.garmentType);
+      updateStitching(lineId, {
+        price: stitchingPriceMap[priceKey] ?? DEFAULT_STITCHING_FEE,
+        profileId: profile.id,
+        profileName: profile.profileName,
+      });
+    }
+
+    params.delete("measurementProfileId");
+    params.delete("stitchingLineId");
+    const cleanUrl = `${window.location.pathname}${params.size ? `?${params.toString()}` : ""}${window.location.hash}`;
+    window.history.replaceState(window.history.state, "", cleanUrl);
+  }, [items, measurementProfiles, stitchingPriceMap, updateStitching]);
 
   // Fetch estimated stitching delivery date when stitching is selected
   useEffect(() => {
@@ -855,7 +861,8 @@ export default function CheckoutPage() {
                                   const val = e.target.value;
                                   if (val === "none" || val === "create_new") {
                                     if (val === "create_new") {
-                                      router.push("/account/measurements");
+                                      const returnTo = `/checkout?stitchingLineId=${encodeURIComponent(item.lineId)}`;
+                                      router.push(`/account/measurements?create=1&returnTo=${encodeURIComponent(returnTo)}`);
                                       return;
                                     }
                                     // Clear variant selection too

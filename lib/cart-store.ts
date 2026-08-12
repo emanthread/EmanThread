@@ -74,7 +74,7 @@ interface CartState {
   addItem: (
     product: Product,
     quantity?: number,
-    stitchingOptions?: StitchingOptions,
+    stitchingOptions?: StitchingUpdate,
     selection?: CartSelection,
   ) => void;
   /** Accepts a lineId. For legacy callers a product id remains the same lineId. */
@@ -416,9 +416,18 @@ export const useCartStore = create<CartState>()(
                       ...(variant ? { variant } : {}),
                       ...(selectedOptions ? { selectedOptions } : {}),
                       ...(unitPrice !== undefined ? { unitPrice } : {}),
-                      stitchingProfileId: stitchingOptions?.profileId ?? item.stitchingProfileId,
-                      stitchingPrice: stitchingOptions?.price ?? item.stitchingPrice,
-                      stitchingProfileName: stitchingOptions?.profileName ?? item.stitchingProfileName,
+                      stitchingProfileId: stitchingOptions !== undefined
+                        ? stitchingOptions.profileId
+                        : item.stitchingProfileId,
+                      stitchingPrice: stitchingOptions !== undefined
+                        ? stitchingOptions.price
+                        : item.stitchingPrice,
+                      stitchingProfileName: stitchingOptions !== undefined
+                        ? stitchingOptions.profileName
+                        : item.stitchingProfileName,
+                      adminMeasurement: stitchingOptions !== undefined
+                        ? stitchingOptions.adminMeasurement
+                        : item.adminMeasurement,
                     }
                   : item,
               ),
@@ -439,6 +448,9 @@ export const useCartStore = create<CartState>()(
                 stitchingProfileId: stitchingOptions?.profileId ?? null,
                 stitchingPrice: stitchingOptions?.price ?? null,
                 stitchingProfileName: stitchingOptions?.profileName ?? null,
+                ...(stitchingOptions?.adminMeasurement
+                  ? { adminMeasurement: stitchingOptions.adminMeasurement }
+                  : {}),
               },
             ],
             isOpen: true,

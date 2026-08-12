@@ -237,14 +237,18 @@ test.describe("storefront catalog UX", () => {
     expect(productDetail).toContain("Show next product image");
   });
 
-  test("keeps unstitched measurement selection at checkout", () => {
+  test("offers optional unstitched measurement selection from product through checkout", () => {
     const productDetail = source("app/product/[id]/product-page-client.tsx");
+    const productSelector = source("components/stitching/stitching-profile-selector.tsx");
     const checkout = source("app/checkout/page.tsx");
 
-    expect(productDetail).toContain("At checkout you can choose a saved measurement profile");
-    expect(productDetail).not.toContain('placeholder="Select Stitching Option"');
+    expect(productDetail).toContain("<StitchingProfileSelector");
+    expect(productDetail).toContain("supportsStitching ? stitchingSelection : undefined");
+    expect(productSelector).toContain("Fabric only — No stitching");
+    expect(productSelector).toContain("+ Create new measurements");
     expect(checkout).toContain("+ Create New Profile");
     expect(checkout).toContain("isStitchingEligible(item)");
+    expect(checkout).not.toContain("Auto-select default profile for all stitching items");
   });
 
   test("retires the generic shop page without breaking old bookmarks", () => {

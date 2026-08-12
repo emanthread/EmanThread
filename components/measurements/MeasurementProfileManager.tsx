@@ -29,7 +29,7 @@ import {
 import { UnifiedMeasurementForm } from "./UnifiedMeasurementForm";
 import type { UnifiedMeasurementFormData } from "@/lib/validators/measurements-unified";
 
-interface ProfileSummary {
+export interface ProfileSummary {
   id: string;
   profileName: string;
   isDefault: boolean;
@@ -52,6 +52,8 @@ interface MeasurementProfileManagerProps {
   showSelect?: boolean;
   /** If true, opens the form for creating a new profile immediately */
   defaultCreateMode?: boolean;
+  /** Called after the server has created and returned the new owned profile. */
+  onCreated?: (profile: ProfileSummary) => void;
 }
 
 export function MeasurementProfileManager({
@@ -59,6 +61,7 @@ export function MeasurementProfileManager({
   onSelect,
   showSelect = false,
   defaultCreateMode = false,
+  onCreated,
 }: MeasurementProfileManagerProps) {
   const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,6 +99,10 @@ export function MeasurementProfileManager({
   useEffect(() => {
     fetchProfiles();
   }, [fetchProfiles]);
+
+  useEffect(() => {
+    if (defaultCreateMode) setCreateOpen(true);
+  }, [defaultCreateMode]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -137,8 +144,10 @@ export function MeasurementProfileManager({
       const err = await res.json();
       throw new Error(err.error || "Failed to create profile");
     }
+    const payload = await res.json();
     setCreateOpen(false);
-    fetchProfiles();
+    await fetchProfiles();
+    if (payload.profile) onCreated?.(payload.profile as ProfileSummary);
   };
 
   const handleSaveEdit = async (data: UnifiedMeasurementFormData) => {

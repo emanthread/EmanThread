@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound, useRouter } from "next/navigation";
@@ -10,6 +10,7 @@ import { CartDrawer } from "@/components/cart/cart-drawer";
 import { ProductCard } from "@/components/product/product-card";
 import { ProductOptionPicker } from "@/components/product/product-option-picker";
 import { SizeGuideModal } from "@/components/product/size-guide-modal";
+import { StitchingProfileSelector } from "@/components/stitching/stitching-profile-selector";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -20,10 +21,9 @@ import {
 } from "@/components/ui/accordion";
 import { ProductReviews } from "@/components/product/product-reviews";
 import { getProductImage } from "@/lib/utils";
-import { useCartStore } from "@/lib/cart-store";
+import { useCartStore, type StitchingUpdate } from "@/lib/cart-store";
 import { useWishlistStore } from "@/lib/wishlist-store";
 import { formatPrice, type Product, type ProductVariant } from "@/lib/data";
-import { Ruler } from "lucide-react";
 import {
   getActiveVariants,
   getProductOptions,
@@ -187,6 +187,12 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
   const [mounted, setMounted] = useState(false);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [optionError, setOptionError] = useState(false);
+  const [stitchingSelection, setStitchingSelection] = useState<StitchingUpdate>({
+    price: null,
+    profileId: null,
+    profileName: null,
+  });
+  const [preferredMeasurementProfileId, setPreferredMeasurementProfileId] = useState<string | null>(null);
   const touchStartX = useRef<number | null>(null);
   const router = useRouter();
   const { addItem } = useCartStore();
@@ -223,7 +229,62 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
     setIsZoomed(false);
     setSelectedVariantId(defaultColorVariantId);
     setOptionError(false);
+    setStitchingSelection({ price: null, profileId: null, profileName: null });
+    setPreferredMeasurementProfileId(null);
   }, [product.id, defaultColorVariantId]);
+
+  useEffect(() => {
+    if (!supportsStitching || typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const returnedProfileId = params.get("measurementProfileId");
+    if (!returnedProfileId) return;
+
+    try {
+      const draft = window.sessionStorage.getItem(`stitching-product-draft:${product.id}`);
+      if (draft) {
+        const parsed = JSON.parse(draft) as { variantId?: string | null; quantity?: number };
+        if (
+          parsed.variantId &&
+          activeVariants.some((variant) => variant.id === parsed.variantId && isVariantAvailable(variant))
+        ) {
+          setSelectedVariantId(parsed.variantId);
+        }
+        if (Number.isInteger(parsed.quantity) && (parsed.quantity ?? 0) > 0) {
+          setQuantity(parsed.quantity!);
+        }
+        window.sessionStorage.removeItem(`stitching-product-draft:${product.id}`);
+      }
+    } catch {
+      window.sessionStorage.removeItem(`stitching-product-draft:${product.id}`);
+    }
+
+    setPreferredMeasurementProfileId(returnedProfileId);
+    params.delete("measurementProfileId");
+    const cleanUrl = `${window.location.pathname}${params.size ? `?${params.toString()}` : ""}${window.location.hash}`;
+    window.history.replaceState(window.history.state, "", cleanUrl);
+  }, [activeVariants, product.id, supportsStitching]);
+
+  const handleStitchingChange = useCallback((selection: StitchingUpdate) => {
+    setStitchingSelection(selection);
+    setPreferredMeasurementProfileId(null);
+  }, []);
+
+  const handleCreateMeasurements = useCallback(() => {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(
+      `stitching-product-draft:${product.id}`,
+      JSON.stringify({ variantId: selectedVariantId, quantity }),
+    );
+    const returnTo = window.location.pathname;
+    router.push(`/account/measurements?create=1&returnTo=${encodeURIComponent(returnTo)}`);
+  }, [product.id, quantity, router, selectedVariantId]);
+
+  const handleMeasurementSignIn = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const callbackUrl = `${window.location.pathname}${window.location.search}`;
+    router.push(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
+  }, [router]);
 
   const wishlistReady = mounted && isIdentityResolved;
   const inWishlist = wishlistReady && isInWishlist(product.id);
@@ -255,7 +316,7 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
           unitPrice: displayedPrice,
         }
       : undefined;
-    addItem(product, quantity, undefined, selection);
+    addItem(product, quantity, supportsStitching ? stitchingSelection : undefined, selection);
     setQuantity(1);
     return true;
   };
@@ -557,18 +618,16 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
               )}
             </div>
           )}
-          {/* Stitching remains a checkout decision so product purchase stays simple. */}
-          {supportsStitching && <div className="bg-secondary/30 rounded-lg border border-border/60 p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <Ruler className="h-5 w-5 text-accent" />
-              <span className="font-semibold text-sm">Optional Stitching Service</span>
-              <Badge variant="secondary" className="text-xs bg-accent/10 text-accent">Optional</Badge>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Add the fabric to your cart. At checkout you can choose a saved measurement profile,
-              create a new one, or continue with fabric only.
-            </p>
-          </div>}
+          {supportsStitching && (
+            <StitchingProfileSelector
+              selectedProfileId={stitchingSelection.profileId}
+              preferredProfileId={preferredMeasurementProfileId}
+              quantity={quantity}
+              onChange={handleStitchingChange}
+              onCreateNew={handleCreateMeasurements}
+              onSignIn={handleMeasurementSignIn}
+            />
+          )}
 
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex items-center border border-border rounded">
