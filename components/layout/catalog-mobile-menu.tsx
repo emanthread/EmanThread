@@ -28,6 +28,10 @@ import {
   type MenuLeaf,
 } from "@/lib/navigation/catalog-menu";
 import styles from "./catalog-header-menu.module.css";
+import {
+  isPublishedCatalogHref,
+  publishedCatalogPathSet,
+} from "@/lib/navigation/published-catalog";
 
 type MobileMenuUser = {
   name: string;
@@ -45,6 +49,7 @@ type CatalogMobileMenuProps = {
   isAuthenticated: boolean;
   linksEnabled: boolean;
   showNavigation: boolean;
+  publishedCatalogPaths: readonly string[];
   user: MobileMenuUser | null;
   utilityLinks: readonly MobileUtilityLink[];
   wishlistCount: number;
@@ -69,6 +74,7 @@ export function CatalogMobileMenu({
   isAuthenticated,
   linksEnabled,
   showNavigation,
+  publishedCatalogPaths,
   user,
   utilityLinks,
   wishlistCount,
@@ -77,7 +83,17 @@ export function CatalogMobileMenu({
   onLogout,
 }: CatalogMobileMenuProps) {
   const pathname = usePathname();
-  const departments = useMemo(() => byOrder(catalogMenu), []);
+  const publishedPaths = useMemo(
+    () => publishedCatalogPathSet(publishedCatalogPaths),
+    [publishedCatalogPaths]
+  );
+  const departments = useMemo(
+    () =>
+      byOrder(catalogMenu).filter((department) =>
+        isPublishedCatalogHref(`/${department.id}`, publishedPaths)
+      ),
+    [publishedPaths]
+  );
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [openDepartmentId, setOpenDepartmentId] = useState<string | null>(
@@ -257,7 +273,11 @@ export function CatalogMobileMenu({
                             Shop All {department.label}
                           </Link>
                         ) : null}
-                        {byOrder(department.sections).map((section) => {
+                        {byOrder(department.sections)
+                          .filter((section) =>
+                            isPublishedCatalogHref(section.href, publishedPaths)
+                          )
+                          .map((section) => {
                           const sectionOpen = openSectionId === section.id;
 
                           return (
@@ -304,7 +324,13 @@ export function CatalogMobileMenu({
                                   ) : null}
 
                                   {byOrder(section.groups).map((group) => {
-                                    const items = visibleLeaves(group.items);
+                                    const items = visibleLeaves(group.items).filter(
+                                      (item) =>
+                                        isPublishedCatalogHref(
+                                          item.href,
+                                          publishedPaths
+                                        )
+                                    );
                                     if (items.length === 0) return null;
 
                                     return (

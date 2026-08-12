@@ -1,6 +1,7 @@
 // ── Notification message templates ───────────────────────────────
 
 import type { NotificationTemplate } from "./types";
+import { escapeEmailHtml } from "./email-format";
 
 interface EmailTemplateDef {
   subject: string;
@@ -8,7 +9,7 @@ interface EmailTemplateDef {
 }
 
 const brandName = "Eman Thread";
-const brandUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
+const brandUrl = (process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || "http://localhost:3000").replace(/\/$/, "");
 const brandColor = "#1a1a1a";
 
 /**
@@ -35,7 +36,7 @@ function stitchingDeliveryBlock(isoDate: string | undefined): string {
   return `
 <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:16px 0;text-align:center">
   <p style="margin:0 0 4px;font-size:13px;color:#15803d;font-weight:600">🧵 Estimated Stitching Delivery</p>
-  <p style="margin:0;font-size:18px;font-weight:700;color:#14532d">${formatDeliveryDatePKT(isoDate)}</p>
+  <p style="margin:0;font-size:18px;font-weight:700;color:#14532d">${escapeEmailHtml(formatDeliveryDatePKT(isoDate))}</p>
   <p style="margin:4px 0 0;font-size:11px;color:#6b7280">Based on our current order queue</p>
 </div>`;
 }
@@ -57,6 +58,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Ar
 .btn{display:inline-block;padding:12px 24px;background:${brandColor};color:#fff;text-decoration:none;border-radius:4px;font-weight:500;margin-top:16px}
 .order-details{background:#f9f9f9;padding:16px;border-radius:6px;margin:16px 0}
 .order-details p{margin:6px 0;font-size:14px}
+.order-items{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
+.totals{margin:16px 0 0 auto;max-width:320px;background:#f9fafb;padding:12px 16px;border-radius:6px}
+.totals p{display:flex;justify-content:space-between;gap:20px;margin:7px 0}
+.notice{background:#fffbeb;border:1px solid #fde68a;color:#78350f;padding:14px;border-radius:6px;margin:16px 0;font-size:13px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -64,7 +69,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Ar
   <div class="header"><h1>${brandName.toUpperCase()}</h1></div>
   <div class="content">${content}</div>
   <div class="footer">
-    <p>${brandName} — Premium Unstitched Fabric for Men</p>
+    <p>${brandName} — Fashion, fabric, beauty, fragrance and gifts</p>
     <p><a href="${brandUrl}">${brandUrl}</a></p>
   </div>
 </div>
@@ -73,18 +78,35 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Ar
 }
 
 export const EmailTemplates: Record<NotificationTemplate, EmailTemplateDef> = {
+  new_order_alert: {
+    subject: "New order received — Eman Thread",
+    body: (data) =>
+      emailWrapper(
+        "New Order",
+        `<h2>A new order has been placed</h2>
+<div class="order-details">
+  <p><strong>Order #:</strong> ${escapeEmailHtml(data.orderNumber)}</p>
+  <p><strong>Customer:</strong> ${escapeEmailHtml(data.customerName || "Guest")}</p>
+  <p><strong>Payment Method:</strong> ${escapeEmailHtml(data.paymentMethod)}</p>
+</div>
+${data.orderItemsHtml ? `<h3 style="margin:24px 0 8px">Items</h3><table role="presentation" class="order-items"><tbody>${data.orderItemsHtml}</tbody></table>` : ""}
+${data.orderTotalsHtml ? `<div class="totals">${data.orderTotalsHtml}</div>` : `<p><strong>Total:</strong> PKR ${escapeEmailHtml(data.total)}</p>`}
+${data.shippingAddressHtml ? `<h3 style="margin:24px 0 8px">Shipping address</h3><p style="line-height:1.6">${data.shippingAddressHtml}</p>` : ""}
+<a href="${brandUrl}/admin/orders/${encodeURIComponent(data.orderId)}" class="btn">Open Order in Admin</a>`,
+      ),
+  },
   order_processing: {
     subject: "Your Eman Thread order is being processed",
     body: (data) =>
       emailWrapper(
         "Order Processing",
         `<h2>We're working on your order!</h2>
-<p>Hi ${data.customerName || "there"},</p>
+<p>Hi ${escapeEmailHtml(data.customerName || "there")},</p>
 <p>Your order has been picked up and is now being processed. We'll notify you as soon as it ships.</p>
 <div class="order-details">
-  <p><strong>Order #:</strong> ${data.orderNumber}</p>
-  <p><strong>Total:</strong> PKR ${data.total}</p>
-  <p><strong>Payment Method:</strong> ${data.paymentMethod}</p>
+  <p><strong>Order #:</strong> ${escapeEmailHtml(data.orderNumber)}</p>
+  <p><strong>Total:</strong> PKR ${escapeEmailHtml(data.total)}</p>
+  <p><strong>Payment Method:</strong> ${escapeEmailHtml(data.paymentMethod)}</p>
 </div>
 <p>Thank you for choosing Eman Thread!</p>
 <a href="${brandUrl}/order-status/${data.orderId || data.orderNumber}" class="btn">View Order</a>`
@@ -96,16 +118,20 @@ export const EmailTemplates: Record<NotificationTemplate, EmailTemplateDef> = {
       emailWrapper(
         "Order Confirmed",
         `<h2>Thank you for your order!</h2>
-<p>Hi ${data.customerName || "there"},</p>
+<p>Hi ${escapeEmailHtml(data.customerName || "there")},</p>
 <p>We've received your order and are getting it ready for you.</p>
 <div class="order-details">
-  <p><strong>Order #:</strong> ${data.orderNumber}</p>
-  <p><strong>Total:</strong> PKR ${data.total}</p>
-  <p><strong>Payment Method:</strong> ${data.paymentMethod}</p>
+  <p><strong>Order #:</strong> ${escapeEmailHtml(data.orderNumber)}</p>
+  <p><strong>Payment Method:</strong> ${escapeEmailHtml(data.paymentMethod)}</p>
 </div>
+${data.paymentInstructionsHtml || ""}
+${data.orderItemsHtml ? `<h3 style="margin:24px 0 8px">Items</h3><table role="presentation" class="order-items"><tbody>${data.orderItemsHtml}</tbody></table>` : ""}
+${data.orderTotalsHtml ? `<div class="totals">${data.orderTotalsHtml}</div>` : `<p><strong>Total:</strong> PKR ${escapeEmailHtml(data.total)}</p>`}
+${data.shippingAddressHtml ? `<h3 style="margin:24px 0 8px">Delivering to</h3><p style="line-height:1.6">${data.shippingAddressHtml}</p>` : ""}
 ${stitchingDeliveryBlock(data.stitchingDeliveryDate)}
+${data.sizeGuideHtml || ""}
 <p>You'll receive another update when your order ships.</p>
-<a href="${brandUrl}/order-status/${data.orderId || data.orderNumber}" class="btn">View Order</a>`
+<a href="${brandUrl}/order-status/${encodeURIComponent(data.orderId || data.orderNumber)}" class="btn">View Order</a>`
       ),
   },
   payment_success: {
@@ -114,12 +140,12 @@ ${stitchingDeliveryBlock(data.stitchingDeliveryDate)}
       emailWrapper(
         "Payment Successful",
         `<h2>Payment Confirmed</h2>
-<p>Hi ${data.customerName || "there"},</p>
+<p>Hi ${escapeEmailHtml(data.customerName || "there")},</p>
 <p>We've received your payment. Thank you!</p>
 <div class="order-details">
-  <p><strong>Order #:</strong> ${data.orderNumber}</p>
-  <p><strong>Amount Paid:</strong> PKR ${data.total}</p>
-  <p><strong>Transaction ID:</strong> ${data.transactionRef || "N/A"}</p>
+  <p><strong>Order #:</strong> ${escapeEmailHtml(data.orderNumber)}</p>
+  <p><strong>Amount Paid:</strong> PKR ${escapeEmailHtml(data.total)}</p>
+  <p><strong>Transaction ID:</strong> ${escapeEmailHtml(data.transactionRef || "N/A")}</p>
 </div>
 ${stitchingDeliveryBlock(data.stitchingDeliveryDate)}
 <p>Your order is now being processed.</p>
@@ -132,13 +158,13 @@ ${stitchingDeliveryBlock(data.stitchingDeliveryDate)}
       emailWrapper(
         "Order Shipped",
         `<h2>Your order is on its way!</h2>
-<p>Hi ${data.customerName || "there"},</p>
+<p>Hi ${escapeEmailHtml(data.customerName || "there")},</p>
 <p>Great news — your order has been shipped.</p>
 <div class="order-details">
-  <p><strong>Order #:</strong> ${data.orderNumber}</p>
-  <p><strong>Tracking #:</strong> ${data.trackingNumber || "N/A"}</p>
+  <p><strong>Order #:</strong> ${escapeEmailHtml(data.orderNumber)}</p>
+  <p><strong>Tracking #:</strong> ${escapeEmailHtml(data.trackingNumber || "N/A")}</p>
 </div>
-<p>Expected delivery: ${data.estimatedDelivery || "3-5 business days"}</p>`
+<p>Expected delivery: ${escapeEmailHtml(data.estimatedDelivery || "3-5 business days")}</p>`
       ),
   },
   order_delivered: {
@@ -147,10 +173,10 @@ ${stitchingDeliveryBlock(data.stitchingDeliveryDate)}
       emailWrapper(
         "Order Delivered",
         `<h2>Delivered!</h2>
-<p>Hi ${data.customerName || "there"},</p>
+<p>Hi ${escapeEmailHtml(data.customerName || "there")},</p>
 <p>Your order has been delivered. We hope you love your purchase!</p>
 <div class="order-details">
-  <p><strong>Order #:</strong> ${data.orderNumber}</p>
+  <p><strong>Order #:</strong> ${escapeEmailHtml(data.orderNumber)}</p>
 </div>
 <p>Questions? Reply to this email or contact us at support@emanthread.com</p>`
       ),
@@ -161,11 +187,11 @@ ${stitchingDeliveryBlock(data.stitchingDeliveryDate)}
       emailWrapper(
         "Order Cancelled",
         `<h2>Order Cancelled</h2>
-<p>Hi ${data.customerName || "there"},</p>
+<p>Hi ${escapeEmailHtml(data.customerName || "there")},</p>
 <p>Your order has been cancelled as requested.</p>
 <div class="order-details">
-  <p><strong>Order #:</strong> ${data.orderNumber}</p>
-  <p><strong>Reason:</strong> ${data.cancellationReason || "Customer request"}</p>
+  <p><strong>Order #:</strong> ${escapeEmailHtml(data.orderNumber)}</p>
+  <p><strong>Reason:</strong> ${escapeEmailHtml(data.cancellationReason || "Customer request")}</p>
 </div>
 <p>If you have any questions, please contact us.</p>`
       ),
@@ -176,11 +202,11 @@ ${stitchingDeliveryBlock(data.stitchingDeliveryDate)}
       emailWrapper(
         "Return Request Received",
         `<h2>Return Request Received</h2>
-<p>Hi ${data.customerName || "there"},</p>
-<p>We've received your ${data.requestType} request for order <strong>${data.orderNumber}</strong>.</p>
+<p>Hi ${escapeEmailHtml(data.customerName || "there")},</p>
+<p>We've received your ${escapeEmailHtml(data.requestType)} request for order <strong>${escapeEmailHtml(data.orderNumber)}</strong>.</p>
 <div class="order-details">
-  <p><strong>Reason:</strong> ${data.reason}</p>
-  <p><strong>Request ID:</strong> ${data.requestId}</p>
+  <p><strong>Reason:</strong> ${escapeEmailHtml(data.reason)}</p>
+  <p><strong>Request ID:</strong> ${escapeEmailHtml(data.requestId)}</p>
 </div>
 <p>Our team will review and get back to you within 1-2 business days.</p>`
       ),
@@ -191,11 +217,11 @@ ${stitchingDeliveryBlock(data.stitchingDeliveryDate)}
       emailWrapper(
         "Return Request Approved",
         `<h2>Return Request Approved</h2>
-<p>Hi ${data.customerName || "there"},</p>
-<p>Great news! Your ${data.requestType} request for order <strong>${data.orderNumber}</strong> has been approved.</p>
+<p>Hi ${escapeEmailHtml(data.customerName || "there")},</p>
+<p>Great news! Your ${escapeEmailHtml(data.requestType)} request for order <strong>${escapeEmailHtml(data.orderNumber)}</strong> has been approved.</p>
 <div class="order-details">
-  <p><strong>Request ID:</strong> ${data.requestId}</p>
-  <p><strong>Next Steps:</strong> ${data.nextSteps}</p>
+  <p><strong>Request ID:</strong> ${escapeEmailHtml(data.requestId)}</p>
+  <p><strong>Next Steps:</strong> ${escapeEmailHtml(data.nextSteps)}</p>
 </div>
 <p>We'll arrange a courier pickup shortly. Thank you for your patience.</p>`
       ),
@@ -206,11 +232,11 @@ ${stitchingDeliveryBlock(data.stitchingDeliveryDate)}
       emailWrapper(
         "Return Request Rejected",
         `<h2>Return Request Rejected</h2>
-<p>Hi ${data.customerName || "there"},</p>
-<p>We reviewed your ${data.requestType} request for order <strong>${data.orderNumber}</strong> and unfortunately could not approve it at this time.</p>
+<p>Hi ${escapeEmailHtml(data.customerName || "there")},</p>
+<p>We reviewed your ${escapeEmailHtml(data.requestType)} request for order <strong>${escapeEmailHtml(data.orderNumber)}</strong> and unfortunately could not approve it at this time.</p>
 <div class="order-details">
-  <p><strong>Reason:</strong> ${data.rejectionReason}</p>
-  <p><strong>Request ID:</strong> ${data.requestId}</p>
+  <p><strong>Reason:</strong> ${escapeEmailHtml(data.rejectionReason)}</p>
+  <p><strong>Request ID:</strong> ${escapeEmailHtml(data.requestId)}</p>
 </div>
 <p>If you have questions, please contact our support team.</p>`
       ),
@@ -221,13 +247,13 @@ ${stitchingDeliveryBlock(data.stitchingDeliveryDate)}
       emailWrapper(
         "Return Request Completed",
         `<h2>Return Request Completed</h2>
-<p>Hi ${data.customerName || "there"},</p>
-<p>Your ${data.requestType} request for order <strong>${data.orderNumber}</strong> has been completed.</p>
+<p>Hi ${escapeEmailHtml(data.customerName || "there")},</p>
+<p>Your ${escapeEmailHtml(data.requestType)} request for order <strong>${escapeEmailHtml(data.orderNumber)}</strong> has been completed.</p>
 <div class="order-details">
-  <p><strong>Request ID:</strong> ${data.requestId}</p>
-  <p><strong>Amount:</strong> PKR ${data.refundAmount || "0"}</p>
+  <p><strong>Request ID:</strong> ${escapeEmailHtml(data.requestId)}</p>
+  <p><strong>Amount:</strong> PKR ${escapeEmailHtml(data.refundAmount || "0")}</p>
 </div>
-<p>${data.completionNote}</p>`
+<p>${escapeEmailHtml(data.completionNote)}</p>`
       ),
   },
   low_stock_alert: {
@@ -238,10 +264,10 @@ ${stitchingDeliveryBlock(data.stitchingDeliveryDate)}
         `<h2>Low Stock Alert</h2>
 <p>The following product is running low on inventory:</p>
 <div class="order-details">
-  <p><strong>Product:</strong> ${data.productName}</p>
-  <p><strong>SKU:</strong> ${data.sku}</p>
-  <p><strong>Stock Remaining:</strong> ${data.stockQuantity}</p>
-  <p><strong>Threshold:</strong> ${data.threshold}</p>
+  <p><strong>Product:</strong> ${escapeEmailHtml(data.productName)}</p>
+  <p><strong>SKU:</strong> ${escapeEmailHtml(data.sku)}</p>
+  <p><strong>Stock Remaining:</strong> ${escapeEmailHtml(data.stockQuantity)}</p>
+  <p><strong>Threshold:</strong> ${escapeEmailHtml(data.threshold)}</p>
 </div>
 <p>Please restock soon to avoid out-of-stock issues.</p>`
       ),
@@ -252,6 +278,8 @@ export const SMSTemplates: Record<
   NotificationTemplate,
   (data: Record<string, string>) => string
 > = {
+  new_order_alert: (data) =>
+    `Eman Thread Admin: New order ${data.orderNumber}. Total: PKR ${data.total}.`,
   order_processing: (data) =>
     `Eman Thread: Order ${data.orderNumber} is now being processed. We'll update you when it ships!`,
   order_confirmation: (data) =>
@@ -280,6 +308,8 @@ export const WhatsAppTemplates: Record<
   NotificationTemplate,
   (data: Record<string, string>) => string
 > = {
+  new_order_alert: (data) =>
+    `Eman Thread Admin — New order ${data.orderNumber}. Total: PKR ${data.total}.`,
   order_processing: (data) =>
     `⚙️ *Eman Thread* — Order Processing\n\nOrder #: ${data.orderNumber}\n\nYour order is being prepared. We'll notify you when it ships.`,
   order_confirmation: (data) =>

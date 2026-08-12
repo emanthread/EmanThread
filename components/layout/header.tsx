@@ -495,6 +495,7 @@ function CatalogHeaderV1() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [publishedCatalogPaths, setPublishedCatalogPaths] = useState<string[]>([]);
   const headerRef = useRef<HTMLElement>(null);
   const { getTotalItems, openCart } = useCartStore();
   const {
@@ -516,6 +517,38 @@ function CatalogHeaderV1() {
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+
+    const loadPublishedCatalogPaths = () => {
+      fetch(`/api/catalog/navigation?_t=${Date.now()}`, {
+        cache: "no-store",
+        signal: controller.signal,
+      })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((value: { paths?: unknown } | null) => {
+          if (!active || !Array.isArray(value?.paths)) return;
+          setPublishedCatalogPaths(
+            value.paths.filter((path): path is string => typeof path === "string")
+          );
+        })
+        .catch((error) => {
+          if (error instanceof DOMException && error.name === "AbortError") return;
+          console.warn("Unable to load published catalog navigation", error);
+        });
+    };
+
+    loadPublishedCatalogPaths();
+    const refreshOnFocus = () => loadPublishedCatalogPaths();
+    window.addEventListener("focus", refreshOnFocus);
+    return () => {
+      active = false;
+      controller.abort();
+      window.removeEventListener("focus", refreshOnFocus);
+    };
   }, []);
 
   useEffect(() => {
@@ -747,6 +780,7 @@ function CatalogHeaderV1() {
             utilities={desktopUtilities}
             linksEnabled={FEATURE_FLAGS.CATALOG_PAGES_V1}
             showNavigation={showCatalogNavigation}
+            publishedCatalogPaths={publishedCatalogPaths}
           />
 
           <div className={cn(catalogStyles.mobileBar, isHeroMode && catalogStyles.heroMode)}>
@@ -755,6 +789,7 @@ function CatalogHeaderV1() {
                 isAuthenticated={isAuthenticated}
                 linksEnabled={FEATURE_FLAGS.CATALOG_PAGES_V1}
                 showNavigation={showCatalogNavigation}
+                publishedCatalogPaths={publishedCatalogPaths}
                 user={user}
                 utilityLinks={utilityLinks}
                 wishlistCount={wishlistItems}

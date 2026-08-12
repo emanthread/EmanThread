@@ -5,9 +5,14 @@
 
 import { resendConfig } from "./config";
 import { prisma } from "@/lib/db";
+import { emailHtmlToText, escapeEmailHtml } from "./email-format";
 
-const brandName = "Eman Threads";
-const brandUrl = "https://emaanthreads.com";
+const brandName = "Eman Thread";
+const brandUrl = (
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  process.env.NEXTAUTH_URL ||
+  "https://emanthread.com"
+).replace(/\/$/, "");
 const brandColor = "#1a1a1a";
 
 function adminEmailWrapper(title: string, content: string): string {
@@ -63,6 +68,19 @@ export interface AdminPaymentAlertData {
 export async function resolveAdminRecipients(): Promise<string[]> {
   const emails: string[] = [];
 
+  const addEmail = (value: string | null | undefined) => {
+    const normalized = value?.trim().toLowerCase();
+    if (normalized && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized) && !emails.includes(normalized)) {
+      emails.push(normalized);
+    }
+  };
+
+  // Environment fallback is especially important if the database is briefly
+  // unavailable while an operational alert is being prepared.
+  for (const email of (process.env.ADMIN_EMAIL || "").split(",")) {
+    addEmail(email);
+  }
+
   // 1. Check StoreConfig for configured admin/store email
   try {
     const configs = await prisma.storeConfig.findMany({
@@ -70,7 +88,7 @@ export async function resolveAdminRecipients(): Promise<string[]> {
     });
     if (configs.length > 0) {
       const storeEmail = configs[0].value;
-      if (storeEmail) emails.push(storeEmail);
+      addEmail(storeEmail);
     }
   } catch {
     // Ignore store config errors
@@ -85,9 +103,7 @@ export async function resolveAdminRecipients(): Promise<string[]> {
       select: { email: true },
     });
     for (const admin of admins) {
-      if (admin.email && !emails.includes(admin.email)) {
-        emails.push(admin.email);
-      }
+      addEmail(admin.email);
     }
   } catch {
     // Ignore query errors
@@ -123,8 +139,8 @@ export async function sendAdminPaymentAlert(
       data.paymentMethod === "NAYAPAY" ? "Nayapay" : "Meezan Bank";
 
     let screenshotHtml = "";
-    if (data.screenshotUrl) {
-      screenshotHtml = `<p><span class="label">Screenshot:</span> <a href="${data.screenshotUrl}" target="_blank" rel="noopener noreferrer">View Screenshot</a></p>`;
+    if (data.screenshotUrl && /^https?:\/\//i.test(data.screenshotUrl)) {
+      screenshotHtml = `<p><span class="label">Screenshot:</span> <a href="${escapeEmailHtml(data.screenshotUrl)}" target="_blank" rel="noopener noreferrer">View Screenshot</a></p>`;
     }
 
     const html = adminEmailWrapper(
@@ -135,11 +151,11 @@ export async function sendAdminPaymentAlert(
       </div>
       <p>A customer has submitted a manual bank transfer for this order:</p>
       <div class="order-details">
-        <p><span class="label">Order #:</span> ${data.orderNumber}</p>
+        <p><span class="label">Order #:</span> ${escapeEmailHtml(data.orderNumber)}</p>
         <p><span class="label">Amount:</span> PKR ${data.amount.toLocaleString()}</p>
         <p><span class="label">Payment Method:</span> ${methodLabel}</p>
-        <p><span class="label">Transaction ID:</span> ${data.transactionId}</p>
-        <p><span class="label">Sender Name:</span> ${data.senderName}</p>
+        <p><span class="label">Transaction ID:</span> ${escapeEmailHtml(data.transactionId)}</p>
+        <p><span class="label">Sender Name:</span> ${escapeEmailHtml(data.senderName)}</p>
         ${screenshotHtml}
       </div>
       <p>Please review and verify this payment as soon as possible.</p>
@@ -154,12 +170,17 @@ export async function sendAdminPaymentAlert(
     const resend = new Resend(apiKey);
 
     for (const email of recipients) {
-      await resend.emails.send({
+      const { error } = await resend.emails.send({
         from: resendConfig.fromEmail,
         to: email,
-        subject: "New Payment Pending Verification — Eman Threads",
+        ...(resendConfig.replyToEmail ? { replyTo: resendConfig.replyToEmail } : {}),
+        subject: "New Payment Pending Verification — Eman Thread",
         html,
+        text: emailHtmlToText(html),
       });
+      if (error) {
+        console.error("[admin-alerts] Resend rejected payment alert:", error.message);
+      }
     }
   } catch (err) {
     console.error("[admin-alerts] Failed to send admin alert email:", err);
@@ -197,10 +218,10 @@ export async function sendAdminOrderCancelledAlert(
       </div>
       <p>A customer has just cancelled their pending order:</p>
       <div class="order-details">
-        <p><span class="label">Order #:</span> ${data.orderNumber}</p>
-        <p><span class="label">Customer Name:</span> ${data.customerName}</p>
-        <p><span class="label">Amount:</span> PKR ${data.amount}</p>
-        <p><span class="label">Cancellation Reason:</span> ${data.reason}</p>
+        <p><span class="label">Order #:</span> ${escapeEmailHtml(data.orderNumber)}</p>
+        <p><span class="label">Customer Name:</span> ${escapeEmailHtml(data.customerName)}</p>
+        <p><span class="label">Amount:</span> PKR ${escapeEmailHtml(data.amount)}</p>
+        <p><span class="label">Cancellation Reason:</span> ${escapeEmailHtml(data.reason)}</p>
       </div>
       <p>Inventory stock for this order has been automatically restored.</p>
       <p style="text-align:center">
@@ -213,12 +234,17 @@ export async function sendAdminOrderCancelledAlert(
     const resend = new Resend(apiKey);
 
     for (const email of recipients) {
-      await resend.emails.send({
+      const { error } = await resend.emails.send({
         from: resendConfig.fromEmail,
         to: email,
-        subject: `Order Cancelled: ${data.orderNumber} — Eman Threads`,
+        ...(resendConfig.replyToEmail ? { replyTo: resendConfig.replyToEmail } : {}),
+        subject: `Order Cancelled: ${data.orderNumber} — Eman Thread`,
         html,
+        text: emailHtmlToText(html),
       });
+      if (error) {
+        console.error("[admin-alerts] Resend rejected cancellation alert:", error.message);
+      }
     }
   } catch (err) {
     console.error("[admin-alerts] Failed to send cancellation alert:", err);

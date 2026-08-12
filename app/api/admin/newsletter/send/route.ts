@@ -7,12 +7,23 @@ import { withLoggedAdminHandler } from "@/lib/logger";
 import { z } from "zod";
 import { Resend } from "resend";
 import { sanitizeDbError } from "@/lib/utils/errors";
+import { resendConfig } from "@/lib/notifications/config";
+import { escapeEmailHtml } from "@/lib/notifications/email-format";
+import { newsletterUnsubscribeUrl } from "@/lib/newsletter-unsubscribe";
 
 const sendSchema = z.object({
-  subject: z.string().min(1, "Subject is required").max(200),
+  subject: z.string().trim().min(1, "Subject is required").max(200).refine(
+    (value) => !/[\r\n]/.test(value),
+    "Subject cannot contain line breaks",
+  ),
   body: z.string().min(1, "Body is required").max(50000),
-  recipientFilter: z.enum(["all", "subscribed"]).default("subscribed"),
+  recipientFilter: z.literal("subscribed").default("subscribed"),
 });
+
+function newsletterHtml(body: string, unsubscribeUrl: string): string {
+  const safeBody = escapeEmailHtml(body).replace(/\r?\n/g, "<br />");
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head><body style="margin:0;background:#f5f5f5;font-family:Arial,sans-serif;color:#222"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 12px;background:#f5f5f5"><tr><td align="center"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff"><tr><td style="padding:28px;text-align:center;background:#1a1a1a;color:#fff;font-size:21px;font-weight:700;letter-spacing:1px">EMAN THREAD</td></tr><tr><td style="padding:32px;font-size:15px;line-height:1.7">${safeBody}</td></tr><tr><td style="padding:20px 32px;background:#fafafa;border-top:1px solid #eee;text-align:center;font-size:12px;color:#777">You received this because you subscribed to Eman Thread updates.<br /><a href="${escapeEmailHtml(unsubscribeUrl)}" style="color:#555">Unsubscribe from marketing emails</a></td></tr></table></td></tr></table></body></html>`;
+}
 
 export const POST = withLoggedAdminHandler(async (request: Request) => {
   const session = await auth();
@@ -78,13 +89,7 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
     }
 
     const resend = new Resend(apiKey);
-    const fromEmail =
-      process.env.RESEND_FROM_EMAIL ||
-      (process.env.MAIL_FROM
-        ? process.env.MAIL_FROM.includes("<")
-          ? process.env.MAIL_FROM
-          : `Eman Thread <${process.env.MAIL_FROM}>`
-        : "Eman Thread <newsletter@emanthread.com>");
+    const fromEmail = resendConfig.fromEmail;
 
     // Resend batch send — up to 100 emails per batch
     const BATCH_SIZE = 100;
@@ -94,12 +99,21 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
 
     for (let i = 0; i < subscribers.length; i += BATCH_SIZE) {
       const batch = subscribers.slice(i, i + BATCH_SIZE);
-      const emails = batch.map((sub) => ({
-        from: fromEmail,
-        to: sub.email,
-        subject,
-        html: htmlBody,
-      }));
+      const emails = batch.map((sub) => {
+        const unsubscribeUrl = newsletterUnsubscribeUrl(sub.email);
+        return {
+          from: fromEmail,
+          to: sub.email,
+          ...(resendConfig.replyToEmail ? { replyTo: resendConfig.replyToEmail } : {}),
+          subject,
+          html: newsletterHtml(htmlBody, unsubscribeUrl),
+          text: `${htmlBody}\n\nUnsubscribe from marketing emails: ${unsubscribeUrl}`,
+          headers: {
+            "List-Unsubscribe": `<${unsubscribeUrl}>`,
+            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+          },
+        };
+      });
 
       try {
         const { data, error } = await resend.batch.send(emails);

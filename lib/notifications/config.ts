@@ -9,7 +9,19 @@ export const resendConfig = {
         ? process.env.MAIL_FROM
         : `Eman Thread <${process.env.MAIL_FROM}>`
       : "Eman Thread <orders@emanthread.com>"),
+  replyToEmail: process.env.EMAIL_REPLY_TO || process.env.ADMIN_EMAIL || "",
 };
+
+export function emailConfigurationWarnings(): string[] {
+  const warnings: string[] = [];
+  const sender = resendConfig.fromEmail.match(/<([^>]+)>/)?.[1] || resendConfig.fromEmail;
+  if (!resendConfig.apiKey) warnings.push("RESEND_API_KEY is not configured");
+  if (!sender.includes("@")) warnings.push("The Resend sender address is invalid");
+  if (/@resend\.dev$/i.test(sender)) {
+    warnings.push("The sender uses resend.dev, which is intended for testing; verify emanthread.com in Resend for customer delivery");
+  }
+  return warnings;
+}
 
 /**
  * Return the SMS provider based on the explicit environment config.

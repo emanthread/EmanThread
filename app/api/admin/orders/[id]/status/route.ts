@@ -2,8 +2,8 @@ import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { isAdminRole } from "@/lib/permissions"; // C9
-import { updateOrderStatus, createAuditLog } from "@/lib/db-queries";
-import { triggerNotification, sendDeliveryUpdateParallel } from "@/lib/notifications";
+import { updateOrderStatus, createAuditLog, getStoreConfig } from "@/lib/db-queries";
+import { sendDeliveryUpdateParallel } from "@/lib/notifications";
 import { prisma } from "@/lib/db";
 import { withLoggedAdminHandler } from "@/lib/logger";
 import { sanitizeDbError } from '@/lib/utils/errors';
@@ -90,7 +90,14 @@ export const PUT = withLoggedAdminHandler(async (
 
     // Trigger status notification if applicable
     const template = statusToTemplate[result.data.status];
-    if (template) {
+    const notificationConfig = template ? await getStoreConfig() : null;
+    const notificationEnabled =
+      result.data.status === "SHIPPED"
+        ? notificationConfig?.orderShipped !== false
+        : result.data.status === "DELIVERED"
+          ? notificationConfig?.orderDelivered !== false
+          : true;
+    if (template && notificationEnabled) {
       const order = await prisma.order.findUnique({ where: { id } });
       if (order) {
         const addr = order.shippingAddress as Record<string, string> | null;

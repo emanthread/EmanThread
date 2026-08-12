@@ -3,6 +3,7 @@
 export type NotificationChannel = "email" | "sms" | "whatsapp";
 
 export type NotificationTemplate =
+  | "new_order_alert"
   | "order_confirmation"
   | "order_processing"
   | "payment_success"

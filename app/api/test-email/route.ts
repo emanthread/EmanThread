@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { emailConfigurationWarnings, resendConfig } from "@/lib/notifications/config";
 
 // ── GET — show config status without sending anything ──────────────
 export async function GET() {
@@ -16,13 +17,14 @@ export async function GET() {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   const apiKey = process.env.RESEND_API_KEY || "";
-  const fromEmail = process.env.RESEND_FROM_EMAIL || "";
+  const fromEmail = resendConfig.fromEmail;
 
   return NextResponse.json({
     resend: {
       configured: !!apiKey,
       keyPrefix: apiKey ? apiKey.slice(0, 12) + "…" : null,
       fromEmail: fromEmail || null,
+      warnings: emailConfigurationWarnings(),
     },
     hint: "POST to this endpoint with { \"to\": \"your@email.com\" } to send a test email.",
   });
@@ -34,13 +36,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   const apiKey = process.env.RESEND_API_KEY || "";
-  const fromEmail =
-    process.env.RESEND_FROM_EMAIL ||
-    (process.env.MAIL_FROM
-      ? process.env.MAIL_FROM.includes("<")
-        ? process.env.MAIL_FROM
-        : `Eman Thread <${process.env.MAIL_FROM}>`
-      : "Eman Thread <orders@emanthread.com>");
+  const fromEmail = resendConfig.fromEmail;
 
   if (!apiKey) {
     return NextResponse.json(
@@ -63,6 +59,7 @@ export async function POST(req: NextRequest) {
     const { data, error } = await resend.emails.send({
       from: fromEmail,
       to,
+      ...(resendConfig.replyToEmail ? { replyTo: resendConfig.replyToEmail } : {}),
       subject: "✅ Resend Test — Eman Thread",
       html: `
         <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;
@@ -86,6 +83,7 @@ export async function POST(req: NextRequest) {
           </p>
         </div>
       `,
+      text: "Resend is working for Eman Thread. This is a delivery diagnostic email.",
     });
 
     if (error) {

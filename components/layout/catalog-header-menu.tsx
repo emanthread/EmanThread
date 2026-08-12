@@ -30,12 +30,17 @@ import {
   type CatalogHeaderCardConfig,
 } from "@/lib/navigation/catalog-header-cards";
 import styles from "./catalog-header-menu.module.css";
+import {
+  isPublishedCatalogHref,
+  publishedCatalogPathSet,
+} from "@/lib/navigation/published-catalog";
 
 type CatalogHeaderMenuProps = {
   mark: ReactNode;
   utilities: ReactNode;
   linksEnabled: boolean;
   showNavigation: boolean;
+  publishedCatalogPaths: readonly string[];
 };
 
 const byOrder = <T extends { order: number }>(items: readonly T[]) =>
@@ -73,9 +78,20 @@ export function CatalogHeaderMenu({
   utilities,
   linksEnabled,
   showNavigation,
+  publishedCatalogPaths,
 }: CatalogHeaderMenuProps) {
   const pathname = usePathname();
-  const departments = useMemo(() => byOrder(catalogMenu), []);
+  const publishedPaths = useMemo(
+    () => publishedCatalogPathSet(publishedCatalogPaths),
+    [publishedCatalogPaths]
+  );
+  const departments = useMemo(
+    () =>
+      byOrder(catalogMenu).filter((department) =>
+        isPublishedCatalogHref(`/${department.id}`, publishedPaths)
+      ),
+    [publishedPaths]
+  );
   const routeDepartmentId = departmentFromPathname(pathname, departments);
 
   const [activeDepartmentId, setActiveDepartmentId] = useState(() => {
@@ -103,7 +119,9 @@ export function CatalogHeaderMenu({
     departments.find((department) => department.id === activeDepartmentId) ??
     departments[0];
   const sections = activeDepartment
-    ? byOrder(activeDepartment.sections)
+    ? byOrder(activeDepartment.sections).filter((section) =>
+        isPublishedCatalogHref(section.href, publishedPaths)
+      )
     : [];
   const activeSection =
     sections.find((section) => section.id === activeSectionId) ?? null;
@@ -397,7 +415,9 @@ export function CatalogHeaderMenu({
               {activeSection.groups.length > 0 ? (
                 <div className={styles.groupGrid}>
                   {byOrder(activeSection.groups).map((group) => {
-                    const items = visibleLeaves(group.items);
+                    const items = visibleLeaves(group.items).filter((item) =>
+                      isPublishedCatalogHref(item.href, publishedPaths)
+                    );
                     if (items.length === 0) return null;
 
                     return (
@@ -450,6 +470,7 @@ export function CatalogHeaderMenu({
               <div className={styles.visualGrid} aria-label="Featured catalog">
                 {cards.map((card) => {
                   const href = resolveCatalogHeaderCardHref(card.destinationId);
+                  if (!isPublishedCatalogHref(href, publishedPaths)) return null;
                   const content = (
                     <>
                       <Image

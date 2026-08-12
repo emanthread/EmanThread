@@ -11,6 +11,7 @@ import { applyDiscount } from "@/lib/discount-engine";
 import { auth } from "@/auth";
 import { triggerNotification, sendDeliveryUpdateParallel } from "@/lib/notifications";
 import { resolveAdminRecipients } from "@/lib/notifications/admin-alerts";
+import { getOrderConfirmationEmailData } from "@/lib/notifications/order-email";
 import { DEFAULT_STITCHING_FEE, FEATURE_FLAGS } from "@/lib/feature-flags";
 import { sanitizeDbError } from '@/lib/utils/errors';
 import { checkRateLimitAsync, RateLimits } from "@/lib/rate-limiter";
@@ -885,27 +886,42 @@ export async function POST(req: Request) {
       }
     }
 
-    // Fire-and-forget order confirmation — orchestrator handles fallback routing
+    // Build customer/admin emails from the canonical order snapshot so selected
+    // Color/Size/Shade/Volume values and the exact purchased SKU are preserved.
     after(async () => {
-      await sendDeliveryUpdateParallel({
-        to: shippingAddress.email,
-        phone: shippingAddress.phone,
-        template: "order_confirmation",
-        data: {
-          orderNumber: order.orderNumber,
-          total: grandTotal.toString(),
-          paymentMethod,
-          customerName: `${shippingAddress.firstName} ${shippingAddress.lastName}`,
-          ...(stitchingDeliveryDate
-            ? { stitchingDeliveryDate: stitchingDeliveryDate.toISOString() }
-            : {}),
-        },
-        orderId: order.id,
-      });
+      const emailData = await getOrderConfirmationEmailData(order.id);
+      if (!emailData) {
+        console.error("[orders] Could not build order email snapshot", order.id);
+        return;
+      }
+
+      if (storeConfig.orderConfirmation !== false) {
+        await sendDeliveryUpdateParallel({
+          to: shippingAddress.email,
+          phone: shippingAddress.phone,
+          template: "order_confirmation",
+          data: emailData,
+          orderId: order.id,
+        });
+      }
+
+      if (storeConfig.newOrderAlert !== false) {
+        const adminRecipients = await resolveAdminRecipients();
+        await Promise.allSettled(
+          adminRecipients.map((adminEmail) =>
+            sendDeliveryUpdateParallel({
+              to: adminEmail,
+              template: "new_order_alert",
+              data: emailData,
+              orderId: order.id,
+            }),
+          ),
+        );
+      }
     });
 
     // Check for low stock after order creation and trigger alerts
-    const lowStockAlerts = await Promise.all(
+    const legacyLowStockAlerts = isManualPayment ? [] : await Promise.all(
       items.filter((item) => !item.variantId).map(async (item) => {
         const updatedProduct = await prisma.product.findUnique({
           where: { id: item.productId },
@@ -927,9 +943,42 @@ export async function POST(req: Request) {
       })
     );
 
+    const purchasedVariantIds = isManualPayment
+      ? []
+      : [...new Set(items.flatMap((item) => item.variantId ? [item.variantId] : []))];
+    const lowVariantRows = purchasedVariantIds.length
+      ? await prisma.productVariant.findMany({
+          where: { id: { in: purchasedVariantIds } },
+          select: {
+            sku: true,
+            label: true,
+            stockQuantity: true,
+            commerceProfile: {
+              select: {
+                product: {
+                  select: { name: true, sku: true, lowStockThreshold: true },
+                },
+              },
+            },
+          },
+        })
+      : [];
+    const variantLowStockAlerts = lowVariantRows.flatMap((variant) => {
+      const product = variant.commerceProfile.product;
+      return variant.stockQuantity <= product.lowStockThreshold && variant.stockQuantity >= 0
+        ? [{
+            productName: `${product.name} — ${variant.label}`,
+            sku: variant.sku || product.sku,
+            stockQuantity: variant.stockQuantity.toString(),
+            threshold: product.lowStockThreshold.toString(),
+          }]
+        : [];
+    });
+    const lowStockAlerts = [...legacyLowStockAlerts, ...variantLowStockAlerts];
+
     // Send low stock alerts to admins only — not to the customer
     const adminEmails = await resolveAdminRecipients();
-    if (adminEmails.length > 0) {
+    if (storeConfig.lowStockAlert !== false && adminEmails.length > 0) {
       for (const alert of lowStockAlerts.filter(Boolean)) {
         for (const adminEmail of adminEmails) {
           triggerNotification({

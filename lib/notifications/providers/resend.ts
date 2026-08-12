@@ -2,9 +2,12 @@
 
 import { Resend } from "resend";
 import { NotificationProvider } from "./base";
-import { resendConfig } from "../config";
+import { emailConfigurationWarnings, resendConfig } from "../config";
 import { EmailTemplates } from "../templates";
 import type { NotificationPayload, SendResult } from "../types";
+import { emailHtmlToText } from "../email-format";
+
+export { emailHtmlToText } from "../email-format";
 
 export class ResendProvider extends NotificationProvider {
   readonly channel = "email";
@@ -15,6 +18,9 @@ export class ResendProvider extends NotificationProvider {
     // Graceful degradation: don't crash when API key is missing
     if (resendConfig.apiKey) {
       this.client = new Resend(resendConfig.apiKey);
+      for (const warning of emailConfigurationWarnings()) {
+        console.warn(`[ResendProvider] ${warning}`);
+      }
     } else {
       console.warn("[ResendProvider] Missing RESEND_API_KEY — emails disabled");
       this.client = null;
@@ -36,8 +42,10 @@ export class ResendProvider extends NotificationProvider {
       const { data, error } = await this.client.emails.send({
         from: resendConfig.fromEmail,
         to: payload.to,
+        ...(resendConfig.replyToEmail ? { replyTo: resendConfig.replyToEmail } : {}),
         subject: template.subject,
         html,
+        text: emailHtmlToText(html),
       });
 
       if (error) {

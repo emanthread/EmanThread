@@ -25,6 +25,8 @@ interface ProductCard {
   badge?: string | null
   inStock: boolean
   stockQuantity?: number | null
+  productKind?: string
+  options?: string[]
 }
 
 interface ChatResponse {
@@ -40,12 +42,12 @@ const LANG_CONFIG = {
     label: 'English',
     flagUrl: 'https://flagcdn.com/gb.svg',
     greeting:
-      "Hello! I'm your Eman Thread assistant. How can I help you today? I can help with products, orders, shipping, payments, or anything else!",
+      "Hello! I'm Zara, your Eman Thread assistant. I can help you browse departments, find products and sizes, or answer order, delivery, payment, and return questions.",
     placeholder: 'Type your message...',
     quickReplies: [
-      'Show me your fabrics',
+      'What categories do you have?',
+      'Show me the size guides',
       'What are your shipping rates?',
-      'How do I return an item?',
     ],
     subtitle: 'AI Assistant - Eman Thread',
     sendLabel: 'Send',
@@ -59,12 +61,12 @@ const LANG_CONFIG = {
     label: 'Roman Urdu',
     flagUrl: 'https://flagcdn.com/pk.svg',
     greeting:
-      'Assalam o Alaikum! Main Eman Thread ki assistant hoon. Aaj main aap ki kya madad kar sakti hoon? Products, orders, shipping, payment — sab ke baare mein pooch sakte hain!',
+      'Assalam o Alaikum! Main Zara, Eman Thread ki assistant hoon. Departments, products, sizes, orders, shipping, payment aur returns ke baare mein pooch sakte hain!',
     placeholder: 'Apna sawal likhein...',
     quickReplies: [
-      'Fabrics dikhao',
+      'Konsi categories hain?',
+      'Size guides dikhao',
       'Shipping rates kya hain?',
-      'Return kaise karoon?',
     ],
     subtitle: 'AI Assistant - Eman Thread',
     sendLabel: 'Bhejen',
@@ -100,8 +102,8 @@ function ProductCardView({ card }: { card: ProductCard }) {
         <p className="text-xs font-semibold text-foreground truncate leading-tight">
           {card.name}
         </p>
-        <p className="text-[10px] text-muted-foreground truncate">
-          {card.color}
+        <p className="text-[10px] text-muted-foreground line-clamp-2">
+          {card.options?.length ? card.options.join(' · ') : card.color}
         </p>
         <div className="flex items-center gap-1">
           <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">

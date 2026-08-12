@@ -1,4 +1,13 @@
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
+import { ARCHIVED_PRODUCT_TAG } from '@/lib/product-archive'
+import { KIDS_SIZE_GUIDE_URL } from '@/lib/size-guide'
+import {
+  getPublishedCatalogContext,
+  getSizeGuideContext,
+  messageNeedsCatalogContext,
+  messageNeedsSizeGuideContext,
+} from '@/lib/chat-store-context'
 
 // ── Product card interface for structured chat returns ─────────────
 export interface ProductCard {
@@ -15,6 +24,8 @@ export interface ProductCard {
   badge?: string | null
   inStock: boolean
   stockQuantity?: number | null
+  productKind?: string
+  options?: string[]
 }
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://emanthread.com'
@@ -131,6 +142,10 @@ export function extractSearchIntent(
     'new', 'latest', 'trending', 'popular', 'best', 'featured',
     'discount', 'sale', 'offer', 'deal',
     'formal', 'casual', 'wedding', 'party', 'summer', 'winter',
+    'women', 'ladies', 'men', 'teen', 'teens', 'girls', 'boys',
+    'ready to wear', 'ready-to-wear', 'rtw', 'unstitched', 'kurta', 'dupatta',
+    'beauty', 'makeup', 'cosmetic', 'shade', 'lipstick', 'accessory', 'accessories',
+    'fragrance', 'perfume', 'volume', 'gift', 'gift box', 'size',
     // Roman Urdu
     'kapra', 'kapray', 'kaprhe', 'dikhao', 'dikhayen', 'dikhayn',
     'kya hai', 'kya hain', 'kya milta', 'milta hai', 'milti hai',
@@ -292,23 +307,49 @@ const PRODUCT_SELECT = {
   inStock: true,
   stockQuantity: true,
   tags: true,
-} as const
+  commerceProfile: {
+    select: {
+      productKind: true,
+      sizeGuideUrl: true,
+      variants: {
+        where: { isActive: true },
+        orderBy: { displayOrder: 'asc' as const },
+        select: {
+          label: true,
+          sku: true,
+          priceAdjustment: true,
+          inStock: true,
+          stockQuantity: true,
+          selections: {
+            include: {
+              option: { select: { label: true, displayOrder: true } },
+              optionValue: { select: { label: true } },
+            },
+          },
+        },
+      },
+      options: {
+        orderBy: { displayOrder: 'asc' as const },
+        select: {
+          label: true,
+          type: true,
+          values: {
+            where: { isActive: true },
+            orderBy: { displayOrder: 'asc' as const },
+            select: { label: true },
+          },
+        },
+      },
+    },
+  },
+  catalogAssignments: {
+    select: { catalogNode: { select: { path: true, label: true } } },
+  },
+} satisfies Prisma.ProductSelect
 
-function rawProductToCard(p: {
-  id: string
-  name: string
-  slug: string | null
-  sku: string
-  fabricType: string
-  price: { toString(): string }
-  originalPrice: { toString(): string } | null
-  color: string
-  colorHex: string | null
-  images: string
-  badge: string | null
-  inStock: boolean
-  stockQuantity: number | null
-}): ProductCard {
+type ChatProduct = Prisma.ProductGetPayload<{ select: typeof PRODUCT_SELECT }>
+
+function rawProductToCard(p: ChatProduct): ProductCard {
   const productUrl = p.slug
     ? `${siteUrl}/product/${p.slug}`
     : `${siteUrl}/product/${p.id}`
@@ -320,6 +361,11 @@ function rawProductToCard(p: {
       return p.images ? [p.images] : ['/placeholder.svg']
     }
   })()
+  const activeVariants = p.commerceProfile?.variants || []
+  const usesVariantInventory = activeVariants.length > 0
+  const optionSummaries = (p.commerceProfile?.options || []).map(
+    (option) => `${option.label}: ${option.values.map((value) => value.label).join(', ')}`,
+  )
   return {
     name: p.name,
     slug: p.slug ?? '',
@@ -332,8 +378,14 @@ function rawProductToCard(p: {
     image: imagesArr[0] || '/placeholder.svg',
     link: productUrl,
     badge: p.badge,
-    inStock: p.inStock,
-    stockQuantity: p.stockQuantity,
+    inStock: usesVariantInventory
+      ? activeVariants.some((variant) => variant.inStock && variant.stockQuantity > 0)
+      : p.inStock,
+    stockQuantity: usesVariantInventory
+      ? activeVariants.reduce((total, variant) => total + Math.max(0, variant.stockQuantity), 0)
+      : p.stockQuantity,
+    productKind: p.commerceProfile?.productKind.replace(/_/g, ' '),
+    options: optionSummaries,
   }
 }
 
@@ -346,32 +398,78 @@ export async function searchProductsForChat(
 ): Promise<{ text: string; cards: ProductCard[] }> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const baseWhere: any = { inStock: true }
+    const baseWhere: Prisma.ProductWhereInput = {
+      NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } },
+      OR: [
+        { inStock: true },
+        {
+          commerceProfile: {
+            variants: { some: { isActive: true, inStock: true, stockQuantity: { gt: 0 } } },
+          },
+        },
+      ],
+    }
 
     if (keywords.length > 0) {
       baseWhere.fabricType = { in: keywords }
     }
 
     if (colorSearch) {
-      baseWhere.color = { contains: colorSearch, mode: 'insensitive' }
+      baseWhere.AND = [{
+        OR: [
+          { color: { contains: colorSearch, mode: 'insensitive' } },
+          {
+            commerceProfile: {
+              options: {
+                some: {
+                  type: { in: ['COLOR', 'SHADE'] },
+                  values: { some: { isActive: true, label: { contains: colorSearch, mode: 'insensitive' } } },
+                },
+              },
+            },
+          },
+        ],
+      }]
     }
 
-    let products = await prisma.product.findMany({
-      where: baseWhere,
-      take: limit,
-      orderBy: { createdAt: 'desc' },
-      select: PRODUCT_SELECT,
-    })
+    let products: ChatProduct[] = []
+
+    // A constrained text query should not be seeded with unrelated latest
+    // products; otherwise relevant matches are pushed out before de-duplication.
+    if (!nameSearch || keywords.length > 0 || colorSearch) {
+      products = await prisma.product.findMany({
+        where: baseWhere,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: PRODUCT_SELECT,
+      })
+    }
 
     if (nameSearch && nameSearch.trim().length > 2) {
+      const searchTerms = nameSearch
+        .split(/\s+/)
+        .map((term) => term.trim())
+        .filter((term) => term.length > 2)
+        .slice(0, 6)
       const nameResults = await prisma.product.findMany({
         where: {
-          inStock: true,
-          OR: [
-            { name: { contains: nameSearch, mode: 'insensitive' } },
-            { description: { contains: nameSearch, mode: 'insensitive' } },
-            { tags: { contains: nameSearch, mode: 'insensitive' } },
-          ],
+          AND: [baseWhere, ...searchTerms.map((term): Prisma.ProductWhereInput => ({
+            OR: [
+              { name: { contains: term, mode: 'insensitive' } },
+              { description: { contains: term, mode: 'insensitive' } },
+              { tags: { contains: term, mode: 'insensitive' } },
+              { color: { contains: term, mode: 'insensitive' } },
+              { fabricType: { contains: term, mode: 'insensitive' } },
+              { catalogAssignments: { some: { catalogNode: { OR: [
+                { label: { contains: term, mode: 'insensitive' } },
+                { path: { contains: term, mode: 'insensitive' } },
+              ] } } } },
+              { commerceProfile: { options: { some: { values: { some: {
+                isActive: true,
+                label: { contains: term, mode: 'insensitive' },
+              } } } } } },
+            ],
+          }))],
         },
         take: limit,
         orderBy: { createdAt: 'desc' },
@@ -389,9 +487,15 @@ export async function searchProductsForChat(
       products = products.slice(0, limit)
     }
 
-    if (products.length === 0 && (keywords.length > 0 || colorSearch)) {
+    if (products.length === 0 && keywords.length === 0 && !colorSearch && !nameSearch) {
       products = await prisma.product.findMany({
-        where: { inStock: true },
+        where: {
+          NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } },
+          OR: [
+            { inStock: true },
+            { commerceProfile: { variants: { some: { isActive: true, inStock: true, stockQuantity: { gt: 0 } } } } },
+          ],
+        },
         take: limit,
         orderBy: { createdAt: 'desc' },
         select: PRODUCT_SELECT,
@@ -407,18 +511,46 @@ export async function searchProductsForChat(
 
     const cards = products.map(rawProductToCard)
 
-    const text = cards
-      .map((c) => {
+    const text = products
+      .map((product, index) => {
+        const c = cards[index]
         const discountNote =
           c.originalPrice && Number(c.originalPrice) > Number(c.price)
             ? ` (was PKR ${c.originalPrice} — SALE!)`
             : ''
+        const catalog = product.catalogAssignments
+          .map((assignment) => assignment.catalogNode.path)
+          .join(', ')
+        const options = c.options?.length ? `Options: ${c.options.join(' | ')}` : ''
+        const combinations = product.commerceProfile?.variants.length
+          ? product.commerceProfile.variants.slice(0, 24).map((variant) => {
+              const selections = variant.selections.length
+                ? [...variant.selections]
+                    .sort((a, b) => a.option.displayOrder - b.option.displayOrder)
+                    .map((selection) => `${selection.option.label}: ${selection.optionValue.label}`)
+                    .join(', ')
+                : variant.label
+              const adjustedPrice = Number(product.price) + Number(variant.priceAdjustment)
+              return `${selections}; SKU: ${variant.sku || 'not assigned'}; PKR ${adjustedPrice}; ${variant.inStock && variant.stockQuantity > 0 ? `In Stock (${variant.stockQuantity})` : 'Out of Stock'}`
+            }).join('\n  - ')
+          : ''
+        const configuredGuide = product.commerceProfile?.sizeGuideUrl?.trim()
+        const guideUrl = configuredGuide
+          ? (configuredGuide.startsWith('http') ? configuredGuide : `${siteUrl.replace(/\/$/, '')}/${configuredGuide.replace(/^\//, '')}`)
+          : product.commerceProfile?.productKind === 'TEENS'
+            ? `${siteUrl.replace(/\/$/, '')}${KIDS_SIZE_GUIDE_URL}`
+            : undefined
         return `
 Product: ${c.name}
+Product Kind: ${c.productKind || 'Legacy unstitched fabric'}
 Fabric: ${c.fabricType.replace(/_/g, ' ')}
 Color: ${c.color}
 Price: PKR ${c.price}${discountNote}
 Status: ${c.inStock ? `In Stock (${c.stockQuantity ?? 'available'} units)` : 'Out of Stock'}
+${catalog ? `Catalog: ${catalog}` : ''}
+${options}
+${combinations ? `Purchasable combinations:\n  - ${combinations}` : ''}
+${guideUrl ? `Size Guide: ${guideUrl}` : ''}
 ${c.badge ? `Badge: ${c.badge}` : ''}
 Link: ${c.link}
         `.trim()
@@ -566,7 +698,8 @@ export async function searchOrderForChat(
       include: {
         items: {
           include: {
-            product: { select: { name: true, fabricType: true } },
+            product: { select: { name: true, fabricType: true, sku: true } },
+            configuration: true,
           },
         },
       },
@@ -578,10 +711,20 @@ export async function searchOrderForChat(
     }
 
     const items = order.items
-      .map(
-        (i) =>
-          `- ${i.product.name} (${i.product.fabricType}) x${i.quantity} @ PKR ${i.priceAtTimeOfPurchase.toString()}`
-      )
+      .map((i) => {
+        const selectedOptions = Array.isArray(i.configuration?.selectedOptions)
+          ? i.configuration.selectedOptions.flatMap((option) => {
+              if (!option || typeof option !== 'object') return []
+              const entry = option as Record<string, unknown>
+              return typeof entry.label === 'string' && typeof entry.value === 'string'
+                ? [`${entry.label}: ${entry.value}`]
+                : []
+            })
+          : []
+        const sku = i.configuration?.variantSku || i.product.sku
+        const options = selectedOptions.length ? `; ${selectedOptions.join(', ')}` : ''
+        return `- ${i.product.name} (${i.product.fabricType}; SKU: ${sku}${options}) x${i.quantity} @ PKR ${i.priceAtTimeOfPurchase.toString()}`
+      })
       .join('\n')
 
     return `
@@ -634,6 +777,15 @@ export async function getDBContextForMessage(
   const intent = extractSearchIntent(message, activeFabricTypes)
 
   const contextParts: string[] = []
+
+  if (intent.type === 'general' || messageNeedsCatalogContext(message)) {
+    const catalog = await getPublishedCatalogContext()
+    if (catalog) contextParts.push(`[STORE DATA — Published Catalog]\n${catalog}`)
+  }
+
+  if (messageNeedsSizeGuideContext(message)) {
+    contextParts.push(`[STORE DATA — Size Guides]\n${getSizeGuideContext()}`)
+  }
 
   if (intent.type === 'product') {
     const result = await searchProductsForChat(

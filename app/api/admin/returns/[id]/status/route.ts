@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { isAdminRole } from "@/lib/permissions"; // C9
-import { updateReturnRequestStatus, createAuditLog } from "@/lib/db-queries";
+import { updateReturnRequestStatus, createAuditLog, getStoreConfig } from "@/lib/db-queries";
 import { updateReturnRequestStatusSchema } from "@/lib/validators/returns";
 import { triggerNotification } from "@/lib/notifications";
 import { prisma } from "@/lib/db";
@@ -69,7 +69,8 @@ export const PUT = withLoggedAdminHandler(async (
         COMPLETED: "return_request_completed",
       };
       const template = templateMap[result.data.status];
-      if (template && addr?.email) {
+      const notificationConfig = template ? await getStoreConfig() : null;
+      if (template && notificationConfig?.returnRequest !== false && addr?.email) {
         triggerNotification({
           to: addr.email,
           phone: addr.phone,

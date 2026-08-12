@@ -49,7 +49,6 @@ export default function NewsletterPage() {
 
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
-  const [recipientFilter, setRecipientFilter] = useState<"all" | "subscribed">("subscribed");
   const [sending, setSending] = useState(false);
 
   const loadSubscribers = async () => {
@@ -76,16 +75,16 @@ export default function NewsletterPage() {
       return;
     }
 
-    if (!confirm(`Send campaign to ${recipientFilter === "subscribed" ? "subscribed" : "all"} subscribers?`)) {
+    if (!confirm("Send campaign to active subscribers?")) {
       return;
     }
 
     setSending(true);
     try {
-      const res = await fetch("/api/admin/newsletter/send", {
+      const res = await fetch("/api/admin/newsletter/send?confirm=true", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject, body, recipientFilter }),
+        body: JSON.stringify({ subject, body, recipientFilter: "subscribed" }),
       });
 
       const data = await res.json();
@@ -96,7 +95,7 @@ export default function NewsletterPage() {
       }
 
       toast({
-        title: `Campaign sent! ${data.sent} delivered, ${data.failed} failed.`,
+        title: `Campaign queued: ${data.sent} accepted, ${data.failed} failed.`,
       });
       setSubject("");
       setBody("");
@@ -178,21 +177,9 @@ export default function NewsletterPage() {
               maxLength={50000}
             />
           </div>
-          <div>
-            <label className="text-sm font-medium mb-1 block">Recipients</label>
-            <Select
-              value={recipientFilter}
-              onValueChange={(v: "all" | "subscribed") => setRecipientFilter(v)}
-            >
-              <SelectTrigger className="w-64">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="subscribed">Subscribed only</SelectItem>
-                <SelectItem value="all">All (including unsubscribed)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            Campaigns are sent only to active subscribers and include a one-click unsubscribe link.
+          </p>
           <Button
             onClick={handleSendCampaign}
             disabled={sending || !subject.trim() || !body.trim()}

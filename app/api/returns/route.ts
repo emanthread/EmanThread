@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { createReturnRequest } from "@/lib/db-queries";
+import { createReturnRequest, getStoreConfig } from "@/lib/db-queries";
 import { createReturnRequestSchema } from "@/lib/validators/returns";
 import { triggerNotification } from "@/lib/notifications";
 import { prisma } from "@/lib/db";
@@ -48,7 +48,8 @@ export async function POST(req: Request) {
 
     // Trigger notification
     const addr = order.shippingAddress as Record<string, string> | null;
-    if (addr?.email) {
+    const notificationConfig = await getStoreConfig();
+    if (notificationConfig.returnRequest !== false && addr?.email) {
       triggerNotification({
         to: addr.email,
         phone: addr.phone,
