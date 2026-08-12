@@ -21,6 +21,7 @@ import {
   visibleProductTags,
 } from "@/lib/product-archive";
 import { sanitizeDbError } from "@/lib/utils/errors";
+import { isValidHexColor } from "@/lib/color-hex";
 
 export const dynamic = "force-dynamic";
 
@@ -586,9 +587,14 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
           throw new ProductEditorError("Color is required for this category");
         }
         if (
-          compatibility.color &&
-          !/^#[0-9a-f]{6}$/i.test(compatibility.colorHex)
+          compatibilityInput.colorHex.trim() &&
+          !isValidHexColor(compatibilityInput.colorHex)
         ) {
+          throw new ProductEditorError(
+            "Enter a 6-digit product color hex code such as #0088CC"
+          );
+        }
+        if (compatibility.color && !isValidHexColor(compatibility.colorHex)) {
           throw new ProductEditorError("Choose a valid product color");
         }
 

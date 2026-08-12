@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 import {
   catalogNodePickerResults,
@@ -8,8 +10,40 @@ import {
   emptyCommerceProfileDraft,
   serializeCommerceProfile,
 } from "../components/admin/product-commerce-profile-section";
+import {
+  colorPickerValue,
+  isValidHexColor,
+  normalizeHexColorInput,
+} from "../lib/color-hex";
 
 test.describe("product editor draft validation", () => {
+  test("normalizes exact product hex input without accepting arbitrary colors", () => {
+    expect(normalizeHexColorInput("0088cc")).toBe("#0088CC");
+    expect(normalizeHexColorInput("#ff0000")).toBe("#FF0000");
+    expect(normalizeHexColorInput("#12")).toBe("#12");
+    expect(normalizeHexColorInput("red")).toBe("red");
+
+    expect(isValidHexColor("#0088CC")).toBe(true);
+    expect(isValidHexColor("#fff")).toBe(false);
+    expect(isValidHexColor("red")).toBe(false);
+    expect(colorPickerValue("#0088CC")).toBe("#0088CC");
+    expect(colorPickerValue("invalid")).toBe("#000000");
+  });
+
+  test("connects the manual hex field and native picker to the same editor value", () => {
+    const editor = readFileSync(
+      resolve(process.cwd(), "components/admin/product-editor.tsx"),
+      "utf8"
+    );
+
+    expect(editor).toContain('<Label htmlFor="colorHex">Hex code</Label>');
+    expect(editor).toContain('id="colorHexPicker"');
+    expect(editor).toContain(
+      "onChange={(event) => updateColorHex(event.target.value)}"
+    );
+    expect(editor).toContain("value={colorPickerValue(product.colorHex)}");
+  });
+
   test("starts with the canonical unstitched option name", () => {
     expect(emptyCommerceProfileDraft().optionLabel).toBe("Option");
   });

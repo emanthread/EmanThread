@@ -60,7 +60,9 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { apiFetch } from "@/lib/api-fetch";
+import { catalogVisibilityToggleBlockReason } from "@/lib/catalog-visibility";
 import type { ProductKind } from "@/lib/data";
 import { PRODUCT_KIND_OPTIONS } from "@/lib/catalog-product-classification";
 import { cn } from "@/lib/utils";
@@ -447,10 +449,12 @@ function CatalogTaxonomyManager({
   nodes,
   loading,
   onChanged,
+  onNodeUpdated,
 }: {
   nodes: CatalogNode[];
   loading: boolean;
   onChanged: () => Promise<void>;
+  onNodeUpdated: (node: CatalogNode) => void;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<CatalogNodeDraft>(
@@ -460,6 +464,10 @@ function CatalogTaxonomyManager({
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [visibilitySavingIds, setVisibilitySavingIds] = useState<Set<string>>(
+    () => new Set()
+  );
+  const visibilitySavingIdsRef = useRef(new Set<string>());
 
   const editingNode = useMemo(
     () => nodes.find((node) => node.id === editingId) || null,
@@ -517,6 +525,79 @@ function CatalogTaxonomyManager({
       label,
       slug: slugWasEdited ? current.slug : slugifyCatalogLabel(label),
     }));
+  };
+
+  const updateVisibility = async (node: CatalogNode, nextVisible: boolean) => {
+    if (
+      nextVisible === node.isVisible ||
+      visibilitySavingIdsRef.current.has(node.id)
+    ) {
+      return;
+    }
+
+    const blockedReason = catalogVisibilityToggleBlockReason(
+      node,
+      nodes,
+      nextVisible
+    );
+    if (blockedReason) {
+      toast.error(blockedReason);
+      return;
+    }
+
+    if (
+      !nextVisible &&
+      !window.confirm(
+        `Hide ${catalogBreadcrumb(node.path, nodes)}? Customers will no longer be able to browse this catalog path.`
+      )
+    ) {
+      return;
+    }
+
+    const optimisticNode = { ...node, isVisible: nextVisible };
+    visibilitySavingIdsRef.current.add(node.id);
+    setVisibilitySavingIds(new Set(visibilitySavingIdsRef.current));
+    onNodeUpdated(optimisticNode);
+    if (editingId === node.id) {
+      setDraft((current) => ({ ...current, isVisible: nextVisible }));
+    }
+
+    try {
+      const response = await apiFetch(
+        `/api/admin/catalog/nodes/${encodeURIComponent(node.id)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isVisible: nextVisible }),
+        }
+      );
+      if (!response.ok) {
+        throw new Error(
+          await readApiError(response, "Failed to update catalog visibility")
+        );
+      }
+
+      const data = (await response.json()) as { node?: CatalogNode };
+      if (!data.node) throw new Error("The updated catalog path was not returned");
+      onNodeUpdated(data.node);
+      if (editingId === node.id) {
+        setDraft((current) => ({ ...current, isVisible: data.node!.isVisible }));
+      }
+      toast.success(nextVisible ? "Category published" : "Category hidden");
+    } catch (error) {
+      onNodeUpdated(node);
+      if (editingId === node.id) {
+        setDraft((current) => ({ ...current, isVisible: node.isVisible }));
+      }
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to update catalog visibility"
+      );
+    } finally {
+      visibilitySavingIdsRef.current.delete(node.id);
+      setVisibilitySavingIds(new Set(visibilitySavingIdsRef.current));
+    }
   };
 
   const save = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -948,52 +1029,91 @@ function CatalogTaxonomyManager({
                   <Loader2 className="h-5 w-5 animate-spin" />
                 </div>
               ) : filteredNodes.length ? (
-                filteredNodes.map((node) => (
-                  <div
-                    key={node.id}
-                    className={cn(
-                      "flex flex-wrap items-center justify-between gap-3 border-b px-3 py-3 last:border-b-0",
-                      editingId === node.id && "bg-muted/60"
-                    )}
-                  >
+                filteredNodes.map((node) => {
+                  const visibilitySaving = visibilitySavingIds.has(node.id);
+                  const visibilityBlockedReason =
+                    catalogVisibilityToggleBlockReason(
+                      node,
+                      nodes,
+                      !node.isVisible
+                    );
+
+                  return (
                     <div
-                      className="min-w-0 flex-1"
-                      style={{
-                        paddingLeft: `${catalogNodeDepth(node) * 0.75}rem`,
-                      }}
+                      key={node.id}
+                      className={cn(
+                        "flex flex-wrap items-center justify-between gap-3 border-b px-3 py-3 last:border-b-0",
+                        editingId === node.id && "bg-muted/60"
+                      )}
                     >
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium">{node.label}</p>
-                        <Badge variant="outline">{node.nodeType}</Badge>
-                        {!node.isActive && (
-                          <Badge variant="secondary">Inactive</Badge>
-                        )}
-                        {node.isActive && !node.isVisible && (
-                          <Badge variant="secondary">Hidden</Badge>
-                        )}
-                        {node.isActive && node.isVisible && (
-                          <Badge>Published</Badge>
-                        )}
+                      <div
+                        className="min-w-0 flex-1"
+                        style={{
+                          paddingLeft: `${catalogNodeDepth(node) * 0.75}rem`,
+                        }}
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium">{node.label}</p>
+                          <Badge variant="outline">{node.nodeType}</Badge>
+                          {!node.isActive && (
+                            <Badge variant="secondary">Inactive</Badge>
+                          )}
+                          {node.isActive && !node.isVisible && (
+                            <Badge variant="secondary">Hidden</Badge>
+                          )}
+                          {node.isActive && node.isVisible && (
+                            <Badge>Published</Badge>
+                          )}
+                        </div>
+                        <p className="mt-1 truncate text-xs text-muted-foreground">
+                          {catalogBreadcrumb(node.path, nodes)}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {node._count.children} child path(s) /{" "}
+                          {node._count.assignments} assignment(s) / order{" "}
+                          {node.displayOrder}
+                        </p>
                       </div>
-                      <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {catalogBreadcrumb(node.path, nodes)}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {node._count.children} child path(s) /{" "}
-                        {node._count.assignments} assignment(s) / order{" "}
-                        {node.displayOrder}
-                      </p>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 rounded-md border px-2.5 py-2">
+                          <span className="text-xs font-medium text-muted-foreground">
+                            Display
+                          </span>
+                          <span title={visibilityBlockedReason || undefined}>
+                            {visibilitySaving ? (
+                              <Loader2
+                                className="h-4 w-8 animate-spin"
+                                aria-label={`Saving visibility for ${node.label}`}
+                              />
+                            ) : (
+                              <Switch
+                                checked={node.isVisible}
+                                disabled={
+                                  Boolean(visibilityBlockedReason) ||
+                                  (saving && editingId === node.id)
+                                }
+                                onCheckedChange={(checked) =>
+                                  void updateVisibility(node, checked)
+                                }
+                                aria-label={`${
+                                  node.isVisible ? "Hide" : "Publish"
+                                } ${catalogBreadcrumb(node.path, nodes)}`}
+                              />
+                            )}
+                          </span>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={editingId === node.id ? "default" : "outline"}
+                          onClick={() => startEdit(node)}
+                        >
+                          Edit
+                        </Button>
+                      </div>
                     </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={editingId === node.id ? "default" : "outline"}
-                      onClick={() => startEdit(node)}
-                    >
-                      Edit
-                    </Button>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <p className="px-4 py-10 text-center text-sm text-muted-foreground">
                   No catalog paths match this filter.
@@ -1415,6 +1535,37 @@ export default function CatalogAssignmentClient({
     refreshProduct,
     selectedProduct?.id,
   ]);
+
+  const applyCatalogNodeUpdate = useCallback((updatedNode: CatalogNode) => {
+    const replaceNode = (node: CatalogNode) =>
+      node.id === updatedNode.id ? updatedNode : node;
+    setTaxonomyNodes((current) => current.map(replaceNode));
+    setNodes((current) => current.map(replaceNode));
+
+    const updateProductAssignments = (product: ProductRow): ProductRow => ({
+      ...product,
+      catalogAssignments: product.catalogAssignments.map((assignment) =>
+        assignment.catalogNode.id === updatedNode.id
+          ? {
+              ...assignment,
+              catalogNode: {
+                ...assignment.catalogNode,
+                label: updatedNode.label,
+                path: updatedNode.path,
+                nodeType: updatedNode.nodeType,
+                productKind: updatedNode.productKind,
+                isActive: updatedNode.isActive,
+                isVisible: updatedNode.isVisible,
+              },
+            }
+          : assignment
+      ),
+    });
+    setProducts((current) => current.map(updateProductAssignments));
+    setSelectedProduct((current) =>
+      current ? updateProductAssignments(current) : null
+    );
+  }, []);
 
   const changeTab = (value: string) => {
     const nextTab = value as CatalogTab;
@@ -2025,6 +2176,7 @@ export default function CatalogAssignmentClient({
               nodes={taxonomyNodes}
               loading={taxonomyLoading}
               onChanged={refreshAfterMutation}
+              onNodeUpdated={applyCatalogNodeUpdate}
             />
           </TabsContent>
         )}

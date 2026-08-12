@@ -1,4 +1,5 @@
 import type { ProductKind, ProductOptionType } from "@/lib/data";
+import { isValidHexColor } from "@/lib/color-hex";
 
 export type CatalogProductClassification = {
   productKind: ProductKind;
@@ -465,7 +466,7 @@ export function normalizeCatalogCompatibilityFields(
   )
     ? fields.color.trim()
     : "";
-  const colorHex = color && /^#[0-9a-f]{6}$/i.test(fields.colorHex.trim())
+  const colorHex = color && isValidHexColor(fields.colorHex)
     ? fields.colorHex.trim()
     : "";
 

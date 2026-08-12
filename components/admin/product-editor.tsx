@@ -56,6 +56,11 @@ import {
   type CatalogProductClassification,
 } from "@/lib/catalog-product-classification";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
+import {
+  colorPickerValue,
+  isValidHexColor,
+  normalizeHexColorInput,
+} from "@/lib/color-hex";
 import { cn } from "@/lib/utils";
 import { useAdminUnsavedChanges } from "@/components/admin/unsaved-changes-context";
 
@@ -278,6 +283,18 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
     });
   };
 
+  const updateColorHex = (value: string) => {
+    const normalized = normalizeHexColorInput(value);
+    updateProduct("colorHex", normalized);
+    setErrors((current) => ({
+      ...current,
+      colorHex:
+        normalized && !isValidHexColor(normalized)
+          ? "Enter a 6-digit hex color, for example #0088CC"
+          : undefined,
+    }));
+  };
+
   const updateStockQuantity = (stockQuantity: number) => {
     setIsDirty(true);
     setServerSaveError(null);
@@ -484,16 +501,19 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
     }
     if (
       isProductEditorFieldVisible(selectedEditorSchema.fields.color) &&
-      (hasUnstitchedColorVariants
+      ((hasUnstitchedColorVariants
         ? commerceProfile.variants[0]?.label.trim()
-        : product.color.trim()) &&
-      !/^#[0-9a-f]{6}$/i.test(
+        : product.color.trim()) ||
+        (hasUnstitchedColorVariants
+          ? commerceProfile.variants[0]?.colorHex.trim()
+          : product.colorHex.trim())) &&
+      !isValidHexColor(
         hasUnstitchedColorVariants
           ? commerceProfile.variants[0]?.colorHex.trim() || ""
           : product.colorHex.trim()
       )
     ) {
-      next.colorHex = "Choose a valid color";
+      next.colorHex = "Enter a 6-digit hex color, for example #0088CC";
     }
     if (!product.description.trim()) next.description = "Enter a short description";
     if (product.images.length === 0) next.images = "Add at least one product image";
@@ -941,18 +961,56 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
               </div>
             )}
             {isProductEditorFieldVisible(selectedEditorSchema.fields.color) && !hasUnstitchedColorVariants && (
-              <div className="space-y-2">
-                <Label htmlFor="color">
-                  {selectedEditorSchema.fields.color.label}{" "}
-                  {isProductEditorFieldRequired(selectedEditorSchema.fields.color)
-                    ? "*"
-                    : "(optional)"}
-                </Label>
-                <div className="grid grid-cols-[minmax(0,1fr)_3rem] gap-2">
-                  <Input id="color" value={product.color} onChange={(event) => updateProduct("color", event.target.value)} placeholder="e.g. Royal blue" aria-invalid={Boolean(errors.color)} />
-                  <input id="colorHex" type="color" aria-label={`${selectedEditorSchema.fields.color.label} picker`} value={/^#[0-9a-f]{6}$/i.test(product.colorHex) ? product.colorHex : "#000000"} onChange={(event) => updateProduct("colorHex", event.target.value)} className="h-10 w-12 cursor-pointer rounded border p-1" />
+              <div className="space-y-3 sm:col-span-2">
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_3rem] sm:items-end">
+                  <div className="space-y-2">
+                    <Label htmlFor="color">
+                      {selectedEditorSchema.fields.color.label} name{" "}
+                      {isProductEditorFieldRequired(selectedEditorSchema.fields.color)
+                        ? "*"
+                        : "(optional)"}
+                    </Label>
+                    <Input
+                      id="color"
+                      value={product.color}
+                      onChange={(event) => updateProduct("color", event.target.value)}
+                      placeholder="e.g. Royal blue"
+                      aria-invalid={Boolean(errors.color)}
+                    />
+                    <FieldError message={errors.color} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="colorHex">Hex code</Label>
+                    <Input
+                      id="colorHex"
+                      value={product.colorHex}
+                      onChange={(event) => updateColorHex(event.target.value)}
+                      placeholder="#0088CC"
+                      maxLength={7}
+                      spellCheck={false}
+                      autoCapitalize="characters"
+                      aria-invalid={Boolean(errors.colorHex)}
+                      aria-describedby={errors.colorHex ? "colorHex-error" : undefined}
+                      className="font-mono uppercase"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="colorHexPicker" className="sr-only">
+                      {selectedEditorSchema.fields.color.label} picker
+                    </Label>
+                    <input
+                      id="colorHexPicker"
+                      type="color"
+                      aria-label={`${selectedEditorSchema.fields.color.label} picker`}
+                      value={colorPickerValue(product.colorHex)}
+                      onChange={(event) => updateColorHex(event.target.value)}
+                      className="h-10 w-12 cursor-pointer rounded border p-1"
+                    />
+                  </div>
                 </div>
-                <FieldError message={errors.color || errors.colorHex} />
+                <div id="colorHex-error">
+                  <FieldError message={errors.colorHex} />
+                </div>
               </div>
             )}
           </CardContent>

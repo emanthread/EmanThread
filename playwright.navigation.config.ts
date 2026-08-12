@@ -18,6 +18,7 @@ export default defineConfig({
     "catalog-header-cards.spec.ts",
     "unstitched-commerce.spec.ts",
     "product-variant-matrix.spec.ts",
+    "catalog-visibility-toggle.spec.ts",
   ],
   fullyParallel: true,
   workers: 1,
