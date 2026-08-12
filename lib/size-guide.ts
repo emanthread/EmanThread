@@ -1,5 +1,7 @@
 import type { Product } from "@/lib/data";
 
+export const KIDS_SIZE_GUIDE_URL = "/size-guides/kids-size-guide.pdf";
+
 export type SizeGuideTemplateKey =
   | "mens-shirt"
   | "mens-shalwar-kameez"
@@ -83,9 +85,10 @@ function hasCatalogPath(paths: string[], pattern: RegExp): boolean {
  * considering its name. This keeps a chart tied to the actual department and
  * subcategory selected in Admin, rather than guessing from marketing copy.
  *
- * A wrong size chart is worse than no chart. Teens, fragrance, beauty, gifts,
- * and unstitched fabric deliberately receive no adult bundled chart. Admin's
- * product-specific sizeGuideUrl remains available for those products.
+ * A wrong size chart is worse than no chart. Teens use their dedicated PDF
+ * through resolveProductSizeGuideUrl; fragrance, beauty, gifts, and unstitched
+ * fabric deliberately receive no adult bundled chart. Admin's product-specific
+ * sizeGuideUrl remains available for every supported product.
  */
 export function resolveProductSizeGuideTemplates(
   product: Product
@@ -151,9 +154,17 @@ export function resolveProductSizeGuideTemplate(
   return resolveProductSizeGuideTemplates(product)[0] ?? null;
 }
 
+export function resolveProductSizeGuideUrl(product: Product): string | undefined {
+  const customGuideUrl = product.commerce?.sizeGuideUrl?.trim();
+  if (customGuideUrl) return customGuideUrl;
+  return product.commerce?.productKind === "TEENS"
+    ? KIDS_SIZE_GUIDE_URL
+    : undefined;
+}
+
 export function hasProductSizeGuide(product: Product): boolean {
   return Boolean(
-    product.commerce?.sizeGuideUrl?.trim() ||
+    resolveProductSizeGuideUrl(product) ||
       resolveProductSizeGuideTemplates(product).length
   );
 }

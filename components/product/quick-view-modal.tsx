@@ -7,6 +7,7 @@ import { X, Plus, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ProductOptionPicker } from "@/components/product/product-option-picker";
+import { SizeGuideModal } from "@/components/product/size-guide-modal";
 import { useCartStore } from "@/lib/cart-store";
 import { formatPrice, type Product, type ProductVariant } from "@/lib/data";
 import {
@@ -237,6 +238,7 @@ export function QuickViewModal({
                 }}
                 invalid={optionError}
                 className="mt-6"
+                guideAction={<SizeGuideModal product={product} />}
               />
             )}
 

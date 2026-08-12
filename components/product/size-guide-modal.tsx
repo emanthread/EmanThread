@@ -15,14 +15,33 @@ import type { Product } from "@/lib/data";
 import {
   hasProductSizeGuide,
   isImageSizeGuideUrl,
+  KIDS_SIZE_GUIDE_URL,
+  resolveProductSizeGuideUrl,
   resolveProductSizeGuideTemplates,
 } from "@/lib/size-guide";
 
 export function SizeGuideModal({ product }: { product: Product }) {
-  const customGuideUrl = product.commerce?.sizeGuideUrl?.trim();
+  const guideUrl = resolveProductSizeGuideUrl(product);
+  const usesKidsGuide = guideUrl === KIDS_SIZE_GUIDE_URL;
   const templateKeys = resolveProductSizeGuideTemplates(product);
 
   if (!hasProductSizeGuide(product)) return null;
+
+  if (usesKidsGuide) {
+    return (
+      <Button
+        type="button"
+        variant="link"
+        className="h-auto gap-2 px-0 text-sm"
+        asChild
+      >
+        <a href={guideUrl} target="_blank" rel="noopener noreferrer">
+          <Ruler className="h-4 w-4" />
+          Size Guide
+        </a>
+      </Button>
+    );
+  }
 
   return (
     <Dialog>
@@ -41,13 +60,13 @@ export function SizeGuideModal({ product }: { product: Product }) {
         </DialogHeader>
 
         <div className="space-y-5">
-          {customGuideUrl && isImageSizeGuideUrl(customGuideUrl) ? (
+          {guideUrl && isImageSizeGuideUrl(guideUrl) ? (
             <figure className="space-y-3">
               {/* A standard image element supports approved external media without
                   requiring broad Next image-host configuration. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={customGuideUrl}
+                src={guideUrl}
                 alt={`${product.name} size chart`}
                 className="h-auto w-full rounded-lg border bg-white"
               />
@@ -67,9 +86,9 @@ export function SizeGuideModal({ product }: { product: Product }) {
             </div>
           ) : null}
 
-          {customGuideUrl && !isImageSizeGuideUrl(customGuideUrl) ? (
+          {guideUrl && !isImageSizeGuideUrl(guideUrl) ? (
             <Button variant="outline" className="w-full sm:w-auto" asChild>
-              <a href={customGuideUrl} target="_blank" rel="noopener noreferrer">
+              <a href={guideUrl} target="_blank" rel="noopener noreferrer">
                 Open product-specific guide
                 <ExternalLink className="ml-2 h-4 w-4" />
               </a>

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
 import { requireAdminApiAccess } from "@/lib/admin-route-guard";
+import { isAllowedCatalogBannerImage } from "@/lib/catalog-banner";
 import { sanitizeDbError } from "@/lib/utils/errors";
 
 export const catalogRecordIdSchema = z
@@ -47,21 +48,6 @@ const optionalCatalogText = (maxLength: number) =>
     .transform((value) => value || null)
     .nullable()
     .optional();
-
-function isAllowedCatalogBannerImage(value: string): boolean {
-  if (value.startsWith("/") && !value.startsWith("//")) return true;
-
-  try {
-    const url = new URL(value);
-    return (
-      url.protocol === "https:" &&
-      (url.hostname === "res.cloudinary.com" ||
-        url.hostname === "images.unsplash.com")
-    );
-  } catch {
-    return false;
-  }
-}
 
 export const catalogNodeDescriptionSchema = optionalCatalogText(1_000);
 

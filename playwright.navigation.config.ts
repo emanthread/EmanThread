@@ -19,6 +19,8 @@ export default defineConfig({
     "unstitched-commerce.spec.ts",
     "product-variant-matrix.spec.ts",
     "catalog-visibility-toggle.spec.ts",
+    "catalog-banner-admin.spec.ts",
+    "kids-size-guide.spec.ts",
   ],
   fullyParallel: true,
   workers: 1,

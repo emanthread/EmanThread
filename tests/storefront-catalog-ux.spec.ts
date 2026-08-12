@@ -198,7 +198,7 @@ test.describe("storefront catalog UX", () => {
 
     expect(catalogAdminSchema).toContain("catalogNodeBannerImageSchema");
     expect(catalogAdminSchema).toContain("catalogNodeBannerAltSchema");
-    expect(catalogAdmin).toContain("Collection banner (optional)");
+    expect(catalogAdmin).toContain("Subcategory banner (optional)");
     expect(catalogAdmin).toContain("Banner image");
     expect(catalogPage).toContain(
       "const heroDepartment = catalogDepartmentFromRootPath(data.node.path)"

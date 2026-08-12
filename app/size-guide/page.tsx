@@ -2,7 +2,10 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { CartDrawer } from "@/components/cart/cart-drawer";
 import { SizeGuideTemplateGallery } from "@/components/size-guide/size-guide-template";
+import { Button } from "@/components/ui/button";
 import { getContentPage } from "@/lib/content-pages";
+import { KIDS_SIZE_GUIDE_URL } from "@/lib/size-guide";
+import { ExternalLink, FileText } from "lucide-react";
 
 export const revalidate = 3600;
 
@@ -94,6 +97,26 @@ export default async function SizeGuidePage() {
               </section>
             </div>
           )}
+
+          <section className="mt-10 rounded-xl border border-border bg-background p-5 shadow-sm sm:p-8">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+                  <h2 className="text-2xl font-semibold">Kids / Teens size guide</h2>
+                </div>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  Open the dedicated kids garment size chart before choosing a size.
+                </p>
+              </div>
+              <Button variant="outline" asChild>
+                <a href={KIDS_SIZE_GUIDE_URL} target="_blank" rel="noopener noreferrer">
+                  Open kids size guide (PDF)
+                  <ExternalLink className="ml-2 h-4 w-4" />
+                </a>
+              </Button>
+            </div>
+          </section>
         </div>
       </main>
       <Footer />

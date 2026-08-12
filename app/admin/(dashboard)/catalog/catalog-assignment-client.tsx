@@ -8,12 +8,14 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
   History,
+  ImageIcon,
   Layers,
   ListChecks,
   Loader2,
@@ -23,6 +25,8 @@ import {
   Save,
   Search,
   Trash2,
+  Upload,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -63,6 +67,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { apiFetch } from "@/lib/api-fetch";
 import { catalogVisibilityToggleBlockReason } from "@/lib/catalog-visibility";
+import {
+  catalogBannerDimensionsError,
+  catalogBannerFileError,
+  isAllowedCatalogBannerImage,
+} from "@/lib/catalog-banner";
 import type { ProductKind } from "@/lib/data";
 import { PRODUCT_KIND_OPTIONS } from "@/lib/catalog-product-classification";
 import { cn } from "@/lib/utils";
@@ -253,6 +262,25 @@ function slugifyCatalogLabel(value: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
+}
+
+function loadCatalogBannerDimensions(
+  source: File | string
+): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const objectUrl = source instanceof File ? URL.createObjectURL(source) : null;
+    const image = new window.Image();
+
+    image.onload = () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      resolve({ width: image.naturalWidth, height: image.naturalHeight });
+    };
+    image.onerror = () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      reject(new Error("The banner image could not be loaded"));
+    };
+    image.src = objectUrl || (typeof source === "string" ? source : "");
+  });
 }
 
 const ROOT_CATALOG_PARENT = "__catalog_root__";
@@ -468,6 +496,9 @@ function CatalogTaxonomyManager({
     () => new Set()
   );
   const visibilitySavingIdsRef = useRef(new Set<string>());
+  const bannerUploadInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [bannerError, setBannerError] = useState<string | null>(null);
 
   const editingNode = useMemo(
     () => nodes.find((node) => node.id === editingId) || null,
@@ -508,15 +539,27 @@ function CatalogTaxonomyManager({
   }, [editingId, editingNode]);
 
   const startCreate = () => {
+    if (uploadingBanner) {
+      toast.error("Wait for the banner upload to finish");
+      return;
+    }
     setEditingId(null);
     setDraft(emptyCatalogNodeDraft());
     setSlugWasEdited(false);
+    setBannerError(null);
+    if (bannerUploadInputRef.current) bannerUploadInputRef.current.value = "";
   };
 
   const startEdit = (node: CatalogNode) => {
+    if (uploadingBanner) {
+      toast.error("Wait for the banner upload to finish");
+      return;
+    }
     setEditingId(node.id);
     setDraft(catalogNodeDraft(node));
     setSlugWasEdited(true);
+    setBannerError(null);
+    if (bannerUploadInputRef.current) bannerUploadInputRef.current.value = "";
   };
 
   const updateLabel = (label: string) => {
@@ -525,6 +568,94 @@ function CatalogTaxonomyManager({
       label,
       slug: slugWasEdited ? current.slug : slugifyCatalogLabel(label),
     }));
+  };
+
+  const validateBannerSource = async (source: string): Promise<string | null> => {
+    const normalized = source.trim();
+    if (!normalized) return null;
+    if (!isAllowedCatalogBannerImage(normalized)) {
+      return "Use a local image path or an approved Cloudinary/Unsplash HTTPS URL";
+    }
+
+    try {
+      const dimensions = await loadCatalogBannerDimensions(normalized);
+      return catalogBannerDimensionsError(dimensions.width, dimensions.height);
+    } catch (error) {
+      return error instanceof Error
+        ? error.message
+        : "The banner image could not be loaded";
+    }
+  };
+
+  const uploadBanner = async (file: File) => {
+    const fileError = catalogBannerFileError(file);
+    if (fileError) {
+      setBannerError(fileError);
+      toast.error(fileError);
+      return;
+    }
+
+    try {
+      const dimensions = await loadCatalogBannerDimensions(file);
+      const dimensionsError = catalogBannerDimensionsError(
+        dimensions.width,
+        dimensions.height
+      );
+      if (dimensionsError) {
+        setBannerError(dimensionsError);
+        toast.error(dimensionsError);
+        return;
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "The banner image could not be loaded";
+      setBannerError(message);
+      toast.error(message);
+      return;
+    }
+
+    setUploadingBanner(true);
+    setBannerError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("resourceType", "image");
+      formData.append("tags", "catalog-banner");
+      const response = await apiFetch("/api/admin/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) {
+        throw new Error(await readApiError(response, "Banner upload failed"));
+      }
+
+      const data = (await response.json()) as { url?: string };
+      if (!data.url) throw new Error("The upload did not return an image URL");
+      setDraft((current) => ({ ...current, bannerImage: data.url! }));
+      toast.success("Banner uploaded. Save the catalog path to publish it.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Banner upload failed";
+      setBannerError(message);
+      toast.error(message);
+    } finally {
+      setUploadingBanner(false);
+      if (bannerUploadInputRef.current) {
+        bannerUploadInputRef.current.value = "";
+      }
+    }
+  };
+
+  const clearBanner = () => {
+    setDraft((current) => ({
+      ...current,
+      bannerImage: "",
+      bannerAlt: "",
+    }));
+    setBannerError(null);
+    if (bannerUploadInputRef.current) bannerUploadInputRef.current.value = "";
   };
 
   const updateVisibility = async (node: CatalogNode, nextVisible: boolean) => {
@@ -602,6 +733,21 @@ function CatalogTaxonomyManager({
 
   const save = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (uploadingBanner) {
+      toast.error("Wait for the banner upload to finish");
+      return;
+    }
+
+    const bannerSourceError =
+      draft.parentId === ROOT_CATALOG_PARENT
+        ? null
+        : await validateBannerSource(draft.bannerImage);
+    setBannerError(bannerSourceError);
+    if (bannerSourceError) {
+      toast.error(bannerSourceError);
+      return;
+    }
+
     const displayOrder = Number(draft.displayOrder);
     if (
       !Number.isSafeInteger(displayOrder) ||
@@ -861,13 +1007,25 @@ function CatalogTaxonomyManager({
 
               <details className="rounded-lg border bg-muted/20">
                 <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
-                  Collection banner (optional)
+                  Subcategory banner (optional)
                 </summary>
                 <div className="space-y-4 border-t p-4">
                   <p className="text-xs text-muted-foreground">
-                    Department paths use this banner above their catalog filters
-                    and products. It can also be used for a focused collection.
+                    This replaces the plain heading on this catalog page and
+                    appears above its filters and products. Department roots use
+                    the separate Hero Sections system; navigation cards and
+                    product cards are not changed.
                   </p>
+                  {draft.parentId === ROOT_CATALOG_PARENT && (
+                    <Alert>
+                      <ImageIcon aria-hidden="true" />
+                      <AlertTitle>Department roots use Hero Sections</AlertTitle>
+                      <AlertDescription>
+                        Choose a category or final subcategory path to manage its
+                        collection banner here.
+                      </AlertDescription>
+                    </Alert>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="catalog-node-description">Banner description</Label>
                     <Textarea
@@ -884,38 +1042,167 @@ function CatalogTaxonomyManager({
                       maxLength={1_000}
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <Label htmlFor="catalog-node-banner-image">Banner image</Label>
-                    <Input
-                      id="catalog-node-banner-image"
-                      value={draft.bannerImage}
-                      onChange={(event) =>
-                        setDraft((current) => ({
-                          ...current,
-                          bannerImage: event.target.value,
-                        }))
-                      }
-                      placeholder="/images/collections/women.jpg or approved HTTPS URL"
-                      maxLength={2_000}
+                    <input
+                      ref={bannerUploadInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="sr-only"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) void uploadBanner(file);
+                      }}
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Use a local image path or an approved Cloudinary/Unsplash HTTPS URL.
-                    </p>
+
+                    {draft.bannerImage &&
+                    isAllowedCatalogBannerImage(draft.bannerImage.trim()) ? (
+                      <div className="space-y-3 rounded-lg border bg-background p-3">
+                        <div className="space-y-1.5">
+                          <p className="text-xs font-medium">Desktop crop</p>
+                          <div className="relative aspect-[4/1] overflow-hidden rounded-md bg-muted">
+                            <Image
+                              src={draft.bannerImage.trim()}
+                              alt={draft.bannerAlt || "Banner desktop preview"}
+                              fill
+                              sizes="(max-width: 1280px) 100vw, 640px"
+                              className="object-cover"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <p className="text-xs font-medium">Mobile crop</p>
+                          <div className="relative aspect-[4/3] w-36 overflow-hidden rounded-md bg-muted">
+                            <Image
+                              src={draft.bannerImage.trim()}
+                              alt=""
+                              fill
+                              sizes="144px"
+                              className="object-cover"
+                            />
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            Keep the important subject near the center so it
+                            remains visible on narrow screens.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex aspect-[4/1] min-h-28 items-center justify-center rounded-lg border border-dashed bg-background text-muted-foreground">
+                        <div className="text-center">
+                          <ImageIcon className="mx-auto h-7 w-7" />
+                          <p className="mt-2 text-xs">No banner selected</p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={
+                          uploadingBanner ||
+                          draft.parentId === ROOT_CATALOG_PARENT
+                        }
+                        onClick={() => bannerUploadInputRef.current?.click()}
+                      >
+                        {uploadingBanner ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Upload className="mr-2 h-4 w-4" />
+                        )}
+                        {draft.bannerImage ? "Replace image" : "Upload image"}
+                      </Button>
+                      {draft.bannerImage && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={uploadingBanner}
+                          onClick={clearBanner}
+                        >
+                          <X className="mr-2 h-4 w-4" />
+                          Clear banner
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="catalog-node-banner-image">
+                        Or paste an image URL
+                      </Label>
+                      <Input
+                        id="catalog-node-banner-image"
+                        value={draft.bannerImage}
+                        disabled={
+                          uploadingBanner ||
+                          draft.parentId === ROOT_CATALOG_PARENT
+                        }
+                        onChange={(event) => {
+                          const bannerImage = event.target.value;
+                          setDraft((current) => ({
+                            ...current,
+                            bannerImage,
+                          }));
+                          setBannerError(
+                            bannerImage.trim() &&
+                              !isAllowedCatalogBannerImage(bannerImage.trim())
+                              ? "Use a local image path or an approved Cloudinary/Unsplash HTTPS URL"
+                              : null
+                          );
+                        }}
+                        onBlur={async () => {
+                          const error = await validateBannerSource(
+                            draft.bannerImage
+                          );
+                          setBannerError(error);
+                        }}
+                        placeholder="/images/collections/ready-to-wear.jpg or approved HTTPS URL"
+                        maxLength={2_000}
+                        aria-invalid={Boolean(bannerError)}
+                        aria-describedby={
+                          bannerError ? "catalog-node-banner-error" : undefined
+                        }
+                      />
+                    </div>
+                    {bannerError ? (
+                      <p
+                        id="catalog-node-banner-error"
+                        className="text-xs text-destructive"
+                      >
+                        {bannerError}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        JPEG, PNG, or WebP; maximum 10 MB; minimum 1200 × 300px;
+                        3:1–4:1 aspect ratio. Uploaded images are saved to the
+                        existing media service.
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="catalog-node-banner-alt">Banner image alt text</Label>
                     <Input
                       id="catalog-node-banner-alt"
                       value={draft.bannerAlt}
+                      disabled={
+                        uploadingBanner ||
+                        draft.parentId === ROOT_CATALOG_PARENT
+                      }
                       onChange={(event) =>
                         setDraft((current) => ({
                           ...current,
                           bannerAlt: event.target.value,
                         }))
                       }
-                      placeholder="Women wearing the latest Eman Thread collection"
+                      placeholder="Teen girls wearing the ready-to-wear collection"
                       maxLength={240}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Describe the image for accessibility; do not copy the file
+                      name.
+                    </p>
                   </div>
                 </div>
               </details>
@@ -964,7 +1251,10 @@ function CatalogTaxonomyManager({
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Button type="submit" disabled={saving || removing}>
+                <Button
+                  type="submit"
+                  disabled={saving || removing || uploadingBanner}
+                >
                   {saving ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
@@ -1063,6 +1353,9 @@ function CatalogTaxonomyManager({
                           )}
                           {node.isActive && node.isVisible && (
                             <Badge>Published</Badge>
+                          )}
+                          {node.bannerImage && (
+                            <Badge variant="outline">Banner</Badge>
                           )}
                         </div>
                         <p className="mt-1 truncate text-xs text-muted-foreground">
