@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Cormorant_Garamond, Inter, Noto_Serif } from "next/font/google";
 import Script from "next/script";
 import { unstable_cache } from "next/cache";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -7,30 +6,6 @@ import { AuthSync } from "@/components/auth-sync";
 import { ClientWidgets } from "@/app/client-widgets";
 import { getStoreConfig } from "@/lib/db-queries";
 import "./globals.css";
-
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["400", "600"], // Reduced from 5 weights to 2 — cuts font payload ~40%
-  variable: "--font-cormorant",
-  display: "swap",    // Don't block render — show fallback font immediately
-  preload: false,     // Decorative heading font — not render-critical
-});
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",    // Critical UI font — swap in as soon as loaded
-  preload: true,
-});
-
-const notoSerif = Noto_Serif({
-  subsets: ["latin"],
-  weight: ["400", "700"],
-  style: ["normal", "italic"],
-  variable: "--font-noto-serif",
-  display: "swap",    // Don't block render
-  preload: false,     // Secondary serif — not critical
-});
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://emanthread.com";
 
@@ -141,7 +116,7 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${cormorant.variable} ${inter.variable} ${notoSerif.variable} font-sans antialiased`}
+        className="font-sans antialiased"
         suppressHydrationWarning
       >
         {/* Skip-to-content link — first focusable element for keyboard accessibility (WCAG 2.1 AA) */}

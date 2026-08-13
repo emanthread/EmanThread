@@ -26,6 +26,7 @@ export default defineConfig({
     "email-delivery-compliance.spec.ts",
     "stitching-profile-flow.spec.ts",
     "measurement-print-background.spec.ts",
+    "build-font-resilience.spec.ts",
   ],
   fullyParallel: true,
   workers: 1,
