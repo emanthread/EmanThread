@@ -177,8 +177,13 @@ function ensurePrintStyleInHead() {
         --brand: #023E8A !important;
       }
       body.tailor-printing .tailor-print-portal .a4-header,
+      body.tailor-printing .tailor-print-portal .a4-page,
+      body.tailor-printing .tailor-print-portal .a4-meta,
+      body.tailor-printing .tailor-print-portal .a4-card,
       body.tailor-printing .tailor-print-portal .a4-card h3,
+      body.tailor-printing .tailor-print-portal .a4-row,
       body.tailor-printing .tailor-print-portal .a4-label,
+      body.tailor-printing .tailor-print-portal .a4-entry,
       body.tailor-printing .tailor-print-portal .a4-pill,
       body.tailor-printing .tailor-print-portal .a4-subitem {
         background: #fff !important;

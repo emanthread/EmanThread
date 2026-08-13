@@ -68,7 +68,6 @@ import { Switch } from "@/components/ui/switch";
 import { apiFetch } from "@/lib/api-fetch";
 import { catalogVisibilityToggleBlockReason } from "@/lib/catalog-visibility";
 import {
-  catalogBannerDimensionsError,
   catalogBannerFileError,
   isAllowedCatalogBannerImage,
 } from "@/lib/catalog-banner";
@@ -262,25 +261,6 @@ function slugifyCatalogLabel(value: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
-}
-
-function loadCatalogBannerDimensions(
-  source: File | string
-): Promise<{ width: number; height: number }> {
-  return new Promise((resolve, reject) => {
-    const objectUrl = source instanceof File ? URL.createObjectURL(source) : null;
-    const image = new window.Image();
-
-    image.onload = () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-      resolve({ width: image.naturalWidth, height: image.naturalHeight });
-    };
-    image.onerror = () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-      reject(new Error("The banner image could not be loaded"));
-    };
-    image.src = objectUrl || (typeof source === "string" ? source : "");
-  });
 }
 
 const ROOT_CATALOG_PARENT = "__catalog_root__";
@@ -570,21 +550,14 @@ function CatalogTaxonomyManager({
     }));
   };
 
-  const validateBannerSource = async (source: string): Promise<string | null> => {
+  const validateBannerSource = (source: string): string | null => {
     const normalized = source.trim();
     if (!normalized) return null;
     if (!isAllowedCatalogBannerImage(normalized)) {
       return "Use a local image path or an approved Cloudinary/Unsplash HTTPS URL";
     }
 
-    try {
-      const dimensions = await loadCatalogBannerDimensions(normalized);
-      return catalogBannerDimensionsError(dimensions.width, dimensions.height);
-    } catch (error) {
-      return error instanceof Error
-        ? error.message
-        : "The banner image could not be loaded";
-    }
+    return null;
   };
 
   const uploadBanner = async (file: File) => {
@@ -592,27 +565,6 @@ function CatalogTaxonomyManager({
     if (fileError) {
       setBannerError(fileError);
       toast.error(fileError);
-      return;
-    }
-
-    try {
-      const dimensions = await loadCatalogBannerDimensions(file);
-      const dimensionsError = catalogBannerDimensionsError(
-        dimensions.width,
-        dimensions.height
-      );
-      if (dimensionsError) {
-        setBannerError(dimensionsError);
-        toast.error(dimensionsError);
-        return;
-      }
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "The banner image could not be loaded";
-      setBannerError(message);
-      toast.error(message);
       return;
     }
 
@@ -741,7 +693,7 @@ function CatalogTaxonomyManager({
     const bannerSourceError =
       draft.parentId === ROOT_CATALOG_PARENT
         ? null
-        : await validateBannerSource(draft.bannerImage);
+        : validateBannerSource(draft.bannerImage);
     setBannerError(bannerSourceError);
     if (bannerSourceError) {
       toast.error(bannerSourceError);
@@ -1152,10 +1104,8 @@ function CatalogTaxonomyManager({
                               : null
                           );
                         }}
-                        onBlur={async () => {
-                          const error = await validateBannerSource(
-                            draft.bannerImage
-                          );
+                        onBlur={() => {
+                          const error = validateBannerSource(draft.bannerImage);
                           setBannerError(error);
                         }}
                         placeholder="/images/collections/ready-to-wear.jpg or approved HTTPS URL"
@@ -1175,9 +1125,9 @@ function CatalogTaxonomyManager({
                       </p>
                     ) : (
                       <p className="text-xs text-muted-foreground">
-                        JPEG, PNG, or WebP; maximum 10 MB; minimum 1200 × 300px;
-                        3:1–4:1 aspect ratio. Uploaded images are saved to the
-                        existing media service.
+                        JPEG, PNG, or WebP; maximum 10 MB. Any image dimensions
+                        are accepted and automatically center-cropped to fit the
+                        responsive desktop and mobile banner frames.
                       </p>
                     )}
                   </div>

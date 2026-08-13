@@ -3,7 +3,6 @@ import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 import {
   CATALOG_BANNER_MAX_BYTES,
-  catalogBannerDimensionsError,
   catalogBannerFileError,
   isAllowedCatalogBannerImage,
 } from "../lib/catalog-banner";
@@ -47,15 +46,7 @@ test.describe("catalog subcategory banner admin", () => {
     ).toBe("Banner images must be 10 MB or smaller");
   });
 
-  test("requires a wide production banner rather than a square product image", () => {
-    expect(catalogBannerDimensionsError(1_200, 300)).toBeNull();
-    expect(catalogBannerDimensionsError(1_600, 500)).toBeNull();
-    expect(catalogBannerDimensionsError(1_000, 300)).toContain("at least");
-    expect(catalogBannerDimensionsError(1_200, 1_200)).toContain("3:1 and 4:1");
-    expect(catalogBannerDimensionsError(2_000, 300)).toContain("3:1 and 4:1");
-  });
-
-  test("provides upload, URL, crop previews, replace, clear, and alt text", () => {
+  test("accepts any image dimensions and shows automatic crop previews", () => {
     const admin = source(
       "app/admin/(dashboard)/catalog/catalog-assignment-client.tsx"
     );
@@ -64,6 +55,9 @@ test.describe("catalog subcategory banner admin", () => {
     expect(admin).toContain('formData.append("tags", "catalog-banner")');
     expect(admin).toContain("Desktop crop");
     expect(admin).toContain("Mobile crop");
+    expect(admin).toContain("Any image dimensions");
+    expect(admin).toContain('className="object-cover"');
+    expect(admin).not.toContain("catalogBannerDimensionsError");
     expect(admin).toContain("Replace image");
     expect(admin).toContain("Clear banner");
     expect(admin).toContain("Or paste an image URL");
