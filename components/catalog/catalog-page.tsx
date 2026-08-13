@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { CartDrawer } from "@/components/cart/cart-drawer";
+import { CartDrawer } from "@/components/cart/lazy-cart-drawer";
 import { CatalogFilters } from "@/components/catalog/catalog-filters";
 import { CatalogProductResults } from "@/components/catalog/catalog-product-results";
 import { Footer } from "@/components/layout/footer";

@@ -27,6 +27,7 @@ export default defineConfig({
     "stitching-profile-flow.spec.ts",
     "measurement-print-background.spec.ts",
     "build-font-resilience.spec.ts",
+    "storefront-performance.spec.ts",
   ],
   fullyParallel: true,
   workers: 1,

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { CartDrawer } from "@/components/cart/cart-drawer";
+import { CartDrawer } from "@/components/cart/lazy-cart-drawer";
 import { useAuthStore } from "@/lib/auth-store";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";

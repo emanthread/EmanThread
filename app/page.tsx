@@ -13,7 +13,7 @@ import { getHeroSlides } from "@/lib/db/store-config";
 // TrendingSection, PromoSection, NewArrivalsSection, TestimonialsSection:
 //   all below the fold — deferring them shrinks the initial JS bundle.
 const CartDrawer = dynamic(
-  () => import("@/components/cart/cart-drawer").then((m) => ({ default: m.CartDrawer })),
+  () => import("@/components/cart/lazy-cart-drawer").then((m) => ({ default: m.CartDrawer })),
   { loading: () => null }
 );
 

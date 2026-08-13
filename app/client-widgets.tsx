@@ -35,24 +35,23 @@ export function ClientWidgets() {
     // This dramatically improves Time to Interactive (TTI) for the main page content.
     const timer = setTimeout(() => setShouldMount(true), 3000)
     
-    // Also mount immediately if user interacts (scrolls, clicks, moves mouse)
+    // Mount immediately for an intentional interaction. Passive movement and
+    // scrolling no longer trigger four widget chunks during a critical mobile
+    // scroll frame; the short fallback still keeps every widget available.
     const handleInteraction = () => {
       setShouldMount(true)
       clearTimeout(timer)
-      window.removeEventListener('scroll', handleInteraction)
-      window.removeEventListener('mousemove', handleInteraction)
-      window.removeEventListener('touchstart', handleInteraction)
+      window.removeEventListener('pointerdown', handleInteraction)
+      window.removeEventListener('keydown', handleInteraction)
     }
 
-    window.addEventListener('scroll', handleInteraction, { passive: true })
-    window.addEventListener('mousemove', handleInteraction, { passive: true })
-    window.addEventListener('touchstart', handleInteraction, { passive: true })
+    window.addEventListener('pointerdown', handleInteraction, { passive: true, once: true })
+    window.addEventListener('keydown', handleInteraction, { once: true })
 
     return () => {
       clearTimeout(timer)
-      window.removeEventListener('scroll', handleInteraction)
-      window.removeEventListener('mousemove', handleInteraction)
-      window.removeEventListener('touchstart', handleInteraction)
+      window.removeEventListener('pointerdown', handleInteraction)
+      window.removeEventListener('keydown', handleInteraction)
     }
   }, [])
 

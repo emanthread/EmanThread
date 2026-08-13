@@ -85,7 +85,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
 
   return (
     <>
-      <div className="group relative overflow-hidden rounded-2xl shadow-md transition-all duration-500 hover:-translate-y-1 hover:scale-[1.02] hover:shadow-xl">
+      <div className="group relative overflow-hidden rounded-2xl shadow-md transition-shadow duration-300 lg:hover:-translate-y-1 lg:hover:scale-[1.02] lg:hover:shadow-xl lg:transition-transform">
         {/* Image Container */}
         <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-secondary">
           <Link href={`/product/${product.id}`} className="relative block h-full w-full" onClick={handleProductClick}>
@@ -235,13 +235,6 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
       {/* Quick View Modal */}
       <QuickViewModal product={product} isOpen={isQuickViewOpen} onClose={() => setIsQuickViewOpen(false)} />
 
-      {/* Shimmer animation keyframes */}
-      <style jsx global>{`
-        @keyframes shimmerSweep {
-          0% { background-position: -100% center; }
-          100% { background-position: 200% center; }
-        }
-      `}</style>
     </>
   );
 }

@@ -29,9 +29,11 @@ const HERO_DEPARTMENTS: { id: HeroDepartment; label: string }[] = [
 function HeroVideo({
   slide,
   isActive,
+  onReady,
 }: {
   slide: HeroSlide;
   isActive: boolean;
+  onReady?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -61,6 +63,7 @@ function HeroVideo({
       muted
       playsInline
       preload={isActive ? "auto" : "metadata"}
+      onCanPlay={isActive ? onReady : undefined}
       aria-label={slide.title}
       className="h-full w-full object-cover"
     />
@@ -72,6 +75,7 @@ export function HeroSection({ initialSlides, initialDepartment = "all", locked =
     useState<HeroDepartment>(initialDepartment);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [mediaPreloadReady, setMediaPreloadReady] = useState(false);
   const transitionTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const slides = useMemo(
@@ -108,6 +112,7 @@ export function HeroSection({ initialSlides, initialDepartment = "all", locked =
     (department: HeroDepartment) => {
       if (department === activeDepartment) return;
       transitionTo(() => {
+        setMediaPreloadReady(false);
         setActiveDepartment(department);
         setCurrentSlide(0);
       }, 250);
@@ -155,6 +160,17 @@ export function HeroSection({ initialSlides, initialDepartment = "all", locked =
     transitionTo(() => setCurrentSlide(index));
   };
 
+  // Only the active hero is present for first paint. Once it has loaded, keep
+  // the adjacent slides warm so transitions stay smooth without downloading
+  // every department/slide image on mobile.
+  const visibleSlideIndexes = new Set([displayedSlideIndex]);
+  if (mediaPreloadReady && slides.length > 1) {
+    visibleSlideIndexes.add((displayedSlideIndex + 1) % slides.length);
+    visibleSlideIndexes.add(
+      (displayedSlideIndex - 1 + slides.length) % slides.length,
+    );
+  }
+
   return (
     <section
       data-testid="hero-section"
@@ -162,6 +178,7 @@ export function HeroSection({ initialSlides, initialDepartment = "all", locked =
     >
       {/* Background image or video */}
       {slides.map((backgroundSlide, index) => {
+        if (!visibleSlideIndexes.has(index)) return null;
         const isActive = displayedSlideIndex === index;
         const isVideo = backgroundSlide.mediaType === "video" && backgroundSlide.videoUrl;
 
@@ -174,16 +191,23 @@ export function HeroSection({ initialSlides, initialDepartment = "all", locked =
             )}
           >
             {isVideo ? (
-              <HeroVideo slide={backgroundSlide} isActive={isActive} />
+              <HeroVideo
+                slide={backgroundSlide}
+                isActive={isActive}
+                onReady={() => setMediaPreloadReady(true)}
+              />
             ) : backgroundSlide.image ? (
               <Image
                 src={backgroundSlide.image}
                 alt={backgroundSlide.title}
                 fill
-                priority={index === 0 && activeDepartment === "all"}
-                loading={index === 0 && activeDepartment === "all" ? undefined : "lazy"}
+                priority={isActive && index === 0}
+                loading={isActive && index === 0 ? undefined : "lazy"}
                 sizes="100vw"
                 className="object-cover"
+                onLoad={() => {
+                  if (isActive) setMediaPreloadReady(true);
+                }}
               />
             ) : null}
             <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/55 to-black/20" />

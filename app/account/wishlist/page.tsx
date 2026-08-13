@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { getProductImage } from "@/lib/utils";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { CartDrawer } from "@/components/cart/cart-drawer";
+import { CartDrawer } from "@/components/cart/lazy-cart-drawer";
 import { ProductCard } from "@/components/product/product-card";
 import { WishlistAddToCart, type WishlistProductResolution } from "@/components/product/wishlist-add-to-cart";
 import { useWishlistStore } from "@/lib/wishlist-store";

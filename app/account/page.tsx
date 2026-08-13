@@ -21,7 +21,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { CartDrawer } from "@/components/cart/cart-drawer";
+import { CartDrawer } from "@/components/cart/lazy-cart-drawer";
 import { useAuthStore } from "@/lib/auth-store";
 
 interface OrderStats {

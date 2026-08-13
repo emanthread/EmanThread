@@ -205,7 +205,7 @@ export function CatalogProductResults({
             <ProductCard
               key={product.id}
               product={product}
-              priority={index < 4}
+              priority={index < 2}
             />
           ))}
         </div>

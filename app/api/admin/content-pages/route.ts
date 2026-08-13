@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import sanitizeHtml from "sanitize-html"; // A3.4
 import { requireAdminApiAccess } from "@/lib/admin-route-guard";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,14 @@ const contentKeys = [
 ] as const;
 
 type ContentKey = (typeof contentKeys)[number];
+
+const contentPathByKey: Record<ContentKey, string> = {
+  shipping_content: "/shipping",
+  returns_content: "/returns",
+  size_guide_content: "/size-guide",
+  about_content: "/about",
+  story_content: "/story",
+};
 
 const updateSchema = z.object({
   key: z.enum(contentKeys),
@@ -62,6 +71,9 @@ export async function PUT(request: Request) {
       create: { key, value: sanitized },
       update: { value: sanitized },
     });
+
+    revalidateTag("content-pages", { expire: 0 });
+    revalidatePath(contentPathByKey[key], "page");
 
     return NextResponse.json({ success: true });
   } catch (error) {

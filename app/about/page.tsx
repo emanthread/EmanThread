@@ -1,10 +1,10 @@
 import Image from "next/image";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { CartDrawer } from "@/components/cart/cart-drawer";
+import { CartDrawer } from "@/components/cart/lazy-cart-drawer";
 import { getContentPage } from "@/lib/content-pages";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 export default async function AboutPage() {
   const content = await getContentPage("about_content");

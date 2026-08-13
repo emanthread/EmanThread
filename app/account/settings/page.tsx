@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { CartDrawer } from "@/components/cart/cart-drawer";
+import { CartDrawer } from "@/components/cart/lazy-cart-drawer";
 import { useAuthStore } from "@/lib/auth-store";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";

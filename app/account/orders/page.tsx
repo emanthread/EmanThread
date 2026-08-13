@@ -28,7 +28,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { CartDrawer } from "@/components/cart/cart-drawer";
+import { CartDrawer } from "@/components/cart/lazy-cart-drawer";
 import { useAuthStore } from "@/lib/auth-store";
 import { formatPrice } from "@/lib/data";
 import { cn } from "@/lib/utils";

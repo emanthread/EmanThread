@@ -1,6 +1,6 @@
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { CartDrawer } from "@/components/cart/cart-drawer";
+import { CartDrawer } from "@/components/cart/lazy-cart-drawer";
 import { SizeGuideTemplateGallery } from "@/components/size-guide/size-guide-template";
 import { Button } from "@/components/ui/button";
 import { getContentPage } from "@/lib/content-pages";

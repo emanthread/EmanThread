@@ -328,6 +328,13 @@
   0%   { transform: translateX(-150%) skewX(-15deg); }
   100% { transform: translateX(350%)  skewX(-15deg); }
 }
+
+/* Shared by every product card; keeping one global definition avoids emitting
+   an identical style element for each card in large catalog grids. */
+@keyframes shimmerSweep {
+  0%   { background-position: -100% center; }
+  100% { background-position: 200% center; }
+}
 .shimmer-badge { position: relative; overflow: hidden; }
 .shimmer-badge::after {
   content: '';

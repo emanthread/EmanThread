@@ -33,7 +33,12 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json(links);
+    return NextResponse.json(links, {
+      headers: {
+        "Cache-Control":
+          "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
+      },
+    });
   } catch (error) {
     console.error("Get social links error:", error);
     return NextResponse.json(

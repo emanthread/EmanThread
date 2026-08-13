@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 
 export function TrendingSection({ products }: { products: Product[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const animationFrameRef = useRef<number | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
 
@@ -17,19 +18,33 @@ export function TrendingSection({ products }: { products: Product[] }) {
     (p) => p.badge === "Trending" || p.badge === "Hot"
   );
 
-  const checkScrollability = () => {
-    if (scrollRef.current) {
+  const checkScrollability = useCallback(() => {
+    if (animationFrameRef.current !== null) return;
+    animationFrameRef.current = window.requestAnimationFrame(() => {
+      animationFrameRef.current = null;
+      if (!scrollRef.current) return;
       const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-      setCanScrollLeft(scrollLeft > 0);
-      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
-    }
-  };
+      const nextCanScrollLeft = scrollLeft > 0;
+      const nextCanScrollRight = scrollLeft < scrollWidth - clientWidth - 10;
+      setCanScrollLeft((current) =>
+        current === nextCanScrollLeft ? current : nextCanScrollLeft,
+      );
+      setCanScrollRight((current) =>
+        current === nextCanScrollRight ? current : nextCanScrollRight,
+      );
+    });
+  }, []);
 
   useEffect(() => {
     checkScrollability();
     window.addEventListener("resize", checkScrollability);
-    return () => window.removeEventListener("resize", checkScrollability);
-  }, []);
+    return () => {
+      window.removeEventListener("resize", checkScrollability);
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [checkScrollability]);
 
   const scroll = (direction: "left" | "right") => {
     if (scrollRef.current) {

@@ -8,6 +8,9 @@ import { withSentryConfig } from "@sentry/nextjs";
 let nextConfig = {
   // TypeScript strict mode enabled
 
+  // Avoid sending framework identification on every response.
+  poweredByHeader: false,
+
   // ── USB / LAN mobile debugging ────────────────────────────────────────────
   // Allows the phone connected via USB (or same WiFi) to receive HMR updates.
   // Next.js 16 blocks cross-origin dev resources by default for security.
@@ -60,7 +63,30 @@ let nextConfig = {
 
   // ── HTTP cache headers ────────────────────────────────────────────────────
   async headers() {
+    const reusablePublicAssetHeaders = [
+      {
+        key: 'Cache-Control',
+        value: 'public, max-age=604800, stale-while-revalidate=2592000',
+      },
+    ];
+    const reusablePublicAssets = [
+      '/logo.jpg',
+      '/logo.png',
+      '/logo-circle.jpg',
+      '/logo-circle.png',
+      '/favicon.ico',
+      '/favicon-32.png',
+      '/favicon-192.png',
+      '/manifest.json',
+      '/icons/:path*',
+      '/size-guides/:path*',
+    ];
+
     return [
+      ...reusablePublicAssets.map((source) => ({
+        source,
+        headers: reusablePublicAssetHeaders,
+      })),
       {
         // Public images served from /public/images
         source: '/images/(.*)',

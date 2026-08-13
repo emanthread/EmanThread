@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -30,7 +31,6 @@ import {
 import { useCartStore } from "@/lib/cart-store";
 import { useWishlistStore } from "@/lib/wishlist-store";
 import { useAuthStore } from "@/lib/auth-store";
-import { SearchModal } from "@/components/search/search-modal";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
@@ -43,6 +43,28 @@ import { CatalogHeaderMenu } from "./catalog-header-menu";
 import { CatalogMobileMenu } from "./catalog-mobile-menu";
 import { StitchingNoticeBanner } from "./stitching-notice-banner";
 import catalogStyles from "./catalog-header-menu.module.css";
+
+const SearchModal = dynamic(
+  () => import("@/components/search/search-modal").then((module) => module.SearchModal),
+  { ssr: false, loading: () => null },
+);
+
+/** Load search only after first use, then keep it mounted across reopenings. */
+function DeferredSearchModal({
+  isOpen,
+  onClose,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+}) {
+  const [hasOpened, setHasOpened] = useState(isOpen);
+
+  useEffect(() => {
+    if (isOpen) setHasOpened(true);
+  }, [isOpen]);
+
+  return hasOpened ? <SearchModal isOpen={isOpen} onClose={onClose} /> : null;
+}
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -81,12 +103,24 @@ function LegacyHeader() {
   }, []);
 
   useEffect(() => {
+    let animationFrame = 0;
+    const updateScrollState = () => {
+      animationFrame = 0;
+      const next = window.scrollY > 50;
+      setIsScrolled((current) => (current === next ? current : next));
+    };
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
+      if (!animationFrame) {
+        animationFrame = window.requestAnimationFrame(updateScrollState);
+      }
     };
 
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    updateScrollState();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+    };
   }, []);
 
   // Keyboard shortcut for search
@@ -366,7 +400,7 @@ function LegacyHeader() {
       </header>
 
       {/* Search Modal */}
-      <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+      <DeferredSearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
 
       {/* Mobile Menu */}
       <div
@@ -552,10 +586,24 @@ function CatalogHeaderV1() {
   }, []);
 
   useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 24);
-    handleScroll();
+    let animationFrame = 0;
+    const updateScrollState = () => {
+      animationFrame = 0;
+      const next = window.scrollY > 24;
+      setIsScrolled((current) => (current === next ? current : next));
+    };
+    const handleScroll = () => {
+      if (!animationFrame) {
+        animationFrame = window.requestAnimationFrame(updateScrollState);
+      }
+    };
+
+    updateScrollState();
     window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+    };
   }, []);
 
   // Hero mode: homepage + not scrolled → transparent navbar overlapping hero
@@ -853,7 +901,7 @@ function CatalogHeaderV1() {
         />
       ) : null}
 
-      <SearchModal
+      <DeferredSearchModal
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
       />

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { notFound, useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { CartDrawer } from "@/components/cart/cart-drawer";
+import { CartDrawer } from "@/components/cart/lazy-cart-drawer";
 import { ProductCard } from "@/components/product/product-card";
 import { ProductOptionPicker } from "@/components/product/product-option-picker";
 import { SizeGuideModal } from "@/components/product/size-guide-modal";

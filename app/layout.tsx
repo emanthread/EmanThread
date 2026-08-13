@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
-import { unstable_cache } from "next/cache";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthSync } from "@/components/auth-sync";
 import { ClientWidgets } from "@/app/client-widgets";
@@ -104,13 +103,9 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Cache store config for 1 hour — GA/Pixel IDs don't change at runtime
-  const getCachedStoreConfig = unstable_cache(
-    () => getStoreConfig(),
-    ["root-layout-store-config"],
-    { revalidate: 3600 }
-  );
-  const config = await getCachedStoreConfig();
+  // getStoreConfig owns its cache tag and invalidation policy. A second cache
+  // here could retain stale analytics/settings values after an admin update.
+  const config = await getStoreConfig();
   const { googleAnalyticsId, facebookPixelId } = config;
 
   return (

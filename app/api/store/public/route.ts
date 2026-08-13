@@ -10,21 +10,29 @@ export const GET = withGuard(async () => {
   try {
     const config = await getStoreConfig();
 
-    return NextResponse.json({
-      name: config.name,
-      tagline: config.tagline,
-      email: config.email,
-      phone: config.phone,
-      whatsappNumber: config.whatsappNumber,
-      address: config.address,
-      currency: config.currency,
-      timezone: config.timezone,
-      freeShippingThreshold: config.freeShippingThreshold,
-      standardShippingRate: config.standardShippingRate,
-      expressShippingRate: config.expressShippingRate,
-      enableCOD: config.enableCOD,
-      stitchingNotice: config.stitchingNotice,
-    });
+    return NextResponse.json(
+      {
+        name: config.name,
+        tagline: config.tagline,
+        email: config.email,
+        phone: config.phone,
+        whatsappNumber: config.whatsappNumber,
+        address: config.address,
+        currency: config.currency,
+        timezone: config.timezone,
+        freeShippingThreshold: config.freeShippingThreshold,
+        standardShippingRate: config.standardShippingRate,
+        expressShippingRate: config.expressShippingRate,
+        enableCOD: config.enableCOD,
+        stitchingNotice: config.stitchingNotice,
+      },
+      {
+        headers: {
+          "Cache-Control":
+            "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
+        },
+      },
+    );
   } catch (error) {
     console.error("Get public store config error:", error);
     return NextResponse.json(

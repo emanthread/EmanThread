@@ -63,8 +63,8 @@ export function CategoriesSection({
                   alt={category.name}
                   fill
                   sizes={index === 0
-                    ? "(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 33vw"
-                    : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    ? "(max-width: 639px) 50vw, (max-width: 1023px) 100vw, 33vw"
+                    : "(max-width: 1023px) 50vw, 33vw"
                   }
                   className="object-cover transition-transform duration-700 group-hover:scale-110"
                 />
@@ -100,7 +100,7 @@ export function CategoriesSection({
                   src={category.image}
                   alt={category.name}
                   fill
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  sizes="(max-width: 1023px) 50vw, 33vw"
                   className="object-cover transition-transform duration-700 group-hover:scale-110"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-foreground/70 via-foreground/20 to-transparent" />

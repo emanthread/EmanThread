@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { unstable_cache } from "next/cache";
 
 const contentKeys = [
   "shipping_content",
@@ -10,7 +11,7 @@ const contentKeys = [
 
 export type ContentPageKey = (typeof contentKeys)[number];
 
-export async function getContentPage(key: ContentPageKey): Promise<string | null> {
+const getCachedContentPage = unstable_cache(async (key: ContentPageKey) => {
   try {
     const config = await prisma.storeConfig.findUnique({
       where: { key },
@@ -19,4 +20,8 @@ export async function getContentPage(key: ContentPageKey): Promise<string | null
   } catch {
     return null;
   }
+}, ["content-page"], { revalidate: 3600, tags: ["content-pages"] });
+
+export async function getContentPage(key: ContentPageKey): Promise<string | null> {
+  return getCachedContentPage(key);
 }
