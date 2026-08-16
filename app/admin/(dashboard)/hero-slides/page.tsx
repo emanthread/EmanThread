@@ -88,6 +88,7 @@ function ImageUploader({
             src={currentImage}
             alt="Preview"
             fill
+            sizes="(max-width: 640px) calc(100vw - 3rem), 640px"
             className="object-cover"
           />
         ) : (

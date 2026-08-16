@@ -29,4 +29,20 @@ test.describe("admin measurement print background", () => {
     expect(printCard).toContain(".tailor-print-portal .a4-entry");
     expect(printCard).toContain("background: #fff !important;");
   });
+
+  test("keeps the exact A6 geometry while improving monochrome print clarity", () => {
+    const printCard = source("components/admin/tailor-print-card.tsx");
+
+    expect(printCard).toContain("@page { size: 105mm 148mm; margin: 0; }");
+    expect(printCard).toContain("width: 105mm !important;");
+    expect(printCard).toContain("height: 148.5mm !important;");
+    expect(printCard).toContain("transform: scale(0.5) !important;");
+    expect(printCard).toContain("transform-origin: top left !important;");
+
+    expect(printCard).toContain("/* A6 print clarity only. Keep the page, scale, spacing and geometry above unchanged. */");
+    expect(printCard).toContain("--ink: #000 !important;");
+    expect(printCard).toContain("font-family: Arial, Helvetica, sans-serif !important;");
+    expect(printCard).toContain("-webkit-text-fill-color: #000 !important;");
+    expect(printCard).toContain(".a4-box.disabled");
+  });
 });

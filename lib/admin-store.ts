@@ -67,6 +67,8 @@ export interface AdminProduct {
     label: string;
     path: string;
   };
+  /** Total normalized catalog assignments, including the primary assignment. */
+  catalogPlacementCount?: number;
   usesVariantInventory?: boolean;
   lowStockVariantCount?: number;
   description: string;
@@ -84,6 +86,18 @@ export interface ProductListStats {
   inStock: number;
   lowStock: number;
   outOfStock: number;
+}
+
+export interface AdminProductLoadOptions {
+  page?: number;
+  limit?: number;
+  search?: string;
+  /** Legacy Product.fabricType filter. */
+  fabricType?: string;
+  /** Normalized CatalogNode filter; parent nodes include descendants server-side. */
+  catalogNodeId?: string;
+  stock?: string;
+  signal?: AbortSignal;
 }
 
 export interface Discount {
@@ -248,7 +262,7 @@ interface AdminState {
 
   // Loaders
   loadOrders: (status?: string, page?: number, limit?: number, search?: string) => Promise<void>;
-  loadProducts: (page?: number, limit?: number, search?: string, category?: string, stock?: string, signal?: AbortSignal) => Promise<boolean>;
+  loadProducts: (options?: AdminProductLoadOptions) => Promise<boolean>;
   loadCustomers: () => Promise<void>;
   loadStats: () => Promise<void>;
   /** Fetches alert counts from /api/admin/alerts — shared between layout & dashboard */
@@ -401,13 +415,25 @@ export const useAdminStore = create<AdminState>()(
         }
       },
 
-      loadProducts: async (page = 1, limit = 50, search = "", category = "", stock = "", signal?: AbortSignal) => {
+      loadProducts: async (options: AdminProductLoadOptions = {}) => {
+        const {
+          page = 1,
+          limit = 50,
+          search = "",
+          fabricType = "",
+          catalogNodeId = "",
+          stock = "",
+          signal,
+        } = options;
         try {
           const url = new URL("/api/admin/products", window.location.origin);
           url.searchParams.set("page", page.toString());
           url.searchParams.set("limit", limit.toString());
           if (search) url.searchParams.set("search", search);
-          if (category && category !== "all") url.searchParams.set("category", category);
+          if (fabricType && fabricType !== "all") url.searchParams.set("category", fabricType);
+          if (catalogNodeId && catalogNodeId !== "all") {
+            url.searchParams.set("catalogNodeId", catalogNodeId);
+          }
           if (stock && stock !== "all") url.searchParams.set("stock", stock);
 
           const res = await adminFetch(url.toString(), { signal });

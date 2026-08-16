@@ -5,6 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   AlertTriangle,
+  Check,
+  ChevronsUpDown,
   Copy,
   Download,
   Edit,
@@ -19,10 +21,12 @@ import {
 import { toast } from "sonner";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useAdminStore, type AdminProduct } from "@/lib/admin-store";
+import { useShallow } from "zustand/react/shallow";
 import { useAuthStore } from "@/lib/auth-store";
 import { adminFetch } from "@/lib/admin-fetch";
 import { catalogPathBreadcrumb } from "@/lib/catalog-product-classification";
 import { formatPrice } from "@/lib/data";
+import { FEATURE_FLAGS } from "@/lib/feature-flags";
 import { hasPermission, Permission } from "@/lib/permissions";
 import { cn, getProductImage } from "@/lib/utils";
 import {
@@ -39,6 +43,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   Dialog,
   DialogContent,
@@ -57,6 +68,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -67,6 +83,14 @@ import {
 const PAGE_SIZE = 50;
 type StockFilter = "all" | "in-stock" | "low-stock" | "out-of-stock";
 
+type CatalogFilterNode = {
+  id: string;
+  label: string;
+  path: string;
+  isActive: boolean;
+  isVisible: boolean;
+};
+
 function csvCell(value: string | number | undefined) {
   const text = String(value ?? "");
   return `"${text.replaceAll('"', '""')}"`;
@@ -76,7 +100,32 @@ function categoryLabel(product: AdminProduct) {
   if (product.primaryCatalogCategory?.path) {
     return catalogPathBreadcrumb(product.primaryCatalogCategory.path);
   }
-  return product.fabricType || "Not assigned";
+  return product.fabricType
+    ? `Legacy fabric: ${product.fabricType}`
+    : "Not assigned";
+}
+
+function catalogFilterBreadcrumb(
+  node: CatalogFilterNode,
+  nodes: CatalogFilterNode[]
+): string {
+  const labelsByPath = new Map(nodes.map((item) => [item.path, item.label]));
+  let currentPath = "";
+  return node.path
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => {
+      currentPath += `/${segment}`;
+      return (
+        labelsByPath.get(currentPath) || catalogPathBreadcrumb(`/${segment}`)
+      );
+    })
+    .join(" → ");
+}
+
+function additionalCatalogPlacements(product: AdminProduct): number {
+  const primaryCount = product.primaryCatalogCategory ? 1 : 0;
+  return Math.max(0, (product.catalogPlacementCount || 0) - primaryCount);
 }
 
 export default function ProductListPage({
@@ -93,7 +142,18 @@ export default function ProductListPage({
     loadProducts,
     updateProductStock,
     deleteProduct,
-  } = useAdminStore();
+  } = useAdminStore(
+    useShallow((state) => ({
+      products: state.products,
+      productsTotal: state.productsTotal,
+      productStats: state.productStats,
+      productsPage: state.productsPage,
+      productsTotalPages: state.productsTotalPages,
+      loadProducts: state.loadProducts,
+      updateProductStock: state.updateProductStock,
+      deleteProduct: state.deleteProduct,
+    }))
+  );
   const user = useAuthStore((state) => state.user);
   const canManageProducts = Boolean(
     user &&
@@ -103,8 +163,11 @@ export default function ProductListPage({
   const [fabricTypes, setFabricTypes] = useState<
     { id: string; name: string; isActive: boolean }[]
   >([]);
+  const [catalogNodes, setCatalogNodes] = useState<CatalogFilterNode[]>([]);
+  const [isCatalogFilterOpen, setIsCatalogFilterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [fabricFilter, setFabricFilter] = useState("all");
+  const [catalogNodeFilter, setCatalogNodeFilter] = useState("all");
   const [stockFilter, setStockFilter] =
     useState<StockFilter>(initialStockFilter);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
@@ -123,6 +186,20 @@ export default function ProductListPage({
     () => products.filter((product) => !product.usesVariantInventory),
     [products]
   );
+  const selectedCatalogNode = useMemo(
+    () => catalogNodes.find((node) => node.id === catalogNodeFilter),
+    [catalogNodeFilter, catalogNodes]
+  );
+  const catalogNodeLabels = useMemo(
+    () =>
+      new Map(
+        catalogNodes.map((node) => [
+          node.id,
+          catalogFilterBreadcrumb(node, catalogNodes),
+        ])
+      ),
+    [catalogNodes]
+  );
 
   useEffect(() => {
     setStockFilter(initialStockFilter);
@@ -139,64 +216,108 @@ export default function ProductListPage({
     setFabricTypes(data);
   }, []);
 
+  const loadCatalogNodes = useCallback(async (signal?: AbortSignal) => {
+    if (!FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1) {
+      setCatalogNodes([]);
+      setCatalogNodeFilter("all");
+      return;
+    }
+
+    const response = await adminFetch(
+      "/api/admin/catalog/nodes?active=true&visible=all&limit=1000",
+      { signal }
+    );
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !Array.isArray(data?.nodes)) {
+      throw new Error(data?.error || "Failed to load catalog filters");
+    }
+    const nextNodes = data.nodes as CatalogFilterNode[];
+    setCatalogNodes(nextNodes);
+    setCatalogNodeFilter((current) =>
+      current === "all" || nextNodes.some((node) => node.id === current)
+        ? current
+        : "all"
+    );
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
-    void loadFabricTypes(controller.signal).catch((error) => {
+    void Promise.all([
+      loadFabricTypes(controller.signal),
+      loadCatalogNodes(controller.signal),
+    ]).catch((error) => {
       if (error instanceof DOMException && error.name === "AbortError") return;
       toast.error(
         error instanceof Error ? error.message : "Failed to load filters"
       );
     });
     return () => controller.abort();
-  }, [loadFabricTypes]);
+  }, [loadCatalogNodes, loadFabricTypes]);
 
   useEffect(() => {
     const controller = new AbortController();
-    void loadProducts(
-      1,
-      PAGE_SIZE,
-      debouncedSearch,
-      fabricFilter,
-      stockFilter,
-      controller.signal
-    );
+    void loadProducts({
+      page: 1,
+      limit: PAGE_SIZE,
+      search: debouncedSearch,
+      fabricType: fabricFilter,
+      catalogNodeId: catalogNodeFilter,
+      stock: stockFilter,
+      signal: controller.signal,
+    });
     setSelectedProducts([]);
     return () => controller.abort();
-  }, [loadProducts, debouncedSearch, fabricFilter, stockFilter]);
+  }, [
+    loadProducts,
+    debouncedSearch,
+    fabricFilter,
+    catalogNodeFilter,
+    stockFilter,
+  ]);
 
   const reloadCurrentPage = useCallback(async () => {
-    const loaded = await loadProducts(
-      productsPage,
-      PAGE_SIZE,
-      debouncedSearch,
-      fabricFilter,
-      stockFilter
-    );
+    const loaded = await loadProducts({
+      page: productsPage,
+      limit: PAGE_SIZE,
+      search: debouncedSearch,
+      fabricType: fabricFilter,
+      catalogNodeId: catalogNodeFilter,
+      stock: stockFilter,
+    });
     if (!loaded) return false;
 
     const latest = useAdminStore.getState();
     const lastValidPage = Math.max(1, latest.productsTotalPages);
     if (latest.productsPage > lastValidPage) {
-      return loadProducts(
-        lastValidPage,
-        PAGE_SIZE,
-        debouncedSearch,
-        fabricFilter,
-        stockFilter
-      );
+      return loadProducts({
+        page: lastValidPage,
+        limit: PAGE_SIZE,
+        search: debouncedSearch,
+        fabricType: fabricFilter,
+        catalogNodeId: catalogNodeFilter,
+        stock: stockFilter,
+      });
     }
     return true;
-  }, [loadProducts, productsPage, debouncedSearch, fabricFilter, stockFilter]);
+  }, [
+    loadProducts,
+    productsPage,
+    debouncedSearch,
+    fabricFilter,
+    catalogNodeFilter,
+    stockFilter,
+  ]);
 
   const handlePageChange = async (page: number) => {
     setSelectedProducts([]);
-    await loadProducts(
+    await loadProducts({
       page,
-      PAGE_SIZE,
-      debouncedSearch,
-      fabricFilter,
-      stockFilter
-    );
+      limit: PAGE_SIZE,
+      search: debouncedSearch,
+      fabricType: fabricFilter,
+      catalogNodeId: catalogNodeFilter,
+      stock: stockFilter,
+    });
   };
 
   const handleRefresh = async () => {
@@ -205,6 +326,7 @@ export default function ProductListPage({
       const [productsLoaded] = await Promise.all([
         reloadCurrentPage(),
         loadFabricTypes(),
+        loadCatalogNodes(),
       ]);
       if (!productsLoaded) return;
       toast.success("Products refreshed");
@@ -301,12 +423,21 @@ export default function ProductListPage({
 
   const handleExportProducts = () => {
     const rows = [
-      ["Product ID", "Name", "SKU", "Category", "Price", "Stock"],
+      [
+        "Product ID",
+        "Name",
+        "SKU",
+        "Primary Category",
+        "Catalog Placements",
+        "Price",
+        "Stock",
+      ],
       ...products.map((product) => [
         product.id,
         product.name,
         product.sku,
         categoryLabel(product),
+        product.catalogPlacementCount || 0,
         product.price,
         product.stockQuantity,
       ]),
@@ -438,6 +569,89 @@ export default function ProductListPage({
                 ))}
               </SelectContent>
             </Select>
+            {FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1 && (
+              <Popover
+                open={isCatalogFilterOpen}
+                onOpenChange={setIsCatalogFilterOpen}
+              >
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    aria-label="Filter by catalog category"
+                    aria-expanded={isCatalogFilterOpen}
+                    className="w-full justify-between font-normal sm:w-64"
+                  >
+                    <span className="truncate">
+                      {selectedCatalogNode
+                        ? catalogNodeLabels.get(selectedCatalogNode.id)
+                        : "All catalog categories"}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  className="w-[min(24rem,calc(100vw-2rem))] p-0"
+                >
+                  <Command>
+                    <CommandInput placeholder="Search catalog categories..." />
+                    <CommandList>
+                      <CommandEmpty>No catalog category found.</CommandEmpty>
+                      <CommandItem
+                        value="all catalog categories"
+                        onSelect={() => {
+                          setCatalogNodeFilter("all");
+                          setIsCatalogFilterOpen(false);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "h-4 w-4",
+                            catalogNodeFilter === "all"
+                              ? "opacity-100"
+                              : "opacity-0"
+                          )}
+                        />
+                        All catalog categories
+                      </CommandItem>
+                      {catalogNodes.map((node) => {
+                        const breadcrumb =
+                          catalogNodeLabels.get(node.id) || node.label;
+                        return (
+                          <CommandItem
+                            key={node.id}
+                            value={`${breadcrumb} ${node.path}`}
+                            onSelect={() => {
+                              setCatalogNodeFilter(node.id);
+                              setIsCatalogFilterOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "h-4 w-4",
+                                catalogNodeFilter === node.id
+                                  ? "opacity-100"
+                                  : "opacity-0"
+                              )}
+                            />
+                            <span className="min-w-0 flex-1 truncate">
+                              {breadcrumb}
+                            </span>
+                            {!node.isVisible && (
+                              <Badge variant="outline" className="shrink-0">
+                                Hidden
+                              </Badge>
+                            )}
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            )}
             <Select
               value={stockFilter}
               onValueChange={(value) => setStockFilter(value as StockFilter)}
@@ -531,7 +745,7 @@ export default function ProductListPage({
                   )}
                   <th className="p-4 text-left text-sm font-medium">Product</th>
                   <th className="hidden p-4 text-left text-sm font-medium md:table-cell">
-                    Category
+                    Primary category
                   </th>
                   <th className="p-4 text-left text-sm font-medium">Price</th>
                   <th className="p-4 text-left text-sm font-medium">Stock</th>
@@ -594,9 +808,23 @@ export default function ProductListPage({
                         </div>
                       </td>
                       <td className="hidden max-w-xs p-4 text-sm md:table-cell">
-                        <span className="line-clamp-2">
-                          {categoryLabel(product)}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="line-clamp-2">
+                            {categoryLabel(product)}
+                          </span>
+                          {additionalCatalogPlacements(product) > 0 && (
+                            <Badge
+                              variant="outline"
+                              className="whitespace-nowrap font-normal"
+                              title={`${product.catalogPlacementCount} total catalog placements`}
+                            >
+                              +{additionalCatalogPlacements(product)} placement
+                              {additionalCatalogPlacements(product) === 1
+                                ? ""
+                                : "s"}
+                            </Badge>
+                          )}
+                        </div>
                       </td>
                       <td className="p-4">
                         <p className="font-medium">

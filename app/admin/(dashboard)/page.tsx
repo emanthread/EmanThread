@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -24,7 +24,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -33,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAdminStore } from "@/lib/admin-store";
+import { useShallow } from "zustand/react/shallow";
 import { formatPrice } from "@/lib/data";
 import { cn, getProductImage } from "@/lib/utils";
 
@@ -49,7 +49,6 @@ export default function AdminDashboard() {
   const {
     stats,
     statsError,
-    products,
     revenueOverview,
     topProducts,
     alertCounts,
@@ -60,18 +59,46 @@ export default function AdminDashboard() {
     loadLowStockProducts,
     loadRevenueOverview,
     loadTopProducts,
-  } = useAdminStore();
+  } = useAdminStore(
+    useShallow((state) => ({
+      stats: state.stats,
+      statsError: state.statsError,
+      revenueOverview: state.revenueOverview,
+      topProducts: state.topProducts,
+      alertCounts: state.alertCounts,
+      recentOrders: state.recentOrders,
+      lowStockProducts: state.lowStockProducts,
+      loadStats: state.loadStats,
+      loadRecentOrders: state.loadRecentOrders,
+      loadLowStockProducts: state.loadLowStockProducts,
+      loadRevenueOverview: state.loadRevenueOverview,
+      loadTopProducts: state.loadTopProducts,
+    }))
+  );
 
   const [timeRange, setTimeRange] = useState("7d");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
   useEffect(() => {
-    const loadDashboard = async () => {
-      await Promise.all([loadStats(), loadRecentOrders()]);
-      await Promise.all([loadTopProducts(), loadLowStockProducts()]);
+    void Promise.all([loadStats(), loadRecentOrders()]);
+
+    // The product rankings and stock list sit below the initial viewport.
+    // Load them when the browser is idle so the summary cards stay responsive
+    // on lower-powered admin phones without removing any dashboard data.
+    const loadSecondary = () => {
+      void Promise.all([loadTopProducts(), loadLowStockProducts()]);
     };
-    void loadDashboard();
+    const idleWindow = window as unknown as {
+      requestIdleCallback?: (callback: () => void, options: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    if (idleWindow.requestIdleCallback) {
+      const idleId = idleWindow.requestIdleCallback(loadSecondary, { timeout: 1200 });
+      return () => idleWindow.cancelIdleCallback?.(idleId);
+    }
+    const timer = globalThis.setTimeout(loadSecondary, 250);
+    return () => globalThis.clearTimeout(timer);
   }, [loadStats, loadTopProducts, loadRecentOrders, loadLowStockProducts]);
 
   useEffect(() => {
@@ -80,17 +107,12 @@ export default function AdminDashboard() {
     }
   }, [timeRange, loadRevenueOverview]);
 
-  const handleCustomDate = useCallback(() => {
-    setTimeRange("custom");
-    loadRevenueOverview("7d"); // fall back to 7d for the chart since revenue API doesn't support custom dates
-  }, [loadRevenueOverview]);
-
   // Real-time dashboard: alert counts are refreshed by layout.tsx's 30s polling loop.
   // Analytics (revenue/orders/customers) polled separately every 5 minutes — no race condition
   // since alert counts no longer come from /api/admin/analytics.
   useEffect(() => {
     const interval = setInterval(() => {
-      loadStats();
+      if (document.visibilityState === "visible") void loadStats();
     }, 300000); // 5-minute refresh — analytics are slow-moving (revenue/customers/reviews)
     return () => clearInterval(interval);
   }, [loadStats]);
@@ -547,6 +569,7 @@ export default function AdminDashboard() {
                               src={item.productImage}
                               alt={item.productName}
                               fill
+                              sizes="32px"
                               className="object-cover"
                             />
                           </div>
@@ -610,6 +633,7 @@ export default function AdminDashboard() {
                       src={getProductImage(product.images)}
                       alt={product.name}
                       fill
+                      sizes="48px"
                       className="object-cover"
                     />
                   </div>

@@ -230,6 +230,7 @@ export default function AdminReviewsPage() {
                                 src={images[0]}
                                 alt={review.product.name}
                                 fill
+                                sizes="40px"
                                 className="object-cover"
                               />
                             )}

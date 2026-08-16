@@ -50,11 +50,11 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuthStore } from "@/lib/auth-store";
 import { useAlertDismissals } from "@/hooks/use-alert-dismissals";
 import { useAdminStore } from "@/lib/admin-store";
 import type { AlertCounts } from "@/lib/admin-store";
+import { useShallow } from "zustand/react/shallow";
 import { useAdminPushNotifications } from "@/hooks/use-admin-push-notifications";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
@@ -184,9 +184,18 @@ function AdminLayoutContent({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, logout } = useAuthStore();
+  const { user, logout } = useAuthStore(
+    useShallow((state) => ({ user: state.user, logout: state.logout }))
+  );
   const { confirmNavigation } = useAdminUnsavedChanges();
-  const { sidebarOpen, setSidebarOpen, toggleSidebar, alertCounts, loadAlerts } = useAdminStore();
+  const { sidebarOpen, toggleSidebar, alertCounts, loadAlerts } = useAdminStore(
+    useShallow((state) => ({
+      sidebarOpen: state.sidebarOpen,
+      toggleSidebar: state.toggleSidebar,
+      alertCounts: state.alertCounts,
+      loadAlerts: state.loadAlerts,
+    }))
+  );
 
   // Mobile drawer state — separate from desktop sidebar state
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
@@ -341,6 +350,7 @@ function AdminLayoutContent({
                   src="/logo.jpg"
                   alt="Emaan Thread"
                   fill
+                  sizes="40px"
                   className="object-contain rounded-full"
                 />
               </div>
@@ -389,6 +399,7 @@ function AdminLayoutContent({
                 src="/logo.jpg"
                 alt="Emaan Thread"
                 fill
+                sizes="36px"
                 className="object-contain rounded-full"
               />
             </div>

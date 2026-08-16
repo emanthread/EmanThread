@@ -44,6 +44,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAdminStore } from "@/lib/admin-store";
+import { useShallow } from "zustand/react/shallow";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -75,7 +76,15 @@ export default function AdminReturnsPage() {
     updateReturnRequestStatus,
     updateReturnRequest,
     deleteReturnRequest,
-  } = useAdminStore();
+  } = useAdminStore(
+    useShallow((state) => ({
+      returnRequests: state.returnRequests,
+      loadReturnRequests: state.loadReturnRequests,
+      updateReturnRequestStatus: state.updateReturnRequestStatus,
+      updateReturnRequest: state.updateReturnRequest,
+      deleteReturnRequest: state.deleteReturnRequest,
+    }))
+  );
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");

@@ -1,3 +1,5 @@
+import { useCallback } from "react";
+
 /**
  * Hook for persisting alert dismissal timestamps in localStorage.
  *
@@ -24,16 +26,16 @@ function safeSetItem(key: string, value: string): void {
 }
 
 export function useAlertDismissals() {
-  const getDismissedAt = (key: string): string | null => {
+  const getDismissedAt = useCallback((key: string): string | null => {
     if (typeof window === "undefined") return null;
     return safeGetItem(key);
-  };
+  }, []);
 
-  const dismissAlert = (storageKey: string, latestAt: string | null): void => {
+  const dismissAlert = useCallback((storageKey: string, latestAt: string | null): void => {
     if (latestAt && typeof window !== "undefined") {
       safeSetItem(storageKey, latestAt);
     }
-  };
+  }, []);
 
   return { getDismissedAt, dismissAlert };
 }

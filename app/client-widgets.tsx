@@ -1,6 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
+import { usePathname } from 'next/navigation'
 
 // ssr: false is ONLY valid inside Client Components — this wrapper exists for that reason.
 // Both widgets use browser APIs (localStorage, window) so they must never SSR.
@@ -28,9 +29,15 @@ const GoogleOneTap = dynamic(
 import { useState, useEffect } from 'react'
 
 export function ClientWidgets() {
+  const pathname = usePathname()
+  const isAdminRoute = pathname.startsWith('/admin')
   const [shouldMount, setShouldMount] = useState(false)
 
   useEffect(() => {
+    // Storefront assistance and sign-in widgets add no value inside the
+    // authenticated admin. Avoid their timers, event listeners, and chunks.
+    if (isAdminRoute) return
+
     // Delay loading heavy third-party-like widgets until 3s after initial paint.
     // This dramatically improves Time to Interactive (TTI) for the main page content.
     const timer = setTimeout(() => setShouldMount(true), 3000)
@@ -53,9 +60,9 @@ export function ClientWidgets() {
       window.removeEventListener('pointerdown', handleInteraction)
       window.removeEventListener('keydown', handleInteraction)
     }
-  }, [])
+  }, [isAdminRoute])
 
-  if (!shouldMount) return null
+  if (isAdminRoute || !shouldMount) return null
 
   return (
     <>

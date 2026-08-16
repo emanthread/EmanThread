@@ -30,7 +30,8 @@ const notifiedIds = new Set<string>();
  * - Feature flag ADMIN_PUSH_ALERTS is false
  */
 export function useAdminPushNotifications() {
-  const { user, isAuthenticated } = useAuthStore();
+  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const lastCheckedRef = useRef<number>(Date.now());
   const isAdminRef = useRef<boolean>(false);
 
@@ -71,6 +72,7 @@ export function useAdminPushNotifications() {
 
         // 5. Start polling for new submissions
         intervalId = setInterval(async () => {
+          if (document.visibilityState !== "visible") return;
           try {
             const since = new Date(lastCheckedRef.current).toISOString();
             const res = await fetch(

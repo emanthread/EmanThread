@@ -14,6 +14,9 @@ FabricType, assignment, delete, or deactivation operation.
 - Menu groups are presentation-only because they have no approved canonical
   URLs. Leaves are therefore parented directly to their routed section, with
   group/item ordering flattened into one deterministic sibling order.
+- A menu item that links to its own section or into another configured section
+  is a navigation reference, not a second structural node. Every reference
+  must resolve to a canonical manifest path or the plan is rejected.
 - Visual cards reference existing structural paths; they do not create nodes.
 - IDs use the deterministic form `catalog:<type>:<contextual-config-id>`.
 

@@ -11,6 +11,7 @@ import { Prisma, PrismaClient, type ProductKind } from "@prisma/client";
 import { classifyCatalogPath } from "../lib/catalog-product-classification";
 import {
   catalogMenu,
+  resolveMenuLeafRouteRole,
   sortByMenuOrder,
   type MenuDepartment,
   type MenuLeaf,
@@ -18,7 +19,7 @@ import {
   type MenuVisualCard,
 } from "../lib/navigation/catalog-menu";
 
-const MANIFEST_VERSION = 2;
+const MANIFEST_VERSION = 3;
 const APPLY_ACKNOWLEDGEMENT =
   "I_ACKNOWLEDGE_CATALOGNODE_ONLY_WRITES";
 const DISPOSABLE_ACKNOWLEDGEMENT =
@@ -237,6 +238,7 @@ function buildCatalogManifest(): {
   const issues: string[] = [];
   const ids = new Set<string>();
   const paths = new Set<string>();
+  const navigationReferencePaths = new Set<string>();
 
   const addEntry = (
     entry: Omit<CatalogNodeManifestEntry, "productKind">,
@@ -306,6 +308,9 @@ function buildCatalogManifest(): {
     }
 
     for (const section of sortByMenuOrder(department.sections)) {
+      const departmentSectionHrefs = department.sections.flatMap(
+        (candidate) => (candidate.href === null ? [] : [candidate.href]),
+      );
       addSection(
         department,
         section,
@@ -315,7 +320,17 @@ function buildCatalogManifest(): {
         ids,
         paths,
         visibleActiveConfigPaths,
+        navigationReferencePaths,
+        departmentSectionHrefs,
         issues,
+      );
+    }
+  }
+
+  for (const path of navigationReferencePaths) {
+    if (!paths.has(path)) {
+      issues.push(
+        `navigation reference href has no structural CatalogNode: ${path}`,
       );
     }
   }
@@ -349,6 +364,8 @@ function addSection(
   ids: Set<string>,
   paths: Set<string>,
   visibleActiveConfigPaths: Set<string>,
+  navigationReferencePaths: Set<string>,
+  departmentSectionHrefs: readonly string[],
   issues: string[],
 ): void {
   const sectionContext = `section ${section.id}`;
@@ -418,10 +435,25 @@ function addSection(
       }
 
       validateExplicitPath(item.href, itemContext, departmentRoot, issues);
-      if (!item.href.startsWith(`${section.href}/`)) {
+      const routeRole = resolveMenuLeafRouteRole(
+        item.href,
+        section.href,
+        departmentSectionHrefs,
+      );
+
+      if (routeRole === "invalid") {
         issues.push(
           `${itemContext}: leaf href must be below its explicit section path ${section.href}`,
         );
+        continue;
+      }
+
+      if (routeRole === "navigation-reference") {
+        navigationReferencePaths.add(item.href);
+        if (isVisibleActiveLeaf(item)) {
+          visibleActiveConfigPaths.add(item.href);
+        }
+        continue;
       }
 
       flattenedLeafOrder += 1;
@@ -859,7 +891,7 @@ async function runPlanMode(
         createDefaults: CREATE_DEFAULTS,
         preservedOnRerun: PRESERVED_ON_RERUN,
         hierarchyNote:
-          "Menu groups are presentation-only; routed leaves are parented directly to their routed section.",
+          "Menu groups are presentation-only; canonical descendant leaves are parented directly to their routed section, while equal-section and cross-section links remain navigation references.",
         entries,
         visibleActiveConfigPaths,
       },

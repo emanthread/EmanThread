@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
@@ -8,6 +9,7 @@ import {
   catalogUtilityLinks,
   catalogVisualCardFallbackImage,
   getVisibleMenuEntries,
+  resolveMenuLeafRouteRole,
   resolveMenuVisualCards,
   sortByMenuOrder,
   type MenuDepartment,
@@ -84,6 +86,8 @@ const expectedHierarchy = [
           {
             label: "SHOP BY CATEGORY",
             items: [
+              "2 PIECE",
+              "3 PIECE",
               "KAMEEZ SHALWAR",
               "KURTA",
               "KAMEEZ SHALWAR & WAISTCOAT",
@@ -301,7 +305,7 @@ test.describe("catalog navigation configuration", () => {
     expect(configuredHierarchy).toEqual(expectedHierarchy);
     expect(catalogMenu).toHaveLength(4);
     expect(catalogMenu.flatMap((department) => department.sections)).toHaveLength(20);
-    expect(allLeaves()).toHaveLength(119);
+    expect(allLeaves()).toHaveLength(121);
 
     for (const department of catalogMenu) {
       expectSequentialOrder(department.sections);
@@ -423,6 +427,140 @@ test.describe("catalog navigation configuration", () => {
       "teens.sale",
     ]);
     expect(saleSections.every((section) => section.groups.length === 0)).toBe(true);
+  });
+
+  test("distinguishes canonical leaves from equal-section and cross-section references", () => {
+    const sectionHrefs = [
+      "/women/new-in",
+      "/women/ready-to-wear",
+      "/women/unstitched",
+    ];
+
+    expect(
+      resolveMenuLeafRouteRole(
+        "/women/new-in",
+        "/women/new-in",
+        sectionHrefs,
+      ),
+    ).toBe("navigation-reference");
+    expect(
+      resolveMenuLeafRouteRole(
+        "/women/ready-to-wear/kurta",
+        "/women/new-in",
+        sectionHrefs,
+      ),
+    ).toBe("navigation-reference");
+    expect(
+      resolveMenuLeafRouteRole(
+        "/women/ready-to-wear/kurta",
+        "/women/ready-to-wear",
+        sectionHrefs,
+      ),
+    ).toBe("canonical-descendant");
+    expect(
+      resolveMenuLeafRouteRole(
+        "/women/not-a-configured-section/item",
+        "/women/new-in",
+        sectionHrefs,
+      ),
+    ).toBe("invalid");
+  });
+
+  test("adds Men Ready-to-Wear piece-count leaves without changing its visual cards", () => {
+    const men = catalogMenu.find((department) => department.id === "men")!;
+    const readyToWear = men.sections.find(
+      (section) => section.id === "men.ready-to-wear",
+    )!;
+    const shopByCategory = readyToWear.groups.find(
+      (group) => group.id === "men.ready-to-wear.shop-by-category",
+    )!;
+
+    expect(shopByCategory.items.slice(0, 2)).toMatchObject([
+      {
+        id: "men.ready-to-wear.2-piece",
+        label: "2 PIECE",
+        href: "/men/ready-to-wear/2-piece",
+        order: 1,
+      },
+      {
+        id: "men.ready-to-wear.3-piece",
+        label: "3 PIECE",
+        href: "/men/ready-to-wear/3-piece",
+        order: 2,
+      },
+    ]);
+    expect(readyToWear.visualCards.map((card) => card.id)).toEqual([
+      "men.ready-to-wear.card.kameez-shalwar",
+      "men.ready-to-wear.card.kurta",
+      "men.ready-to-wear.card.heritage-edit",
+    ]);
+  });
+
+  test("builds a canonical bootstrap plan without materializing navigation aliases", () => {
+    const tsxCli = resolve(
+      process.cwd(),
+      "node_modules",
+      "tsx",
+      "dist",
+      "cli.mjs",
+    );
+    const script = resolve(process.cwd(), "scripts", "catalog-nodes.ts");
+    const output = execFileSync(
+      process.execPath,
+      [tsxCli, script, "--mode=plan"],
+      {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        timeout: 30_000,
+        windowsHide: true,
+      },
+    );
+    const plan = JSON.parse(output) as {
+      mode: string;
+      databaseAccess: boolean;
+      entries: Array<{
+        id: string;
+        parentId: string | null;
+        path: string;
+        productKind: string | null;
+      }>;
+    };
+
+    expect(plan).toMatchObject({ mode: "plan", databaseAccess: false });
+    expect(
+      plan.entries.filter((entry) => entry.path === "/women/ready-to-wear"),
+    ).toEqual([
+      expect.objectContaining({
+        id: "catalog:section:women.ready-to-wear",
+      }),
+    ]);
+    expect(
+      plan.entries.filter(
+        (entry) => entry.path === "/women/ready-to-wear/kurta",
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        id: "catalog:leaf:women.ready-to-wear.kurta",
+      }),
+    ]);
+    expect(
+      plan.entries.some((entry) => entry.id.includes("women.new-in.ready-to-wear")),
+    ).toBe(false);
+    expect(
+      plan.entries.some((entry) => entry.id.includes("women.new-in.kurta-collection")),
+    ).toBe(false);
+
+    for (const pieceCount of ["2-piece", "3-piece"]) {
+      expect(
+        plan.entries.find(
+          (entry) => entry.path === `/men/ready-to-wear/${pieceCount}`,
+        ),
+      ).toMatchObject({
+        id: `catalog:leaf:men.ready-to-wear.${pieceCount}`,
+        parentId: "catalog:section:men.ready-to-wear",
+        productKind: "READY_TO_WEAR",
+      });
+    }
   });
 
   test("uses explicit dedicated catalog routes and never inferred shop filters", () => {

@@ -845,7 +845,7 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
             <div className="flex flex-wrap gap-3">
               {product.images.map((source, index) => (
                 <div key={`${source}-${index}`} className="group relative h-28 w-28 overflow-hidden rounded-lg border bg-muted">
-                  <Image src={source} alt={`Product image ${index + 1}`} fill className="object-cover" />
+                  <Image src={source} alt={`Product image ${index + 1}`} fill sizes="112px" className="object-cover" />
                   <button type="button" aria-label={`Remove product image ${index + 1}`} onClick={() => { setIsDirty(true); setProduct((current) => ({ ...current, images: current.images.filter((_, itemIndex) => itemIndex !== index) })); }} className="absolute right-1 top-1 rounded-full bg-background/90 p-1 text-destructive opacity-100 shadow-sm sm:opacity-0 sm:group-hover:opacity-100">
                     <X className="h-4 w-4" />
                   </button>

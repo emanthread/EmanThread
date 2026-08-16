@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Image from "next/image";
 import { Search, Tag, X, RefreshCw, Image as ImageIcon, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,7 @@ export default function MediaLibraryPage() {
   const fetchImages = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/products?limit=100");
+      const res = await fetch("/api/admin/media", { cache: "no-store" });
       if (!res.ok) return;
       const products = await res.json();
       
@@ -55,7 +55,7 @@ export default function MediaLibraryPage() {
 
   useEffect(() => { fetchImages(); }, [fetchImages]);
 
-  const filteredImages = images.filter((img) => {
+  const filteredImages = useMemo(() => images.filter((img) => {
     if (activeFilter !== "all") {
       if (activeFilter === "video") return img.isVideo;
       return img.tags.includes(activeFilter);
@@ -64,9 +64,12 @@ export default function MediaLibraryPage() {
       return img.tags.some((t) => t.toLowerCase().includes(searchTag.toLowerCase()));
     }
     return true;
-  });
+  }), [activeFilter, images, searchTag]);
 
-  const uniqueTags = [...new Set(images.flatMap((img) => img.tags))].sort();
+  const uniqueTags = useMemo(
+    () => [...new Set(images.flatMap((img) => img.tags))].sort(),
+    [images]
+  );
 
   const handleSaveTags = async (productId: string) => {
     setSaving(true);

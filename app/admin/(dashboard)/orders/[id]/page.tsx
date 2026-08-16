@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAdminStore } from "@/lib/admin-store";
+import { useShallow } from "zustand/react/shallow";
 import { formatPrice } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { TailorPrintCard, type TailorCardData } from "@/components/admin/tailor-print-card";
@@ -53,7 +54,9 @@ interface OrderMeasurement {
 
 export default function AdminOrderDetails({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
-  const { orders, loadOrders } = useAdminStore();
+  const { orders, loadOrders } = useAdminStore(
+    useShallow((state) => ({ orders: state.orders, loadOrders: state.loadOrders }))
+  );
   const [loading, setLoading] = useState(true);
   const [orderMeasurements, setOrderMeasurements] = useState<OrderMeasurement[]>([]);
   const [measurementsLoading, setMeasurementsLoading] = useState(true);
@@ -165,6 +168,7 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
                         src={item.productImage}
                         alt={item.productName}
                         fill
+                        sizes="64px"
                         className="object-cover"
                       />
                     </div>

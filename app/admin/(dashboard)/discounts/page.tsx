@@ -46,6 +46,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAdminStore, type Discount } from "@/lib/admin-store";
+import { useShallow } from "zustand/react/shallow";
 import { formatPrice } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
@@ -56,7 +57,17 @@ const discountTypeLabels = {
 };
 
 export default function AdminDiscountsPage() {
-  const { discounts, addDiscount, updateDiscount, deleteDiscount, loadDiscounts, products, loadProducts } = useAdminStore();
+  const { discounts, addDiscount, updateDiscount, deleteDiscount, loadDiscounts, products, loadProducts } = useAdminStore(
+    useShallow((state) => ({
+      discounts: state.discounts,
+      addDiscount: state.addDiscount,
+      updateDiscount: state.updateDiscount,
+      deleteDiscount: state.deleteDiscount,
+      loadDiscounts: state.loadDiscounts,
+      products: state.products,
+      loadProducts: state.loadProducts,
+    }))
+  );
 
   useEffect(() => {
     loadDiscounts();

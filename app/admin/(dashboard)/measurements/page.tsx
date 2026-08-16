@@ -861,14 +861,19 @@ export default function AdminMeasurementsPage() {
   });
 
   const fetchStats = useCallback(async () => {
+    if (document.visibilityState !== "visible") return;
     const res = await fetch("/api/admin/measurements/stats");
     if (res.ok) setStats(await res.json());
   }, []);
 
   useEffect(() => {
-    fetchStats();
+    void fetchStats();
     const interval = setInterval(fetchStats, 30000);
-    return () => clearInterval(interval);
+    document.addEventListener("visibilitychange", fetchStats);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", fetchStats);
+    };
   }, [fetchStats, refreshKey]);
 
   return (

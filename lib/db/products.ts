@@ -954,13 +954,86 @@ export async function getFeaturedCategories(): Promise<FeaturedCategory[]> {
 
 // ── Admin helpers ────────────────────────────────────────────────
 
+export type AdminProductListFilters = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  /** Legacy Product.fabricType filter. Kept separate from normalized catalog placement. */
+  fabricType?: string;
+  stock?: string;
+  /** Exact CatalogNode id. Parent nodes include every active descendant. */
+  catalogNodeId?: string;
+};
+
+export class InvalidAdminCatalogNodeFilterError extends Error {
+  constructor() {
+    super("Catalog category is unavailable");
+    this.name = "InvalidAdminCatalogNodeFilterError";
+  }
+}
+
+type AdminCatalogScopeNode = {
+  id: string;
+  path: string;
+  isActive: boolean;
+};
+
+export type AdminCatalogNodeScopeLookup = {
+  findSelectedNode: (
+    catalogNodeId: string
+  ) => Promise<AdminCatalogScopeNode | null>;
+  findActiveScopeIds: (
+    selectedNode: Pick<AdminCatalogScopeNode, "id" | "path">
+  ) => Promise<string[]>;
+};
+
+const prismaAdminCatalogNodeScopeLookup: AdminCatalogNodeScopeLookup = {
+  findSelectedNode: (catalogNodeId) =>
+    prisma.catalogNode.findUnique({
+      where: { id: catalogNodeId },
+      select: { id: true, path: true, isActive: true },
+    }),
+  findActiveScopeIds: async (selectedNode) => {
+    const scopedNodes = await prisma.catalogNode.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { id: selectedNode.id },
+          { path: { startsWith: `${selectedNode.path}/` } },
+        ],
+      },
+      select: { id: true },
+    });
+    return scopedNodes.map((node) => node.id);
+  },
+};
+
+export async function resolveAdminCatalogNodeScopeIds(
+  catalogNodeId: string,
+  lookup: AdminCatalogNodeScopeLookup = prismaAdminCatalogNodeScopeLookup
+): Promise<string[]> {
+  const selectedNode = await lookup.findSelectedNode(catalogNodeId);
+
+  if (!selectedNode?.isActive) {
+    throw new InvalidAdminCatalogNodeFilterError();
+  }
+
+  const scopedNodeIds = await lookup.findActiveScopeIds(selectedNode);
+
+  return Array.from(new Set([selectedNode.id, ...scopedNodeIds]));
+}
+
 export async function getAdminProducts(
-  page?: number,
-  limit?: number,
-  search?: string,
-  category?: string,
-  stock?: string
+  filters: AdminProductListFilters = {}
 ) {
+  const {
+    page,
+    limit,
+    search,
+    fabricType,
+    stock,
+    catalogNodeId,
+  } = filters;
   const currentPage = page ?? 1;
   const pageSize = limit ?? 50;
   const skip = (currentPage - 1) * pageSize;
@@ -976,8 +1049,18 @@ export async function getAdminProducts(
     ];
   }
 
-  if (category && category !== "all") {
-    where.fabricType = { equals: category, mode: "insensitive" };
+  if (fabricType && fabricType !== "all") {
+    where.fabricType = { equals: fabricType, mode: "insensitive" };
+  }
+
+  if (catalogNodeId) {
+    if (!FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1) {
+      throw new InvalidAdminCatalogNodeFilterError();
+    }
+    const catalogNodeIds = await resolveAdminCatalogNodeScopeIds(catalogNodeId);
+    where.catalogAssignments = {
+      some: { catalogNodeId: { in: catalogNodeIds } },
+    };
   }
 
   if (stock && stock !== "all") {
@@ -1035,6 +1118,7 @@ export async function getAdminProducts(
                   catalogNode: { select: { label: true, path: true } },
                 },
               },
+              _count: { select: { catalogAssignments: true } },
             }
           : {}),
         ...(FEATURE_FLAGS.COMMERCE_PROFILE_V1
@@ -1117,6 +1201,14 @@ export async function getAdminProducts(
               }
             ).catalogAssignments[0]?.catalogNode
           : undefined,
+      catalogPlacementCount:
+        FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1
+          ? (
+              p as unknown as {
+                _count: { catalogAssignments: number };
+              }
+            )._count.catalogAssignments
+          : 0,
       usesVariantInventory:
         FEATURE_FLAGS.COMMERCE_PROFILE_V1 &&
         Boolean(

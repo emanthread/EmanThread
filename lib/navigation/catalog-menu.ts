@@ -411,11 +411,13 @@ export const catalogMenu: MenuDepartment[] = [
             label: "SHOP BY CATEGORY",
             order: 1,
             items: [
-              { id: "men.ready-to-wear.kameez-shalwar", label: "KAMEEZ SHALWAR", href: "/men/ready-to-wear/kameez-shalwar", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 1 },
-              { id: "men.ready-to-wear.kurta", label: "KURTA", href: "/men/ready-to-wear/kurta", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 2 },
-              { id: "men.ready-to-wear.kameez-shalwar-waistcoat", label: "KAMEEZ SHALWAR & WAISTCOAT", href: "/men/ready-to-wear/kameez-shalwar-waistcoat", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 3 },
-              { id: "men.ready-to-wear.kurta-trousers", label: "KURTA TROUSERS", href: "/men/ready-to-wear/kurta-trousers", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 4 },
-              { id: "men.ready-to-wear.waistcoat", label: "WAISTCOAT", href: "/men/ready-to-wear/waistcoat", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 5 },
+              { id: "men.ready-to-wear.2-piece", label: "2 PIECE", href: "/men/ready-to-wear/2-piece", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 1 },
+              { id: "men.ready-to-wear.3-piece", label: "3 PIECE", href: "/men/ready-to-wear/3-piece", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 2 },
+              { id: "men.ready-to-wear.kameez-shalwar", label: "KAMEEZ SHALWAR", href: "/men/ready-to-wear/kameez-shalwar", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 3 },
+              { id: "men.ready-to-wear.kurta", label: "KURTA", href: "/men/ready-to-wear/kurta", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 4 },
+              { id: "men.ready-to-wear.kameez-shalwar-waistcoat", label: "KAMEEZ SHALWAR & WAISTCOAT", href: "/men/ready-to-wear/kameez-shalwar-waistcoat", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 5 },
+              { id: "men.ready-to-wear.kurta-trousers", label: "KURTA TROUSERS", href: "/men/ready-to-wear/kurta-trousers", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 6 },
+              { id: "men.ready-to-wear.waistcoat", label: "WAISTCOAT", href: "/men/ready-to-wear/waistcoat", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 7 },
             ],
           },
           {
@@ -909,4 +911,37 @@ export function resolveMenuVisualCards(
   return sectionCards.length > 0
     ? sectionCards
     : getVisibleMenuEntries(department.visualCards);
+}
+
+export type MenuLeafRouteRole =
+  | "canonical-descendant"
+  | "navigation-reference"
+  | "invalid";
+
+/**
+ * A routed menu item owns a structural leaf only when its most-specific
+ * section ancestor is the section rendering it. Equal-section links and
+ * links into another configured section are presentation references to the
+ * canonical node at that destination.
+ */
+export function resolveMenuLeafRouteRole(
+  itemHref: string,
+  currentSectionHref: string,
+  departmentSectionHrefs: readonly string[],
+): MenuLeafRouteRole {
+  const owningSectionHref = departmentSectionHrefs
+    .filter(
+      (sectionHref) =>
+        itemHref === sectionHref || itemHref.startsWith(`${sectionHref}/`),
+    )
+    .sort((left, right) => right.length - left.length)[0];
+
+  if (!owningSectionHref) return "invalid";
+  if (
+    itemHref === currentSectionHref ||
+    owningSectionHref !== currentSectionHref
+  ) {
+    return "navigation-reference";
+  }
+  return "canonical-descendant";
 }

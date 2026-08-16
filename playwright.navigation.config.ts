@@ -28,6 +28,8 @@ export default defineConfig({
     "measurement-print-background.spec.ts",
     "build-font-resilience.spec.ts",
     "storefront-performance.spec.ts",
+    "admin-performance.spec.ts",
+    "admin-product-catalog-filter.spec.ts",
   ],
   fullyParallel: true,
   workers: 1,

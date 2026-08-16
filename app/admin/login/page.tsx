@@ -105,6 +105,7 @@ export default function AdminLoginPage() {
               src="/logo-circle.jpg"
               alt="Eman Thread"
               fill
+              sizes="128px"
               className="object-contain"
             />
           </div>
@@ -127,6 +128,7 @@ export default function AdminLoginPage() {
                 src="/logo-circle.jpg"
                 alt="Eman Thread"
                 fill
+                sizes="64px"
                 className="object-contain"
               />
             </div>

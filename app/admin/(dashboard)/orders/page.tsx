@@ -50,6 +50,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { useAdminStore, type OrderStatus } from "@/lib/admin-store";
+import { useShallow } from "zustand/react/shallow";
 import { formatPrice } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
@@ -70,7 +71,19 @@ const paymentMethodLabels = {
 };
 
 export default function AdminOrdersPage() {
-  const { orders, ordersTotal, ordersPage, ordersTotalPages, deleteOrder, updateOrderStatus, loadOrders, notificationLogs, loadNotificationLogs } = useAdminStore();
+  const { orders, ordersTotal, ordersPage, ordersTotalPages, deleteOrder, updateOrderStatus, loadOrders, notificationLogs, loadNotificationLogs } = useAdminStore(
+    useShallow((state) => ({
+      orders: state.orders,
+      ordersTotal: state.ordersTotal,
+      ordersPage: state.ordersPage,
+      ordersTotalPages: state.ordersTotalPages,
+      deleteOrder: state.deleteOrder,
+      updateOrderStatus: state.updateOrderStatus,
+      loadOrders: state.loadOrders,
+      notificationLogs: state.notificationLogs,
+      loadNotificationLogs: state.loadNotificationLogs,
+    }))
+  );
 
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -411,6 +424,7 @@ export default function AdminOrdersPage() {
                               src={item.productImage}
                               alt={item.productName}
                               fill
+                              sizes="40px"
                               className="object-cover"
                             />
                           </div>

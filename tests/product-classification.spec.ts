@@ -17,6 +17,12 @@ test.describe("catalog-driven product classification", () => {
     expect(classifyCatalogPath("/women/ready-to-wear/kurta")?.productKind).toBe(
       "READY_TO_WEAR"
     );
+    expect(classifyCatalogPath("/men/ready-to-wear/2-piece")?.productKind).toBe(
+      "READY_TO_WEAR"
+    );
+    expect(classifyCatalogPath("/men/ready-to-wear/3-piece")?.productKind).toBe(
+      "READY_TO_WEAR"
+    );
     expect(classifyCatalogPath("/men/unstitched/boski")?.productKind).toBe(
       "UNSTITCHED_FABRIC"
     );

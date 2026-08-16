@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAdminProducts, createAdminProduct, createAuditLog } from "@/lib/db-queries";
+import { InvalidAdminCatalogNodeFilterError } from "@/lib/db/products";
+import { FEATURE_FLAGS } from "@/lib/feature-flags";
 import { withLoggedAdminHandler } from "@/lib/logger";
 import { sanitizeDbError } from '@/lib/utils/errors';
 import { adminLimitParam, adminPageParam } from "@/lib/admin-pagination";
@@ -31,6 +33,13 @@ const createProductSchema = z.object({
   categoryId: z.string().min(1, "Category is required"),
 });
 
+const catalogNodeFilterSchema = z
+  .string()
+  .trim()
+  .min(1, "Catalog category is required")
+  .max(128, "Catalog category is invalid")
+  .optional();
+
 export const GET = withLoggedAdminHandler(async (req: Request) => {
   // Single auth() call — session verified once, not twice.
   const access = await requireAdminApiAccess(req);
@@ -40,11 +49,44 @@ export const GET = withLoggedAdminHandler(async (req: Request) => {
   const page = adminPageParam(searchParams.get('page'));
   const limit = adminLimitParam(searchParams.get('limit'), 50);
   const search = searchParams.get('search') || undefined;
-  const category = searchParams.get('category') || undefined;
+  // `category` remains the legacy fabricType filter for compatibility.
+  const fabricType = searchParams.get('category') || undefined;
   const stock = searchParams.get('stock') || undefined;
+  const parsedCatalogNodeId = catalogNodeFilterSchema.safeParse(
+    searchParams.get("catalogNodeId") || undefined
+  );
+  if (!parsedCatalogNodeId.success) {
+    return NextResponse.json(
+      { error: parsedCatalogNodeId.error.errors[0]?.message || "Invalid catalog category" },
+      { status: 400 }
+    );
+  }
+  if (
+    parsedCatalogNodeId.data &&
+    !FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1
+  ) {
+    return NextResponse.json(
+      { error: "Catalog category filtering is unavailable" },
+      { status: 400 }
+    );
+  }
 
-  const result = await getAdminProducts(page, limit, search, category, stock);
-  return NextResponse.json(result);
+  try {
+    const result = await getAdminProducts({
+      page,
+      limit,
+      search,
+      fabricType,
+      stock,
+      catalogNodeId: parsedCatalogNodeId.data,
+    });
+    return NextResponse.json(result);
+  } catch (error) {
+    if (error instanceof InvalidAdminCatalogNodeFilterError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    throw error;
+  }
 });
 
 export const POST = withLoggedAdminHandler(async (req: Request) => {

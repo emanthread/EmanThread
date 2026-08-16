@@ -102,7 +102,9 @@ export default function PaymentVerificationPage() {
   // SLA timers — re-render every 30s
   const [, setTick] = useState(0);
   useEffect(() => {
-    const i = setInterval(() => setTick((t) => t + 1), 30000);
+    const i = setInterval(() => {
+      if (document.visibilityState === "visible") setTick((t) => t + 1);
+    }, 30000);
     return () => clearInterval(i);
   }, []);
 
