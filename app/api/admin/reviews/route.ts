@@ -6,6 +6,10 @@ import { adminLimitParam, adminPageParam } from "@/lib/admin-pagination";
 
 export const dynamic = "force-dynamic";
 
+const NO_STORE_HEADERS = {
+  "Cache-Control": "private, no-store, max-age=0",
+} as const;
+
 export async function GET(request: Request) {
   try {
     const session = await auth();
@@ -48,17 +52,20 @@ export async function GET(request: Request) {
       prisma.productReview.count({ where }),
     ]);
 
-    return NextResponse.json({
-      reviews,
-      total,
-      page,
-      totalPages: Math.ceil(total / limit),
-    });
+    return NextResponse.json(
+      {
+        reviews,
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
+      },
+      { headers: NO_STORE_HEADERS }
+    );
   } catch (error) {
     console.error("Get reviews error:", error);
     return NextResponse.json(
       { error: "Failed to load reviews" },
-      { status: 500 }
+      { status: 500, headers: NO_STORE_HEADERS }
     );
   }
 }

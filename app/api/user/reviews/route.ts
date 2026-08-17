@@ -4,6 +4,10 @@ import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
+const NO_STORE_HEADERS = {
+  "Cache-Control": "private, no-store, max-age=0",
+} as const;
+
 export async function GET() {
   try {
     const session = await auth();
@@ -19,12 +23,12 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json(reviews);
+    return NextResponse.json(reviews, { headers: NO_STORE_HEADERS });
   } catch (error) {
     console.error("Get user reviews error:", error);
     return NextResponse.json(
       { error: "Failed to load reviews" },
-      { status: 500 }
+      { status: 500, headers: NO_STORE_HEADERS }
     );
   }
 }

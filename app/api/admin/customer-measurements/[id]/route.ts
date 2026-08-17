@@ -4,6 +4,10 @@ import { prisma } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, max-age=0',
+} as const
+
 const isAdmin = (role?: string | null) =>
   ['ADMIN', 'SUPER_ADMIN', 'MANAGER'].includes(role ?? '')
 
@@ -74,7 +78,10 @@ export async function GET(
     id
   )
   if (!result.length) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  return NextResponse.json({ record: result[0] })
+  return NextResponse.json(
+    { record: result[0] },
+    { headers: NO_STORE_HEADERS }
+  )
 }
 
 // ── PUT /api/admin/customer-measurements/[id] ────────────────────────────────
@@ -111,7 +118,10 @@ export async function PUT(
   const result = await prisma.$queryRawUnsafe<any[]>(sql, ...values)
 
   if (!result.length) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  return NextResponse.json({ record: result[0] })
+  return NextResponse.json(
+    { record: result[0] },
+    { headers: NO_STORE_HEADERS }
+  )
 }
 
 // ── DELETE /api/admin/customer-measurements/[id] ─────────────────────────────
@@ -130,5 +140,8 @@ export async function DELETE(
     `UPDATE "customer_measurements" SET "deleted_at" = now() WHERE "id" = $1`,
     id
   )
-  return NextResponse.json({ success: true })
+  return NextResponse.json(
+    { success: true },
+    { headers: NO_STORE_HEADERS }
+  )
 }

@@ -30,6 +30,8 @@ export default defineConfig({
     "storefront-performance.spec.ts",
     "admin-performance.spec.ts",
     "admin-product-catalog-filter.spec.ts",
+    "review-admin-freshness.spec.ts",
+    "admin-customer-measurements.spec.ts",
   ],
   fullyParallel: true,
   workers: 1,

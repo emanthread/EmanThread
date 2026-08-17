@@ -7,6 +7,10 @@ import { validateCsrf } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
 
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store, max-age=0",
+} as const;
+
 const createReviewSchema = z.object({
   rating: z.number().int().min(1).max(5),
   title: z.string().trim().max(200).optional(),
@@ -32,16 +36,19 @@ export async function GET(
       }),
     ]);
 
-    return NextResponse.json({
-      reviews,
-      average: Number(aggregation._avg.rating?.toFixed(1) || 0),
-      count: aggregation._count.rating,
-    });
+    return NextResponse.json(
+      {
+        reviews,
+        average: Number(aggregation._avg.rating?.toFixed(1) || 0),
+        count: aggregation._count.rating,
+      },
+      { headers: NO_STORE_HEADERS }
+    );
   } catch (error) {
     console.error("Get reviews error:", error);
     return NextResponse.json(
       { error: "Failed to load reviews" },
-      { status: 500 }
+      { status: 500, headers: NO_STORE_HEADERS }
     );
   }
 }

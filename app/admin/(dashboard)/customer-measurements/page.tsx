@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  Search, Plus, Eye, Pencil, Trash2, Users, X, Printer,
+  Search, Plus, Eye, Pencil, Trash2, Users, X, Printer, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,8 @@ import { UnifiedMeasurementForm } from "@/components/measurements/UnifiedMeasure
 import { TailorPrintCard } from "@/components/admin/tailor-print-card";
 import type { UnifiedMeasurementFormData } from "@/lib/validators/measurements-unified";
 import { UNIFIED_MEASUREMENT_EMPTY } from "@/lib/validators/measurements-unified";
+import { adminFetch } from "@/lib/admin-fetch";
+import { useToast } from "@/hooks/use-toast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -181,7 +183,7 @@ function AddEditDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: () => void | Promise<void>;
   existing?: CustomerMeasurement | null;
 }) {
   const isEdit = !!existing;
@@ -210,18 +212,18 @@ function AddEditDialog({
       ? `/api/admin/customer-measurements/${existing!.id}`
       : "/api/admin/customer-measurements";
 
-    const res = await fetch(url, {
+    const res = await adminFetch(url, {
       method: isEdit ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
 
     if (!res.ok) {
-      const d = await res.json();
-      throw new Error(d.error || "Failed to save");
+      const errorPayload = await res.json().catch(() => null);
+      throw new Error(errorPayload?.error || "Failed to save measurements");
     }
 
-    onSaved();
+    await onSaved();
     onClose();
   };
 
@@ -326,11 +328,15 @@ function ViewDetailDialog({
 
 // ─── Main Customer Measurements Panel ────────────────────────────────────────
 
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
+type RecordAction = "view" | "edit" | "print";
+
 function CustomerMeasurementsContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
+  const { toast } = useToast();
   const [records, setRecords] = useState<CustomerMeasurement[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -344,6 +350,10 @@ function CustomerMeasurementsContent() {
   const [printRecord, setPrintRecord] = useState<CustomerMeasurement | null>(null);
   const [deleteRecord, setDeleteRecord] = useState<CustomerMeasurement | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [loadingRecord, setLoadingRecord] = useState<{
+    id: string;
+    action: RecordAction;
+  } | null>(null);
 
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -353,16 +363,27 @@ function CustomerMeasurementsContent() {
       const params = new URLSearchParams({ page: String(pg), limit: String(limit) });
       if (searchVal.trim()) params.set("search", searchVal.trim());
       params.set("_t", Date.now().toString()); // prevent browser caching
-      const res = await fetch(`/api/admin/customer-measurements?${params}`);
-      if (res.ok) {
-        const data = await res.json();
-        setRecords(data.records || []);
-        setTotal(data.total || 0);
+      const res = await fetch(`/api/admin/customer-measurements?${params}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        const errorPayload = await res.json().catch(() => null);
+        throw new Error(errorPayload?.error || "Failed to load measurements");
       }
+      const data = await res.json();
+      setRecords(data.records || []);
+      setTotal(data.total || 0);
+    } catch (error) {
+      toast({
+        title: "Could not load measurements",
+        description:
+          error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
-  }, [limit]);
+  }, [limit, toast]);
 
   useEffect(() => {
     fetchRecords(search, page);
@@ -375,13 +396,91 @@ function CustomerMeasurementsContent() {
     searchTimeout.current = setTimeout(() => fetchRecords(val, 1), 350);
   };
 
+  useEffect(() => {
+    return () => {
+      if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    };
+  }, []);
+
+  const openFullRecord = useCallback(
+    async (id: string, action: RecordAction) => {
+      setLoadingRecord({ id, action });
+      try {
+        const params = new URLSearchParams({ _t: String(Date.now()) });
+        const response = await fetch(
+          `/api/admin/customer-measurements/${encodeURIComponent(id)}?${params}`,
+          { cache: "no-store" },
+        );
+        if (!response.ok) {
+          const errorPayload = await response.json().catch(() => null);
+          throw new Error(errorPayload?.error || "Failed to load measurement details");
+        }
+        const payload = await response.json();
+        if (!payload?.record) {
+          throw new Error("Measurement record was not returned");
+        }
+
+        if (action === "view") setViewRecord(payload.record);
+        if (action === "edit") setEditRecord(payload.record);
+        if (action === "print") setPrintRecord(payload.record);
+      } catch (error) {
+        toast({
+          title: "Could not open measurements",
+          description:
+            error instanceof Error ? error.message : "Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingRecord(null);
+      }
+    },
+    [toast],
+  );
+
+  const closeAddDialog = useCallback(() => {
+    setShowAdd(false);
+    if (searchParams.get("add") === "true") {
+      router.replace("/admin/customer-measurements", { scroll: false });
+    }
+  }, [router, searchParams]);
+
+  const handleCreated = useCallback(async () => {
+    setSearch("");
+    setPage(1);
+    await fetchRecords("", 1);
+    toast({
+      title: "Measurements saved",
+      description: "The complete customer measurement record is now available.",
+    });
+  }, [fetchRecords, toast]);
+
+  const handleEdited = useCallback(async () => {
+    await fetchRecords(search, page);
+    toast({ title: "Measurements updated" });
+  }, [fetchRecords, page, search, toast]);
+
   const handleDelete = async () => {
     if (!deleteRecord) return;
     setDeleting(true);
     try {
-      await fetch(`/api/admin/customer-measurements/${deleteRecord.id}`, { method: "DELETE" });
+      const response = await adminFetch(
+        `/api/admin/customer-measurements/${deleteRecord.id}`,
+        { method: "DELETE" },
+      );
+      if (!response.ok) {
+        const errorPayload = await response.json().catch(() => null);
+        throw new Error(errorPayload?.error || "Failed to delete measurements");
+      }
       setDeleteRecord(null);
-      fetchRecords(search, page);
+      await fetchRecords(search, page);
+      toast({ title: "Measurement record deleted" });
+    } catch (error) {
+      toast({
+        title: "Could not delete measurements",
+        description:
+          error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setDeleting(false);
     }
@@ -465,21 +564,40 @@ function CustomerMeasurementsContent() {
                       <div className="flex gap-2 items-center">
                         <Button
                           variant="outline" size="sm" className="h-8 gap-1.5 text-primary border-primary/40 hover:bg-primary/5 hover:border-primary"
-                          onClick={() => setViewRecord(r)} title="View Measurements"
+                          onClick={() => openFullRecord(r.id, "view")}
+                          disabled={loadingRecord?.id === r.id}
+                          title="View Measurements"
                         >
-                          <Eye className="h-3.5 w-3.5" /> View
+                          {loadingRecord?.id === r.id && loadingRecord.action === "view" ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Eye className="h-3.5 w-3.5" />
+                          )}{" "}
+                          View
                         </Button>
                         <Button
                           variant="ghost" size="icon" className="h-8 w-8"
-                          onClick={() => setEditRecord(r)} title="Edit"
+                          onClick={() => openFullRecord(r.id, "edit")}
+                          disabled={loadingRecord?.id === r.id}
+                          title="Edit"
                         >
-                          <Pencil className="h-4 w-4" />
+                          {loadingRecord?.id === r.id && loadingRecord.action === "edit" ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Pencil className="h-4 w-4" />
+                          )}
                         </Button>
                         <Button
                           variant="ghost" size="icon" className="h-8 w-8"
-                          onClick={() => setPrintRecord(r)} title="Print"
+                          onClick={() => openFullRecord(r.id, "print")}
+                          disabled={loadingRecord?.id === r.id}
+                          title="Print"
                         >
-                          <Printer className="h-4 w-4" />
+                          {loadingRecord?.id === r.id && loadingRecord.action === "print" ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Printer className="h-4 w-4" />
+                          )}
                         </Button>
                         <Button
                           variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
@@ -518,15 +636,15 @@ function CustomerMeasurementsContent() {
       {/* Add Dialog */}
       <AddEditDialog
         open={showAdd}
-        onClose={() => setShowAdd(false)}
-        onSaved={() => fetchRecords(search, 1)}
+        onClose={closeAddDialog}
+        onSaved={handleCreated}
       />
 
       {/* Edit Dialog */}
       <AddEditDialog
         open={!!editRecord}
         onClose={() => setEditRecord(null)}
-        onSaved={() => fetchRecords(search, page)}
+        onSaved={handleEdited}
         existing={editRecord}
       />
 

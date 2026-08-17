@@ -27,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { adminFetch } from "@/lib/admin-fetch";
 
 interface Review {
   id: string;
@@ -60,7 +61,12 @@ export default function AdminReviewsPage() {
     try {
       const params = new URLSearchParams({ page: String(page), limit: "20" });
       if (search) params.set("search", search);
-      const res = await fetch(`/api/admin/reviews?${params}`);
+      // Cache-busting also protects sessions that still have an older service
+      // worker controlling this tab during a deployment transition.
+      params.set("_t", String(Date.now()));
+      const res = await adminFetch(`/api/admin/reviews?${params}`, {
+        cache: "no-store",
+      });
       if (!res.ok) throw new Error("Failed to load");
       const data = await res.json();
       setReviews(data.reviews || []);
@@ -80,7 +86,7 @@ export default function AdminReviewsPage() {
 
   const handleToggleVisibility = async (review: Review) => {
     try {
-      const res = await fetch(`/api/admin/reviews/${review.id}`, {
+      const res = await adminFetch(`/api/admin/reviews/${review.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isVisible: !review.isVisible }),
@@ -98,7 +104,7 @@ export default function AdminReviewsPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      const res = await fetch(`/api/admin/reviews/${id}`, { method: "DELETE" });
+      const res = await adminFetch(`/api/admin/reviews/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete");
       toast({ title: "Review deleted", description: "The review has been removed." });
       setDeleteConfirm(null);
@@ -117,7 +123,7 @@ export default function AdminReviewsPage() {
     if (!editDialog) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/admin/reviews/${editDialog.id}`, {
+      const res = await adminFetch(`/api/admin/reviews/${editDialog.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ comment: editComment }),
@@ -135,7 +141,7 @@ export default function AdminReviewsPage() {
 
   const handleToggleVerified = async (review: Review) => {
     try {
-      const res = await fetch(`/api/admin/reviews/${review.id}`, {
+      const res = await adminFetch(`/api/admin/reviews/${review.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isVerified: !review.isVerified }),

@@ -5,6 +5,10 @@ import { adminLimitParam, adminPageParam } from '@/lib/admin-pagination'
 
 export const dynamic = 'force-dynamic'
 
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, max-age=0',
+} as const
+
 const isAdmin = (role?: string | null) =>
   ['ADMIN', 'SUPER_ADMIN', 'MANAGER'].includes(role ?? '')
 
@@ -61,7 +65,10 @@ export async function GET(req: NextRequest) {
 
   const total = Number(countResult[0]?.count ?? 0)
 
-  return NextResponse.json({ records, total, page, limit })
+  return NextResponse.json(
+    { records, total, page, limit },
+    { headers: NO_STORE_HEADERS }
+  )
 }
 
 // ── POST /api/admin/customer-measurements ───────────────────────────────────
@@ -186,5 +193,8 @@ export async function POST(req: NextRequest) {
   const sql = `INSERT INTO "customer_measurements" (${cols.join(', ')}) VALUES (${vals.join(', ')}) RETURNING *`
   const result = await prisma.$queryRawUnsafe<any[]>(sql, ...params)
 
-  return NextResponse.json({ record: result[0] }, { status: 201 })
+  return NextResponse.json(
+    { record: result[0] },
+    { status: 201, headers: NO_STORE_HEADERS }
+  )
 }
