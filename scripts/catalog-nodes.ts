@@ -31,7 +31,7 @@ const CREATE_DEFAULTS = {
 } as const;
 const TRANSACTION_MAX_WAIT_MS = 15_000;
 // Interactive transactions require a persistent direct connection (not a pooler).
-// 120 s gives ample headroom for 142 sequential upserts over a remote DB.
+// 120 s gives ample headroom for the catalog's sequential upserts over a remote DB.
 const TRANSACTION_TIMEOUT_MS = 120_000;
 
 /**

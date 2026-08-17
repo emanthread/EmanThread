@@ -418,6 +418,7 @@ export const catalogMenu: MenuDepartment[] = [
               { id: "men.ready-to-wear.kameez-shalwar-waistcoat", label: "KAMEEZ SHALWAR & WAISTCOAT", href: "/men/ready-to-wear/kameez-shalwar-waistcoat", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 5 },
               { id: "men.ready-to-wear.kurta-trousers", label: "KURTA TROUSERS", href: "/men/ready-to-wear/kurta-trousers", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 6 },
               { id: "men.ready-to-wear.waistcoat", label: "WAISTCOAT", href: "/men/ready-to-wear/waistcoat", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 7 },
+              { id: "men.ready-to-wear.coat", label: "COAT", href: "/men/ready-to-wear/coat", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 8 },
             ],
           },
           {
