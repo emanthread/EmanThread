@@ -116,6 +116,7 @@ type CliOptions = {
   apply: boolean;
   confirmDisposable: boolean;
   reviewedPlan: string | null;
+  scopePath: string | null;
   help: boolean;
 };
 
@@ -577,6 +578,7 @@ function parseCliOptions(argv: string[]): CliOptions {
     apply: false,
     confirmDisposable: false,
     reviewedPlan: null,
+    scopePath: null,
     help: false,
   };
 
@@ -621,6 +623,19 @@ function parseCliOptions(argv: string[]): CliOptions {
       options.reviewedPlan = argument.slice("--reviewed-plan=".length);
       continue;
     }
+    if (argument === "--scope") {
+      const value = argv[index + 1];
+      if (!value) {
+        throw new Error("--scope requires a canonical catalog path");
+      }
+      options.scopePath = parseScopePath(value);
+      index += 1;
+      continue;
+    }
+    if (argument.startsWith("--scope=")) {
+      options.scopePath = parseScopePath(argument.slice("--scope=".length));
+      continue;
+    }
 
     throw new Error(`Unknown argument: ${argument}`);
   }
@@ -628,8 +643,24 @@ function parseCliOptions(argv: string[]): CliOptions {
   if (options.apply && options.mode !== "bootstrap") {
     throw new Error("--apply is valid only with --mode=bootstrap");
   }
+  if (options.scopePath && options.mode !== "bootstrap") {
+    throw new Error("--scope is valid only with --mode=bootstrap");
+  }
 
   return options;
+}
+
+function parseScopePath(value: string): string {
+  const normalized = value.trim().toLowerCase().replace(/\/+$/, "");
+  if (
+    !normalized ||
+    !/^\/[a-z0-9]+(?:-[a-z0-9]+)*(?:\/[a-z0-9]+(?:-[a-z0-9]+)*)*$/.test(
+      normalized,
+    )
+  ) {
+    throw new Error("--scope must be a canonical lowercase catalog path");
+  }
+  return normalized;
 }
 
 function parseMode(value: string): CliMode {
@@ -645,6 +676,7 @@ function printHelp(): void {
 Usage:
   npx tsx scripts/catalog-nodes.ts
   npx tsx scripts/catalog-nodes.ts --mode=bootstrap
+  npx tsx scripts/catalog-nodes.ts --mode=bootstrap --scope=/men/ready-to-wear
   npx tsx scripts/catalog-nodes.ts --mode=bootstrap --apply --reviewed-plan=<db-plan-sha256>
   npx tsx scripts/catalog-nodes.ts --mode=validate --confirm-disposable
 
@@ -652,6 +684,9 @@ Modes:
   plan       Validate config and print the deterministic manifest; no DB access.
   bootstrap  Compare the manifest with CatalogNode; dry-run unless --apply.
   validate   Compare visible active config hrefs with active DB paths; read-only.
+
+Bootstrap scope:
+  --scope     Limit comparison and writes to one canonical path and its descendants.
 
 Required environment acknowledgements:
   Apply:      CATALOG_BOOTSTRAP_APPLY=${APPLY_ACKNOWLEDGEMENT}
@@ -936,6 +971,7 @@ async function runBootstrapMode(
         {
           mode: "bootstrap",
           dryRun: !options.apply,
+          scopePath: options.scopePath,
           manifestReviewHash: currentManifestReviewHash,
           databasePlanReviewHash: currentDatabasePlanReviewHash,
           writePolicy: BOOTSTRAP_WRITE_POLICY,
@@ -1065,7 +1101,23 @@ async function main(): Promise<void> {
     return;
   }
   if (options.mode === "bootstrap") {
-    await runBootstrapMode(options, entries, reviewHash);
+    const bootstrapEntries = options.scopePath
+      ? entries.filter(
+          (entry) =>
+            entry.path === options.scopePath ||
+            entry.path.startsWith(`${options.scopePath}/`),
+        )
+      : entries;
+    if (bootstrapEntries.length === 0) {
+      throw new Error(
+        `--scope does not match a canonical manifest path: ${options.scopePath}`,
+      );
+    }
+    await runBootstrapMode(
+      options,
+      bootstrapEntries,
+      manifestReviewHash(bootstrapEntries),
+    );
     return;
   }
   await runValidationMode(options, visibleActiveConfigPaths);

@@ -52,6 +52,13 @@ All commands require a configured `DATABASE_URL` except the default plan.
    database-derived actions/conflicts, create defaults, update field set,
    preservation policy, and transaction policy.
 
+   When a release must apply only one reviewed catalog branch, scope both the
+   dry-run and apply command to the same canonical path:
+
+   ```powershell
+   npx tsx scripts/catalog-nodes.ts --mode=bootstrap --scope=/men/ready-to-wear
+   ```
+
 3. Apply only after reviewing both outputs. Use the exact database-plan
    SHA-256 printed by step 2:
 
@@ -60,6 +67,10 @@ All commands require a configured `DATABASE_URL` except the default plan.
    npx tsx scripts/catalog-nodes.ts --mode=bootstrap --apply --reviewed-plan=<sha256>
    Remove-Item Env:CATALOG_BOOTSTRAP_APPLY
    ```
+
+   If step 2 used `--scope`, include that exact same `--scope` value in the
+   apply command. A scoped and unscoped dry-run produce different review
+   hashes, so they cannot be accidentally interchanged.
 
 Apply recomputes the database plan inside a serializable transaction before
 any upsert. It aborts if that plan differs from the reviewed dry-run or if a
