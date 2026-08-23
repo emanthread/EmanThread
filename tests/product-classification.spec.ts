@@ -26,6 +26,15 @@ test.describe("catalog-driven product classification", () => {
     expect(classifyCatalogPath("/men/ready-to-wear/coat")?.productKind).toBe(
       "READY_TO_WEAR"
     );
+    expect(classifyCatalogPath("/women/ready-to-wear/casual")?.productKind).toBe(
+      "READY_TO_WEAR"
+    );
+    expect(classifyCatalogPath("/men/ready-to-wear/formal")?.productKind).toBe(
+      "READY_TO_WEAR"
+    );
+    expect(classifyCatalogPath("/men/ready-to-wear/casual")?.productKind).toBe(
+      "READY_TO_WEAR"
+    );
     expect(classifyCatalogPath("/men/unstitched/boski")?.productKind).toBe(
       "UNSTITCHED_FABRIC"
     );
@@ -33,6 +42,12 @@ test.describe("catalog-driven product classification", () => {
       classifyCatalogPath("/fragrance-beauty/fragrances/men/perfume")?.productKind
     ).toBe("FRAGRANCE");
     expect(classifyCatalogPath("/teens/teen-girls/kurti")?.productKind).toBe(
+      "TEENS"
+    );
+    expect(classifyCatalogPath("/teens/teen-girls/casual")?.productKind).toBe(
+      "TEENS"
+    );
+    expect(classifyCatalogPath("/teens/teen-boys/occasion-wear")?.productKind).toBe(
       "TEENS"
     );
     expect(

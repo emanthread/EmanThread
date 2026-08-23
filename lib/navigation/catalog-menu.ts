@@ -186,6 +186,15 @@ export const catalogMenu: MenuDepartment[] = [
               { id: "women.ready-to-wear.matching-separates", label: "MATCHING SEPARATES", href: "/women/ready-to-wear/matching-separates", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 3 },
             ],
           },
+          {
+            id: "women.ready-to-wear.shop-by-occasion",
+            label: "SHOP BY OCCASION",
+            order: 3,
+            items: [
+              { id: "women.ready-to-wear.formals", label: "FORMALS", href: "/women/formals", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 1 },
+              { id: "women.ready-to-wear.casual", label: "CASUAL", href: "/women/ready-to-wear/casual", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 2 },
+            ],
+          },
         ],
         visualCards: [
           {
@@ -428,6 +437,15 @@ export const catalogMenu: MenuDepartment[] = [
             items: [
               { id: "men.ready-to-wear.heritage-edit", label: "HERITAGE EDIT", href: "/men/ready-to-wear/heritage-edit", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 1 },
               { id: "men.ready-to-wear.exclusive-gift-box", label: "EXCLUSIVE GIFT BOX", href: "/men/ready-to-wear/exclusive-gift-box", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 2 },
+            ],
+          },
+          {
+            id: "men.ready-to-wear.shop-by-occasion",
+            label: "SHOP BY OCCASION",
+            order: 3,
+            items: [
+              { id: "men.ready-to-wear.formal", label: "FORMAL", href: "/men/ready-to-wear/formal", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 1 },
+              { id: "men.ready-to-wear.casual", label: "CASUAL", href: "/men/ready-to-wear/casual", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 2 },
             ],
           },
         ],
@@ -841,6 +859,15 @@ export const catalogMenu: MenuDepartment[] = [
               { id: "teens.teen-girls.essentials", label: "ESSENTIALS", href: "/teens/teen-girls/essentials", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 4 },
             ],
           },
+          {
+            id: "teens.teen-girls.shop-by-occasion",
+            label: "SHOP BY OCCASION",
+            order: 3,
+            items: [
+              { id: "teens.teen-girls.casual", label: "CASUAL", href: "/teens/teen-girls/casual", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 1 },
+              { id: "teens.teen-girls.occasion-wear", label: "PARTY & OCCASION WEAR", href: "/teens/teen-girls/occasion-wear", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 2 },
+            ],
+          },
         ],
         visualCards: [],
       },
@@ -868,6 +895,15 @@ export const catalogMenu: MenuDepartment[] = [
               { id: "teens.teen-boys.special-kurta", label: "SPECIAL KURTA", href: "/teens/teen-boys/special-kurta", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 3 },
               { id: "teens.teen-boys.jubba-thobe", label: "JUBBA-THOBE", href: "/teens/teen-boys/jubba-thobe", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 4 },
               { id: "teens.teen-boys.bottom-wear", label: "BOTTOM WEAR", href: "/teens/teen-boys/bottom-wear", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 5 },
+            ],
+          },
+          {
+            id: "teens.teen-boys.shop-by-occasion",
+            label: "SHOP BY OCCASION",
+            order: 3,
+            items: [
+              { id: "teens.teen-boys.casual", label: "CASUAL", href: "/teens/teen-boys/casual", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 1 },
+              { id: "teens.teen-boys.occasion-wear", label: "PARTY & OCCASION WEAR", href: "/teens/teen-boys/occasion-wear", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 2 },
             ],
           },
         ],

@@ -6,7 +6,7 @@ import { HeroSection } from "@/components/home/hero-section";
 import { LuxuryHighlightsSection } from "@/components/home/luxury-highlights-section";
 import { CategoriesSection } from "@/components/home/categories-section";
 import { getAllProducts, getFeaturedCategoriesSection } from "@/lib/db-queries";
-import { getHeroSlides } from "@/lib/db/store-config";
+import { DEFAULT_HERO_SLIDES, getHeroSlides } from "@/lib/db/store-config";
 
 // ── Lazy-load below-the-fold and overlay components ───────────────────────────
 // CartDrawer: off-screen overlay — never needed at first paint.
@@ -41,11 +41,32 @@ export const revalidate = 300; // Cache the home page for 5 minutes
 
 export default async function HomePage() {
   // All three queries are now cached — near-zero latency after the first call
-  const [products, featuredCategoriesSection, heroSlides] = await Promise.all([
-    getAllProducts(20),
-    getFeaturedCategoriesSection(),
-    getHeroSlides(),
-  ]);
+  const [productsResult, featuredCategoriesResult, heroSlidesResult] =
+    await Promise.allSettled([
+      getAllProducts(20),
+      getFeaturedCategoriesSection(),
+      getHeroSlides(),
+    ]);
+  const products = productsResult.status === "fulfilled" ? productsResult.value : [];
+  const featuredCategoriesSection =
+    featuredCategoriesResult.status === "fulfilled"
+      ? featuredCategoriesResult.value
+      : { categories: [] };
+  const heroSlides =
+    heroSlidesResult.status === "fulfilled"
+      ? heroSlidesResult.value
+      : [...DEFAULT_HERO_SLIDES];
+
+  // One unavailable cached section must not turn the entire storefront into a
+  // build-time or runtime 500 during a temporary database interruption.
+  for (const result of [productsResult, featuredCategoriesResult, heroSlidesResult]) {
+    if (result.status === "rejected") {
+      console.error(
+        "[homepage] Cached data source unavailable; using fallback",
+        result.reason
+      );
+    }
+  }
 
   return (
     <>

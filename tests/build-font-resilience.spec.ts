@@ -27,3 +27,12 @@ test("PWA build tooling uses the stable source-map release", () => {
   expect(lockfile).toContain('"source-map": "0.8.0"');
   expect(lockfile).not.toContain('"source-map": "0.8.0-beta.0"');
 });
+
+test("homepage prerender degrades per section when the database is unavailable", () => {
+  const homepage = source("app/page.tsx");
+
+  expect(homepage).toContain("Promise.allSettled");
+  expect(homepage).toContain('status === "fulfilled"');
+  expect(homepage).toContain("DEFAULT_HERO_SLIDES");
+  expect(homepage).toContain(": { categories: [] }");
+});

@@ -41,6 +41,10 @@ const expectedHierarchy = [
             label: "SHOP BY COLLECTION",
             items: ["SIGNATURE", "LUXE", "MATCHING SEPARATES"],
           },
+          {
+            label: "SHOP BY OCCASION",
+            items: ["FORMALS", "CASUAL"],
+          },
         ],
       },
       {
@@ -99,6 +103,10 @@ const expectedHierarchy = [
           {
             label: "SHOP BY COLLECTION",
             items: ["HERITAGE EDIT", "EXCLUSIVE GIFT BOX"],
+          },
+          {
+            label: "SHOP BY OCCASION",
+            items: ["FORMAL", "CASUAL"],
           },
         ],
       },
@@ -239,6 +247,7 @@ const expectedHierarchy = [
         groups: [
           { label: "SHOP BY COLLECTION", items: ["SUMMER'26"] },
           { label: "SHOP BY CATEGORY", items: ["READY TO WEAR", "KURTI", "TROUSERS", "ESSENTIALS"] },
+          { label: "SHOP BY OCCASION", items: ["CASUAL", "PARTY & OCCASION WEAR"] },
         ],
       },
       {
@@ -249,6 +258,7 @@ const expectedHierarchy = [
             label: "SHOP BY CATEGORY",
             items: ["KAMEEZ SHALWAR", "KURTA", "SPECIAL KURTA", "JUBBA-THOBE", "BOTTOM WEAR"],
           },
+          { label: "SHOP BY OCCASION", items: ["CASUAL", "PARTY & OCCASION WEAR"] },
         ],
       },
       { label: "SALE", groups: [] },
@@ -306,7 +316,7 @@ test.describe("catalog navigation configuration", () => {
     expect(configuredHierarchy).toEqual(expectedHierarchy);
     expect(catalogMenu).toHaveLength(4);
     expect(catalogMenu.flatMap((department) => department.sections)).toHaveLength(20);
-    expect(allLeaves()).toHaveLength(122);
+    expect(allLeaves()).toHaveLength(130);
 
     for (const department of catalogMenu) {
       expectSequentialOrder(department.sections);
@@ -503,6 +513,58 @@ test.describe("catalog navigation configuration", () => {
     ]);
   });
 
+  test("places occasion categories only in the apparel departments where they apply", () => {
+    const women = catalogMenu.find((department) => department.id === "women")!;
+    const womenReadyToWear = women.sections.find(
+      (section) => section.id === "women.ready-to-wear",
+    )!;
+    const womenOccasions = womenReadyToWear.groups.find(
+      (group) => group.id === "women.ready-to-wear.shop-by-occasion",
+    )!;
+    expect(womenOccasions.items).toMatchObject([
+      { label: "FORMALS", href: "/women/formals" },
+      { label: "CASUAL", href: "/women/ready-to-wear/casual" },
+    ]);
+
+    const men = catalogMenu.find((department) => department.id === "men")!;
+    const menReadyToWear = men.sections.find(
+      (section) => section.id === "men.ready-to-wear",
+    )!;
+    const menOccasions = menReadyToWear.groups.find(
+      (group) => group.id === "men.ready-to-wear.shop-by-occasion",
+    )!;
+    expect(menOccasions.items).toMatchObject([
+      { label: "FORMAL", href: "/men/ready-to-wear/formal" },
+      { label: "CASUAL", href: "/men/ready-to-wear/casual" },
+    ]);
+
+    const teens = catalogMenu.find((department) => department.id === "teens")!;
+    for (const audience of ["teen-girls", "teen-boys"] as const) {
+      const section = teens.sections.find(
+        (candidate) => candidate.id === `teens.${audience}`,
+      )!;
+      const occasions = section.groups.find(
+        (group) => group.id === `teens.${audience}.shop-by-occasion`,
+      )!;
+      expect(occasions.items).toMatchObject([
+        { label: "CASUAL", href: `/teens/${audience}/casual` },
+        {
+          label: "PARTY & OCCASION WEAR",
+          href: `/teens/${audience}/occasion-wear`,
+        },
+      ]);
+    }
+
+    const fragranceBeauty = catalogMenu.find(
+      (department) => department.id === "fragrance-beauty",
+    )!;
+    expect(
+      fragranceBeauty.sections.flatMap((section) =>
+        section.groups.flatMap((group) => group.items),
+      ).some((item) => /formal|casual/i.test(item.label)),
+    ).toBe(false);
+  });
+
   test("builds a canonical bootstrap plan without materializing navigation aliases", () => {
     const tsxCli = resolve(
       process.cwd(),
@@ -577,6 +639,43 @@ test.describe("catalog navigation configuration", () => {
       parentId: "catalog:section:men.ready-to-wear",
       productKind: "READY_TO_WEAR",
     });
+
+    for (const expected of [
+      {
+        path: "/women/ready-to-wear/casual",
+        id: "catalog:leaf:women.ready-to-wear.casual",
+        parentId: "catalog:section:women.ready-to-wear",
+        productKind: "READY_TO_WEAR",
+      },
+      {
+        path: "/men/ready-to-wear/formal",
+        id: "catalog:leaf:men.ready-to-wear.formal",
+        parentId: "catalog:section:men.ready-to-wear",
+        productKind: "READY_TO_WEAR",
+      },
+      {
+        path: "/men/ready-to-wear/casual",
+        id: "catalog:leaf:men.ready-to-wear.casual",
+        parentId: "catalog:section:men.ready-to-wear",
+        productKind: "READY_TO_WEAR",
+      },
+      ...(["teen-girls", "teen-boys"] as const).flatMap((audience) =>
+        ["casual", "occasion-wear"].map((slug) => ({
+          path: `/teens/${audience}/${slug}`,
+          id: `catalog:leaf:teens.${audience}.${slug}`,
+          parentId: `catalog:section:teens.${audience}`,
+          productKind: "TEENS",
+        })),
+      ),
+    ]) {
+      expect(plan.entries.find((entry) => entry.path === expected.path)).toMatchObject(
+        expected,
+      );
+    }
+
+    expect(
+      plan.entries.filter((entry) => entry.path === "/women/formals"),
+    ).toHaveLength(1);
   });
 
   test("uses explicit dedicated catalog routes and never inferred shop filters", () => {
