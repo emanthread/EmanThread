@@ -15,6 +15,7 @@ import {
 } from "@/lib/catalog-product-classification";
 import { sanitizeDbError } from "@/lib/utils/errors";
 import { parseProductImages } from "@/lib/utils/parse-images";
+import { createAutomaticVariantSku } from "@/lib/product-sku";
 
 export const dynamic = "force-dynamic";
 
@@ -288,6 +289,7 @@ export const PUT = withLoggedAdminHandler(async (
       where: { id: productId },
       select: {
         id: true,
+        sku: true,
         price: true,
         commerceProfile: {
           include: {
@@ -391,8 +393,74 @@ export const PUT = withLoggedAdminHandler(async (
     const hasUnstitchedColors =
       parsed.data.productKind === "UNSTITCHED_FABRIC" &&
       parsed.data.variants.length > 0;
+    const existingVariantsById = new Map(
+      (product.commerceProfile?.variants || []).map((variant) => [variant.id, variant])
+    );
+    const existingVariantsByKey = new Map(
+      (product.commerceProfile?.variants || []).map((variant) => [
+        variant.optionKey.toLocaleLowerCase("en-US"),
+        variant,
+      ])
+    );
+    const resolvedVariants = parsed.data.variants.map((variant) => {
+      const previous = variant.id
+        ? existingVariantsById.get(variant.id)
+        : existingVariantsByKey.get(variant.optionKey.toLocaleLowerCase("en-US"));
+      const sku =
+        variant.sku?.trim() ||
+        previous?.sku?.trim() ||
+        (variant.isActive
+          ? createAutomaticVariantSku(product.sku, variant.optionKey, variant.label)
+          : undefined);
+      return { ...variant, sku };
+    });
+    const resolvedSkus = resolvedVariants
+      .map((variant) => variant.sku)
+      .filter((sku): sku is string => Boolean(sku));
+    const normalizedSkus = new Set(resolvedSkus.map((sku) => sku.toLocaleLowerCase("en-US")));
+    if (
+      normalizedSkus.size !== resolvedSkus.length ||
+      normalizedSkus.has(product.sku.toLocaleLowerCase("en-US"))
+    ) {
+      return NextResponse.json(
+        { error: "Each product and option combination must have a unique SKU" },
+        { status: 409 }
+      );
+    }
+    if (resolvedSkus.length > 0) {
+      const [conflictingProduct, conflictingVariant] = await Promise.all([
+        prisma.product.findFirst({
+          where: {
+            id: { not: productId },
+            OR: resolvedSkus.map((sku) => ({
+              sku: { equals: sku, mode: "insensitive" as const },
+            })),
+          },
+          select: { sku: true },
+        }),
+        prisma.productVariant.findFirst({
+          where: {
+            ...(product.commerceProfile
+              ? { commerceProfileId: { not: product.commerceProfile.id } }
+              : {}),
+            OR: resolvedSkus.map((sku) => ({
+              sku: { equals: sku, mode: "insensitive" as const },
+            })),
+          },
+          select: { sku: true },
+        }),
+      ]);
+      if (conflictingProduct || conflictingVariant) {
+        return NextResponse.json(
+          { error: `SKU ${conflictingProduct?.sku || conflictingVariant?.sku} is already in use` },
+          { status: 409 }
+        );
+      }
+    }
+
     const data = {
       ...parsed.data,
+      variants: resolvedVariants,
       // Client input must never downgrade ready-to-wear or teens into a
       // generic product line. This keeps the persisted API contract aligned
       // with the storefront even for handcrafted admin requests.
@@ -444,6 +512,10 @@ export const PUT = withLoggedAdminHandler(async (
       // Removed options are archived instead of deleted. Their SKU is cleared
       // because historic order snapshots already retain it and a replacement
       // option may legitimately need the same SKU.
+      await tx.productVariant.updateMany({
+        where: { commerceProfileId: profile.id },
+        data: { sku: null },
+      });
       await tx.productVariant.updateMany({
         where: {
           commerceProfileId: profile.id,

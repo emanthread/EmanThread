@@ -32,6 +32,8 @@ export default defineConfig({
     "admin-product-catalog-filter.spec.ts",
     "review-admin-freshness.spec.ts",
     "admin-customer-measurements.spec.ts",
+    "product-sku-generation.spec.ts",
+    "product-option-admin-simplification.spec.ts",
   ],
   fullyParallel: true,
   workers: 1,

@@ -7,11 +7,13 @@ import { withLoggedAdminHandler } from "@/lib/logger";
 import { sanitizeDbError } from '@/lib/utils/errors';
 import { adminLimitParam, adminPageParam } from "@/lib/admin-pagination";
 import { requireAdminApiAccess } from "@/lib/admin-route-guard";
+import { prisma } from "@/lib/db";
+import { createAutomaticProductSku } from "@/lib/product-sku";
 
 export const dynamic = "force-dynamic";
 
 const createProductSchema = z.object({
-  sku: z.string().min(1, "SKU is required"),
+  sku: z.string().trim().max(120).optional().default(""),
   slug: z.string().optional(),
   name: z.string().min(1, "Name is required"),
   description: z.string().min(1, "Description is required"),
@@ -106,7 +108,24 @@ export const POST = withLoggedAdminHandler(async (req: Request) => {
   }
 
   try {
-    const product = await createAdminProduct(result.data);
+    const sku = result.data.sku || createAutomaticProductSku(result.data.name);
+    const [conflictingProduct, conflictingVariant] = await Promise.all([
+      prisma.product.findFirst({
+        where: { sku: { equals: sku, mode: "insensitive" } },
+        select: { sku: true },
+      }),
+      prisma.productVariant.findFirst({
+        where: { sku: { equals: sku, mode: "insensitive" } },
+        select: { sku: true },
+      }),
+    ]);
+    if (conflictingProduct || conflictingVariant) {
+      return NextResponse.json(
+        { error: `Product code ${conflictingProduct?.sku || conflictingVariant?.sku} is already in use` },
+        { status: 409 }
+      );
+    }
+    const product = await createAdminProduct({ ...result.data, sku });
 
     // Audit log — reuse session obtained above, no extra auth() call needed.
     void createAuditLog({

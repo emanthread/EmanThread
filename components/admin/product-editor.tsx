@@ -39,6 +39,8 @@ import {
 import {
   ProductCommerceProfileSection,
   emptyCommerceProfileDraft,
+  initialNormalizedOptions,
+  rebuildCombinationDrafts,
   serializeCommerceProfile,
   type CommerceProfileDraft,
 } from "@/components/admin/product-commerce-profile-section";
@@ -221,10 +223,7 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
                   ...loaded,
                   id: "",
                   name: `Copy of ${loaded.name}`,
-                  sku: `${loaded.sku}-${Date.now()
-                    .toString(36)
-                    .toUpperCase()
-                    .slice(-6)}`,
+                  sku: "",
                   slug: "",
                   createdAt: new Date().toISOString(),
                   updatedAt: new Date().toISOString(),
@@ -333,6 +332,16 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
     setCommerceProfile((current) => {
       const defaults = defaultCommerceSettingsForClassification(nextClassification);
       const previousDefault = defaultOptionLabelForKind(current.productKind);
+      const initializeRequiredOptions =
+        nextClassification.editorSchema.options.mode === "required" &&
+        (productKindChanged ||
+          (current.options.length === 0 && current.variants.length === 0));
+      const defaultOptions = initializeRequiredOptions
+        ? initialNormalizedOptions(
+            nextClassification.productKind,
+            nextClassification.editorSchema.options.presets
+          )
+        : [];
       return {
         ...current,
         ...defaults,
@@ -346,8 +355,16 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
           )
             ? current.sizeGuideUrl
             : "",
-        variants: productKindChanged ? [] : current.variants,
-        options: productKindChanged ? [] : current.options,
+        variants: initializeRequiredOptions
+          ? rebuildCombinationDrafts(defaultOptions, [])
+          : productKindChanged
+            ? []
+            : current.variants,
+        options: initializeRequiredOptions
+          ? defaultOptions
+          : productKindChanged
+            ? []
+            : current.options,
       };
     });
 
@@ -469,7 +486,6 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
       next.classification = "Choose a department and product category";
     }
     if (!product.name.trim()) next.name = "Enter a product name";
-    if (!product.sku.trim()) next.sku = "Enter a product code (SKU)";
     if (!Number.isFinite(product.price) || product.price <= 0) {
       next.price = "Price must be greater than 0";
     }
@@ -824,8 +840,17 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
               <FieldError message={errors.name} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="sku">Product code (SKU) *</Label>
-              <Input id="sku" value={product.sku} onChange={(event) => updateProduct("sku", event.target.value)} aria-invalid={Boolean(errors.sku)} />
+              <Label htmlFor="sku">Product code (SKU) (optional)</Label>
+              <Input
+                id="sku"
+                value={product.sku}
+                onChange={(event) => updateProduct("sku", event.target.value)}
+                aria-invalid={Boolean(errors.sku)}
+                placeholder="Generated automatically when empty"
+              />
+              <p className="text-xs text-muted-foreground">
+                Leave this empty and a unique inventory code will be created when you save.
+              </p>
               <FieldError message={errors.sku} />
             </div>
           </div>
@@ -1132,7 +1157,7 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
           <span className="ml-2 text-sm font-normal text-muted-foreground">Uses product details by default</span>
         </summary>
         <div className="space-y-4 border-t p-5">
-          <div className="space-y-2"><Label htmlFor="slug">URL slug</Label><Input id="slug" value={product.slug} onChange={(event) => updateProduct("slug", event.target.value)} placeholder="Generated from SKU when empty" aria-invalid={Boolean(errors.slug)} /><FieldError message={errors.slug} /></div>
+          <div className="space-y-2"><Label htmlFor="slug">URL slug</Label><Input id="slug" value={product.slug} onChange={(event) => updateProduct("slug", event.target.value)} placeholder="Generated automatically when empty" aria-invalid={Boolean(errors.slug)} /><FieldError message={errors.slug} /></div>
           <div className="space-y-2"><Label htmlFor="metaTitle">Meta title</Label><Input id="metaTitle" value={product.metaTitle || ""} onChange={(event) => updateProduct("metaTitle", event.target.value)} /></div>
           <div className="space-y-2"><Label htmlFor="metaDescription">Meta description</Label><Textarea id="metaDescription" value={product.metaDescription || ""} onChange={(event) => updateProduct("metaDescription", event.target.value)} rows={3} /></div>
         </div>

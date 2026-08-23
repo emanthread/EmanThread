@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import Image from "next/image";
-import { AlertTriangle, ImagePlus, Plus, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, ImagePlus, Lock, Plus, Trash2, X } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -196,16 +196,16 @@ export function serializeCommerceProfile(
   const seenKeys = new Set<string>();
   const seenSkus = new Set<string>();
   const variants = draft.variants.map((variant, index) => {
-    const optionKey = variant.optionKey.trim();
     const label = variant.label.trim();
+    const optionKey = variant.optionKey.trim() || optionKeyFromLabel(label);
     const sku = variant.sku.trim();
     const priceAdjustment = Number(variant.priceAdjustment || "0");
     const stockQuantity = Number(variant.stockQuantity || "0");
     const colorHex = variant.colorHex.trim();
     const images = variant.images.map((image) => image.trim()).filter(Boolean);
 
-    if (!optionKey || !label) {
-      throw new Error(`Option ${index + 1} needs both a key and customer label`);
+    if (!label) {
+      throw new Error(`Enter the customer label for option ${index + 1}`);
     }
     if (!Number.isFinite(priceAdjustment)) {
       throw new Error(`Option ${index + 1} has an invalid price adjustment`);
@@ -213,10 +213,6 @@ export function serializeCommerceProfile(
     if (!Number.isInteger(stockQuantity) || stockQuantity < 0) {
       throw new Error(`Option ${index + 1} stock must be a whole number of 0 or more`);
     }
-    if (draft.options.length > 0 && variant.isActive && !sku) {
-      throw new Error(`Combination ${label || index + 1} needs its own SKU`);
-    }
-
     const normalizedKey = optionKey.toLocaleLowerCase();
     if (seenKeys.has(normalizedKey)) {
       throw new Error("Each option key must be unique");
@@ -287,11 +283,11 @@ export function serializeCommerceProfile(
   }).filter((detail) => detail.label && detail.value);
 
   draft.options.forEach((option, axisIndex) => {
-    if (!option.key.trim() || !option.label.trim() || option.values.length === 0) {
+    if (!option.label.trim() || option.values.length === 0) {
       throw new Error(`Option axis ${axisIndex + 1} needs a name and at least one value`);
     }
     option.values.forEach((value, valueIndex) => {
-      if (!value.key.trim() || !value.label.trim()) {
+      if (!value.label.trim()) {
         throw new Error(`${option.label} value ${valueIndex + 1} needs a label`);
       }
       if (option.type === "COLOR" || option.type === "SHADE") {
@@ -323,13 +319,13 @@ export function serializeCommerceProfile(
     ...(draft.options.length ? {
       options: draft.options.map((option) => ({
         ...(option.id ? { id: option.id } : {}),
-        key: option.key.trim(),
+        key: option.key.trim() || optionKeyFromLabel(option.label),
         label: option.label.trim(),
         type: option.type,
         isRequired: option.isRequired,
         values: option.values.map((value) => ({
           ...(value.id ? { id: value.id } : {}),
-          key: value.key.trim(),
+            key: value.key.trim() || optionKeyFromLabel(value.label),
           label: value.label.trim(),
           swatchHex: value.swatchHex.trim() || undefined,
           images: value.images,
@@ -394,10 +390,11 @@ function draftKey(value: string): string {
   return value.trim().toLocaleLowerCase("en-US").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 }
 
-function rebuildCombinationDrafts(
+export function rebuildCombinationDrafts(
   options: ProductOptionDraft[],
   existing: ProductVariantDraft[],
 ): ProductVariantDraft[] {
+  if (options.length === 0) return [];
   const combinations = options.reduce<Array<Array<{ optionKey: string; valueKey: string; label: string }>>>(
     (rows, option) => rows.flatMap((row) => option.values.filter((value) => value.isActive).map((value) => [
       ...row,
@@ -436,39 +433,91 @@ function rebuildCombinationDrafts(
   });
 }
 
-function initialNormalizedOptions(
+export function initialNormalizedOptions(
   kind: ProductKind,
   presets: readonly ProductOptionPreset[],
+  requestedType?: ProductOptionType,
 ): ProductOptionDraft[] {
-  const values = presets.map((preset) => ({
+  const defaultType: ProductOptionType =
+    kind === "READY_TO_WEAR" || kind === "TEENS"
+      ? "SIZE"
+      : kind === "BEAUTY"
+        ? "SHADE"
+        : kind === "FRAGRANCE"
+          ? "VOLUME"
+          : kind === "GIFT" || kind === "GIFT_BOX"
+            ? "FORMAT"
+            : "COLOR";
+  const type = requestedType || defaultType;
+  const defaultApparelSizes = new Set(["s", "m", "l", "xl"]);
+  const initialPresets =
+    type === "SIZE" && (kind === "READY_TO_WEAR" || kind === "TEENS")
+    ? presets.filter((preset) => defaultApparelSizes.has(preset.optionKey))
+    : [];
+  const values = initialPresets.map((preset) => ({
     key: preset.optionKey,
     label: preset.label,
     swatchHex: "",
     images: [],
     isActive: true,
   }));
-  if (kind === "READY_TO_WEAR" || kind === "TEENS") {
-    return [{ key: "size", label: "Size", type: "SIZE", isRequired: true, values }];
-  }
-  if (kind === "BEAUTY") {
-    return [{ key: "shade", label: "Shade", type: "SHADE", isRequired: true, values: [] }];
-  }
-  if (kind === "FRAGRANCE") {
-    return [{ key: "volume", label: "Volume", type: "VOLUME", isRequired: true, values: [] }];
-  }
+  const definitions: Record<
+    ProductOptionType,
+    { key: string; label: string }
+  > = {
+    COLOR: { key: "color", label: "Color" },
+    SIZE: { key: "size", label: "Size" },
+    SHADE: { key: "shade", label: "Shade" },
+    VOLUME: { key: "volume", label: "Volume" },
+    STYLE: { key: "style", label: "Style" },
+    FORMAT: {
+      key: "format",
+      label: kind === "GIFT" || kind === "GIFT_BOX" ? "Gift option" : "Format",
+    },
+    CUSTOM: { key: "option", label: "Option" },
+  };
+  const definition = definitions[type];
+  return [
+    {
+      ...definition,
+      type,
+      isRequired: true,
+      values,
+    },
+  ];
+}
+
+export function optionTypeCustomerLabel(
+  type: ProductOptionType,
+  kind: ProductKind
+): string {
+  return initialNormalizedOptions(kind, [], type)[0]?.label || "Option";
+}
+
+export function adminSelectableOptionTypes(
+  kind: ProductKind,
+  allowedTypes: readonly ProductOptionType[]
+): readonly ProductOptionType[] {
+  // Gift products intentionally keep the routine workflow to one optional
+  // customer-facing Gift option. Older Style/Custom profiles remain readable
+  // and valid on the server without complicating every new product form.
   if (kind === "GIFT" || kind === "GIFT_BOX") {
-    return [{ key: "format", label: "Gift option", type: "FORMAT", isRequired: true, values: [] }];
+    return allowedTypes.includes("FORMAT") ? ["FORMAT"] : [];
   }
-  return [{ key: "color", label: "Color", type: "COLOR", isRequired: true, values: [] }];
+  return allowedTypes;
 }
 
 function NormalizedOptionEditor({
   draft,
   update,
+  allowedOptionTypes,
+  requiredOptionTypes,
   onUploadVariantImage,
 }: {
   draft: CommerceProfileDraft;
   update: (changes: Partial<CommerceProfileDraft>) => void;
+  allowedOptionTypes: readonly ProductOptionType[];
+  requiredOptionTypes: readonly ProductOptionType[];
   onUploadVariantImage?: (file: File) => Promise<string | null>;
 }) {
   const updateOptions = (options: ProductOptionDraft[], variants = rebuildCombinationDrafts(options, draft.variants)) => {
@@ -484,27 +533,88 @@ function NormalizedOptionEditor({
     } : option);
     updateOptions(options);
   };
-  const visualAxisExists = draft.options.some((option) => option.type === "COLOR" || option.type === "SHADE");
-  const canAddColor = (draft.productKind === "READY_TO_WEAR" || draft.productKind === "TEENS" || draft.productKind === "ACCESSORY") && !visualAxisExists;
+  const togglePresetValue = (
+    axisIndex: number,
+    preset: ProductOptionPreset
+  ) => {
+    const option = draft.options[axisIndex];
+    if (!option) return;
+    const normalizedPresetKey = normalizedOptionValue(preset.optionKey);
+    const existing = option.values.find(
+      (value) => normalizedOptionValue(value.key) === normalizedPresetKey
+    );
+    const presetOrder = new Map(
+      optionPresets.map((candidate, index) => [candidate.optionKey, index])
+    );
+    const values = existing
+      ? option.values.filter((value) => value !== existing)
+      : [
+          ...option.values,
+          {
+            key: preset.optionKey,
+            label: preset.label,
+            swatchHex: "",
+            images: [],
+            isActive: true,
+          },
+        ].sort(
+          (left, right) =>
+            (presetOrder.get(left.key) ?? Number.MAX_SAFE_INTEGER) -
+            (presetOrder.get(right.key) ?? Number.MAX_SAFE_INTEGER)
+        );
+    updateOption(axisIndex, { values });
+  };
+  const optionPresets = productEditorSchemaForKind(draft.productKind).options.presets;
+  const existingOptionTypes = new Set(draft.options.map((option) => option.type));
+  const availableOptionTypes = allowedOptionTypes.filter(
+    (type) => !existingOptionTypes.has(type)
+  );
+  const addOptionAxis = (type: ProductOptionType) => {
+    if (draft.options.length >= 4 || existingOptionTypes.has(type)) return;
+    const [axis] = initialNormalizedOptions(
+      draft.productKind,
+      optionPresets,
+      type
+    );
+    if (!axis) return;
+    if (axis.values.length === 0) {
+      axis.values.push({
+        key: "value-1",
+        label: "",
+        swatchHex: type === "COLOR" || type === "SHADE" ? "#000000" : "",
+        images: [],
+        isActive: true,
+      });
+    }
+    updateOptions(
+      type === "COLOR" || type === "SHADE"
+        ? [axis, ...draft.options]
+        : [...draft.options, axis]
+    );
+  };
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <Label>Variant options</Label>
-          <p className="text-xs text-muted-foreground">Every matrix row below is a real SKU and inventory combination.</p>
+          <p className="text-xs text-muted-foreground">Every row is a real inventory combination. Empty SKUs are generated when you save.</p>
         </div>
-        {canAddColor && (
-          <Button type="button" size="sm" variant="outline" onClick={() => {
-            const options = [{
-              key: "color",
-              label: "Color",
-              type: "COLOR" as const,
-              isRequired: true,
-              values: [{ key: "color-1", label: "", swatchHex: "#000000", images: [], isActive: true }],
-            }, ...draft.options];
-            updateOptions(options);
-          }}><Plus className="mr-2 h-4 w-4" />Add color axis</Button>
+        {availableOptionTypes.length > 0 && draft.options.length < 4 && (
+          <div className="flex flex-wrap gap-2">
+            {availableOptionTypes.map((type) => (
+              <Button
+                key={type}
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => addOptionAxis(type)}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add {optionTypeCustomerLabel(type, draft.productKind).toLocaleLowerCase()}
+              </Button>
+            ))}
+          </div>
         )}
       </div>
 
@@ -514,13 +624,46 @@ function NormalizedOptionEditor({
           <div key={option.id || option.key} className="space-y-3 rounded-lg border p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="font-medium">{option.label}</p>
-                <p className="text-xs text-muted-foreground">{option.type.toLocaleLowerCase().replace("_", " ")} axis</p>
+                <p className="font-medium">Customer label: {option.label}</p>
+                <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Lock className="h-3 w-3" aria-hidden="true" />
+                  System key: <code>{option.key}</code> (automatic)
+                </p>
               </div>
-              {canAddColor === false && visual && draft.options.length > 1 && (
+              {!requiredOptionTypes.includes(option.type) && (
                 <Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={() => updateOptions(draft.options.filter((_, index) => index !== axisIndex))}>Remove axis</Button>
               )}
             </div>
+            {option.type === "SIZE" && optionPresets.length > 0 && (
+              <div className="space-y-2 rounded-md bg-muted/30 p-3">
+                <p className="text-sm font-medium">Select common sizes</p>
+                <div className="flex flex-wrap gap-2">
+                  {optionPresets.map((preset) => {
+                    const selected = option.values.some(
+                      (value) =>
+                        normalizedOptionValue(value.key) ===
+                        normalizedOptionValue(preset.optionKey)
+                    );
+                    return (
+                      <Button
+                        key={preset.optionKey}
+                        type="button"
+                        size="sm"
+                        variant={selected ? "default" : "outline"}
+                        aria-pressed={selected}
+                        onClick={() => togglePresetValue(axisIndex, preset)}
+                      >
+                        {selected && <Check className="mr-1 h-3.5 w-3.5" />}
+                        {preset.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  S, M, L, and XL are selected by default. Use Add size for a custom value.
+                </p>
+              </div>
+            )}
             {option.values.map((value, valueIndex) => (
               <div key={value.id || `${option.key}-${valueIndex}`} className="space-y-2 rounded-md bg-muted/30 p-3">
                 <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
@@ -565,7 +708,7 @@ function NormalizedOptionEditor({
         {draft.variants.length === 0 ? <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-900">Add at least one value to every option axis.</p> : draft.variants.map((variant, index) => (
           <div key={variant.id || variant.optionKey} className="grid gap-2 rounded-md border p-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_8rem_8rem_auto]">
             <div className="self-center text-sm font-medium">{variant.label}</div>
-            <Input aria-label={`${variant.label} SKU`} value={variant.sku} placeholder="SKU" onChange={(event) => update({ variants: draft.variants.map((candidate, candidateIndex) => candidateIndex === index ? { ...candidate, sku: event.target.value } : candidate) })} />
+            <Input aria-label={`${variant.label} SKU`} value={variant.sku} placeholder="Auto SKU" onChange={(event) => update({ variants: draft.variants.map((candidate, candidateIndex) => candidateIndex === index ? { ...candidate, sku: event.target.value } : candidate) })} />
             <Input aria-label={`${variant.label} price adjustment`} type="number" value={variant.priceAdjustment} onChange={(event) => update({ variants: draft.variants.map((candidate, candidateIndex) => candidateIndex === index ? { ...candidate, priceAdjustment: event.target.value } : candidate) })} />
             <Input aria-label={`${variant.label} stock`} type="number" min="0" step="1" value={variant.stockQuantity} onChange={(event) => { const stockQuantity = event.target.value; update({ variants: draft.variants.map((candidate, candidateIndex) => candidateIndex === index ? { ...candidate, stockQuantity, inStock: Number(stockQuantity) > 0 } : candidate) }); }} />
             <Checkbox aria-label={`${variant.label} active`} checked={variant.isActive} onCheckedChange={(checked) => update({ variants: draft.variants.map((candidate, candidateIndex) => candidateIndex === index ? { ...candidate, isActive: checked === true } : candidate) })} />
@@ -683,6 +826,10 @@ export function ProductCommerceProfileSection({
     );
     const kindChanged = value !== draft.productKind;
     const previousDefault = defaultOptionLabelForKind(draft.productKind);
+    const defaultOptions =
+      kindChanged && nextSchema.options.mode === "required"
+        ? initialNormalizedOptions(value, nextSchema.options.presets)
+        : [];
     update({
       productKind: value,
       stitchingEligible: supportsStitching,
@@ -694,8 +841,10 @@ export function ProductCommerceProfileSection({
       sizeGuideUrl: isProductEditorFieldVisible(nextSchema.fields.sizeGuide)
         ? draft.sizeGuideUrl
         : "",
-      options: kindChanged ? [] : draft.options,
-      variants: kindChanged ? [] : draft.variants,
+      options: kindChanged ? defaultOptions : draft.options,
+      variants: kindChanged
+        ? rebuildCombinationDrafts(defaultOptions, [])
+        : draft.variants,
     });
   };
 
@@ -706,13 +855,32 @@ export function ProductCommerceProfileSection({
     effectiveSchema.fields.stitching
   );
   const kindRequiresSelection = effectiveSchema.options.mode === "required";
+  const allowedOptionTypes: readonly ProductOptionType[] = [
+    ...effectiveSchema.optionAxes.required,
+    ...effectiveSchema.optionAxes.optional,
+  ];
+  const selectableOptionTypes = adminSelectableOptionTypes(
+    effectiveKind,
+    allowedOptionTypes
+  );
+  const primaryRequiredOption = effectiveSchema.optionAxes.required[0]
+    ? initialNormalizedOptions(
+        effectiveKind,
+        effectiveSchema.options.presets,
+        effectiveSchema.optionAxes.required[0]
+      )[0]
+    : undefined;
   const showOptions =
     kindRequiresSelection || draft.requiresSelection || draft.variants.length > 0;
   const usesColorVariants = effectiveKind === "UNSTITCHED_FABRIC";
   const usesNormalizedOptions = draft.options.length > 0;
 
-  const startNormalizedOptions = () => {
-    const options = initialNormalizedOptions(effectiveKind, effectiveSchema.options.presets);
+  const startNormalizedOptions = (type?: ProductOptionType) => {
+    const options = initialNormalizedOptions(
+      effectiveKind,
+      effectiveSchema.options.presets,
+      type
+    );
     if (options[0] && options[0].values.length === 0) {
       options[0].values.push({
         key: "value-1",
@@ -756,7 +924,9 @@ export function ProductCommerceProfileSection({
         <p className="mt-1 text-sm text-muted-foreground">
           {kindRequiresSelection
             ? `Add the ${draft.optionLabel.toLocaleLowerCase() || "options"} customers can choose.`
-            : "Add sizes, volumes, shades, or formats only when this product has them."}
+            : selectableOptionTypes.length > 0
+              ? "Add only the option type this product genuinely uses. Products can remain single items."
+              : "This product type is sold without size, color, shade, or volume options."}
         </p>
       </div>
 
@@ -812,7 +982,7 @@ export function ProductCommerceProfileSection({
         </label>
       )}
 
-      {showOptions && !usesColorVariants && (
+      {showOptions && !usesColorVariants && !usesNormalizedOptions && !kindRequiresSelection && (
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="commerce-option-label">Option name</Label>
@@ -838,7 +1008,7 @@ export function ProductCommerceProfileSection({
 
       {kindRequiresSelection && (
         <p className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-          A {draft.optionLabel.toLocaleLowerCase() || "size"} is required before this product can be added to cart.
+          The system uses <code>{primaryRequiredOption?.key || "option"}</code> internally and customers see <strong>{primaryRequiredOption?.label || "Option"}</strong>. Select the values sold below.
         </p>
       )}
 
@@ -915,25 +1085,44 @@ export function ProductCommerceProfileSection({
         <NormalizedOptionEditor
           draft={draft}
           update={update}
+          allowedOptionTypes={selectableOptionTypes}
+          requiredOptionTypes={effectiveSchema.optionAxes.required}
           onUploadVariantImage={onUploadVariantImage}
         />
-      ) : effectiveKind === "BEAUTY" && effectiveSchema.fields.color.mode === "hidden" ? (
+      ) : selectableOptionTypes.length === 0 ? (
         <p className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-          This beauty category does not use shade variants. Skincare remains a single purchasable product.
+          No selling options apply to this category. It remains one purchasable product with product-level stock.
         </p>
       ) : !showOptions || draft.variants.length === 0 ? (
-        <Button
-          type="button"
-          variant="outline"
-          onClick={startNormalizedOptions}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          {effectiveKind === "READY_TO_WEAR" || effectiveKind === "TEENS"
-            ? "Create size combinations"
-            : usesColorVariants
-              ? "This product has multiple colors"
-              : "This product has options"}
-        </Button>
+        <div className="space-y-3 rounded-lg border border-dashed p-4">
+          <div>
+            <p className="text-sm font-medium">
+              {kindRequiresSelection
+                ? "Choose the required product option"
+                : "Does this product have selling options?"}
+            </p>
+            {!kindRequiresSelection && (
+              <p className="text-xs text-muted-foreground">
+                Leave this section unchanged for a single product with no options.
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {selectableOptionTypes.map((type) => (
+              <Button
+                key={type}
+                type="button"
+                variant="outline"
+                onClick={() => startNormalizedOptions(type)}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                {type === "COLOR" && usesColorVariants
+                  ? "Add multiple colors"
+                  : `Add ${optionTypeCustomerLabel(type, effectiveKind)}`}
+              </Button>
+            ))}
+          </div>
+        </div>
       ) : (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -941,8 +1130,8 @@ export function ProductCommerceProfileSection({
               <Label>{usesColorVariants ? "Colors" : (draft.optionLabel || "Options")}</Label>
               <p className="text-xs text-muted-foreground">
                 {usesColorVariants
-                  ? "Each color has its own gallery, SKU, stock, and price adjustment."
-                  : "Each option can have its own SKU, stock, and price adjustment."}
+                  ? "Each color has its own gallery, stock, price adjustment, and automatically generated SKU."
+                  : "Each option has its own stock, price adjustment, and automatically generated SKU."}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -1057,12 +1246,12 @@ export function ProductCommerceProfileSection({
             )}
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="space-y-1">
-                <Label htmlFor={`commerce-option-sku-${index}`}>Option SKU</Label>
+                <Label htmlFor={`commerce-option-sku-${index}`}>Option SKU (optional)</Label>
                 <Input
                   id={`commerce-option-sku-${index}`}
                   value={variant.sku}
                   onChange={(event) => updateVariant(index, { sku: event.target.value })}
-                  placeholder="Optional"
+                  placeholder="Generated automatically when empty"
                 />
               </div>
               <div className="space-y-1">

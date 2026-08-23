@@ -22,6 +22,10 @@ import {
 } from "@/lib/product-archive";
 import { sanitizeDbError } from "@/lib/utils/errors";
 import { isValidHexColor } from "@/lib/color-hex";
+import {
+  createAutomaticProductSku,
+  createAutomaticVariantSku,
+} from "@/lib/product-sku";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +53,7 @@ const safeMediaUrlSchema = z
 
 const productSchema = z
   .object({
-    sku: z.string().trim().min(1, "Product code is required").max(120),
+    sku: z.string().trim().max(120).optional().default(""),
     slug: z
       .string()
       .trim()
@@ -228,9 +232,6 @@ const commerceProfileSchema = z
       if (sku) skus.add(sku);
 
       if (axes.length > 0) {
-        if (variant.isActive && !variant.sku?.trim()) {
-          context.addIssue({ code: z.ZodIssueCode.custom, path: ["variants", index, "sku"], message: "Every active combination needs its own SKU" });
-        }
         const selections = variant.selections || [];
         if (selections.length !== axes.length) {
           context.addIssue({ code: z.ZodIssueCode.custom, path: ["variants", index, "selections"], message: "Each SKU must select exactly one value from every option axis" });
@@ -730,11 +731,68 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
           }
         }
 
+        const requestedProductSku = input.product.sku.trim();
+        const productSku =
+          requestedProductSku || existing?.sku || createAutomaticProductSku(input.product.name);
+
+        if (commerce) {
+          const existingVariantsById = new Map(
+            (existingCommerceProfile?.variants || []).map((variant) => [variant.id, variant])
+          );
+          const existingVariantsByKey = new Map(
+            (existingCommerceProfile?.variants || []).map((variant) => [
+              variant.optionKey.toLocaleLowerCase("en-US"),
+              variant,
+            ])
+          );
+          commerce = {
+            ...commerce,
+            variants: commerce.variants.map((variant) => {
+              const previous = variant.id
+                ? existingVariantsById.get(variant.id)
+                : existingVariantsByKey.get(
+                    variant.optionKey.toLocaleLowerCase("en-US")
+                  );
+              const sku =
+                variant.sku?.trim() ||
+                previous?.sku?.trim() ||
+                (variant.isActive
+                  ? createAutomaticVariantSku(
+                      productSku,
+                      variant.optionKey,
+                      variant.label
+                    )
+                  : undefined);
+              return { ...variant, sku };
+            }),
+          };
+        }
+
         const submittedVariantSkus = commerce?.variants
           .map((variant) => variant.sku?.trim())
           .filter((sku): sku is string => Boolean(sku)) || [];
-        if (submittedVariantSkus.some((sku) => sku.toLocaleLowerCase("en-US") === input.product.sku.toLocaleLowerCase("en-US"))) {
+        const normalizedVariantSkus = new Set<string>();
+        for (const sku of submittedVariantSkus) {
+          const normalizedSku = sku.toLocaleLowerCase("en-US");
+          if (normalizedVariantSkus.has(normalizedSku)) {
+            throw new ProductEditorError("Each combination must have a unique SKU");
+          }
+          normalizedVariantSkus.add(normalizedSku);
+        }
+        if (submittedVariantSkus.some((sku) => sku.toLocaleLowerCase("en-US") === productSku.toLocaleLowerCase("en-US"))) {
           throw new ProductEditorError("A combination SKU cannot match the parent product code");
+        }
+        const conflictingParentProduct = await tx.product.findFirst({
+          where: {
+            ...(existing ? { id: { not: existing.id } } : {}),
+            sku: { equals: productSku, mode: "insensitive" },
+          },
+          select: { sku: true },
+        });
+        if (conflictingParentProduct) {
+          throw new ProductEditorError(
+            `Product code ${conflictingParentProduct.sku} is already in use`
+          );
         }
         if (submittedVariantSkus.length > 0) {
           const conflictingProduct = await tx.product.findFirst({
@@ -747,13 +805,29 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
           if (conflictingProduct) {
             throw new ProductEditorError(`Combination SKU ${conflictingProduct.sku} is already used by a product`);
           }
+          const conflictingVariant = await tx.productVariant.findFirst({
+            where: {
+              ...(existingCommerceProfile
+                ? { commerceProfileId: { not: existingCommerceProfile.id } }
+                : {}),
+              OR: submittedVariantSkus.map((sku) => ({
+                sku: { equals: sku, mode: "insensitive" as const },
+              })),
+            },
+            select: { sku: true },
+          });
+          if (conflictingVariant) {
+            throw new ProductEditorError(
+              `Combination SKU ${conflictingVariant.sku} is already in use`
+            );
+          }
         }
         const parentSkuVariant = await tx.productVariant.findFirst({
-          where: { sku: { equals: input.product.sku, mode: "insensitive" } },
+          where: { sku: { equals: productSku, mode: "insensitive" } },
           select: { sku: true },
         });
         if (parentSkuVariant) {
-          throw new ProductEditorError(`Product code ${input.product.sku} is already used by a combination`);
+          throw new ProductEditorError(`Product code ${productSku} is already used by a combination`);
         }
 
         const variantInventory =
@@ -764,8 +838,8 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
             : null;
 
         const productData = {
-          sku: input.product.sku,
-          slug: input.product.slug || slugFromSku(input.product.sku),
+          sku: productSku,
+          slug: input.product.slug || slugFromSku(productSku),
           name: input.product.name,
           description: input.product.description,
           longDescription: input.product.longDescription?.trim() || null,
@@ -947,6 +1021,13 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
           const retainedVariantIds = commerce.variants.flatMap((variant) =>
             variant.id ? [variant.id] : []
           );
+          // Release this product's current codes inside the transaction before
+          // assigning the submitted set. This permits safe SKU swaps while the
+          // unique index still protects every committed inventory identity.
+          await tx.productVariant.updateMany({
+            where: { commerceProfileId: profile.id },
+            data: { sku: null },
+          });
           await tx.productVariant.updateMany({
             where: {
               commerceProfileId: profile.id,
