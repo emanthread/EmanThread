@@ -20,7 +20,12 @@ test("admin consumers subscribe only to the store slices they render", () => {
   for (const file of files) {
     const contents = source(file);
     expect(contents, file).not.toMatch(/useAdminStore\(\s*\)/);
-    expect(contents, file).toContain("useShallow");
+    if (file === "app/admin/(dashboard)/orders/[id]/page.tsx") {
+      expect(contents, file).not.toContain("useAdminStore");
+      expect(contents, file).toContain("/api/admin/orders/");
+    } else {
+      expect(contents, file).toContain("useShallow");
+    }
   }
 });
 

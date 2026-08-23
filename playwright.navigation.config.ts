@@ -34,6 +34,7 @@ export default defineConfig({
     "admin-customer-measurements.spec.ts",
     "product-sku-generation.spec.ts",
     "product-option-admin-simplification.spec.ts",
+    "admin-commerce-reliability.spec.ts",
   ],
   fullyParallel: true,
   workers: 1,

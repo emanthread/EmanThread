@@ -1,20 +1,9 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { getStoreConfig } from "@/lib/db/store-config";
 import { getMonthCapacityMap } from "@/lib/db/stitching-schedule";
+import { requireAdminApiAccess } from "@/lib/admin-route-guard";
 
 export const dynamic = "force-dynamic";
-
-async function checkAdmin() {
-  const session = await auth();
-  if (
-    !session?.user ||
-    !["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(session.user.role ?? "")
-  ) {
-    return false;
-  }
-  return true;
-}
 
 /**
  * GET /api/admin/stitching-calendar/capacity?month=2026-07
@@ -32,9 +21,8 @@ async function checkAdmin() {
  * }
  */
 export async function GET(req: Request) {
-  if (!(await checkAdmin())) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const access = await requireAdminApiAccess(req);
+  if (!access.ok) return access.response;
 
   const { searchParams } = new URL(req.url);
   const month = searchParams.get("month"); // e.g. "2026-07"

@@ -1,21 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { auth } from "@/auth";
 import { createAuditLog } from "@/lib/db-queries";
+import { requireAdminApiAccess } from "@/lib/admin-route-guard";
 
 export const dynamic = "force-dynamic";
-
-async function checkAdmin() {
-  const session = await auth();
-  if (
-    !session?.user ||
-    !["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(session.user.role ?? "")
-  ) {
-    return null;
-  }
-  return session.user;
-}
 
 const createRuleSchema = z.object({
   type: z.enum([
@@ -27,15 +16,15 @@ const createRuleSchema = z.object({
   date: z.string().datetime().optional().nullable(),
   startDate: z.string().datetime().optional().nullable(),
   endDate: z.string().datetime().optional().nullable(),
-  capacity: z.number().int().min(0).max(500).optional().nullable(),
-  label: z.string().max(120).optional().nullable(),
+  capacity: z.number().int().min(1).max(500).optional().nullable(),
+  label: z.string().trim().max(120).optional().nullable(),
   isActive: z.boolean().optional(),
-});
+}).strict();
 
 // GET /api/admin/stitching-calendar — list all rules
-export async function GET() {
-  const user = await checkAdmin();
-  if (!user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+export async function GET(req: Request) {
+  const access = await requireAdminApiAccess(req);
+  if (!access.ok) return access.response;
 
   try {
     const rules = await prisma.stitchingCalendarRule.findMany({
@@ -53,8 +42,9 @@ export async function GET() {
 
 // POST /api/admin/stitching-calendar — create a new rule
 export async function POST(req: Request) {
-  const user = await checkAdmin();
-  if (!user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const access = await requireAdminApiAccess(req);
+  if (!access.ok) return access.response;
+  const user = access.session.user;
 
   try {
     const body = await req.json();
@@ -84,6 +74,25 @@ export async function POST(req: Request) {
     ) {
       return NextResponse.json(
         { error: "startDate and endDate are required for range rule types" },
+        { status: 400 }
+      );
+    }
+    if (
+      (data.type === "CAPACITY_OVERRIDE" || data.type === "CAPACITY_RANGE") &&
+      data.capacity == null
+    ) {
+      return NextResponse.json(
+        { error: "capacity is required for capacity override rules" },
+        { status: 400 }
+      );
+    }
+    if (
+      data.startDate &&
+      data.endDate &&
+      new Date(data.startDate).getTime() > new Date(data.endDate).getTime()
+    ) {
+      return NextResponse.json(
+        { error: "Start date must be on or before end date" },
         { status: 400 }
       );
     }

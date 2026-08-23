@@ -16,6 +16,10 @@
     {
       "path": "/api/cron/cleanup-tokens",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/payment-expiry",
+      "schedule": "0 * * * *"
     }
   ],
   "headers": [

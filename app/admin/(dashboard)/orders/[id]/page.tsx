@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useCallback, useEffect, useState, use } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft, Package, User, MapPin, CreditCard, Calendar, Truck, FileText, Ruler } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useAdminStore } from "@/lib/admin-store";
-import { useShallow } from "zustand/react/shallow";
+import type { Order } from "@/lib/admin-store";
+import { adminFetch, adminResponseError } from "@/lib/admin-fetch";
 import { formatPrice } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { TailorPrintCard, type TailorCardData } from "@/components/admin/tailor-print-card";
@@ -54,17 +54,44 @@ interface OrderMeasurement {
 
 export default function AdminOrderDetails({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
-  const { orders, loadOrders } = useAdminStore(
-    useShallow((state) => ({ orders: state.orders, loadOrders: state.loadOrders }))
-  );
+  const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [orderMeasurements, setOrderMeasurements] = useState<OrderMeasurement[]>([]);
   const [measurementsLoading, setMeasurementsLoading] = useState(true);
   const { toast } = useToast();
 
-  const order = orders.find((o) => o.id === resolvedParams.id);
   const [delayNote, setDelayNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+
+  const loadOrder = useCallback(async ({
+    signal,
+    showLoading = true,
+  }: { signal?: AbortSignal; showLoading?: boolean } = {}) => {
+    if (showLoading) setLoading(true);
+    setLoadError("");
+    try {
+      const response = await adminFetch(
+        `/api/admin/orders/${encodeURIComponent(resolvedParams.id)}`,
+        { signal }
+      );
+      if (response.status === 404) {
+        setOrder(null);
+        setLoadError("The order does not exist or has been deleted.");
+        return;
+      }
+      if (!response.ok) {
+        throw await adminResponseError(response, "Failed to load order");
+      }
+      setOrder((await response.json()) as Order);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setOrder(null);
+      setLoadError(error instanceof Error ? error.message : "Failed to load order");
+    } finally {
+      if (showLoading) setLoading(false);
+    }
+  }, [resolvedParams.id]);
 
   useEffect(() => {
     if (order) {
@@ -73,26 +100,31 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
   }, [order]);
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      if (orders.length === 0) {
-        await loadOrders();
-      }
-      setLoading(false);
-    };
-    fetchOrders();
-  }, [orders.length, loadOrders]);
+    const controller = new AbortController();
+    void loadOrder({ signal: controller.signal });
+    return () => controller.abort();
+  }, [loadOrder]);
 
   useEffect(() => {
-    if (!loading) {
-      fetch(`/api/admin/orders/${resolvedParams.id}/measurements`)
-        .then((r) => r.json())
+    const controller = new AbortController();
+    setMeasurementsLoading(true);
+    adminFetch(`/api/admin/orders/${resolvedParams.id}/measurements`, {
+      signal: controller.signal,
+    })
+        .then(async (response) => {
+          if (!response.ok) throw await adminResponseError(response, "Failed to load measurements");
+          return response.json();
+        })
         .then((data) => {
           if (data.measurements) setOrderMeasurements(data.measurements);
         })
-        .catch(() => {})
+        .catch((error) => {
+          if (error instanceof DOMException && error.name === "AbortError") return;
+          setOrderMeasurements([]);
+        })
         .finally(() => setMeasurementsLoading(false));
-    }
-  }, [loading, resolvedParams.id]);
+    return () => controller.abort();
+  }, [resolvedParams.id]);
 
   if (loading) {
     return (
@@ -107,7 +139,7 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
       <div className="text-center py-12 space-y-4">
         <Package className="h-12 w-12 mx-auto text-muted-foreground" />
         <h2 className="text-2xl font-semibold">Order Not Found</h2>
-        <p className="text-muted-foreground">The order you are looking for does not exist or has been deleted.</p>
+        <p className="text-muted-foreground">{loadError || "The order could not be loaded."}</p>
         <Button asChild>
           <Link href="/admin/orders">Back to Orders</Link>
         </Button>
@@ -253,8 +285,8 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-0.5">Payment Status</p>
-                  <Badge variant="outline" className={cn("capitalize", order.paymentStatus === "paid" && "border-green-500 text-green-600", order.paymentStatus === "pending" && "border-yellow-500 text-yellow-600", order.paymentStatus === "failed" && "border-red-500 text-red-600")}>
-                    {order.paymentStatus}
+                  <Badge variant="outline" className={cn("capitalize", order.paymentStatus === "paid" && "border-green-500 text-green-600", (order.paymentStatus === "pending" || order.paymentStatus === "pending_verification") && "border-yellow-500 text-yellow-600", order.paymentStatus === "failed" && "border-red-500 text-red-600")}>
+                    {order.paymentStatus === "pending_verification" ? "Awaiting verification" : order.paymentStatus}
                   </Badge>
                 </div>
               </div>
@@ -402,7 +434,7 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
                   onClick={async () => {
                     setSavingNote(true);
                     try {
-                      const res = await fetch(`/api/admin/orders/${order.id}/note`, {
+                      const res = await adminFetch(`/api/admin/orders/${order.id}/note`, {
                         method: "PATCH",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ note: delayNote }),
@@ -413,7 +445,7 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
                         title: "Note Saved",
                         description: "The order note has been updated successfully.",
                       });
-                      await loadOrders();
+                      await loadOrder({ showLoading: false });
                     } catch (err) {
                       toast({
                         title: "Error",

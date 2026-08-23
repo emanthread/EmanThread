@@ -39,6 +39,9 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { TailorPrintCard } from "@/components/admin/tailor-print-card";
 import { getStatusBadgeClass } from "@/lib/utils/status";
+import { useDebounce } from "@/hooks/use-debounce";
+import { adminFetch, adminResponseError } from "@/lib/admin-fetch";
+import { toast } from "sonner";
 import {
   garmentTypeLabel,
   mapFromPrismaFields,
@@ -82,6 +85,7 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
   const [deleteProfile, setDeleteProfile] = useState<LegacyProfile | null>(null);
   const [deleting, setDeleting] = useState(false);
   const limit = 20;
+  const debouncedSearch = useDebounce(search, 400);
 
   const fetchProfiles = useCallback(async () => {
     setLoading(true);
@@ -89,19 +93,29 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
       const params = new URLSearchParams({
         page: String(page),
         limit: String(limit),
-        ...(search && { search }),
+        ...(debouncedSearch && { search: debouncedSearch }),
         ...(statusFilter !== "all" && { status: statusFilter }),
       });
-      const res = await fetch(`/api/admin/measurements?${params}`);
-      if (res.ok) {
+      const res = await adminFetch(`/api/admin/measurements?${params}`);
+      if (!res.ok) {
+        toast.error((await adminResponseError(res, "Failed to load measurements")).message);
+        return;
+      }
+      {
         const data = await res.json();
+        const nextTotal = Number(data.total || 0);
+        const lastPage = Math.max(1, Math.ceil(nextTotal / limit));
+        setTotal(nextTotal);
+        if (page > lastPage) {
+          setPage(lastPage);
+          return;
+        }
         setProfiles(data.profiles || []);
-        setTotal(data.total || 0);
       }
     } finally {
       setLoading(false);
     }
-  }, [page, search, statusFilter]);
+  }, [page, debouncedSearch, statusFilter]);
 
   useEffect(() => { fetchProfiles(); }, [fetchProfiles]);
 
@@ -109,9 +123,13 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
     if (!deleteProfile) return;
     setDeleting(true);
     try {
-      await fetch(`/api/admin/measurements/${deleteProfile.id}`, { method: "DELETE" });
+      const response = await adminFetch(`/api/admin/measurements/${deleteProfile.id}`, { method: "DELETE" });
+      if (!response.ok) throw await adminResponseError(response, "Failed to delete measurement");
       setDeleteProfile(null);
-      fetchProfiles();
+      await fetchProfiles();
+      toast.success("Measurement deleted");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete measurement");
     } finally {
       setDeleting(false);
     }
@@ -122,17 +140,18 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
     setProfiles((prev) => prev.map((p) => p.id === id ? { ...p, status: newStatus } : p));
     
     try {
-      const res = await fetch(`/api/admin/measurements/${id}/status`, {
+      const res = await adminFetch(`/api/admin/measurements/${id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
-      if (!res.ok) throw new Error("Failed to update status");
+      if (!res.ok) throw await adminResponseError(res, "Failed to update status");
       // Intentionally NOT calling fetchProfiles() on success to prevent UI jump/flicker
     } catch (e) {
       console.error(e);
       // 2. Revert on failure by re-fetching actual state
-      fetchProfiles();
+      void fetchProfiles();
+      toast.error(e instanceof Error ? e.message : "Failed to update status");
     }
   };
 
@@ -365,25 +384,36 @@ function CompletedTab() {
   const [printRecord, setPrintRecord] = useState<CompletedRecord | null>(null);
   const [deleting, setDeleting] = useState(false);
   const limit = 20;
+  const debouncedSearch = useDebounce(search, 400);
 
   const fetchRecords = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
         page: String(page),
-        ...(search && { search }),
+        ...(debouncedSearch && { search: debouncedSearch }),
         ...(statusFilter !== "all" && { status: statusFilter }),
       });
-      const res = await fetch(`/api/admin/measurements/completed?${params}`);
-      if (res.ok) {
+      const res = await adminFetch(`/api/admin/measurements/completed?${params}`);
+      if (!res.ok) {
+        toast.error((await adminResponseError(res, "Failed to load completed measurements")).message);
+        return;
+      }
+      {
         const data = await res.json();
+        const nextTotal = Number(data.total || 0);
+        const lastPage = Math.max(1, Math.ceil(nextTotal / limit));
+        setTotal(nextTotal);
+        if (page > lastPage) {
+          setPage(lastPage);
+          return;
+        }
         setRecords(data.records || []);
-        setTotal(data.total || 0);
       }
     } finally {
       setLoading(false);
     }
-  }, [page, search, statusFilter]);
+  }, [page, debouncedSearch, statusFilter]);
 
   useEffect(() => { fetchRecords(); }, [fetchRecords]);
 
@@ -391,9 +421,13 @@ function CompletedTab() {
     if (!deleteRecord) return;
     setDeleting(true);
     try {
-      await fetch(`/api/admin/measurements/${deleteRecord.id}`, { method: "DELETE" });
+      const response = await adminFetch(`/api/admin/measurements/${deleteRecord.id}`, { method: "DELETE" });
+      if (!response.ok) throw await adminResponseError(response, "Failed to delete measurement");
       setDeleteRecord(null);
-      fetchRecords();
+      await fetchRecords();
+      toast.success("Measurement deleted");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete measurement");
     } finally {
       setDeleting(false);
     }
@@ -401,14 +435,16 @@ function CompletedTab() {
 
   const handleStatusUpdate = async (id: string, newStatus: string) => {
     try {
-      const res = await fetch(`/api/admin/measurements/${id}/status`, {
+      const res = await adminFetch(`/api/admin/measurements/${id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
-      if (res.ok) fetchRecords();
+      if (!res.ok) throw await adminResponseError(res, "Failed to update status");
+      await fetchRecords();
     } catch (e) {
       console.error(e);
+      toast.error(e instanceof Error ? e.message : "Failed to update status");
     }
   };
 
@@ -629,25 +665,36 @@ function RejectedTab() {
   const [viewRecord, setViewRecord] = useState<CompletedRecord | null>(null);
   const [deleting, setDeleting] = useState(false);
   const limit = 20;
+  const debouncedSearch = useDebounce(search, 400);
 
   const fetchRecords = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
         page: String(page),
-        ...(search && { search }),
+        ...(debouncedSearch && { search: debouncedSearch }),
         ...(statusFilter !== "all" && { status: statusFilter }),
       });
-      const res = await fetch(`/api/admin/measurements/rejected?${params}`);
-      if (res.ok) {
+      const res = await adminFetch(`/api/admin/measurements/rejected?${params}`);
+      if (!res.ok) {
+        toast.error((await adminResponseError(res, "Failed to load rejected measurements")).message);
+        return;
+      }
+      {
         const data = await res.json();
+        const nextTotal = Number(data.total || 0);
+        const lastPage = Math.max(1, Math.ceil(nextTotal / limit));
+        setTotal(nextTotal);
+        if (page > lastPage) {
+          setPage(lastPage);
+          return;
+        }
         setRecords(data.records || []);
-        setTotal(data.total || 0);
       }
     } finally {
       setLoading(false);
     }
-  }, [page, search, statusFilter]);
+  }, [page, debouncedSearch, statusFilter]);
 
   useEffect(() => { fetchRecords(); }, [fetchRecords]);
 
@@ -655,9 +702,13 @@ function RejectedTab() {
     if (!deleteRecord) return;
     setDeleting(true);
     try {
-      await fetch(`/api/admin/measurements/${deleteRecord.id}`, { method: "DELETE" });
+      const response = await adminFetch(`/api/admin/measurements/${deleteRecord.id}`, { method: "DELETE" });
+      if (!response.ok) throw await adminResponseError(response, "Failed to delete measurement");
       setDeleteRecord(null);
-      fetchRecords();
+      await fetchRecords();
+      toast.success("Measurement deleted");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete measurement");
     } finally {
       setDeleting(false);
     }
@@ -665,14 +716,16 @@ function RejectedTab() {
 
   const handleStatusUpdate = async (id: string, newStatus: string) => {
     try {
-      const res = await fetch(`/api/admin/measurements/${id}/status`, {
+      const res = await adminFetch(`/api/admin/measurements/${id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
-      if (res.ok) fetchRecords();
+      if (!res.ok) throw await adminResponseError(res, "Failed to update status");
+      await fetchRecords();
     } catch (e) {
       console.error(e);
+      toast.error(e instanceof Error ? e.message : "Failed to update status");
     }
   };
 
@@ -862,7 +915,7 @@ export default function AdminMeasurementsPage() {
 
   const fetchStats = useCallback(async () => {
     if (document.visibilityState !== "visible") return;
-    const res = await fetch("/api/admin/measurements/stats");
+    const res = await adminFetch("/api/admin/measurements/stats");
     if (res.ok) setStats(await res.json());
   }, []);
 

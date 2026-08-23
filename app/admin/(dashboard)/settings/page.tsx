@@ -27,6 +27,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { adminFetch, adminResponseError } from "@/lib/admin-fetch";
 
 // Known garment types per gender — matches fabricType values in StitchingPrice DB
 // and GARMENT_LABELS in the user-facing measurements page.
@@ -98,6 +99,7 @@ export default function AdminSettingsPage() {
   });
 
   const [stitchingPrices, setStitchingPrices] = useState<{ fabricType: string; gender: string; price: number }[]>([]);
+  const [stitchingPricesLoaded, setStitchingPricesLoaded] = useState(false);
   const [stitchingSaving, setStitchingSaving] = useState(false);
   const [stitchingDailyThreshold, setStitchingDailyThreshold] = useState(12);
   const [stitchingLeadDays, setStitchingLeadDays] = useState(6);
@@ -255,8 +257,8 @@ export default function AdminSettingsPage() {
     // always appear in the table, even if not yet saved in the database.
     async function loadStitchingPrices() {
       try {
-        const res = await fetch("/api/admin/stitching-prices");
-        if (!res.ok) { setStitchingPrices(buildDefaultPrices()); return; }
+        const res = await adminFetch("/api/admin/stitching-prices");
+        if (!res.ok) throw await adminResponseError(res, "Failed to load stitching prices");
         const data = await res.json();
         const dbPrices: { fabricType: string; gender: string; price: number }[] = [];
         if (Array.isArray(data)) {
@@ -278,8 +280,15 @@ export default function AdminSettingsPage() {
           return existing ?? d;
         });
         setStitchingPrices(merged);
-      } catch {
+        setStitchingPricesLoaded(true);
+      } catch (error) {
         setStitchingPrices(buildDefaultPrices());
+        setStitchingPricesLoaded(false);
+        toast({
+          title: "Stitching prices unavailable",
+          description: error instanceof Error ? error.message : "Reload before editing prices",
+          variant: "destructive",
+        });
       }
     }
     loadStitchingPrices();
@@ -529,7 +538,7 @@ export default function AdminSettingsPage() {
                   onClick={async () => {
                     setStitchingSaving(true);
                     try {
-                      const res = await fetch("/api/admin/stitching-prices", {
+                      const res = await adminFetch("/api/admin/stitching-prices", {
                         method: "PUT",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ prices: stitchingPrices }),
@@ -543,7 +552,7 @@ export default function AdminSettingsPage() {
                       setStitchingSaving(false);
                     }
                   }}
-                  disabled={stitchingSaving}
+                  disabled={stitchingSaving || !stitchingPricesLoaded}
                 >
                   {stitchingSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                   Save Stitching Prices

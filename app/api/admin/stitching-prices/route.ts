@@ -1,34 +1,38 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { auth } from "@/auth";
 import { createAuditLog } from "@/lib/db-queries";
+import { requireAdminApiAccess } from "@/lib/admin-route-guard";
 
 export const dynamic = "force-dynamic";
 
 const updateSchema = z.object({
   prices: z.array(
     z.object({
-      fabricType: z.string().min(1),
+      fabricType: z.string().trim().min(1).max(160),
       gender: z.enum(["Male", "Female"]),
       price: z.number().min(0, "Price cannot be negative"),
     })
-  ),
+  ).max(200),
+}).superRefine(({ prices }, context) => {
+  const keys = new Set<string>();
+  prices.forEach((item, index) => {
+    const key = `${item.fabricType.trim().toLocaleLowerCase("en-US")}:${item.gender}`;
+    if (keys.has(key)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["prices", index],
+        message: "Each fabric and gender price can appear only once",
+      });
+    }
+    keys.add(key);
+  });
 });
 
-async function checkAdmin() {
-  const session = await auth();
-  if (!session?.user || !["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(session.user.role ?? "")) {
-    return false;
-  }
-  return true;
-}
-
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    if (!(await checkAdmin())) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const access = await requireAdminApiAccess(req);
+    if (!access.ok) return access.response;
 
     const prices = await prisma.stitchingPrice.findMany({
       orderBy: { fabricType: "asc" },
@@ -54,9 +58,9 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   try {
-    if (!(await checkAdmin())) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const access = await requireAdminApiAccess(req);
+    if (!access.ok) return access.response;
+    const session = access.session;
 
     const body = await req.json();
     const result = updateSchema.safeParse(body);
@@ -69,33 +73,28 @@ export async function PUT(req: Request) {
     }
 
     const { prices } = result.data;
-    const updatedPrices = [];
-
-    for (const item of prices) {
-      const updated = await prisma.stitchingPrice.upsert({
+    const updated = await prisma.$transaction(
+      prices.map((item) => prisma.stitchingPrice.upsert({
         where: { fabricType_gender: { fabricType: item.fabricType, gender: item.gender } },
         update: { price: item.price },
         create: { fabricType: item.fabricType, gender: item.gender, price: item.price },
-      });
-      updatedPrices.push({
-        id: updated.id,
-        fabricType: updated.fabricType,
-        gender: updated.gender,
-        price: Number(updated.price),
-      });
-    }
+      }))
+    );
+    const updatedPrices = updated.map((item) => ({
+      id: item.id,
+      fabricType: item.fabricType,
+      gender: item.gender,
+      price: Number(item.price),
+    }));
 
     // Audit log
-    const auditSession = await auth();
-    if (auditSession?.user) {
-      void createAuditLog({
-        userId: auditSession.user.id,
-        userEmail: auditSession.user.email || undefined,
+    void createAuditLog({
+        userId: session.user.id,
+        userEmail: session.user.email || undefined,
         action: "SETTINGS_CHANGED",
         entity: "StitchingPrice",
         newValue: { prices },
       });
-    }
 
     return NextResponse.json(updatedPrices);
   } catch (error) {

@@ -1,12 +1,11 @@
 import { NextResponse, after } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
-import { isAdminRole } from "@/lib/permissions"; // C9
 import { updateOrderStatus, createAuditLog, getStoreConfig } from "@/lib/db-queries";
 import { sendDeliveryUpdateParallel } from "@/lib/notifications";
 import { prisma } from "@/lib/db";
 import { withLoggedAdminHandler } from "@/lib/logger";
 import { sanitizeDbError } from '@/lib/utils/errors';
+import { requireAdminApiAccess } from "@/lib/admin-route-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -32,10 +31,9 @@ export const PUT = withLoggedAdminHandler(async (
   { params }: { params: Promise<{ id: string }> }
 ) => {
   try {
-    const session = await auth();
-    if (!session?.user || !isAdminRole(session.user.role)) { // FIXED: C9
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const access = await requireAdminApiAccess(req);
+    if (!access.ok) return access.response;
+    const session = access.session;
 
     const { id } = await params;
     const body = await req.json();
@@ -53,6 +51,9 @@ export const PUT = withLoggedAdminHandler(async (
       where: { id },
       select: { status: true, orderNumber: true },
     });
+    if (!oldOrder) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
 
     // A3.1: Validate allowed status transitions
     const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -70,7 +71,7 @@ export const PUT = withLoggedAdminHandler(async (
       );
     }
 
-    const updated = await updateOrderStatus(id, result.data.status);
+    const updated = await updateOrderStatus(id, result.data.status, oldOrder.status);
     // ── Part E: Order delivery → measurement handling ──
     // SAFETY: The measurement snapshot was already captured at order creation time
     // via attachMeasurementToOrder() → OrderItemMeasurement table (lines 183-231 in POST /api/orders).

@@ -5,6 +5,7 @@ import { syncProductsAfterVariantStockChange } from "@/lib/db/product-inventory"
 import { ARCHIVED_PRODUCT_TAG } from "@/lib/product-archive";
 import { hasOnlyUnstitchedCatalogPaths } from "@/lib/commerce";
 import type { Prisma, OrderStatus, PaymentMethod } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 
 // ── Interfaces ──────────────────────────────────────────────────
 
@@ -48,6 +49,7 @@ export interface CreateOrderInput {
     stitchingVariantName?: string;
   }>;
   stitchingDeliveryDate?: Date;
+  stitchingDailyThreshold?: number;
 }
 
 /** Runtime shape of the shippingAddress JSON column. */
@@ -64,8 +66,8 @@ interface ShippingAddressJson {
 
 function generateOrderNumber(): string {
   const year = new Date().getFullYear();
-  const random = Math.floor(100000 + Math.random() * 900000);
-  return `ET-${year}-${random}`;
+  const token = randomUUID().replace(/-/g, "").slice(0, 16).toUpperCase();
+  return `ET-${year}-${token}`;
 }
 
 type ResolvedVariant = {
@@ -134,13 +136,24 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
       });
       if (!discount) {
         appliedCouponCode = null;
-      } else if (discount.usageLimit !== null && discount.usageCount >= discount.usageLimit) {
-        throw new Error("Discount usage limit reached");
       } else {
-        await tx.discount.update({
-          where: { id: discount.id },
-          data: { usageCount: { increment: 1 } },
-        });
+        if (discount.usageLimit === null) {
+          await tx.discount.update({
+            where: { id: discount.id },
+            data: { usageCount: { increment: 1 } },
+          });
+        } else {
+          const claimed = await tx.discount.updateMany({
+            where: {
+              id: discount.id,
+              usageCount: { lt: discount.usageLimit },
+            },
+            data: { usageCount: { increment: 1 } },
+          });
+          if (claimed.count === 0) {
+            throw new Error("Discount usage limit reached");
+          }
+        }
       }
     }
 
@@ -326,6 +339,137 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
       }
       if (data.stitchingItems.some((item) => disallowedIds.has(item.productId))) {
         throw new Error("Stitching is not available for one or more selected products");
+      }
+    }
+
+    // Serialize bookings for the chosen PKT delivery day. Availability is
+    // previewed before checkout, but this in-transaction guard is the final
+    // authority and prevents simultaneous orders from overbooking one day.
+    if (
+      data.stitchingFee &&
+      data.stitchingFee > 0 &&
+      data.stitchingDeliveryDate
+    ) {
+      const deliveryDate = data.stitchingDeliveryDate;
+      const nextDay = new Date(deliveryDate.getTime() + 24 * 60 * 60 * 1000);
+      const lockKey = `stitching-capacity:${deliveryDate.toISOString()}`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+
+      const rules = await tx.stitchingCalendarRule.findMany({
+        where: {
+          isActive: true,
+          OR: [
+            {
+              type: { in: ["BLOCKED_DATE", "CAPACITY_OVERRIDE"] },
+              date: { gte: deliveryDate, lt: nextDay },
+            },
+            {
+              type: { in: ["BLOCKED_RANGE", "CAPACITY_RANGE"] },
+              startDate: { lt: nextDay },
+              endDate: { gte: deliveryDate },
+            },
+          ],
+        },
+        select: { type: true, capacity: true },
+      });
+      const blocked = rules.some(
+        (rule) => rule.type === "BLOCKED_DATE" || rule.type === "BLOCKED_RANGE"
+      );
+      const overrides = rules.flatMap((rule) =>
+        rule.capacity === null ? [] : [rule.capacity]
+      );
+      const capacity = blocked
+        ? null
+        : overrides.length > 0
+          ? Math.min(...overrides)
+          : data.stitchingDailyThreshold ?? 12;
+      const booked = await tx.order.count({
+        where: {
+          stitchingDeliveryDate: { gte: deliveryDate, lt: nextDay },
+          stitchingFee: { gt: 0 },
+          status: { not: "CANCELLED" },
+        },
+      });
+      if (capacity === null || booked >= capacity) {
+        throw new Error(
+          "Selected stitching delivery date is no longer available. Please try again."
+        );
+      }
+    }
+
+    // Pending manual payments are soft reservations. Lock every inventory
+    // identity in a stable order, then re-check real stock minus existing
+    // reservations so manual and immediate-payment checkouts cannot oversell
+    // one another under concurrency.
+    const inventoryRequests = new Map<
+      string,
+      { kind: "product" | "variant"; id: string; quantity: number; label: string }
+    >();
+    for (const [index, item] of data.items.entries()) {
+      const variant = resolvedVariants[index];
+      const kind = variant ? "variant" : "product";
+      const id = variant?.id || item.productId;
+      const key = `${kind}:${id}`;
+      const previous = inventoryRequests.get(key);
+      inventoryRequests.set(key, {
+        kind,
+        id,
+        quantity: (previous?.quantity || 0) + item.quantity,
+        label: variant?.label || item.productId,
+      });
+    }
+    const sortedInventoryRequests = [...inventoryRequests.entries()].sort(
+      ([left], [right]) => left.localeCompare(right)
+    );
+    for (const [key] of sortedInventoryRequests) {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`inventory:${key}`}))`;
+    }
+    for (const [, request] of sortedInventoryRequests) {
+      const stockQuantity = request.kind === "variant"
+        ? (await tx.productVariant.findUnique({
+            where: { id: request.id },
+            select: { stockQuantity: true },
+          }))?.stockQuantity
+        : (await tx.product.findUnique({
+            where: { id: request.id },
+            select: { stockQuantity: true },
+          }))?.stockQuantity;
+      if (stockQuantity === undefined) {
+        throw new Error(`Inventory not found for ${request.label}`);
+      }
+
+      const reserved = request.kind === "variant"
+        ? FEATURE_FLAGS.COMMERCE_PROFILE_V1
+          ? await tx.orderItem.aggregate({
+              where: {
+                configuration: { is: { productVariantId: request.id } },
+                order: {
+                  paymentStatus: "PENDING_VERIFICATION",
+                  status: "PENDING",
+                },
+              },
+              _sum: { quantity: true },
+            })
+          : null
+        : await tx.orderItem.aggregate({
+            where: {
+              productId: request.id,
+              ...(FEATURE_FLAGS.COMMERCE_PROFILE_V1
+                ? { configuration: { is: null } }
+                : {}),
+              order: {
+                paymentStatus: "PENDING_VERIFICATION",
+                status: "PENDING",
+              },
+            },
+            _sum: { quantity: true },
+          });
+      const reservedQuantity = reserved?._sum.quantity || 0;
+      const availableQuantity = Math.max(0, stockQuantity - reservedQuantity);
+      if (request.quantity > availableQuantity) {
+        throw new Error(
+          `Insufficient stock for ${request.label}. Available: ${availableQuantity}`
+        );
       }
     }
 
@@ -577,20 +721,22 @@ export async function getAdminOrders(options: {
   const { status, search, page = 1, limit = 20 } = options;
   const skip = (page - 1) * limit;
 
-  const where: Prisma.OrderWhereInput = {};
-  if (status && status !== "all") {
-    where.status = status.toUpperCase() as OrderStatus;
-  }
+  const baseWhere: Prisma.OrderWhereInput = {};
   if (search) {
-    where.OR = [
+    baseWhere.OR = [
+      { id: { equals: search } },
       { orderNumber: { contains: search, mode: "insensitive" } },
       { user: { name: { contains: search, mode: "insensitive" } } },
       { user: { email: { contains: search, mode: "insensitive" } } },
       { user: { phone: { contains: search, mode: "insensitive" } } },
     ];
   }
+  const where: Prisma.OrderWhereInput = { ...baseWhere };
+  if (status && status !== "all") {
+    where.status = status.toUpperCase() as OrderStatus;
+  }
 
-  const [orders, total] = await Promise.all([
+  const [orders, total, groupedStatusCounts] = await Promise.all([
     prisma.order.findMany({
       where,
       select: {
@@ -625,10 +771,28 @@ export async function getAdminOrders(options: {
       take: limit,
     }),
     prisma.order.count({ where }),
+    prisma.order.groupBy({
+      by: ["status"],
+      where: baseWhere,
+      _count: { _all: true },
+    }),
   ]);
   const optionSnapshots = await getOptionSnapshotsByOrderItemId(
     orders.flatMap((order) => order.items.map((item) => item.id)),
   );
+
+  const statusCounts = {
+    all: groupedStatusCounts.reduce((sum, group) => sum + group._count._all, 0),
+    pending: 0,
+    processing: 0,
+    shipped: 0,
+    delivered: 0,
+    cancelled: 0,
+  };
+  for (const group of groupedStatusCounts) {
+    const key = group.status.toLocaleLowerCase("en-US") as Exclude<keyof typeof statusCounts, "all">;
+    statusCounts[key] = group._count._all;
+  }
 
   return {
     orders: orders.map((order) => ({
@@ -675,10 +839,10 @@ export async function getAdminOrders(options: {
         | "processing"
         | "shipped"
         | "delivered"
-        | "cancelled"
-        | "returned",
+        | "cancelled",
       paymentStatus: order.paymentStatus.toLowerCase() as
         | "pending"
+        | "pending_verification"
         | "paid"
         | "refunded"
         | "failed",
@@ -687,7 +851,9 @@ export async function getAdminOrders(options: {
         | "jazzcash"
         | "easypaisa"
         | "card"
-        | "safepay",
+        | "safepay"
+        | "nayapay"
+        | "meezan_bank",
       notes: order.notes || undefined,
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
@@ -696,32 +862,38 @@ export async function getAdminOrders(options: {
     page,
     limit,
     totalPages: Math.ceil(total / limit),
+    statusCounts,
   };
 }
 
-export async function updateOrderStatus(id: string, status: string) {
+export async function updateOrderStatus(
+  id: string,
+  status: string,
+  expectedStatus?: OrderStatus
+) {
   const order = await prisma.$transaction(async (tx) => {
-    let updated;
+    const claimed = await tx.order.updateMany({
+      where: {
+        id,
+        status: expectedStatus || { not: status as OrderStatus },
+      },
+      data: { status: status as OrderStatus },
+    });
 
-    if (status === "CANCELLED") {
-      const claimed = await tx.order.updateMany({
-        where: { id, status: { not: "CANCELLED" } },
-        data: { status: status as OrderStatus },
-      });
-
-      if (claimed.count === 0) {
-        const existing = await tx.order.findUnique({ where: { id }, select: { id: true } });
-        if (!existing) throw new Error("Order not found");
-        throw new Error("Order already cancelled");
-      }
-    } else {
-      await tx.order.update({
+    if (claimed.count === 0) {
+      const existing = await tx.order.findUnique({
         where: { id },
-        data: { status: status as OrderStatus },
+        select: { status: true },
       });
+      if (!existing) throw new Error("Order not found");
+      throw new Error(
+        existing.status === status
+          ? `Order is already ${status.toLocaleLowerCase("en-US")}`
+          : "Order status changed elsewhere. Refresh and try again."
+      );
     }
 
-    updated = await tx.order.findUnique({
+    const updated = await tx.order.findUnique({
       where: { id },
       include: { items: { include: { product: { select: { name: true, images: true, sku: true } } } }, user: true },
     });
@@ -815,10 +987,10 @@ export async function updateOrderStatus(id: string, status: string) {
       | "processing"
       | "shipped"
       | "delivered"
-      | "cancelled"
-      | "returned",
+      | "cancelled",
     paymentStatus: order.paymentStatus.toLowerCase() as
       | "pending"
+      | "pending_verification"
       | "paid"
       | "refunded"
       | "failed",
@@ -827,7 +999,9 @@ export async function updateOrderStatus(id: string, status: string) {
       | "jazzcash"
       | "easypaisa"
       | "card"
-      | "safepay",
+      | "safepay"
+      | "nayapay"
+      | "meezan_bank",
     notes: order.notes || undefined,
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),

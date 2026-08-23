@@ -714,6 +714,10 @@ export async function POST(req: Request) {
       stitchingFee: finalStitchingFee,
       stitchingItems: canonicalStitchingItems,
       stitchingDeliveryDate,
+      stitchingDailyThreshold:
+        finalStitchingFee > 0
+          ? storeConfig.stitchingDailyThreshold ?? 12
+          : undefined,
     }, isManualPayment);
 
     const processedMeasurementProductIds = new Set<string>();

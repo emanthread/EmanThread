@@ -30,10 +30,16 @@ export function sanitizeDbError(error: unknown): { message: string; status: numb
     if (error.message === 'Already processed') {
       return { message: error.message, status: 409 };
     }
+    if (error.message.includes('already processed') || error.message.includes('cannot be deleted')) {
+      return { message: error.message, status: 409 };
+    }
     if (error.message === 'Order already cancelled') {
       return { message: error.message, status: 409 };
     }
     if (error.message.includes('Insufficient stock')) {
+      return { message: error.message, status: 409 };
+    }
+    if (error.message.includes('delivery date is no longer available')) {
       return { message: error.message, status: 409 };
     }
     if (error.message.includes('already paid') || error.message.includes('cancelled')) {

@@ -1,35 +1,25 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { auth } from "@/auth";
 import { createAuditLog } from "@/lib/db-queries";
+import { requireAdminApiAccess } from "@/lib/admin-route-guard";
 
 export const dynamic = "force-dynamic";
 
-async function checkAdmin() {
-  const session = await auth();
-  if (
-    !session?.user ||
-    !["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(session.user.role ?? "")
-  ) {
-    return null;
-  }
-  return session.user;
-}
-
 const patchSchema = z.object({
   isActive: z.boolean().optional(),
-  capacity: z.number().int().min(0).max(500).nullable().optional(),
+  capacity: z.number().int().min(1).max(500).nullable().optional(),
   label: z.string().max(120).nullable().optional(),
-});
+}).strict();
 
 // PATCH /api/admin/stitching-calendar/[id]
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await checkAdmin();
-  if (!user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const access = await requireAdminApiAccess(req);
+  if (!access.ok) return access.response;
+  const user = access.session.user;
 
   try {
     const body = await req.json();
@@ -42,6 +32,22 @@ export async function PATCH(
     }
 
     const { id } = await params;
+    const existing = await prisma.stitchingCalendarRule.findUnique({
+      where: { id },
+      select: { type: true },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Rule not found" }, { status: 404 });
+    }
+    if (
+      (existing.type === "CAPACITY_OVERRIDE" || existing.type === "CAPACITY_RANGE") &&
+      result.data.capacity === null
+    ) {
+      return NextResponse.json(
+        { error: "Capacity rules must keep a capacity value" },
+        { status: 400 }
+      );
+    }
 
     const updated = await prisma.stitchingCalendarRule.update({
       where: { id },
@@ -53,7 +59,7 @@ export async function PATCH(
       userEmail: user.email || undefined,
       action: "SETTINGS_CHANGED",
       entity: "StitchingCalendarRule",
-      entityId: (await params).id,
+      entityId: id,
       newValue: result.data,
     });
 
@@ -72,11 +78,12 @@ export async function PATCH(
 
 // DELETE /api/admin/stitching-calendar/[id]
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await checkAdmin();
-  if (!user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const access = await requireAdminApiAccess(req);
+  if (!access.ok) return access.response;
+  const user = access.session.user;
 
   try {
     const { id } = await params;
@@ -89,7 +96,7 @@ export async function DELETE(
       userEmail: user.email || undefined,
       action: "SETTINGS_CHANGED",
       entity: "StitchingCalendarRule",
-      entityId: (await params).id,
+      entityId: id,
       newValue: { deleted: true },
     });
 

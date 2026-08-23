@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
 import { adminUpdateOrderMeasurement } from "@/lib/db-queries"
 import { z } from "zod"
 import { sanitizeDbError } from '@/lib/utils/errors'
+import { requireAdminApiAccess } from "@/lib/admin-route-guard"
 
 export const dynamic = "force-dynamic"
-
-const isAdmin = (role?: string | null) =>
-  ["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(role ?? "")
 
 const updateSchema = z.object({
   measurementSnapshot: z.record(z.unknown()),
@@ -17,13 +14,12 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; measurementId: string }> }
 ) {
-  const session = await auth()
-  if (!session?.user || !isAdmin(session.user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+  const access = await requireAdminApiAccess(req)
+  if (!access.ok) return access.response
+  const session = access.session
 
   try {
-    const { measurementId } = await params
+    const { id: orderId, measurementId } = await params
     const body = await req.json()
     const parsed = updateSchema.safeParse(body)
 
@@ -36,6 +32,7 @@ export async function PUT(
 
     const updated = await adminUpdateOrderMeasurement(
       measurementId,
+      orderId,
       { measurementSnapshot: parsed.data.measurementSnapshot },
       session.user.id,
       session.user.email || ""

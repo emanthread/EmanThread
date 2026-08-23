@@ -5,9 +5,9 @@ import { persist } from "zustand/middleware";
 import { toast } from "sonner";
 import { adminFetch, adminResponseError } from "@/lib/admin-fetch";
 
-export type OrderStatus = "pending" | "processing" | "shipped" | "delivered" | "cancelled" | "returned";
-export type PaymentStatus = "pending" | "paid" | "refunded" | "failed";
-export type PaymentMethod = "cod" | "jazzcash" | "easypaisa" | "card";
+export type OrderStatus = "pending" | "processing" | "shipped" | "delivered" | "cancelled";
+export type PaymentStatus = "pending" | "pending_verification" | "paid" | "refunded" | "failed";
+export type PaymentMethod = "cod" | "jazzcash" | "easypaisa" | "card" | "safepay" | "nayapay" | "meezan_bank";
 
 export interface OrderItem {
   productId: string;
@@ -234,6 +234,7 @@ export interface Customer {
 interface AdminState {
   orders: Order[];
   ordersTotal: number;
+  orderStatusCounts: Record<"all" | OrderStatus, number>;
   ordersPage: number;
   ordersTotalPages: number;
   products: AdminProduct[];
@@ -281,10 +282,8 @@ interface AdminState {
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   
-  deleteOrder: (orderId: string) => Promise<void>;
   deleteCustomer: (customerId: string) => Promise<void>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
-  updatePaymentStatus: (orderId: string, status: PaymentStatus) => Promise<void>;
   
   deleteProduct: (productId: string) => Promise<void>;
   updateProduct: (productId: string, data: Partial<AdminProduct>) => Promise<AdminProduct>;
@@ -348,7 +347,7 @@ export interface RecentOrderRow {
     sku: string;
   }[];
   total: number;
-  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled" | "returned";
+  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
   createdAt: string;
 }
 
@@ -367,6 +366,7 @@ export const useAdminStore = create<AdminState>()(
     (set, get) => ({
       orders: [],
       ordersTotal: 0,
+      orderStatusCounts: { all: 0, pending: 0, processing: 0, shipped: 0, delivered: 0, cancelled: 0 },
       ordersPage: 1,
       ordersTotalPages: 0,
       products: [],
@@ -404,6 +404,7 @@ export const useAdminStore = create<AdminState>()(
           set({ 
             orders: data.orders || [],
             ordersTotal: data.total || 0,
+            orderStatusCounts: data.statusCounts || { all: 0, pending: 0, processing: 0, shipped: 0, delivered: 0, cancelled: 0 },
             ordersPage: data.page || 1,
             ordersTotalPages: data.totalPages || 0
           });
@@ -655,24 +656,8 @@ export const useAdminStore = create<AdminState>()(
         }
       },
 
-      deleteOrder: async (orderId) => {
-        // Optimistic local update
-        set((state) => ({
-          orders: state.orders.filter((o) => o.id !== orderId),
-        }));
-        try {
-          const res = await adminFetch(`/api/admin/orders/${orderId}`, {
-            method: "DELETE",
-          });
-          if (!res.ok) throw new Error("Failed to delete order");
-        } catch (err) {
-          console.error("Delete order error:", err);
-          // Revert by re-fetching
-          await get().loadOrders();
-        }
-      },
-
       updateOrderStatus: async (orderId, status) => {
+        const previous = get().orders.find((order) => order.id === orderId);
         // Optimistic local update
         set((state) => ({
           orders: state.orders.map((order) =>
@@ -687,35 +672,22 @@ export const useAdminStore = create<AdminState>()(
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ status: status.toUpperCase() }),
           });
-          if (!res.ok) throw new Error("Failed to update status");
+          if (!res.ok) throw await adminResponseError(res, "Failed to update status");
+          const updated = await res.json();
+          set((state) => ({
+            orders: state.orders.map((order) =>
+              order.id === orderId ? { ...order, ...updated } : order
+            ),
+          }));
         } catch (err) {
           console.error("Update order status error:", err);
-          // Revert by re-fetching
-          await get().loadOrders();
-          throw err;
-        }
-      },
-
-      updatePaymentStatus: async (orderId, status) => {
-        // Optimistic local update
-        set((state) => ({
-          orders: state.orders.map((order) =>
-            order.id === orderId
-              ? { ...order, paymentStatus: status, updatedAt: new Date().toISOString() }
-              : order
-          ),
-        }));
-        try {
-          const res = await adminFetch(`/api/admin/orders/${orderId}/payment-status`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ paymentStatus: status }),
-          });
-          if (!res.ok) throw new Error("Failed to update payment status");
-        } catch (err) {
-          console.error("Update payment status error:", err);
-          // Revert by re-fetching
-          await get().loadOrders();
+          if (previous) {
+            set((state) => ({
+              orders: state.orders.map((order) =>
+                order.id === orderId ? previous : order
+              ),
+            }));
+          }
           throw err;
         }
       },

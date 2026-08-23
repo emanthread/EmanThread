@@ -107,6 +107,7 @@ model Product {
   @@index([groupId])
   @@index([inStock, stockQuantity])
   @@index([fabricType])
+  @@index([createdAt])
 }
 
 // Additive commerce configuration for merchandise that cannot use the legacy
@@ -330,6 +331,7 @@ model Order {
   @@index([userId, createdAt])
   @@index([status])
   @@index([status, createdAt])
+  @@index([stitchingDeliveryDate, status])
 }
 
 model PaymentTransaction {
@@ -682,6 +684,7 @@ model MeasurementProfile {
   @@index([deletedAt]) // M9
   @@index([userId, deletedAt])
   @@index([status])
+  @@index([status, source, deletedAt, updatedAt])
 }
 
 model StitchingOrder {
@@ -756,6 +759,9 @@ model ManualPaymentSubmission {
   @@index([transactionId])
   @@index([status])
   @@index([flagged])
+  @@index([status, createdAt])
+  @@index([status, flagged, createdAt])
+  @@index([status, expiresAt])
 }
 
 model PageView {

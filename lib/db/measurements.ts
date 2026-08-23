@@ -51,13 +51,14 @@ export async function getOrderMeasurements(orderId: string) {
 
 export async function adminUpdateOrderMeasurement(
   measurementId: string,
+  orderId: string,
   data: { measurementSnapshot: object },
   adminId: string,
   adminEmail: string
 ) {
   // Fetch existing record before update for audit trail
-  const existing = await prisma.orderItemMeasurement.findUnique({
-    where: { id: measurementId },
+  const existing = await prisma.orderItemMeasurement.findFirst({
+    where: { id: measurementId, orderId },
   });
   if (!existing) {
     throw new Error('Order measurement not found');

@@ -708,10 +708,22 @@ function NormalizedOptionEditor({
         {draft.variants.length === 0 ? <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-900">Add at least one value to every option axis.</p> : draft.variants.map((variant, index) => (
           <div key={variant.id || variant.optionKey} className="grid gap-2 rounded-md border p-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_8rem_8rem_auto]">
             <div className="self-center text-sm font-medium">{variant.label}</div>
-            <Input aria-label={`${variant.label} SKU`} value={variant.sku} placeholder="Auto SKU" onChange={(event) => update({ variants: draft.variants.map((candidate, candidateIndex) => candidateIndex === index ? { ...candidate, sku: event.target.value } : candidate) })} />
-            <Input aria-label={`${variant.label} price adjustment`} type="number" value={variant.priceAdjustment} onChange={(event) => update({ variants: draft.variants.map((candidate, candidateIndex) => candidateIndex === index ? { ...candidate, priceAdjustment: event.target.value } : candidate) })} />
-            <Input aria-label={`${variant.label} stock`} type="number" min="0" step="1" value={variant.stockQuantity} onChange={(event) => { const stockQuantity = event.target.value; update({ variants: draft.variants.map((candidate, candidateIndex) => candidateIndex === index ? { ...candidate, stockQuantity, inStock: Number(stockQuantity) > 0 } : candidate) }); }} />
-            <Checkbox aria-label={`${variant.label} active`} checked={variant.isActive} onCheckedChange={(checked) => update({ variants: draft.variants.map((candidate, candidateIndex) => candidateIndex === index ? { ...candidate, isActive: checked === true } : candidate) })} />
+            <div className="space-y-1">
+              <Label htmlFor={`combination-sku-${index}`} className="text-xs text-muted-foreground">SKU (optional)</Label>
+              <Input id={`combination-sku-${index}`} aria-label={`${variant.label} SKU`} value={variant.sku} placeholder="Auto SKU" onChange={(event) => update({ variants: draft.variants.map((candidate, candidateIndex) => candidateIndex === index ? { ...candidate, sku: event.target.value } : candidate) })} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor={`combination-price-${index}`} className="text-xs text-muted-foreground">Price adjustment (PKR)</Label>
+              <Input id={`combination-price-${index}`} aria-label={`${variant.label} price adjustment`} type="number" value={variant.priceAdjustment} onChange={(event) => update({ variants: draft.variants.map((candidate, candidateIndex) => candidateIndex === index ? { ...candidate, priceAdjustment: event.target.value } : candidate) })} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor={`combination-stock-${index}`} className="text-xs text-muted-foreground">Stock</Label>
+              <Input id={`combination-stock-${index}`} aria-label={`${variant.label} stock`} type="number" min="0" step="1" value={variant.stockQuantity} onChange={(event) => { const stockQuantity = event.target.value; update({ variants: draft.variants.map((candidate, candidateIndex) => candidateIndex === index ? { ...candidate, stockQuantity, inStock: Number(stockQuantity) > 0 } : candidate) }); }} />
+            </div>
+            <div className="flex items-end justify-center gap-2 pb-3 sm:justify-start">
+              <Checkbox id={`combination-active-${index}`} aria-label={`${variant.label} available for sale`} checked={variant.isActive} onCheckedChange={(checked) => update({ variants: draft.variants.map((candidate, candidateIndex) => candidateIndex === index ? { ...candidate, isActive: checked === true } : candidate) })} />
+              <Label htmlFor={`combination-active-${index}`} className="text-xs text-muted-foreground">Available for sale</Label>
+            </div>
           </div>
         ))}
       </div>

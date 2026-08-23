@@ -5,7 +5,7 @@ import { InvalidAdminCatalogNodeFilterError } from "@/lib/db/products";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
 import { withLoggedAdminHandler } from "@/lib/logger";
 import { sanitizeDbError } from '@/lib/utils/errors';
-import { adminLimitParam, adminPageParam } from "@/lib/admin-pagination";
+import { adminLimitParam, adminPageParam, adminSearchParam } from "@/lib/admin-pagination";
 import { requireAdminApiAccess } from "@/lib/admin-route-guard";
 import { prisma } from "@/lib/db";
 import { createAutomaticProductSku } from "@/lib/product-sku";
@@ -50,7 +50,7 @@ export const GET = withLoggedAdminHandler(async (req: Request) => {
   const { searchParams } = new URL(req.url);
   const page = adminPageParam(searchParams.get('page'));
   const limit = adminLimitParam(searchParams.get('limit'), 50);
-  const search = searchParams.get('search') || undefined;
+  const search = adminSearchParam(searchParams.get('search'));
   // `category` remains the legacy fabricType filter for compatibility.
   const fabricType = searchParams.get('category') || undefined;
   const stock = searchParams.get('stock') || undefined;

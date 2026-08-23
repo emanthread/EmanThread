@@ -1,19 +1,14 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { adminProfileFilter, adminCompletedFilter, adminRejectedFilter } from "@/lib/db-queries";
+import { requireAdminApiAccess } from "@/lib/admin-route-guard";
 
 export const dynamic = "force-dynamic";
 
-const isAdmin = (role?: string | null) =>
-  ["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(role ?? "");
-
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const session = await auth();
-    if (!session?.user || !isAdmin(session.user.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const access = await requireAdminApiAccess(req);
+    if (!access.ok) return access.response;
 
     const [totalProfiles, completedCount, rejectedCount] = await Promise.all([
       prisma.measurementProfile.count({ where: adminProfileFilter() }),

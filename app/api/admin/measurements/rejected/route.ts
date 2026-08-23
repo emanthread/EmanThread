@@ -1,28 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { adminRejectedFilter } from "@/lib/db-queries";
+import { requireAdminApiAccess } from "@/lib/admin-route-guard";
+import { adminPageParam, adminSearchParam } from "@/lib/admin-pagination";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-const isAdmin = (role?: string | null) =>
-  ["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(role ?? "");
-
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user || !isAdmin(session.user.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const access = await requireAdminApiAccess(req);
+    if (!access.ok) return access.response;
 
     const { searchParams } = new URL(req.url);
-    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1"));
+    const page = adminPageParam(searchParams.get("page"));
     const limit = 20;
-    const search = searchParams.get("search") as string | null;
-    const status = searchParams.get("status") as string | null;
+    const search = adminSearchParam(searchParams.get("search"));
+    const statusResult = z.enum(["pending", "approved", "rejected"]).optional()
+      .safeParse(searchParams.get("status") || undefined);
+    if (!statusResult.success) {
+      return NextResponse.json({ error: "Invalid measurement status" }, { status: 400 });
+    }
+    const status = statusResult.data;
 
     const where: Record<string, unknown> = { ...adminRejectedFilter() };
-    if (status && status !== "all") {
+    if (status) {
       where.status = status;
     }
     if (search) {

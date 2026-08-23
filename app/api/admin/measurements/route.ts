@@ -1,27 +1,31 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/auth'
 import { prisma } from '@/lib/db'
 import { withLoggedAdminHandler } from '@/lib/logger'
 import { adminProfileFilter } from '@/lib/db-queries'
-import { adminLimitParam, adminPageParam } from '@/lib/admin-pagination'
+import { adminLimitParam, adminPageParam, adminSearchParam } from '@/lib/admin-pagination'
+import { requireAdminApiAccess } from '@/lib/admin-route-guard'
+import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
 
 export const GET = withLoggedAdminHandler(async (req: Request) => {
-  const session = await auth()
-  if (!session?.user || !['ADMIN', 'SUPER_ADMIN', 'MANAGER'].includes(session.user.role ?? '')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const access = await requireAdminApiAccess(req)
+  if (!access.ok) return access.response
   const { searchParams } = new URL(req.url)
   const page = adminPageParam(searchParams.get('page'))
   const limit = adminLimitParam(searchParams.get('limit'), 20)
   const garmentType = searchParams.get('garmentType') || undefined
-  const search = searchParams.get('search') || undefined
-  const status = searchParams.get('status') || undefined
+  const search = adminSearchParam(searchParams.get('search'))
+  const statusResult = z.enum(['pending', 'approved', 'rejected']).optional()
+    .safeParse(searchParams.get('status') || undefined)
+  if (!statusResult.success) {
+    return NextResponse.json({ error: 'Invalid measurement status' }, { status: 400 })
+  }
+  const status = statusResult.data
 
   // Use centralized filter — excludes tailor requests (source !== "tailor_request")
   const where: Record<string, unknown> = { ...adminProfileFilter() }
-  if (status && status !== 'all') {
+  if (status) {
     where.status = status;
   }
   

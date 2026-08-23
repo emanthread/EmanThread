@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
 import { syncProductsAfterVariantStockChange } from "@/lib/db/product-inventory";
+import type { Prisma } from "@prisma/client";
 
 // ── Payment Transaction helpers ───────────────────────────────────
 
@@ -203,19 +204,27 @@ export async function createManualPaymentSubmission(data: {
   senderName: string;
   screenshotUrl?: string;
 }) {
-  const isDuplicate = await checkDuplicateTransactionId(data.transactionId);
-  const flagged = isDuplicate;
-  const flagReason = isDuplicate ? 'Duplicate transaction ID detected' : undefined;
+  return prisma.$transaction(async (tx) => {
+    const normalizedTransactionId = data.transactionId.trim().toLocaleLowerCase('en-US');
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`manual-payment:${normalizedTransactionId}`}))`;
+    const duplicate = await tx.manualPaymentSubmission.findFirst({
+      where: {
+        transactionId: { equals: data.transactionId.trim(), mode: 'insensitive' },
+      },
+      select: { id: true },
+    });
+    const expiresAt = new Date(Date.now() + PAYMENT_EXPIRY_HOURS * 60 * 60 * 1000);
 
-  const expiresAt = new Date(Date.now() + PAYMENT_EXPIRY_HOURS * 60 * 60 * 1000);
-
-  return prisma.manualPaymentSubmission.create({
-    data: {
-      ...data,
-      flagged,
-      flagReason: flagReason ?? null,
-      expiresAt,
-    },
+    return tx.manualPaymentSubmission.create({
+      data: {
+        ...data,
+        transactionId: data.transactionId.trim(),
+        senderName: data.senderName.trim(),
+        flagged: Boolean(duplicate),
+        flagReason: duplicate ? 'Duplicate transaction ID detected' : null,
+        expiresAt,
+      },
+    });
   });
 }
 
@@ -247,13 +256,21 @@ export async function getPendingPaymentQueue(page = 1, limit = 20) {
 
 export async function getAllPaymentSubmissions(params: {
   page?: number; limit?: number;
-  status?: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  status?: 'PENDING' | 'VERIFIED' | 'REJECTED' | 'EXPIRED';
   flagged?: boolean;
+  search?: string;
 }) {
-  const { page = 1, limit = 20, status, flagged } = params;
-  const where: any = {};
+  const { page = 1, limit = 20, status, flagged, search } = params;
+  const where: Prisma.ManualPaymentSubmissionWhereInput = {};
   if (status) where.status = status;
   if (flagged !== undefined) where.flagged = flagged;
+  if (search) {
+    where.OR = [
+      { transactionId: { contains: search, mode: 'insensitive' } },
+      { senderName: { contains: search, mode: 'insensitive' } },
+      { order: { orderNumber: { contains: search, mode: 'insensitive' } } },
+    ];
+  }
 
   const [submissions, total] = await Promise.all([
     prisma.manualPaymentSubmission.findMany({
@@ -472,14 +489,17 @@ export async function deleteManualPayment(
   adminId: string,
   adminEmail: string
 ) {
-  const submission = await prisma.manualPaymentSubmission.findUnique({
-    where: { id: submissionId },
-  });
-  if (!submission) throw new Error('Submission not found');
-
-  await prisma.$transaction(async (tx) => {
-    await tx.manualPaymentSubmission.update({
+  return prisma.$transaction(async (tx) => {
+    const submission = await tx.manualPaymentSubmission.findUnique({
       where: { id: submissionId },
+    });
+    if (!submission) throw new Error('Submission not found');
+    if (submission.status !== 'PENDING') {
+      throw new Error('Processed payment records cannot be deleted');
+    }
+
+    await tx.manualPaymentSubmission.update({
+      where: { id: submission.id },
       data: {
         status: 'REJECTED',
         verifiedBy: adminId,
@@ -487,6 +507,17 @@ export async function deleteManualPayment(
         rejectionReason: 'Administratively deleted',
       },
     });
+
+    const cancelledOrder = await tx.order.updateMany({
+      where: {
+        id: submission.orderId,
+        paymentStatus: 'PENDING_VERIFICATION',
+      },
+      data: { paymentStatus: 'FAILED', status: 'CANCELLED' },
+    });
+    if (cancelledOrder.count === 0) {
+      throw new Error('Payment order is already processed or cannot be cancelled');
+    }
 
     await tx.auditLog.create({
       data: {
@@ -501,9 +532,8 @@ export async function deleteManualPayment(
         },
       },
     });
+    return submission;
   });
-
-  return submission;
 }
 
 export async function getPaymentVerificationStats() {
@@ -569,20 +599,29 @@ export async function autoExpirePendingPayments() {
       status: 'PENDING',
       expiresAt: { lte: now },
     },
-    include: { order: true },
+    select: { id: true, orderId: true },
+    orderBy: { expiresAt: 'asc' },
+    take: 200,
   });
 
   if (expiredSubmissions.length === 0) return { expired: 0 };
 
-  await prisma.$transaction(async (tx) => {
+  const expired = await prisma.$transaction(async (tx) => {
+    let claimedCount = 0;
     for (const sub of expiredSubmissions) {
-      await tx.manualPaymentSubmission.update({
-        where: { id: sub.id },
+      const claimed = await tx.manualPaymentSubmission.updateMany({
+        where: { id: sub.id, status: 'PENDING', expiresAt: { lte: now } },
         data: { status: 'EXPIRED' },
       });
+      if (claimed.count === 0) continue;
+      claimedCount += 1;
 
-      await tx.order.update({
-        where: { id: sub.orderId },
+      await tx.order.updateMany({
+        where: {
+          id: sub.orderId,
+          status: 'PENDING',
+          paymentStatus: 'PENDING_VERIFICATION',
+        },
         data: { status: 'CANCELLED', paymentStatus: 'FAILED' },
       });
 
@@ -599,7 +638,8 @@ export async function autoExpirePendingPayments() {
         },
       });
     }
+    return claimedCount;
   });
 
-  return { expired: expiredSubmissions.length };
+  return { expired };
 }

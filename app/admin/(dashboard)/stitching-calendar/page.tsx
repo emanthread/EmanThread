@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { adminFetch } from "@/lib/admin-fetch";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -74,7 +75,7 @@ function formatDateStr(iso: string | null | undefined): string {
 function getDayColor(stats: DayStats | undefined): string {
   if (!stats) return "bg-secondary/30 text-muted-foreground";
   if (stats.blocked) return "bg-gray-800 text-gray-400 border-gray-700";
-  if (stats.capacity === null) return "bg-gray-800 text-gray-400";
+  if (stats.capacity === null || stats.capacity <= 0) return "bg-gray-800 text-gray-400";
   const pct = stats.count / stats.capacity;
   if (pct >= 1) return "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border-red-300";
   if (pct >= 0.75) return "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-300";
@@ -109,11 +110,18 @@ export default function StitchingCalendarPage() {
   const loadRules = useCallback(async () => {
     setLoadingRules(true);
     try {
-      const res = await fetch("/api/admin/stitching-calendar");
-      if (res.ok) setRules(await res.json());
-    } catch { /* silent */ }
+      const res = await adminFetch("/api/admin/stitching-calendar");
+      if (!res.ok) throw new Error("Could not load calendar rules");
+      setRules(await res.json());
+    } catch (error) {
+      toast({
+        title: "Calendar unavailable",
+        description: error instanceof Error ? error.message : "Could not load calendar rules",
+        variant: "destructive",
+      });
+    }
     finally { setLoadingRules(false); }
-  }, []);
+  }, [toast]);
 
   // ── Fetch Month Capacity ─────────────────────────────────────────────────
 
@@ -121,15 +129,20 @@ export default function StitchingCalendarPage() {
     setLoadingMonth(true);
     try {
       const key = formatMonthKey(month);
-      const res = await fetch(`/api/admin/stitching-calendar/capacity?month=${key}`);
-      if (res.ok) {
-        const data = await res.json();
-        setDayStats(data.days ?? {});
-        setThreshold(data.threshold ?? 12);
-      }
-    } catch { /* silent */ }
+      const res = await adminFetch(`/api/admin/stitching-calendar/capacity?month=${key}`);
+      if (!res.ok) throw new Error("Could not load monthly stitching capacity");
+      const data = await res.json();
+      setDayStats(data.days ?? {});
+      setThreshold(data.threshold ?? 12);
+    } catch (error) {
+      toast({
+        title: "Capacity unavailable",
+        description: error instanceof Error ? error.message : "Could not load monthly stitching capacity",
+        variant: "destructive",
+      });
+    }
     finally { setLoadingMonth(false); }
-  }, []);
+  }, [toast]);
 
   useEffect(() => { loadRules(); }, [loadRules]);
   useEffect(() => { loadMonthCapacity(currentMonth); }, [currentMonth, loadMonthCapacity, rules]);
@@ -153,11 +166,22 @@ export default function StitchingCalendarPage() {
       const isRange = newRule.type === "BLOCKED_RANGE" || newRule.type === "CAPACITY_RANGE";
       const isSingle = newRule.type === "BLOCKED_DATE" || newRule.type === "CAPACITY_OVERRIDE";
       const needsCapacity = newRule.type === "CAPACITY_OVERRIDE" || newRule.type === "CAPACITY_RANGE";
+      const parsedCapacity = Number(newRule.capacity);
+      const capacity = needsCapacity ? parsedCapacity : null;
+
+      if (needsCapacity && (!Number.isInteger(parsedCapacity) || parsedCapacity < 1 || parsedCapacity > 500)) {
+        toast({
+          title: "Invalid capacity",
+          description: "Capacity must be a whole number between 1 and 500.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       const payload: any = {
         type: newRule.type,
         label: newRule.label || null,
-        capacity: needsCapacity ? (parseInt(newRule.capacity) || null) : null,
+        capacity,
       };
 
       if (isSingle) {
@@ -169,11 +193,15 @@ export default function StitchingCalendarPage() {
           toast({ title: "Error", description: "Please select start and end dates", variant: "destructive" });
           setSaving(false); return;
         }
+        if (newRule.startDate > newRule.endDate) {
+          toast({ title: "Error", description: "End date must be on or after the start date", variant: "destructive" });
+          return;
+        }
         payload.startDate = new Date(newRule.startDate).toISOString();
         payload.endDate = new Date(newRule.endDate).toISOString();
       }
 
-      const res = await fetch("/api/admin/stitching-calendar", {
+      const res = await adminFetch("/api/admin/stitching-calendar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -194,7 +222,7 @@ export default function StitchingCalendarPage() {
 
   const toggleActive = async (rule: CalendarRule) => {
     try {
-      const res = await fetch(`/api/admin/stitching-calendar/${rule.id}`, {
+      const res = await adminFetch(`/api/admin/stitching-calendar/${rule.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: !rule.isActive }),
@@ -212,7 +240,7 @@ export default function StitchingCalendarPage() {
   const deleteRule = async (id: string) => {
     setDeletingId(id);
     try {
-      const res = await fetch(`/api/admin/stitching-calendar/${id}`, { method: "DELETE" });
+      const res = await adminFetch(`/api/admin/stitching-calendar/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
       setRules((prev) => prev.filter((r) => r.id !== id));
       toast({ title: "Rule deleted" });

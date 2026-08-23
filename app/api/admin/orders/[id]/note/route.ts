@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
-import { isAdminRole } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/db-queries";
 import { prisma } from "@/lib/db";
 import { withLoggedAdminHandler } from "@/lib/logger";
 import { sanitizeDbError } from '@/lib/utils/errors';
+import { requireAdminApiAccess } from "@/lib/admin-route-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +17,9 @@ export const PATCH = withLoggedAdminHandler(async (
   { params }: { params: Promise<{ id: string }> }
 ) => {
   try {
-    const session = await auth();
-    if (!session?.user || !isAdminRole(session.user.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const access = await requireAdminApiAccess(req);
+    if (!access.ok) return access.response;
+    const session = access.session;
 
     const { id } = await params;
     const body = await req.json();

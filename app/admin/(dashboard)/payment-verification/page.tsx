@@ -37,6 +37,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatPrice } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { getStatusBadgeClass } from "@/lib/utils/status";
+import { useDebounce } from "@/hooks/use-debounce";
+import { toast } from "sonner";
+import { adminFetch, adminResponseError } from "@/lib/admin-fetch";
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
 
 interface PaymentSubmission {
   id: string;
@@ -44,7 +56,7 @@ interface PaymentSubmission {
   transactionId: string;
   senderName: string;
   screenshotUrl: string | null;
-  status: "PENDING" | "VERIFIED" | "REJECTED";
+  status: "PENDING" | "VERIFIED" | "REJECTED" | "EXPIRED";
   flagged: boolean;
   flagReason: string | null;
   createdAt: string;
@@ -72,6 +84,7 @@ export default function PaymentVerificationPage() {
   const [total, setTotal] = useState(0);
   const [activeTab, setActiveTab] = useState<string>("PENDING");
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebounce(searchQuery, 400);
 
   // Verify dialog
   const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
@@ -122,28 +135,44 @@ export default function PaymentVerificationPage() {
       queryParams.set("page", String(page));
       queryParams.set("limit", "20");
       if (activeTab === "PENDING" || activeTab === "VERIFIED" || activeTab === "REJECTED") queryParams.set("status", activeTab);
-      if (activeTab === "FLAGGED") queryParams.set("flagged", "true");
+      if (activeTab === "FLAGGED") {
+        queryParams.set("flagged", "true");
+        queryParams.set("status", "PENDING");
+      }
+      if (debouncedSearch) queryParams.set("search", debouncedSearch);
 
       const [submissionsRes, statsRes] = await Promise.all([
-        fetch(`/api/admin/payments?${queryParams}`),
-        fetch("/api/admin/payments/stats"),
+        adminFetch(`/api/admin/payments?${queryParams}`),
+        adminFetch("/api/admin/payments/stats"),
       ]);
 
-      if (submissionsRes.ok) {
-        const data = await submissionsRes.json();
-        setSubmissions(data.submissions);
-        setTotal(data.total);
+      if (!submissionsRes.ok) {
+        const error = await submissionsRes.json().catch(() => null);
+        throw new Error(error?.error || "Failed to load payments");
       }
-      if (statsRes.ok) {
-        const data = await statsRes.json();
-        setStats(data);
+      const data = await submissionsRes.json();
+      const lastPage = Math.max(1, Math.ceil(Number(data.total || 0) / 20));
+      setTotal(data.total || 0);
+      if (page > lastPage) {
+        setPage(lastPage);
+        return;
       }
+      setSubmissions(data.submissions || []);
+
+      if (!statsRes.ok) {
+        const error = await statsRes.json().catch(() => null);
+        throw new Error(error?.error || "Failed to load payment statistics");
+      }
+      setStats(await statsRes.json());
     } catch (err) {
       console.error("Failed to load payments:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to load payments", {
+        id: "admin-payments-load",
+      });
     } finally {
       setLoading(false);
     }
-  }, [page, activeTab]);
+  }, [page, activeTab, debouncedSearch]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -151,18 +180,21 @@ export default function PaymentVerificationPage() {
     if (!verifyTarget) return;
     setVerifying(true);
     try {
-      const res = await fetch(`/api/admin/payments/${verifyTarget.id}/verify`, { method: "POST" });
-      if (res.ok) {
-        setVerifyDialogOpen(false);
-        setVerifyTarget(null);
-        setVerifyConfirmed(false);
-        batchSelectIds.delete(verifyTarget.id);
-        fetchData();
-      } else {
-        const err = await res.json();
-        alert(err.error || "Failed to verify payment");
-      }
-    } catch { alert("Failed to verify payment"); }
+      const res = await adminFetch(`/api/admin/payments/${verifyTarget.id}/verify`, { method: "POST" });
+      if (!res.ok) throw await adminResponseError(res, "Failed to verify payment");
+      setVerifyDialogOpen(false);
+      setVerifyTarget(null);
+      setVerifyConfirmed(false);
+      setBatchSelectIds((current) => {
+        const next = new Set(current);
+        next.delete(verifyTarget.id);
+        return next;
+      });
+      await fetchData();
+      toast.success("Payment verified");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to verify payment");
+    }
     finally { setVerifying(false); }
   };
 
@@ -170,22 +202,25 @@ export default function PaymentVerificationPage() {
     if (!rejectTarget || !rejectReason.trim()) return;
     setRejecting(true);
     try {
-      const res = await fetch(`/api/admin/payments/${rejectTarget.id}/reject`, {
+      const res = await adminFetch(`/api/admin/payments/${rejectTarget.id}/reject`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reason: rejectReason.trim() }),
       });
-      if (res.ok) {
-        setRejectDialogOpen(false);
-        setRejectTarget(null);
-        setRejectReason("");
-        batchSelectIds.delete(rejectTarget.id);
-        fetchData();
-      } else {
-        const err = await res.json();
-        alert(err.error || "Failed to reject payment");
-      }
-    } catch { alert("Failed to reject payment"); }
+      if (!res.ok) throw await adminResponseError(res, "Failed to reject payment");
+      setRejectDialogOpen(false);
+      setRejectTarget(null);
+      setRejectReason("");
+      setBatchSelectIds((current) => {
+        const next = new Set(current);
+        next.delete(rejectTarget.id);
+        return next;
+      });
+      await fetchData();
+      toast.success("Payment rejected");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to reject payment");
+    }
     finally { setRejecting(false); }
   };
 
@@ -193,17 +228,20 @@ export default function PaymentVerificationPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/admin/payments/${deleteTarget.id}`, { method: "DELETE" });
-      if (res.ok) {
-        setDeleteDialogOpen(false);
-        setDeleteTarget(null);
-        batchSelectIds.delete(deleteTarget.id);
-        fetchData();
-      } else {
-        const err = await res.json();
-        alert(err.error || "Failed to delete payment");
-      }
-    } catch { alert("Failed to delete payment"); }
+      const res = await adminFetch(`/api/admin/payments/${deleteTarget.id}`, { method: "DELETE" });
+      if (!res.ok) throw await adminResponseError(res, "Failed to dismiss payment");
+      setDeleteDialogOpen(false);
+      setDeleteTarget(null);
+      setBatchSelectIds((current) => {
+        const next = new Set(current);
+        next.delete(deleteTarget.id);
+        return next;
+      });
+      await fetchData();
+      toast.success("Pending payment dismissed");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to dismiss payment");
+    }
     finally { setDeleting(false); }
   };
 
@@ -216,7 +254,7 @@ export default function PaymentVerificationPage() {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Payment Slip — ${sub.order.orderNumber}</title>
+          <title>Payment Slip — ${escapeHtml(sub.order.orderNumber)}</title>
           <style>
             body { font-family: Arial, sans-serif; font-size: 13px; color: #1a1a1a; padding: 20px; }
             table { width: 100%; border-collapse: collapse; margin: 12px 0; }
@@ -235,17 +273,17 @@ export default function PaymentVerificationPage() {
             <td style="text-align:right; font-size:11px;">${new Date().toLocaleDateString()}</td>
           </tr></table>
           <table>
-            <tr><td style="width:35%; font-weight:600;">Order Number</td><td>${sub.order.orderNumber}</td></tr>
-            <tr><td style="font-weight:600;">Customer</td><td>${customerName}</td></tr>
+            <tr><td style="width:35%; font-weight:600;">Order Number</td><td>${escapeHtml(sub.order.orderNumber)}</td></tr>
+            <tr><td style="font-weight:600;">Customer</td><td>${escapeHtml(customerName)}</td></tr>
             <tr><td style="font-weight:600;">Amount</td><td>${formatPrice(Number(sub.order.grandTotal))}</td></tr>
-            <tr><td style="font-weight:600;">Payment Method</td><td>${sub.paymentMethod}</td></tr>
-            <tr><td style="font-weight:600;">Transaction ID</td><td style="font-family:monospace;">${sub.transactionId}</td></tr>
-            <tr><td style="font-weight:600;">Sender Name</td><td>${sub.senderName}</td></tr>
+            <tr><td style="font-weight:600;">Payment Method</td><td>${escapeHtml(sub.paymentMethod)}</td></tr>
+            <tr><td style="font-weight:600;">Transaction ID</td><td style="font-family:monospace;">${escapeHtml(sub.transactionId)}</td></tr>
+            <tr><td style="font-weight:600;">Sender Name</td><td>${escapeHtml(sub.senderName)}</td></tr>
             <tr><td style="font-weight:600;">Status</td><td><span class="status ${sub.status === 'VERIFIED' ? 'verified' : sub.status === 'REJECTED' ? 'rejected' : 'pending'}">${sub.status}</span></td></tr>
             <tr><td style="font-weight:600;">Submitted</td><td>${new Date(sub.createdAt).toLocaleDateString()}</td></tr>
-            ${sub.screenshotUrl ? `<tr><td style="font-weight:600;">Screenshot</td><td style="font-size:11px; color:#6b7280;">${sub.screenshotUrl}</td></tr>` : ""}
+            ${sub.screenshotUrl ? `<tr><td style="font-weight:600;">Screenshot</td><td style="font-size:11px; color:#6b7280;">${escapeHtml(sub.screenshotUrl)}</td></tr>` : ""}
           </table>
-          ${sub.flagged ? `<div style="margin-top:10px; padding:8px; background:#fef3c7; border-radius:4px; font-size:11px;"><strong>FLAGGED</strong> — ${sub.flagReason || "Yes"}</div>` : ""}
+          ${sub.flagged ? `<div style="margin-top:10px; padding:8px; background:#fef3c7; border-radius:4px; font-size:11px;"><strong>FLAGGED</strong> — ${escapeHtml(sub.flagReason || "Yes")}</div>` : ""}
           <p style="text-align:center; font-size:10px; color:#9ca3af; margin-top:20px;">Emaan Thread · Generated ${new Date().toLocaleString()}</p>
         </body>
       </html>
@@ -263,7 +301,7 @@ export default function PaymentVerificationPage() {
     let success = 0, fail = 0;
     for (const id of safeIds) {
       try {
-        const res = await fetch(`/api/admin/payments/${id}/verify`, { method: "POST" });
+        const res = await adminFetch(`/api/admin/payments/${id}/verify`, { method: "POST" });
         if (res.ok) success++; else fail++;
       } catch { fail++; }
     }
@@ -336,14 +374,14 @@ export default function PaymentVerificationPage() {
         <div className="flex gap-2 flex-wrap">
           {tabs.map((tab) => (
             <Button key={tab} variant={activeTab === tab ? "default" : "outline"} size="sm"
-              onClick={() => { setActiveTab(tab); setPage(1); batchSelectIds.clear(); }}>
+              onClick={() => { setActiveTab(tab); setPage(1); setBatchSelectIds(new Set()); }}>
               {tab === "ALL" ? "All" : tab.charAt(0) + tab.slice(1).toLowerCase()}
             </Button>
           ))}
         </div>
         <div className="relative w-full sm:w-64">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Search order number or TXN ID..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+          <Input className="pl-9" placeholder="Search order number, TXN ID or sender..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }} />
         </div>
       </div>
 
@@ -454,9 +492,11 @@ export default function PaymentVerificationPage() {
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handlePrintPayment(sub)} title="Print Payment Slip">
                               <Printer className="h-3.5 w-3.5" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-600" onClick={() => { setDeleteTarget(sub); setDeleteDialogOpen(true); }} title="Delete">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                            {isPending && (
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-600" onClick={() => { setDeleteTarget(sub); setDeleteDialogOpen(true); }} title="Dismiss pending submission">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -612,9 +652,11 @@ export default function PaymentVerificationPage() {
                         </Button>
                       </>
                     )}
-                    <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => { setScreenshotDialogOpen(false); setScreenshotTarget(null); setDeleteTarget(screenshotTarget); setDeleteDialogOpen(true); }}>
-                      <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
-                    </Button>
+                    {isPend && (
+                      <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => { setScreenshotDialogOpen(false); setScreenshotTarget(null); setDeleteTarget(screenshotTarget); setDeleteDialogOpen(true); }}>
+                        <Trash2 className="h-3.5 w-3.5 mr-1" /> Dismiss
+                      </Button>
+                    )}
                   </div>
                 </div>
               );
@@ -630,8 +672,8 @@ export default function PaymentVerificationPage() {
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Trash2 className="h-5 w-5 text-red-600" /> Delete Payment Submission</DialogTitle>
-            <DialogDescription>This will mark the submission as deleted. This action cannot be undone.</DialogDescription>
+            <DialogTitle className="flex items-center gap-2"><Trash2 className="h-5 w-5 text-red-600" /> Dismiss Pending Payment</DialogTitle>
+            <DialogDescription>This rejects the pending submission and safely cancels its unpaid order. Processed payment history cannot be deleted.</DialogDescription>
           </DialogHeader>
           {deleteTarget && (
             <div className="space-y-3 py-4">
@@ -649,7 +691,7 @@ export default function PaymentVerificationPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-              {deleting ? "Deleting..." : "Delete Submission"}
+              {deleting ? "Dismissing..." : "Dismiss Submission"}
             </Button>
           </DialogFooter>
         </DialogContent>

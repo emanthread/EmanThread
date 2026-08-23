@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -18,7 +18,6 @@ import {
   MessageSquare,
   Smartphone,
   Ruler,
-  Trash2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,7 +59,6 @@ const statusConfig: Record<OrderStatus, { label: string; color: string }> = {
   shipped: { label: "Shipped", color: "bg-purple-100 text-purple-700" },
   delivered: { label: "Delivered", color: "bg-green-100 text-green-700" },
   cancelled: { label: "Cancelled", color: "bg-red-100 text-red-700" },
-  returned: { label: "Returned", color: "bg-gray-100 text-gray-700" },
 };
 
 const paymentMethodLabels = {
@@ -68,16 +66,27 @@ const paymentMethodLabels = {
   jazzcash: "JazzCash",
   easypaisa: "Easypaisa",
   card: "Credit/Debit Card",
+  safepay: "Safepay",
+  nayapay: "NayaPay",
+  meezan_bank: "Meezan Bank",
+};
+
+const paymentStatusLabels = {
+  pending: "Pending",
+  pending_verification: "Awaiting verification",
+  paid: "Paid",
+  refunded: "Refunded",
+  failed: "Failed",
 };
 
 export default function AdminOrdersPage() {
-  const { orders, ordersTotal, ordersPage, ordersTotalPages, deleteOrder, updateOrderStatus, loadOrders, notificationLogs, loadNotificationLogs } = useAdminStore(
+  const { orders, ordersTotal, orderStatusCounts, ordersPage, ordersTotalPages, updateOrderStatus, loadOrders, notificationLogs, loadNotificationLogs } = useAdminStore(
     useShallow((state) => ({
       orders: state.orders,
       ordersTotal: state.ordersTotal,
+      orderStatusCounts: state.orderStatusCounts,
       ordersPage: state.ordersPage,
       ordersTotalPages: state.ordersTotalPages,
-      deleteOrder: state.deleteOrder,
       updateOrderStatus: state.updateOrderStatus,
       loadOrders: state.loadOrders,
       notificationLogs: state.notificationLogs,
@@ -92,9 +101,6 @@ export default function AdminOrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const [isNotificationDialogOpen, setIsNotificationDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [newStatus, setNewStatus] = useState<OrderStatus>("pending");
 
@@ -106,6 +112,12 @@ export default function AdminOrdersPage() {
     }, 400);
     return () => clearTimeout(timeout);
   }, [loadOrders, statusFilter, page, searchQuery]);
+
+  useEffect(() => {
+    if (ordersTotalPages > 0 && page > ordersTotalPages) {
+      setPage(ordersTotalPages);
+    }
+  }, [ordersTotalPages, page]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -143,6 +155,7 @@ export default function AdminOrdersPage() {
     if (selectedOrder) {
       try {
         await updateOrderStatus(selectedOrder, newStatus);
+        await loadOrders(statusFilter, page, 20, searchQuery);
         toast.success("Order status updated");
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to update order status");
@@ -156,15 +169,6 @@ export default function AdminOrdersPage() {
     setSelectedOrder(orderId);
     loadNotificationLogs(orderId);
     setIsNotificationDialogOpen(true);
-  };
-
-  const handleDeleteOrder = async () => {
-    if (!orderToDelete) return;
-    setIsDeleting(true);
-    await deleteOrder(orderToDelete);
-    setIsDeleting(false);
-    setIsDeleteDialogOpen(false);
-    setOrderToDelete(null);
   };
 
   const channelIcon = (channel: string) => {
@@ -181,6 +185,7 @@ export default function AdminOrdersPage() {
   };
 
   const handleBulkStatusUpdate = async (status: OrderStatus) => {
+    const selectedCount = selectedOrders.length;
     let failed = 0;
     for (const orderId of selectedOrders) {
       try {
@@ -189,26 +194,20 @@ export default function AdminOrdersPage() {
         failed += 1;
       }
     }
+    await loadOrders(statusFilter, page, 20, searchQuery);
     setSelectedOrders([]);
     if (failed > 0) {
       toast.error(`${failed} order${failed === 1 ? "" : "s"} failed to update`);
-    } else if (selectedOrders.length > 0) {
+    } else if (selectedCount > 0) {
       toast.success("Orders updated");
     }
   };
 
-  const orderCounts = useMemo(() => ({
-    all: orders.length,
-    pending: orders.filter((o) => o.status === "pending").length,
-    processing: orders.filter((o) => o.status === "processing").length,
-    shipped: orders.filter((o) => o.status === "shipped").length,
-    delivered: orders.filter((o) => o.status === "delivered").length,
-    cancelled: orders.filter((o) => o.status === "cancelled").length,
-  }), [orders]);
+  const orderCounts = orderStatusCounts;
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await loadOrders();
+    await loadOrders(statusFilter, page, 20, searchQuery);
     setIsRefreshing(false);
   };
 
@@ -301,7 +300,7 @@ export default function AdminOrdersPage() {
               "cursor-pointer transition-all",
               statusFilter === status && "ring-2 ring-primary"
             )}
-            onClick={() => setStatusFilter(status)}
+            onClick={() => { setStatusFilter(status); setPage(1); }}
           >
             <CardContent className="p-4 text-center">
               <p className="text-2xl font-bold">{count}</p>
@@ -320,11 +319,11 @@ export default function AdminOrdersPage() {
               <Input
                 placeholder="Search orders by number, name, email or phone..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
                 className="pl-9"
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={statusFilter} onValueChange={(value) => { setStatusFilter(value); setPage(1); }}>
               <SelectTrigger className="w-full sm:w-40">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
@@ -451,11 +450,11 @@ export default function AdminOrdersPage() {
                             "mt-1 text-[10px]",
                             order.paymentStatus === "paid" &&
                               "border-green-500 text-green-600",
-                            order.paymentStatus === "pending" &&
+                            (order.paymentStatus === "pending" || order.paymentStatus === "pending_verification") &&
                               "border-yellow-500 text-yellow-600"
                           )}
                         >
-                          {order.paymentStatus}
+                          {paymentStatusLabels[order.paymentStatus]}
                         </Badge>
                       </div>
                     </td>
@@ -498,61 +497,63 @@ export default function AdminOrdersPage() {
                               </Link>
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuLabel>Update Status</DropdownMenuLabel>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setSelectedOrder(order.id);
-                              setNewStatus("processing");
-                              setIsStatusDialogOpen(true);
-                            }}
-                          >
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            Mark Processing
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setSelectedOrder(order.id);
-                              setNewStatus("shipped");
-                              setIsStatusDialogOpen(true);
-                            }}
-                          >
-                            <Truck className="h-4 w-4 mr-2" />
-                            Mark Shipped
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setSelectedOrder(order.id);
-                              setNewStatus("delivered");
-                              setIsStatusDialogOpen(true);
-                            }}
-                          >
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Mark Delivered
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={() => {
-                              setSelectedOrder(order.id);
-                              setNewStatus("cancelled");
-                              setIsStatusDialogOpen(true);
-                            }}
-                          >
-                            <XCircle className="h-4 w-4 mr-2" />
-                            Cancel Order
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-red-600 font-semibold"
-                            onClick={() => {
-                              setOrderToDelete(order.id);
-                              setIsDeleteDialogOpen(true);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete Order
-                          </DropdownMenuItem>
+                          {(order.status === "pending" ||
+                            order.status === "processing" ||
+                            order.status === "shipped") && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuLabel>Next valid action</DropdownMenuLabel>
+                            </>
+                          )}
+                          {order.status === "pending" && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSelectedOrder(order.id);
+                                setNewStatus("processing");
+                                setIsStatusDialogOpen(true);
+                              }}
+                            >
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                              Mark Processing
+                            </DropdownMenuItem>
+                          )}
+                          {order.status === "processing" && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSelectedOrder(order.id);
+                                setNewStatus("shipped");
+                                setIsStatusDialogOpen(true);
+                              }}
+                            >
+                              <Truck className="h-4 w-4 mr-2" />
+                              Mark Shipped
+                            </DropdownMenuItem>
+                          )}
+                          {order.status === "shipped" && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSelectedOrder(order.id);
+                                setNewStatus("delivered");
+                                setIsStatusDialogOpen(true);
+                              }}
+                            >
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Mark Delivered
+                            </DropdownMenuItem>
+                          )}
+                          {(order.status === "pending" || order.status === "processing") && (
+                            <DropdownMenuItem
+                              className="text-red-600"
+                              onClick={() => {
+                                setSelectedOrder(order.id);
+                                setNewStatus("cancelled");
+                                setIsStatusDialogOpen(true);
+                              }}
+                            >
+                              <XCircle className="h-4 w-4 mr-2" />
+                              Cancel Order
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>
@@ -675,40 +676,6 @@ export default function AdminOrdersPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsNotificationDialogOpen(false)}>
               Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Order Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Order</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to permanently delete this order? This action cannot be undone and will remove the order from the database.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setIsDeleteDialogOpen(false); setOrderToDelete(null); }}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteOrder}
-              disabled={isDeleting}
-            >
-              {isDeleting ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                <>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete Order
-                </>
-              )}
             </Button>
           </DialogFooter>
         </DialogContent>
