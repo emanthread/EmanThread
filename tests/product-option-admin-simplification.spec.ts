@@ -165,4 +165,28 @@ test.describe("simplified admin selling options", () => {
     expect(productEditor).toContain("initializeRequiredOptions");
     expect(productEditor).toContain("initialNormalizedOptions(");
   });
+
+  test("links variant products directly to their option stock editor", () => {
+    const productList = readFileSync(
+      resolve(process.cwd(), "components/admin/product-list-page.tsx"),
+      "utf8"
+    );
+    const productEditor = readFileSync(
+      resolve(process.cwd(), "components/admin/product-editor.tsx"),
+      "utf8"
+    );
+    const commerceEditor = readFileSync(
+      resolve(process.cwd(), "components/admin/product-commerce-profile-section.tsx"),
+      "utf8"
+    );
+
+    expect(productList).toContain("Update option stock");
+    expect(productList).toContain("/edit#commerce-section");
+    expect(productEditor).toContain(
+      'window.location.hash !== "#commerce-section"'
+    );
+    expect(productEditor).toContain('scrollIntoView({ block: "start" })');
+    expect(commerceEditor).toContain('id="commerce-section"');
+    expect(commerceEditor).toContain("scroll-mt-24");
+  });
 });

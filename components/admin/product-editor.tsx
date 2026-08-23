@@ -393,6 +393,23 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
     classification || classificationForProductKind(commerceProfile.productKind);
   const selectedEditorSchema = selectedClassification.editorSchema;
   const classificationReady = !catalogEnabled || Boolean(classification);
+
+  useEffect(() => {
+    if (
+      !classificationReady ||
+      window.location.hash !== "#commerce-section"
+    ) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      const section = document.getElementById("commerce-section");
+      section?.scrollIntoView({ block: "start" });
+      section?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [classificationReady]);
+
   const usesVariantInventory =
     commerceEnabled &&
     classificationReady &&

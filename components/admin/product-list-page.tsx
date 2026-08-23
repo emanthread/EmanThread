@@ -900,7 +900,16 @@ export default function ProductListPage({
                                     Edit
                                   </Link>
                                 </DropdownMenuItem>
-                                {!product.usesVariantInventory && (
+                                {product.usesVariantInventory ? (
+                                  <DropdownMenuItem asChild>
+                                    <Link
+                                      href={`/admin/products/${product.id}/edit#commerce-section`}
+                                    >
+                                      <AlertTriangle className="mr-2 h-4 w-4" />
+                                      Update option stock
+                                    </Link>
+                                  </DropdownMenuItem>
+                                ) : (
                                   <DropdownMenuItem
                                     onClick={() => {
                                       setEditStockProduct(product.id);

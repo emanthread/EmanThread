@@ -929,7 +929,7 @@ export function ProductCommerceProfileSection({
     <section
       id="commerce-section"
       tabIndex={-1}
-      className="space-y-5 rounded-xl border bg-card p-5"
+      className="scroll-mt-24 space-y-5 rounded-xl border bg-card p-5"
     >
       <div>
         <h2 className="font-semibold">Selling options</h2>
