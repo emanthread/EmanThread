@@ -1,10 +1,17 @@
 import { isAdminRole } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { unstable_cache } from "next/cache";
 import { getRevenueOverview } from "@/lib/db-queries";
 import { withLoggedAdminHandler } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
+
+const getCachedRevenueOverview = unstable_cache(
+  async (timeRange: string) => getRevenueOverview(timeRange),
+  ["admin-revenue-overview"],
+  { revalidate: 60, tags: ["admin-revenue-overview"] }
+);
 
 export const GET = withLoggedAdminHandler(async (request: Request) => {
   try {
@@ -16,7 +23,7 @@ export const GET = withLoggedAdminHandler(async (request: Request) => {
     const { searchParams } = new URL(request.url);
     const timeRange = searchParams.get("timeRange") || "7d";
 
-    const revenue = await getRevenueOverview(timeRange);
+    const revenue = await getCachedRevenueOverview(timeRange);
     return NextResponse.json(revenue);
   } catch (error) {
     console.error("Admin revenue analytics error:", error);

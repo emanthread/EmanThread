@@ -21,9 +21,11 @@ function createPrismaClient(): PrismaClient {
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
+// Keep one client per Node.js process in every environment. Next.js can load the
+// same server module through more than one bundle; without the global assignment
+// each bundle may create its own connection pool and exhaust a remote PgBouncer
+// pool during an admin-page request burst.
+globalForPrisma.prisma = prisma;
 
 /**
  * Safely execute a Prisma query. Returns the result on success,

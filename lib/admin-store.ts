@@ -332,6 +332,10 @@ const defaultAlertCounts: AlertCounts = {
   total: 0,
 };
 
+// The layout timer, tab visibility handler, and alert menu can fire together.
+// Share one request so those events never fan out into duplicate DB work.
+let alertLoadInFlight: Promise<void> | null = null;
+
 // Typed alias for recent orders row (matches getAdminRecentOrders return element)
 export interface RecentOrderRow {
   id: string;
@@ -506,17 +510,27 @@ export const useAdminStore = create<AdminState>()(
         }
       },
 
-      loadAlerts: async () => {
+      loadAlerts: () => {
         // Don't poll when tab is hidden — saves mobile battery/data
-        if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
-        try {
-          const res = await adminFetch("/api/admin/alerts");
-          if (!res.ok) throw await adminResponseError(res, "Failed to load alerts");
-          const data = await res.json();
-          set({ alertCounts: data });
-        } catch (err) {
-          console.error("Failed to load alerts:", err);
+        if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+          return Promise.resolve();
         }
+        if (alertLoadInFlight) return alertLoadInFlight;
+
+        alertLoadInFlight = (async () => {
+          try {
+            const res = await adminFetch("/api/admin/alerts");
+            if (!res.ok) throw await adminResponseError(res, "Failed to load alerts");
+            const data = await res.json();
+            set({ alertCounts: data });
+          } catch (err) {
+            console.error("Failed to load alerts:", err);
+          } finally {
+            alertLoadInFlight = null;
+          }
+        })();
+
+        return alertLoadInFlight;
       },
 
       loadRecentOrders: async () => {

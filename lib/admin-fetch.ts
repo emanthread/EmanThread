@@ -4,6 +4,7 @@ import { apiFetch } from "@/lib/api-fetch";
 
 const READ_TIMEOUT_MS = 15_000;
 const WRITE_TIMEOUT_MS = 45_000;
+const RETRYABLE_GATEWAY_STATUSES = new Set([502, 503, 504]);
 
 function isWriteMethod(method?: string): boolean {
   return ["POST", "PUT", "PATCH", "DELETE"].includes(
@@ -39,7 +40,19 @@ export async function adminFetch(
     : timeoutController.signal;
 
   try {
-    const response = await apiFetch(input, { ...init, signal });
+    let response = await apiFetch(input, { ...init, signal });
+
+    // A shared host can occasionally return a transient gateway response while
+    // its Node process is busy. Retrying one idempotent read is safe; writes are
+    // never retried because their result could be ambiguous.
+    if (
+      !isWriteMethod(init?.method) &&
+      RETRYABLE_GATEWAY_STATUSES.has(response.status) &&
+      !signal.aborted
+    ) {
+      await new Promise((resolve) => window.setTimeout(resolve, 250));
+      response = await apiFetch(input, { ...init, signal });
+    }
 
     if (response.status === 401 || isAdminLoginRedirect(response)) {
       window.location.assign("/admin/login");

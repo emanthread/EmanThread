@@ -81,8 +81,13 @@ const PUBLIC_API_ROUTES = [
   "/api/payments/callback",
 ];
 
-function nextWithCsrfCookie(req: NextRequest): NextResponse {
-  const response = NextResponse.next();
+function nextWithCsrfCookie(
+  req: NextRequest,
+  forwardedHeaders?: Headers
+): NextResponse {
+  const response = forwardedHeaders
+    ? NextResponse.next({ request: { headers: forwardedHeaders } })
+    : NextResponse.next();
   const pathname = req.nextUrl.pathname;
 
   if (!pathname.startsWith("/api/") && !pathname.startsWith("/_next/")) {
@@ -195,7 +200,11 @@ export const proxy = auth((req) => {
         );
       }
     }
-    return nextWithCsrfCookie(req);
+    const forwardedHeaders = new Headers(req.headers);
+    // Internal request context for structured logging only. Authorization still
+    // happens independently in the proxy and route handler.
+    forwardedHeaders.set("x-eman-admin-user-id", session.user.id);
+    return nextWithCsrfCookie(req, forwardedHeaders);
   }
 
   if (pathname.startsWith("/account")) {

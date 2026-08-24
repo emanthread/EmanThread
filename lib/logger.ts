@@ -2,7 +2,6 @@
 // Used by API routes for consistent JSON logging.
 // Example: logRequest("GET", "/api/admin/orders", 200, 45, "user-123")
 
-import { auth } from "@/auth";
 import { checkRateLimit, getRateLimitFor, type RateLimitConfig } from "./rate-limiter";
 import { getClientIp } from "./api-logger";
 
@@ -56,7 +55,8 @@ function applyRateLimit(req: Request, config: RateLimitConfig): boolean {
 }
 
 // ── Wrapper for admin API routes ─────────────────────────────────
-// Logs every request with user ID. Proxy centrally enforces admin security.
+// Logs every request's path, status, and duration. The proxy and route handler
+// perform authentication; the logger deliberately does not run auth() again.
 // Usage: export const GET = withLoggedAdminHandler(async (req) => { ... })
 export function withLoggedAdminHandler<T extends Request>(
   handler: (req: T, ...args: any[]) => Promise<Response>
@@ -64,15 +64,7 @@ export function withLoggedAdminHandler<T extends Request>(
   return async (req: T, ...args: any[]) => {
     const start = Date.now();
     const url = new URL(req.url);
-    let userId: string | undefined;
-
-    try {
-      const session = await auth();
-      userId = session?.user?.id;
-    } catch {
-      // Session lookup failed — proceed without userId
-    }
-
+    const userId = req.headers.get("x-eman-admin-user-id") || undefined;
     try {
       const res = await handler(req, ...args);
       logRequest(req.method, url.pathname, res.status, Date.now() - start, userId);

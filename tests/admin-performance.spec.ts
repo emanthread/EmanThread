@@ -41,6 +41,18 @@ test("admin polling is stable and pauses nonessential hidden-tab work", () => {
   expect(pushNotifications).toContain('document.visibilityState !== "visible"');
 });
 
+test("admin runtime avoids duplicate auth and database-pool pressure", () => {
+  const db = source("lib/db.ts");
+  const logger = source("lib/logger.ts");
+  const alertsRoute = source("app/api/admin/alerts/route.ts");
+  const adminFetch = source("lib/admin-fetch.ts");
+
+  expect(db).toContain("globalForPrisma.prisma = prisma");
+  expect(logger).not.toContain('import { auth } from "@/auth"');
+  expect(alertsRoute).toContain("unstable_cache");
+  expect(adminFetch).toContain("RETRYABLE_GATEWAY_STATUSES");
+});
+
 test("customer-only widgets and analytics stay out of admin routes", () => {
   const widgets = source("app/client-widgets.tsx");
   const tracking = source("components/storefront-tracking.tsx");
