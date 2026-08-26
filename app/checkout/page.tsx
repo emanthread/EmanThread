@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -185,6 +185,7 @@ export default function CheckoutPage() {
 
   // Item-level selection — all items selected by default
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(items.map((i) => i.lineId)));
+  const previousItemIdsRef = useRef(new Set(items.map((i) => i.lineId)));
   const selectedItems = items.filter((i) => selectedIds.has(i.lineId));
   const selectedTotal = selectedItems.reduce((sum, i) => sum + getCartItemUnitPrice(i) * i.quantity, 0);
   const stitchingTotal = selectedItems.reduce(
@@ -276,22 +277,13 @@ export default function CheckoutPage() {
     address: "", city: "", province: "", postalCode: "", notes: "",
   });
 
-  const [shippingCost, setShippingCost] = useState(200);
+  const [shippingCost, setShippingCost] = useState(0);
   const [estimatedDays, setEstimatedDays] = useState("3-5 business days");
   const [zoneName, setZoneName] = useState("");
-
-  const [freeShippingThreshold, setFreeShippingThreshold] = useState(5000);
-
-  useEffect(() => {
-    fetch("/api/store/public")
-      .then((r) => r.ok ? r.json() : Promise.resolve(null))
-      .then((data) => {
-        if (data?.freeShippingThreshold) setFreeShippingThreshold(data.freeShippingThreshold);
-      })
-      .catch((error) => {
-        console.error("[CHECKOUT_FETCH_ERROR]", error);
-      }); // fallback to 5000 default
-  }, []);
+  const [shippingQuoteStatus, setShippingQuoteStatus] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [shippingQuoteRetry, setShippingQuoteRetry] = useState(0);
   const grandTotal = selectedTotal + shippingCost + stitchingTotal - (appliedDiscount || 0);
   // When stitching is selected:
   //   Pay now (bank transfer): selectedTotal - discount (fabric only)
@@ -303,9 +295,20 @@ export default function CheckoutPage() {
     ? shippingCost + stitchingTotal             // shipping + stitching on delivery
     : 0;                                        // nothing on delivery (no stitching)
 
-  // Sync selectedIds when items change
+  // Preserve the shopper's selection when quantity or stitching details change.
+  // Newly added cart lines are selected automatically.
   useEffect(() => {
-    setSelectedIds(new Set(items.map((i) => i.lineId)));
+    const currentItemIds = new Set(items.map((item) => item.lineId));
+    setSelectedIds((previousSelectedIds) => {
+      const nextSelectedIds = new Set(
+        [...previousSelectedIds].filter((id) => currentItemIds.has(id)),
+      );
+      for (const id of currentItemIds) {
+        if (!previousItemIdsRef.current.has(id)) nextSelectedIds.add(id);
+      }
+      return nextSelectedIds;
+    });
+    previousItemIdsRef.current = currentItemIds;
   }, [items]);
 
   // Fetch stitching prices & measurement profiles
@@ -475,24 +478,49 @@ export default function CheckoutPage() {
     }));
   }, [isAuthenticated, user]);
 
-  // Debounced shipping zone lookup
+  // Debounced, abortable server-authoritative shipping quote.
   useEffect(() => {
-    if (!formData.city.trim() || !formData.province.trim()) return;
+    if (!formData.city.trim() || !formData.province.trim() || selectedItems.length === 0) {
+      setShippingCost(0);
+      setZoneName("");
+      setShippingQuoteStatus("idle");
+      return;
+    }
+    const controller = new AbortController();
+    setShippingQuoteStatus("loading");
     const timeout = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/shipping/zone?city=${encodeURIComponent(formData.city)}&province=${encodeURIComponent(formData.province)}`);
-        if (!res.ok) return;
+        const params = new URLSearchParams({
+          city: formData.city,
+          province: formData.province,
+          subtotal: String(selectedTotal),
+        });
+        const res = await fetch(`/api/shipping/zone?${params}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error("Shipping quote request failed");
         const data = await res.json();
-        if (data.zone) {
-          const rate = selectedTotal >= freeShippingThreshold ? 0 : data.zone.shippingRate;
-          setShippingCost(rate);
-          setEstimatedDays(data.zone.estimatedDays);
-          setZoneName(data.zone.name);
+        if (!data.quote || typeof data.quote.shippingCost !== "number") {
+          throw new Error("Invalid shipping quote response");
         }
-      } catch (err) { console.error("Failed to fetch shipping zone:", err); }
+        setShippingCost(data.quote.shippingCost);
+        setEstimatedDays(data.quote.estimatedDays);
+        setZoneName(data.quote.name);
+        setShippingQuoteStatus("ready");
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        console.error("Failed to fetch shipping quote:", err);
+        setShippingCost(0);
+        setZoneName("");
+        setShippingQuoteStatus("error");
+      }
     }, 500);
-    return () => clearTimeout(timeout);
-  }, [formData.city, formData.province, selectedTotal, freeShippingThreshold]);
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [formData.city, formData.province, selectedItems.length, selectedTotal, shippingQuoteRetry]);
 
   const toggleItem = (id: string) => {
     setSelectedIds((prev) => {
@@ -510,6 +538,17 @@ export default function CheckoutPage() {
     e.preventDefault();
     if (selectedItems.length === 0) {
       setSubmitError("Please select at least one item to checkout");
+      return;
+    }
+    if (shippingQuoteStatus !== "ready") {
+      if (shippingQuoteStatus === "error") {
+        setShippingQuoteRetry((retry) => retry + 1);
+      }
+      setSubmitError(
+        shippingQuoteStatus === "error"
+          ? "We could not calculate delivery charges. Please check your city and province and try again."
+          : "Please wait while delivery charges are calculated.",
+      );
       return;
     }
     setIsSubmitting(true);
@@ -725,16 +764,16 @@ export default function CheckoutPage() {
     <>
       <Header /><CartDrawer />
       <main className="min-h-screen pt-20 bg-secondary/30">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
           <Link href="/cart" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-8">
             <ChevronLeft className="h-4 w-4 mr-1" /> Back to Cart
           </Link>
 
           <form onSubmit={handleSubmit}>
-            <div className="grid lg:grid-cols-5 gap-8">
-              <div className="lg:col-span-3 space-y-8">
+            <div className="grid gap-6 lg:grid-cols-5 lg:gap-8">
+              <div className="space-y-6 lg:col-span-3 lg:space-y-8">
                 {/* Contact Info */}
-                <div className="bg-background rounded-lg p-6 shadow-sm">
+                <div className="rounded-lg bg-background p-4 shadow-sm sm:p-6">
                   <h2 className="text-xl font-semibold mb-6">Contact Information</h2>
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div><Label htmlFor="firstName">First Name *</Label><Input id="firstName" name="firstName" value={formData.firstName} onChange={handleInputChange} required className="mt-1" /></div>
@@ -745,7 +784,7 @@ export default function CheckoutPage() {
                 </div>
 
                 {/* Shipping */}
-                <div className="bg-background rounded-lg p-6 shadow-sm">
+                <div className="rounded-lg bg-background p-4 shadow-sm sm:p-6">
                   <h2 className="text-xl font-semibold mb-6">Shipping Address</h2>
                   <div className="space-y-4">
                     <div><Label htmlFor="address">Street Address *</Label><Input id="address" name="address" value={formData.address} onChange={handleInputChange} required className="mt-1" /></div>
@@ -772,7 +811,7 @@ export default function CheckoutPage() {
 
                 {/* Payment Method */}
                 {FEATURE_FLAGS.MANUAL_PAYMENT_MODE ? (
-                  <div className="bg-background rounded-lg p-6 shadow-sm">
+                  <div className="rounded-lg bg-background p-4 shadow-sm sm:p-6">
                     <h2 className="text-xl font-semibold mb-6">Payment Method</h2>
                     {hasStitchingSelected && (
                       <div className="mb-4 p-3 bg-yellow-100 text-amber-900 rounded text-sm">
@@ -788,24 +827,24 @@ export default function CheckoutPage() {
                           <div><p className="font-medium">Cash on Delivery</p><p className="text-sm text-muted-foreground">Pay when you receive your order</p></div>
                         </label>
                       )}
-                      <label className={cn("flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors", paymentMethod === "nayapay" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50")}>
+                      <label className={cn("flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors sm:p-4", paymentMethod === "nayapay" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50")}>
                         <input type="radio" name="pay" value="nayapay" checked={paymentMethod === "nayapay"} onChange={(e) => setPaymentMethod(e.target.value)} className="mt-1" />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2"><Building2 className="h-5 w-5 text-muted-foreground" /><span className="font-medium text-sm">Nayapay</span><span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Instant Transfer</span></div>
-                          {paymentMethod === "nayapay" && <div className="mt-3 p-3 bg-muted rounded-lg text-sm space-y-1"><p className="font-medium">Transfer to:</p><p>📱 NayaPay ID: <span className="font-mono font-semibold">{paymentDetails?.nayapayAccount ?? "..."}</span></p><p>👤 Name: <span className="font-semibold">{paymentDetails?.nayapayName ?? "..."}</span></p><p>📞 Mobile: <span className="font-semibold">{paymentDetails?.nayapayPhone ?? "..."}</span></p><p className="text-xs text-muted-foreground mt-2">Send <strong>PKR {upfrontAmount.toFixed(0)}</strong> and enter the transaction ID below.{hasStitchingSelected && <span className="block text-amber-600">PKR {dueOnDelivery.toFixed(0)} (shipping + stitching) is due on delivery.</span>}</p></div>}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2"><Building2 className="h-5 w-5 text-muted-foreground" /><span className="font-medium text-sm">Nayapay</span><span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Instant Transfer</span></div>
+                          {paymentMethod === "nayapay" && <div className="mt-3 space-y-1 rounded-lg bg-muted p-3 text-sm"><p className="font-medium">Transfer to:</p><p>📱 NayaPay ID: <span className="break-all font-mono font-semibold">{paymentDetails?.nayapayAccount ?? "..."}</span></p><p>👤 Name: <span className="font-semibold">{paymentDetails?.nayapayName ?? "..."}</span></p><p>📞 Mobile: <span className="font-semibold">{paymentDetails?.nayapayPhone ?? "..."}</span></p><p className="mt-2 text-xs text-muted-foreground">Send <strong>PKR {upfrontAmount.toFixed(0)}</strong> and enter the transaction ID below.{hasStitchingSelected && <span className="block text-amber-600">PKR {dueOnDelivery.toFixed(0)} (shipping + stitching) is due on delivery.</span>}</p></div>}
                         </div>
                       </label>
-                      <label className={cn("flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors", paymentMethod === "meezan_bank" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50")}>
+                      <label className={cn("flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors sm:p-4", paymentMethod === "meezan_bank" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50")}>
                         <input type="radio" name="pay" value="meezan_bank" checked={paymentMethod === "meezan_bank"} onChange={(e) => setPaymentMethod(e.target.value)} className="mt-1" />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2"><Landmark className="h-5 w-5 text-muted-foreground" /><span className="font-medium text-sm">Meezan Bank</span><span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Bank Transfer</span></div>
-                          {paymentMethod === "meezan_bank" && <div className="mt-3 p-3 bg-muted rounded-lg text-sm space-y-1"><p className="font-medium">Transfer to:</p><p>🏦 Account #: <span className="font-mono font-semibold">{paymentDetails?.meezanAccountNumber ?? "..."}</span></p><p>🏦 IBAN: <span className="font-mono font-semibold">{paymentDetails?.meezanIban ?? "..."}</span></p><p>👤 Name: <span className="font-semibold">{paymentDetails?.meezanAccountName ?? "..."}</span></p><p className="text-xs text-muted-foreground mt-2">Send <strong>PKR {upfrontAmount.toFixed(0)}</strong> and enter the transaction ID below.{hasStitchingSelected && <span className="block text-amber-600">PKR {dueOnDelivery.toFixed(0)} (shipping + stitching) is due on delivery.</span>}</p></div>}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2"><Landmark className="h-5 w-5 text-muted-foreground" /><span className="font-medium text-sm">Meezan Bank</span><span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Bank Transfer</span></div>
+                          {paymentMethod === "meezan_bank" && <div className="mt-3 space-y-1 rounded-lg bg-muted p-3 text-sm"><p className="font-medium">Transfer to:</p><p>🏦 Account #: <span className="break-all font-mono font-semibold">{paymentDetails?.meezanAccountNumber ?? "..."}</span></p><p>🏦 IBAN: <span className="break-all font-mono font-semibold">{paymentDetails?.meezanIban ?? "..."}</span></p><p>👤 Name: <span className="font-semibold">{paymentDetails?.meezanAccountName ?? "..."}</span></p><p className="mt-2 text-xs text-muted-foreground">Send <strong>PKR {upfrontAmount.toFixed(0)}</strong> and enter the transaction ID below.{hasStitchingSelected && <span className="block text-amber-600">PKR {dueOnDelivery.toFixed(0)} (shipping + stitching) is due on delivery.</span>}</p></div>}
                         </div>
                       </label>
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-background rounded-lg p-6 shadow-sm">
+                  <div className="rounded-lg bg-background p-4 shadow-sm sm:p-6">
                     <h2 className="text-xl font-semibold mb-6">Payment Method</h2>
                     {hasStitchingSelected && (
                       <div className="mb-4 p-3 bg-yellow-100 text-amber-900 rounded text-sm">
@@ -830,16 +869,21 @@ export default function CheckoutPage() {
 
               {/* Order Summary */}
               <div className="lg:col-span-2">
-                <div className="sticky top-28 bg-background rounded-lg p-6 shadow-sm">
+                <div className="rounded-lg bg-background p-4 shadow-sm sm:p-6 lg:sticky lg:top-28">
                   <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
                   <p className="text-xs text-muted-foreground mb-4">{selectedItems.length} of {items.length} items selected</p>
 
-                  <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                  <div className="space-y-3 lg:max-h-[300px] lg:overflow-y-auto">
                     {items.map((item) => {
                       const isSelected = selectedIds.has(item.lineId);
                       return (
-                        <div key={item.lineId} className={cn("flex items-start gap-3 pb-3 border-b border-border last:border-0 transition-opacity", !isSelected && "opacity-50")}>
-                          <Checkbox checked={isSelected} onCheckedChange={() => toggleItem(item.lineId)} className="mt-4" />
+                        <div key={item.lineId} className={cn("grid grid-cols-[auto_3.5rem_minmax(0,1fr)] items-start gap-3 border-b border-border pb-3 transition-opacity last:border-0 sm:grid-cols-[auto_3.5rem_minmax(0,1fr)_auto]", !isSelected && "opacity-50")}>
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleItem(item.lineId)}
+                            aria-label={`${isSelected ? "Remove" : "Add"} ${item.product.name} ${isSelected ? "from" : "to"} this checkout`}
+                            className="mt-4"
+                          />
                           <div className="relative w-14 h-16 bg-secondary rounded overflow-hidden shrink-0">
                             <Image src={getProductImage(getCartItemImages(item))} alt={item.product.name} fill className="object-cover" sizes="80px" />
                             <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">{item.quantity}</span>
@@ -998,7 +1042,7 @@ export default function CheckoutPage() {
                               </>
                             )}
                           </div>
-                          <p className="text-sm font-medium shrink-0">{formatPrice(getCartItemUnitPrice(item) * item.quantity)}</p>
+                          <p className="col-start-3 mt-1 text-sm font-medium sm:col-start-auto sm:mt-0">{formatPrice(getCartItemUnitPrice(item) * item.quantity)}</p>
                         </div>
                       );
                     })}
@@ -1022,7 +1066,29 @@ export default function CheckoutPage() {
                       {appliedDiscount !== null && appliedDiscount > 0 && <p className="text-xs text-emerald-600">Coupon applied!</p>}
                     </div>
 
-                    <div className="flex justify-between text-sm"><span className="text-muted-foreground">Shipping</span><span>{shippingCost === 0 ? "Free" : formatPrice(shippingCost)}</span></div>
+                    <div className="flex justify-between gap-3 text-sm">
+                      <span className="text-muted-foreground">Shipping</span>
+                      <span className="text-right" aria-live="polite">
+                        {shippingQuoteStatus === "loading"
+                          ? "Calculating..."
+                          : shippingQuoteStatus === "error"
+                            ? "Unavailable"
+                            : shippingQuoteStatus === "idle"
+                              ? "Enter delivery address"
+                              : shippingCost === 0
+                                ? "Free"
+                                : formatPrice(shippingCost)}
+                      </span>
+                    </div>
+                    {shippingQuoteStatus === "error" && (
+                      <button
+                        type="button"
+                        className="text-left text-xs font-medium text-primary underline-offset-4 hover:underline"
+                        onClick={() => setShippingQuoteRetry((retry) => retry + 1)}
+                      >
+                        Retry delivery calculation
+                      </button>
+                    )}
                     {hasStitchingSelected && stitchingTotal > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Stitching Fee</span>
@@ -1191,7 +1257,7 @@ export default function CheckoutPage() {
                     )}
                   </div>
 
-                  {submitError && <p className="text-sm text-red-500 mt-2">{submitError}</p>}
+                  {submitError && <p role="alert" aria-live="assertive" className="text-sm text-red-500 mt-2">{submitError}</p>}
 
                   {hasOutOfStock && (
                     <div className="bg-red-50 border border-red-300 rounded-lg p-4">
@@ -1205,7 +1271,17 @@ export default function CheckoutPage() {
                     </div>
                   )}
 
-                  <Button type="submit" size="lg" className="w-full mt-4" disabled={isSubmitting || selectedItems.length === 0 || hasOutOfStock}>
+                  <Button
+                    type="submit"
+                    size="lg"
+                    className="w-full mt-4"
+                    disabled={
+                      isSubmitting ||
+                      selectedItems.length === 0 ||
+                      hasOutOfStock ||
+                      shippingQuoteStatus === "loading"
+                    }
+                  >
                     {isSubmitting ? (
                       <span className="flex items-center gap-2"><span className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" /> Processing...</span>
                     ) : hasStitchingSelected ? (

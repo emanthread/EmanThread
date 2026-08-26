@@ -159,7 +159,7 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
             });
           if (parentPrimaryAssignment) {
             throw new CatalogNodeMutationError(
-              "This parent is a product's primary leaf category. Reassign that product before adding child paths.",
+              "This parent is a product's primary subcategory. Reassign that product before adding child paths.",
               409
             );
           }

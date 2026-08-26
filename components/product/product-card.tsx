@@ -114,7 +114,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
           {product.badge && (
             <Badge
               className={cn(
-                "absolute left-4 top-4 text-xs font-medium uppercase tracking-wider",
+                "absolute left-2 top-2 max-w-[calc(100%-1rem)] px-2 text-[9px] font-medium uppercase tracking-wide sm:left-4 sm:top-4 sm:max-w-none sm:text-xs sm:tracking-wider",
                 badgeVariants[product.badge]
               )}
             >
@@ -122,7 +122,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
             </Badge>
           )}
           {displayedPrice >= 6000 && (
-            <Badge className="absolute right-4 top-4 bg-black/70 text-white backdrop-blur-sm">
+            <Badge className="absolute right-4 top-4 hidden bg-black/70 text-white backdrop-blur-sm sm:inline-flex">
               Premium Pick
             </Badge>
           )}
@@ -138,10 +138,10 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
                 toggleItem(product);
               }}
               className={cn(
-                "absolute right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-background/85 shadow-md backdrop-blur-sm transition-all duration-200",
+                "absolute right-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-background/85 shadow-md backdrop-blur-sm transition-all duration-200 sm:h-8 sm:w-8",
                 "hover:bg-background hover:scale-110 active:scale-95",
                 // Show below Premium Pick badge if present, otherwise align with left badge
-                displayedPrice >= 6000 ? "top-14" : "top-3",
+                displayedPrice >= 6000 ? "top-3 sm:top-14" : "top-3",
                 inWishlist ? "text-red-500" : "text-foreground"
               )}
             >
@@ -150,15 +150,15 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
           )}
 
           {/* Quick Actions — View Product + Quick View only */}
-          <div className="absolute bottom-0 left-0 right-0 flex gap-2 p-4 opacity-95 transition-all duration-300 lg:translate-y-0 lg:group-hover:opacity-100">
+          <div className="absolute bottom-0 left-0 right-0 flex gap-2 p-2 opacity-95 transition-all duration-300 sm:p-4 lg:translate-y-0 lg:group-hover:opacity-100">
             {selectionRequired && productAvailable && !requiredSelectionUnavailable ? (
               <Button
                 size="sm"
-                className="flex-1 bg-background/95 text-foreground backdrop-blur-sm hover:bg-background"
+                className="min-h-11 min-w-0 flex-1 bg-background/95 px-2 text-xs text-foreground backdrop-blur-sm hover:bg-background sm:min-h-8 sm:text-sm"
                 asChild
               >
                 <Link href={`/product/${product.id}`} onClick={handleProductClick}>
-                  <ShoppingBag className="mr-2 h-4 w-4" />
+                  <ShoppingBag className="mr-2 hidden h-4 w-4 sm:block" />
                   View Product
                 </Link>
               </Button>
@@ -166,7 +166,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
               <Button
                 size="sm"
                 className={cn(
-                  "flex-1 backdrop-blur-sm transition-all",
+                  "min-h-11 min-w-0 flex-1 px-2 text-xs backdrop-blur-sm transition-all sm:min-h-8 sm:text-sm",
                   !productAvailable 
                     ? "disabled:opacity-100 disabled:bg-destructive disabled:text-destructive-foreground" 
                     : "bg-background/95 text-foreground hover:bg-background"
@@ -174,7 +174,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
                 onClick={handleAddToCart}
                 disabled={!productAvailable}
               >
-                {productAvailable && <ShoppingBag className="mr-2 h-4 w-4" />}
+                {productAvailable && <ShoppingBag className="mr-2 hidden h-4 w-4 sm:block" />}
                 {requiredSelectionUnavailable ? "Option Unavailable" : productAvailable ? "Add to Cart" : "Out of Stock"}
               </Button>
             )}
@@ -187,7 +187,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
             <Button
               size="sm"
               variant="outline"
-              className="border-0 bg-background/95 backdrop-blur-sm hover:bg-background"
+              className="hidden border-0 bg-background/95 backdrop-blur-sm hover:bg-background sm:inline-flex"
               onClick={() => setIsQuickViewOpen(true)}
             >
               <Eye className="h-4 w-4" />
@@ -197,7 +197,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
         </div>
 
         {/* Product Info */}
-        <div className="mt-4 space-y-1 px-3">
+        <div className="mt-3 space-y-1 px-1 sm:mt-4 sm:px-3">
           <p className="text-xs uppercase tracking-wider text-muted-foreground">
             {product.fabricType}{product.color && ` • ${product.color}`}
           </p>
@@ -206,8 +206,8 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
               {product.name}
             </h3>
           </Link>
-          <div className="flex items-center gap-2">
-            <span className="font-semibold">{maximumPrice !== displayedPrice ? "From " : ""}{formatPrice(displayedPrice)}</span>
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span className="text-sm font-semibold sm:text-base">{maximumPrice !== displayedPrice ? "From " : ""}{formatPrice(displayedPrice)}</span>
             {displayedOriginalPrice && (
               <span className="text-sm text-muted-foreground line-through">
                 {formatPrice(displayedOriginalPrice)}

@@ -22,7 +22,7 @@ export default function FAQsPage() {
               <AccordionItem value="item-1">
                 <AccordionTrigger className="text-left font-medium">What is your shipping policy?</AccordionTrigger>
                 <AccordionContent className="text-muted-foreground leading-relaxed">
-                  We offer free standard shipping on all orders over PKR 5,000 within Pakistan. 
+                  Delivery charges are calculated at checkout from your location and the latest store settings.
                   Standard shipping takes 3-5 business days. Express shipping options are available at checkout.
                 </AccordionContent>
               </AccordionItem>

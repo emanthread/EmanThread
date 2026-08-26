@@ -35,6 +35,7 @@ export default defineConfig({
     "product-sku-generation.spec.ts",
     "product-option-admin-simplification.spec.ts",
     "admin-commerce-reliability.spec.ts",
+    "shipping-order-regression.spec.ts",
   ],
   fullyParallel: true,
   workers: 1,

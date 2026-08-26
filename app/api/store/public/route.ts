@@ -4,7 +4,7 @@ import { withGuard } from "@/lib/api-guards";
 import { RateLimits } from "@/lib/rate-limiter";
 
 // Store config is near-static — cache for 5 min, serve stale for 10 min while revalidating
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 export const GET = withGuard(async () => {
   try {
@@ -21,6 +21,7 @@ export const GET = withGuard(async () => {
         currency: config.currency,
         timezone: config.timezone,
         freeShippingThreshold: config.freeShippingThreshold,
+        enableFreeShipping: config.enableFreeShipping,
         standardShippingRate: config.standardShippingRate,
         expressShippingRate: config.expressShippingRate,
         enableCOD: config.enableCOD,
@@ -28,8 +29,7 @@ export const GET = withGuard(async () => {
       },
       {
         headers: {
-          "Cache-Control":
-            "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
+          "Cache-Control": "no-store",
         },
       },
     );

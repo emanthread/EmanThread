@@ -499,8 +499,8 @@ export const catalogMenu: MenuDepartment[] = [
               { id: "men.unstitched.platinum-class", label: "PLATINUM CLASS", href: "/men/unstitched/platinum-class", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 1 },
               { id: "men.unstitched.gold-class", label: "GOLD CLASS", href: "/men/unstitched/gold-class", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 2 },
               { id: "men.unstitched.silver-class", label: "SILVER CLASS", href: "/men/unstitched/silver-class", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 3 },
-              { id: "men.unstitched.latha", label: "LATHA", href: "/men/unstitched/latha", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 4 },
-              { id: "men.unstitched.boski", label: "BOSKI", href: "/men/unstitched/boski", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 5 },
+              { id: "men.unstitched.latha", label: "MEDIUM CLASS", href: "/men/unstitched/latha", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 4 },
+              { id: "men.unstitched.boski", label: "COTTON COLLECTION", href: "/men/unstitched/boski", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 5 },
             ],
           },
           {

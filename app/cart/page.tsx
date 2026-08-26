@@ -26,6 +26,7 @@ export default function CartPage() {
   const [mounted, setMounted] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [freeShippingThreshold, setFreeShippingThreshold] = useState(5000);
+  const [enableFreeShipping, setEnableFreeShipping] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -36,10 +37,13 @@ export default function CartPage() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/store/public")
+    fetch("/api/store/public", { cache: "no-store" })
       .then((r) => r.ok ? r.json() : Promise.resolve(null))
       .then((data) => {
-        if (data?.freeShippingThreshold) setFreeShippingThreshold(data.freeShippingThreshold);
+        if (typeof data?.freeShippingThreshold === "number") {
+          setFreeShippingThreshold(data.freeShippingThreshold);
+        }
+        setEnableFreeShipping(data?.enableFreeShipping === true);
       })
       .catch(() => {}); // fallback to 5000 default
   }, []);
@@ -87,7 +91,7 @@ export default function CartPage() {
               {/* Cart Items */}
               <div className="lg:col-span-2 space-y-6">
                 {/* Free Shipping Progress */}
-                {remainingForFreeShipping > 0 ? (
+                {enableFreeShipping && freeShippingThreshold > 0 && (remainingForFreeShipping > 0 ? (
                   <div className="bg-secondary/50 p-4 rounded-lg">
                     <div className="flex items-center gap-3 mb-2">
                       <Truck className="h-5 w-5 text-muted-foreground" />
@@ -118,7 +122,7 @@ export default function CartPage() {
                       Congratulations! You qualify for free shipping.
                     </p>
                   </div>
-                )}
+                ))}
 
                 {/* Items List */}
                 <div className="border border-border rounded-lg overflow-hidden">
@@ -132,10 +136,10 @@ export default function CartPage() {
                   {items.map((item) => (
                     <div
                       key={`cart-page-${item.lineId}`}
-                      className="grid grid-cols-12 gap-4 p-4 border-t border-border items-center"
+                      className="grid grid-cols-2 items-center gap-3 border-t border-border p-3 sm:grid-cols-12 sm:gap-4 sm:p-4"
                     >
                       {/* Product */}
-                      <div className="col-span-12 sm:col-span-6 flex gap-4">
+                      <div className="col-span-2 flex min-w-0 gap-3 sm:col-span-6 sm:gap-4">
                         <div className="relative w-20 h-24 sm:w-24 sm:h-32 bg-secondary rounded overflow-hidden shrink-0">
                           <Image
                             src={getProductImage(getCartItemImages(item))}
@@ -183,7 +187,7 @@ export default function CartPage() {
                       </div>
 
                       {/* Price */}
-                      <div className="col-span-4 sm:col-span-2 text-center">
+                      <div className="col-span-1 text-left sm:col-span-2 sm:text-center">
                         <span className="sm:hidden text-xs text-muted-foreground block mb-1">
                           Price
                         </span>
@@ -191,16 +195,18 @@ export default function CartPage() {
                       </div>
 
                       {/* Quantity */}
-                      <div className="col-span-4 sm:col-span-2 flex justify-center">
+                      <div className="col-span-1 flex justify-end sm:col-span-2 sm:justify-center">
                         <div className="flex items-center border border-border rounded">
                           <button
+                            type="button"
+                            aria-label={`Decrease quantity of ${item.product.name}`}
                             onClick={() =>
                               updateQuantity(
                                 item.lineId,
                                 item.quantity - 1
                               )
                             }
-                            className="p-2 hover:bg-secondary transition-colors"
+                            className="flex h-11 w-11 items-center justify-center transition-colors hover:bg-secondary sm:h-8 sm:w-8"
                           >
                             <Minus className="h-3 w-3" />
                           </button>
@@ -208,13 +214,15 @@ export default function CartPage() {
                             {item.quantity}
                           </span>
                           <button
+                            type="button"
+                            aria-label={`Increase quantity of ${item.product.name}`}
                             onClick={() =>
                               updateQuantity(
                                 item.lineId,
                                 item.quantity + 1
                               )
                             }
-                            className="p-2 hover:bg-secondary transition-colors"
+                            className="flex h-11 w-11 items-center justify-center transition-colors hover:bg-secondary sm:h-8 sm:w-8"
                           >
                             <Plus className="h-3 w-3" />
                           </button>
@@ -222,7 +230,7 @@ export default function CartPage() {
                       </div>
 
                       {/* Total & Remove */}
-                      <div className="col-span-4 sm:col-span-2 text-right">
+                      <div className="col-span-2 text-right sm:col-span-2">
                         <span className="sm:hidden text-xs text-muted-foreground block mb-1">
                           Total
                         </span>
@@ -253,7 +261,7 @@ export default function CartPage() {
 
               {/* Order Summary */}
               <div className="lg:col-span-1">
-                <div className="sticky top-28 bg-secondary/30 rounded-lg p-6 space-y-6">
+                <div className="space-y-6 rounded-lg bg-secondary/30 p-4 sm:p-6 lg:sticky lg:top-28">
                   <h2 className="text-xl font-semibold">Order Summary</h2>
 
                   {/* Promo Code */}
@@ -282,7 +290,7 @@ export default function CartPage() {
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Shipping</span>
                       <span>
-                        {totalPrice >= freeShippingThreshold
+                        {enableFreeShipping && freeShippingThreshold > 0 && totalPrice >= freeShippingThreshold
                           ? "Free"
                           : "Calculated at checkout"}
                       </span>

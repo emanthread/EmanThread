@@ -870,7 +870,7 @@ function CatalogTaxonomyManager({
                   <Label htmlFor="catalog-node-kind">Kind</Label>
                   <Input
                     id="catalog-node-kind"
-                    value={draft.nodeType}
+                    value={draft.nodeType.toLowerCase() === "leaf" ? "subcategory" : draft.nodeType}
                     onChange={(event) =>
                       setDraft((current) => ({
                         ...current,
@@ -1294,7 +1294,9 @@ function CatalogTaxonomyManager({
                       >
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-medium">{node.label}</p>
-                          <Badge variant="outline">{node.nodeType}</Badge>
+                          <Badge variant="outline">
+                            {node.nodeType.toLowerCase() === "leaf" ? "Subcategory" : node.nodeType}
+                          </Badge>
                           {!node.isActive && (
                             <Badge variant="secondary">Inactive</Badge>
                           )}

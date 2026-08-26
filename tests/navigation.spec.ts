@@ -115,7 +115,7 @@ const expectedHierarchy = [
         groups: [
           {
             label: "SHOP BY CATEGORY",
-            items: ["PLATINUM CLASS", "GOLD CLASS", "SILVER CLASS", "LATHA", "BOSKI"],
+            items: ["PLATINUM CLASS", "GOLD CLASS", "SILVER CLASS", "MEDIUM CLASS", "COTTON COLLECTION"],
           },
           { label: "FEATURED", items: ["EXCLUSIVE GIFT BOX"] },
         ],

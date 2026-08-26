@@ -106,6 +106,7 @@ export default function AdminSettingsPage() {
   const [stitchingScheduleSaving, setStitchingScheduleSaving] = useState(false);
 
   const [shippingSettings, setShippingSettings] = useState({
+    enableFreeShipping: false,
     freeShippingThreshold: 5000,
     standardShippingRate: 200,
     expressShippingRate: 500,
@@ -181,6 +182,7 @@ export default function AdminSettingsPage() {
         if (data.freeShippingThreshold !== undefined) {
           setShippingSettings((prev) => ({
             ...prev,
+            enableFreeShipping: data.enableFreeShipping ?? false,
             freeShippingThreshold: data.freeShippingThreshold,
             standardShippingRate: data.standardShippingRate ?? prev.standardShippingRate,
             expressShippingRate: data.expressShippingRate ?? prev.expressShippingRate,
@@ -318,6 +320,7 @@ export default function AdminSettingsPage() {
         meezanIban: storeSettings.meezanIban,
         meezanAccountName: storeSettings.meezanAccountName,
         freeShippingThreshold: shippingSettings.freeShippingThreshold,
+        enableFreeShipping: shippingSettings.enableFreeShipping,
         standardShippingRate: shippingSettings.standardShippingRate,
         expressShippingRate: shippingSettings.expressShippingRate,
         enableCOD: shippingSettings.enableCOD,
@@ -732,12 +735,29 @@ export default function AdminSettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-4">
+                <div>
+                  <p className="font-medium">Enable free shipping</p>
+                  <p className="text-sm text-muted-foreground">
+                    When off, the configured delivery-zone charge always applies.
+                  </p>
+                </div>
+                <Switch
+                  checked={shippingSettings.enableFreeShipping}
+                  onCheckedChange={(checked) =>
+                    setShippingSettings({ ...shippingSettings, enableFreeShipping: checked })
+                  }
+                />
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="freeShipping">Free Shipping Threshold (PKR)</Label>
                   <Input
                     id="freeShipping"
                     type="number"
+                    min={0}
+                    disabled={!shippingSettings.enableFreeShipping}
                     value={shippingSettings.freeShippingThreshold}
                     onChange={(e) =>
                       setShippingSettings({
@@ -747,14 +767,15 @@ export default function AdminSettingsPage() {
                     }
                   />
                   <p className="text-sm text-muted-foreground">
-                    Orders above this amount get free shipping
+                    Applied only when free shipping is enabled.
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="standardRate">Standard Shipping Rate (PKR)</Label>
+                  <Label htmlFor="standardRate">Fallback Shipping Rate (PKR)</Label>
                   <Input
                     id="standardRate"
                     type="number"
+                    min={0}
                     value={shippingSettings.standardShippingRate}
                     onChange={(e) =>
                       setShippingSettings({
@@ -763,20 +784,9 @@ export default function AdminSettingsPage() {
                       })
                     }
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="expressRate">Express Shipping Rate (PKR)</Label>
-                  <Input
-                    id="expressRate"
-                    type="number"
-                    value={shippingSettings.expressShippingRate}
-                    onChange={(e) =>
-                      setShippingSettings({
-                        ...shippingSettings,
-                        expressShippingRate: parseInt(e.target.value) || 0,
-                      })
-                    }
-                  />
+                  <p className="text-sm text-muted-foreground">
+                    Used only when no active city, province, or default zone matches.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="processing">Processing Time</Label>
@@ -791,6 +801,15 @@ export default function AdminSettingsPage() {
                     }
                   />
                 </div>
+              </div>
+
+              <div className="flex flex-col gap-3 rounded-lg bg-muted/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-muted-foreground">
+                  City and province delivery charges are managed in Shipping Zones.
+                </p>
+                <Button asChild variant="outline" className="shrink-0">
+                  <a href="/admin/shipping">Manage shipping zones</a>
+                </Button>
               </div>
 
               <Separator />

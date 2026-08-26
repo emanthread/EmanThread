@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { unstable_cache, revalidatePath } from "next/cache";
+import { unstable_cache, revalidatePath, revalidateTag } from "next/cache";
 
 export interface StoreConfigInput {
   name?: string;
@@ -15,6 +15,7 @@ export interface StoreConfigInput {
   youtube_url?: string;
   tiktok_url?: string;
   freeShippingThreshold?: number;
+  enableFreeShipping?: boolean;
   standardShippingRate?: number;
   expressShippingRate?: number;
   enableCOD?: boolean;
@@ -55,6 +56,7 @@ async function _getStoreConfig(): Promise<StoreConfigInput> {
       currency: "PKR",
       timezone: "Asia/Karachi",
       freeShippingThreshold: 5000,
+      enableFreeShipping: false,
       standardShippingRate: 200,
       expressShippingRate: 500,
       enableCOD: true,
@@ -93,6 +95,7 @@ async function _getStoreConfig(): Promise<StoreConfigInput> {
     currency: parseStr("currency", "PKR"),
     timezone: parseStr("timezone", "Asia/Karachi"),
     freeShippingThreshold: parseNum("freeShippingThreshold", 5000),
+    enableFreeShipping: parseBool("enableFreeShipping", false),
     standardShippingRate: parseNum("standardShippingRate", 200),
     expressShippingRate: parseNum("expressShippingRate", 500),
     enableCOD: parseBool("enableCOD", true),
@@ -173,10 +176,10 @@ export const DEFAULT_HERO_SLIDES: HeroSlide[] = [
   {
     image: "/images/fabrics/hero_fabric_boski_1780066040016.png",
     title: "Timeless Elegance",
-    subtitle: "Premium Boski",
+    subtitle: "Cotton Collection",
     description:
       "Experience the luxurious silk-cotton blend that defines sophistication.",
-    cta: "Explore Boski",
+    cta: "Explore Collection",
     link: "/men/unstitched/boski",
   },
   {
@@ -335,6 +338,7 @@ export async function setStoreConfig(data: StoreConfigInput) {
   if (data.currency !== undefined) entries.push(["currency", data.currency]);
   if (data.timezone !== undefined) entries.push(["timezone", data.timezone]);
   if (data.freeShippingThreshold !== undefined) entries.push(["freeShippingThreshold", String(data.freeShippingThreshold)]);
+  if (data.enableFreeShipping !== undefined) entries.push(["enableFreeShipping", String(data.enableFreeShipping)]);
   if (data.standardShippingRate !== undefined) entries.push(["standardShippingRate", String(data.standardShippingRate)]);
   if (data.expressShippingRate !== undefined) entries.push(["expressShippingRate", String(data.expressShippingRate)]);
   if (data.enableCOD !== undefined) entries.push(["enableCOD", String(data.enableCOD)]);
@@ -370,5 +374,7 @@ export async function setStoreConfig(data: StoreConfigInput) {
       });
     }
   });
+  // Financial settings must be visible on the very next checkout/quote.
+  revalidateTag("store-config", { expire: 0 });
   revalidatePath("/", "layout");
 }

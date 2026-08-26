@@ -2,7 +2,7 @@ import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { createOrder, getZoneForCity, getStoreConfig, getDiscountByCode, incrementDiscountUsage } from "@/lib/db-queries";
+import { createOrder, getShippingQuote, getStoreConfig, getDiscountByCode, incrementDiscountUsage } from "@/lib/db-queries";
 import {
   calculateStitchingDeliveryDate,
   getStitchingDateAvailability,
@@ -587,12 +587,15 @@ export async function POST(req: Request) {
       0
     );
 
-    // Re-calculate shipping server-side using zone lookup (never trust client)
+    // Re-calculate shipping with the same server-authoritative quote used by
+    // checkout preview. Browser totals are never trusted.
     const storeConfig = await getStoreConfig();
-    const freeShippingThreshold = storeConfig.freeShippingThreshold ?? 5000;
-
-    const zone = await getZoneForCity(shippingAddress.city, shippingAddress.province);
-    const shippingCost = subtotal >= freeShippingThreshold ? 0 : zone.shippingRate;
+    const shippingQuote = await getShippingQuote({
+      city: shippingAddress.city,
+      province: shippingAddress.province,
+      subtotal,
+    });
+    const shippingCost = shippingQuote.shippingCost;
 
     // Apply discount server-side if coupon code provided (never trust client-sent discount)
     let discountAmount = 0;
@@ -677,9 +680,9 @@ export async function POST(req: Request) {
     // Enrich shipping address with zone info
     const enrichedShippingAddress = {
       ...shippingAddress,
-      zoneId: zone.id,
-      zoneName: zone.name,
-      estimatedDays: zone.estimatedDays,
+      zoneId: shippingQuote.id,
+      zoneName: shippingQuote.name,
+      estimatedDays: shippingQuote.estimatedDays,
     };
 
     // FIX C2: Hard guard — guests cannot place orders with stitching

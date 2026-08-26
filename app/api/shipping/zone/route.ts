@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getZoneForCity } from "@/lib/db-queries";
+import { getShippingQuote } from "@/lib/db-queries";
 import { sanitizeDbError } from '@/lib/utils/errors';
 
 export const dynamic = "force-dynamic";
@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 const querySchema = z.object({
   city: z.string().min(1, "City is required"),
   province: z.string().min(1, "Province is required"),
+  subtotal: z.coerce.number().finite().nonnegative("Subtotal must be non-negative"),
 });
 
 export async function GET(request: Request) {
@@ -15,8 +16,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const city = searchParams.get("city") || "";
     const province = searchParams.get("province") || "";
+    const subtotal = searchParams.get("subtotal") || "";
 
-    const result = querySchema.safeParse({ city, province });
+    const result = querySchema.safeParse({ city, province, subtotal });
     if (!result.success) {
       return NextResponse.json(
         { error: result.error.errors[0].message },
@@ -24,16 +26,12 @@ export async function GET(request: Request) {
       );
     }
 
-    const zone = await getZoneForCity(city, province);
+    const quote = await getShippingQuote(result.data);
 
-    return NextResponse.json({
-      zone: {
-        id: zone.id,
-        name: zone.name,
-        shippingRate: zone.shippingRate,
-        estimatedDays: zone.estimatedDays,
-      },
-    });
+    return NextResponse.json(
+      { quote },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch (error) {
     console.error("Get shipping zone error:", error);
     const { message, status } = sanitizeDbError(error);

@@ -690,8 +690,8 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
           <div className="grid grid-cols-3 gap-4 pt-6 border-t border-border">
             <div className="text-center">
               <Truck className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-xs text-muted-foreground">Free Shipping</p>
-              <p className="text-xs text-muted-foreground">Over PKR 5,000</p>
+              <p className="text-xs text-muted-foreground">Delivery Charges</p>
+              <p className="text-xs text-muted-foreground">Calculated at checkout</p>
             </div>
             <div className="text-center">
               <RotateCcw className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
@@ -733,7 +733,7 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
               </AccordionTrigger>
               <AccordionContent className="text-muted-foreground leading-relaxed">
                 <p className="mb-2">
-                  <strong>Shipping:</strong> Free standard shipping on orders over PKR 5,000. Express shipping available at checkout.
+                  <strong>Shipping:</strong> Delivery charges and the estimated delivery time are calculated at checkout from your location.
                 </p>
                 <p>
                   <strong>Returns:</strong> We accept returns within 7 days of delivery. Items must be unwashed and in original packaging.

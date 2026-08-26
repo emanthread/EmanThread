@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
+import { getStoreConfig } from '@/lib/db/store-config'
 import { ARCHIVED_PRODUCT_TAG } from '@/lib/product-archive'
 import { KIDS_SIZE_GUIDE_URL } from '@/lib/size-guide'
 import {
@@ -241,13 +242,22 @@ export function extractSearchIntent(
 // ── Shipping zones context ────────────────────────────────────────
 export async function getShippingZoneContext(): Promise<string> {
   try {
-    const zones = await prisma.shippingZone.findMany({
-      where: { isActive: true },
-      orderBy: { shippingRate: 'asc' },
-    })
+    const [zones, config] = await Promise.all([
+      prisma.shippingZone.findMany({
+        where: { isActive: true, deletedAt: null },
+        orderBy: { shippingRate: 'asc' },
+      }),
+      getStoreConfig(),
+    ])
+
+    const shippingPolicy = config.enableFreeShipping
+      ? `Free shipping is enabled for qualifying orders of PKR ${config.freeShippingThreshold ?? 0} or more.`
+      : 'Free shipping is currently disabled. Delivery charges are calculated from the customer location.'
+
+    const fallbackRate = `Fallback delivery rate when no specific zone matches: PKR ${config.standardShippingRate ?? 0}.`
 
     if (zones.length === 0) {
-      return 'No shipping zones configured in the database.'
+      return `${shippingPolicy}\n${fallbackRate}\nNo active shipping zones are configured.`
     }
 
     const zoneList = zones
@@ -264,7 +274,7 @@ Estimated Delivery: ${z.estimatedDays || 'N/A'}
       })
       .join('\n\n---\n\n')
 
-    return zoneList
+    return `${shippingPolicy}\n${fallbackRate}\n\n${zoneList}`
   } catch {
     return ''
   }

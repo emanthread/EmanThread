@@ -87,6 +87,20 @@ type OrderItemOptionSnapshot = {
 };
 
 /**
+ * Acquire a PostgreSQL transaction-scoped advisory lock without asking Prisma
+ * to deserialize PostgreSQL's `void` return type (which raises P2010).
+ */
+async function acquireTransactionLock(
+  tx: Prisma.TransactionClient,
+  key: string,
+) {
+  await tx.$queryRaw<Array<{ locked: boolean }>>`
+    SELECT TRUE AS "locked"
+    FROM pg_advisory_xact_lock(hashtext(${key}))
+  `;
+}
+
+/**
  * Read option history only after the additive table exists. Keeping this in a
  * small guarded helper makes all existing order history routes safe to deploy
  * before the migration is applied.
@@ -353,7 +367,7 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
       const deliveryDate = data.stitchingDeliveryDate;
       const nextDay = new Date(deliveryDate.getTime() + 24 * 60 * 60 * 1000);
       const lockKey = `stitching-capacity:${deliveryDate.toISOString()}`;
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+      await acquireTransactionLock(tx, lockKey);
 
       const rules = await tx.stitchingCalendarRule.findMany({
         where: {
@@ -422,7 +436,7 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
       ([left], [right]) => left.localeCompare(right)
     );
     for (const [key] of sortedInventoryRequests) {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`inventory:${key}`}))`;
+      await acquireTransactionLock(tx, `inventory:${key}`);
     }
     for (const [, request] of sortedInventoryRequests) {
       const stockQuantity = request.kind === "variant"
@@ -594,6 +608,9 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
     }
 
     return created;
+  }, {
+    maxWait: 5_000,
+    timeout: 15_000,
   });
 
   return {

@@ -12,7 +12,7 @@ const DEFAULT_PROMO_BANNER = {
     "Enjoy up to 30% off on our exclusive summer collection. Premium fabrics, unmatched quality - now at exceptional prices. Don't miss this opportunity to elevate your wardrobe.",
   stats: [
     { value: "30%", label: "Off Selected Items" },
-    { value: "Free", label: "Shipping Over PKR 5,000" },
+    { value: "Pakistan", label: "Nationwide Delivery" },
   ],
   cta: "Shop the Sale",
   link: "/women/sale",

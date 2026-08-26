@@ -29,9 +29,8 @@ export default async function ShippingPage() {
                   We strive to deliver your premium fabrics as quickly and safely as possible.
                 </p>
                 <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
-                  <li><strong>Standard Shipping:</strong> 3-5 business days across Pakistan. PKR 200 per order.</li>
-                  <li><strong>Free Shipping:</strong> Available on all orders exceeding PKR 5,000.</li>
-                  <li><strong>Express Shipping:</strong> 1-2 business days in major cities. PKR 500 per order.</li>
+                  <li><strong>Delivery rates:</strong> Calculated at checkout from your city, province, and the latest Admin Panel settings.</li>
+                  <li><strong>Delivery estimate:</strong> Shown with the applicable delivery charge before you place the order.</li>
                 </ul>
               </section>
 

@@ -271,10 +271,10 @@ function Pagination({ data }: { data: CatalogPageData }) {
   return (
     <nav
       aria-label="Catalog pagination"
-      className="mt-12 flex items-center justify-center gap-3"
+      className="mt-10 flex items-center justify-center gap-2 sm:mt-12 sm:gap-3"
     >
       {data.hasPreviousPage ? (
-        <Button variant="outline" asChild>
+        <Button variant="outline" aria-label="Previous page" asChild>
           <Link
             href={catalogHref(data.node.path, data.query, {
               page: data.query.page - 1,
@@ -282,35 +282,35 @@ function Pagination({ data }: { data: CatalogPageData }) {
             rel="prev"
           >
             <ChevronLeft aria-hidden="true" />
-            Previous
+            <span className="hidden sm:inline">Previous</span>
           </Link>
         </Button>
       ) : (
-        <Button variant="outline" disabled>
+        <Button variant="outline" aria-label="Previous page" disabled>
           <ChevronLeft aria-hidden="true" />
-          Previous
+          <span className="hidden sm:inline">Previous</span>
         </Button>
       )}
 
-      <span className="min-w-24 text-center text-sm text-muted-foreground">
+      <span className="whitespace-nowrap text-center text-xs text-muted-foreground sm:min-w-24 sm:text-sm">
         Page {data.query.page} of {Math.max(1, data.totalPages)}
       </span>
 
       {data.hasNextPage ? (
-        <Button variant="outline" asChild>
+        <Button variant="outline" aria-label="Next page" asChild>
           <Link
             href={catalogHref(data.node.path, data.query, {
               page: data.query.page + 1,
             })}
             rel="next"
           >
-            Next
+            <span className="hidden sm:inline">Next</span>
             <ChevronRight aria-hidden="true" />
           </Link>
         </Button>
       ) : (
-        <Button variant="outline" disabled>
-          Next
+        <Button variant="outline" aria-label="Next page" disabled>
+          <span className="hidden sm:inline">Next</span>
           <ChevronRight aria-hidden="true" />
         </Button>
       )}
@@ -454,7 +454,7 @@ export async function CatalogPage({
           {!isDepartmentRoot && bannerImage ? (
             <section
               data-testid="catalog-node-banner"
-              className="relative isolate flex min-h-64 items-end overflow-hidden rounded-xl bg-muted sm:min-h-80"
+              className="relative isolate flex min-h-56 items-end overflow-hidden rounded-xl bg-muted sm:min-h-80"
             >
               <Image
                 src={bannerImage}
@@ -469,10 +469,7 @@ export async function CatalogPage({
                 className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"
               />
               <div className="relative z-10 max-w-3xl p-6 text-white sm:p-10">
-                <p className="mb-2 text-xs font-medium uppercase tracking-[0.22em] text-white/80">
-                  {data.node.nodeType}
-                </p>
-                <h1 className="font-serif text-4xl font-semibold sm:text-5xl lg:text-6xl">
+                <h1 className="font-serif text-3xl font-semibold sm:text-5xl lg:text-6xl">
                   {data.node.label}
                 </h1>
                 {data.node.description && (
@@ -485,12 +482,9 @@ export async function CatalogPage({
           ) : !isDepartmentRoot && (
             <section
               data-testid="catalog-node-banner"
-              className="border-y border-border py-12 text-center sm:py-16"
+              className="border-y border-border py-10 text-center sm:py-16"
             >
-              <p className="mb-3 text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
-                {data.node.nodeType}
-              </p>
-              <h1 className="font-serif text-4xl font-semibold sm:text-5xl">
+              <h1 className="font-serif text-3xl font-semibold sm:text-5xl">
                 {data.node.label}
               </h1>
               {data.node.description && (

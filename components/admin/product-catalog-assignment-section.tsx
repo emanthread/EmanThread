@@ -665,7 +665,7 @@ export function ProductCatalogAssignmentSection({
           <AlertTitle>Choose a more specific category</AlertTitle>
           <AlertDescription>
             This existing placement is a broad storefront landing page. Choose
-            a leaf category above; broad pages can remain additional placements.
+            a subcategory above; broad pages can remain additional placements.
           </AlertDescription>
         </Alert>
       )}

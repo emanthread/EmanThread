@@ -1,98 +1,112 @@
 import { prisma } from "@/lib/db";
+import { getStoreConfig } from "@/lib/db/store-config";
+import {
+  calculateShippingCost,
+  normalizeShippingLocation,
+  selectShippingZone,
+  type ShippingZoneCandidate,
+} from "@/lib/shipping-quote";
 
-// ── Shipping Zone helpers ──────────────────────────────────────────
+function parseLocations(value: string | null): string[] {
+  if (!value) return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter((entry): entry is string => typeof entry === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function toCandidate(zone: {
+  id: string;
+  name: string;
+  cities: string;
+  provinces: string;
+  shippingRate: unknown;
+  estimatedDays: string;
+}): ShippingZoneCandidate {
+  return {
+    id: zone.id,
+    name: zone.name,
+    cities: parseLocations(zone.cities),
+    provinces: parseLocations(zone.provinces),
+    shippingRate: Number(zone.shippingRate),
+    estimatedDays: zone.estimatedDays,
+  };
+}
 
 export async function getShippingZones() {
   const zones = await prisma.shippingZone.findMany({
-    where: { isActive: true },
-    orderBy: { createdAt: "asc" },
+    where: { isActive: true, deletedAt: null },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
-  return zones.map((z) => ({
-    id: z.id,
-    name: z.name,
-    cities: z.cities ? JSON.parse(z.cities) as string[] : [],
-    provinces: z.provinces ? JSON.parse(z.provinces) as string[] : [],
-    shippingRate: Number(z.shippingRate),
-    estimatedDays: z.estimatedDays,
-    isActive: z.isActive,
-    createdAt: z.createdAt.toISOString(),
+  return zones.map((zone) => ({
+    ...toCandidate(zone),
+    isActive: zone.isActive,
+    createdAt: zone.createdAt.toISOString(),
   }));
 }
 
 export async function getAllShippingZones() {
   const zones = await prisma.shippingZone.findMany({
     where: { deletedAt: null },
-    orderBy: { createdAt: "asc" },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
-  return zones.map((z) => ({
-    id: z.id,
-    name: z.name,
-    cities: z.cities ? JSON.parse(z.cities) as string[] : [],
-    provinces: z.provinces ? JSON.parse(z.provinces) as string[] : [],
-    shippingRate: Number(z.shippingRate),
-    estimatedDays: z.estimatedDays,
-    isActive: z.isActive,
-    createdAt: z.createdAt.toISOString(),
+  return zones.map((zone) => ({
+    ...toCandidate(zone),
+    isActive: zone.isActive,
+    createdAt: zone.createdAt.toISOString(),
   }));
 }
 
-export async function getZoneForCity(city: string, province: string) {
-  const normalizedCity = city.trim().toLowerCase();
-  const normalizedProvince = province.trim().toLowerCase();
-
-  // Find all active zones
+export async function getZoneForCity(
+  city: string,
+  province: string,
+  fallbackRate = 350,
+) {
   const zones = await prisma.shippingZone.findMany({
-    where: { isActive: true },
+    where: { isActive: true, deletedAt: null },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
+  const selected = selectShippingZone(zones.map(toCandidate), city, province);
 
-  // Try exact city match first
-  for (const zone of zones) {
-    const cities: string[] = zone.cities ? JSON.parse(zone.cities) : [];
-    if (cities.includes(normalizedCity)) {
-      return {
-        id: zone.id,
-        name: zone.name,
-        shippingRate: Number(zone.shippingRate),
-        estimatedDays: zone.estimatedDays,
-      };
-    }
-  }
-
-  // Try province match
-  for (const zone of zones) {
-    const provinces: string[] = zone.provinces ? JSON.parse(zone.provinces) : [];
-    if (provinces.includes(normalizedProvince)) {
-      return {
-        id: zone.id,
-        name: zone.name,
-        shippingRate: Number(zone.shippingRate),
-        estimatedDays: zone.estimatedDays,
-      };
-    }
-  }
-
-  // Fallback to default zone (Rest of Pakistan — should have empty cities/provinces arrays)
-  const defaultZone = zones.find((z) => {
-    const cities: string[] = z.cities ? JSON.parse(z.cities) : [];
-    const provinces: string[] = z.provinces ? JSON.parse(z.provinces) : [];
-    return cities.length === 0 && provinces.length === 0;
-  });
-
-  if (defaultZone) {
-    return {
-      id: defaultZone.id,
-      name: defaultZone.name,
-      shippingRate: Number(defaultZone.shippingRate),
-      estimatedDays: defaultZone.estimatedDays,
-    };
-  }
-
-  // Ultimate fallback if no zones exist
-  return {
+  return selected ?? {
     id: "default",
     name: "Rest of Pakistan",
-    shippingRate: 350,
+    cities: [],
+    provinces: [],
+    shippingRate: Math.max(0, fallbackRate),
     estimatedDays: "3-5 business days",
+  };
+}
+
+/** One server-authoritative quote used by checkout preview and order creation. */
+export async function getShippingQuote(input: {
+  city: string;
+  province: string;
+  subtotal: number;
+}) {
+  const config = await getStoreConfig();
+  const zone = await getZoneForCity(
+    input.city,
+    input.province,
+    config.standardShippingRate ?? 350,
+  );
+  const calculated = calculateShippingCost({
+    subtotal: input.subtotal,
+    baseRate: zone.shippingRate,
+    enableFreeShipping: config.enableFreeShipping === true,
+    freeShippingThreshold: config.freeShippingThreshold ?? 0,
+  });
+
+  return {
+    id: zone.id,
+    name: zone.name,
+    estimatedDays: zone.estimatedDays,
+    baseShippingRate: zone.shippingRate,
+    ...calculated,
   };
 }
 
@@ -107,20 +121,15 @@ export async function createShippingZone(data: {
   const zone = await prisma.shippingZone.create({
     data: {
       name: data.name,
-      cities: JSON.stringify(data.cities.map((c) => c.toLowerCase().trim())),
-      provinces: JSON.stringify(data.provinces.map((p) => p.toLowerCase().trim())),
+      cities: JSON.stringify(data.cities.map(normalizeShippingLocation)),
+      provinces: JSON.stringify(data.provinces.map(normalizeShippingLocation)),
       shippingRate: data.shippingRate,
       estimatedDays: data.estimatedDays,
       isActive: data.isActive ?? true,
     },
   });
   return {
-    id: zone.id,
-    name: zone.name,
-    cities: zone.cities ? JSON.parse(zone.cities) as string[] : [],
-    provinces: zone.provinces ? JSON.parse(zone.provinces) as string[] : [],
-    shippingRate: Number(zone.shippingRate),
-    estimatedDays: zone.estimatedDays,
+    ...toCandidate(zone),
     isActive: zone.isActive,
     createdAt: zone.createdAt.toISOString(),
   };
@@ -135,28 +144,30 @@ export async function updateShippingZone(
     shippingRate?: number;
     estimatedDays?: string;
     isActive?: boolean;
-  }
+  },
 ) {
-  const updateData: any = {};
+  const updateData: {
+    name?: string;
+    cities?: string;
+    provinces?: string;
+    shippingRate?: number;
+    estimatedDays?: string;
+    isActive?: boolean;
+  } = {};
   if (data.name !== undefined) updateData.name = data.name;
-  if (data.cities !== undefined) updateData.cities = JSON.stringify(data.cities.map((c) => c.toLowerCase().trim()));
-  if (data.provinces !== undefined) updateData.provinces = JSON.stringify(data.provinces.map((p) => p.toLowerCase().trim()));
+  if (data.cities !== undefined) {
+    updateData.cities = JSON.stringify(data.cities.map(normalizeShippingLocation));
+  }
+  if (data.provinces !== undefined) {
+    updateData.provinces = JSON.stringify(data.provinces.map(normalizeShippingLocation));
+  }
   if (data.shippingRate !== undefined) updateData.shippingRate = data.shippingRate;
   if (data.estimatedDays !== undefined) updateData.estimatedDays = data.estimatedDays;
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
 
-  const zone = await prisma.shippingZone.update({
-    where: { id },
-    data: updateData,
-  });
-
+  const zone = await prisma.shippingZone.update({ where: { id }, data: updateData });
   return {
-    id: zone.id,
-    name: zone.name,
-    cities: zone.cities ? JSON.parse(zone.cities) as string[] : [],
-    provinces: zone.provinces ? JSON.parse(zone.provinces) as string[] : [],
-    shippingRate: Number(zone.shippingRate),
-    estimatedDays: zone.estimatedDays,
+    ...toCandidate(zone),
     isActive: zone.isActive,
     createdAt: zone.createdAt.toISOString(),
   };
@@ -165,6 +176,6 @@ export async function updateShippingZone(
 export async function deleteShippingZone(id: string) {
   await prisma.shippingZone.update({
     where: { id },
-    data: { deletedAt: new Date() },
+    data: { deletedAt: new Date(), isActive: false },
   });
 }
