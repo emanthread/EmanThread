@@ -5,6 +5,8 @@ import { AuthSync } from "@/components/auth-sync";
 import { ClientWidgets } from "@/app/client-widgets";
 import { StorefrontTracking } from "@/components/storefront-tracking";
 import { getStoreConfig } from "@/lib/db-queries";
+import { getCachedPublishedCatalogSidebarNavigation } from "@/lib/db/catalog";
+import { PublishedCatalogProvider } from "@/components/layout/published-catalog-provider";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://emanthread.com";
@@ -106,8 +108,15 @@ export default async function RootLayout({
 }>) {
   // getStoreConfig owns its cache tag and invalidation policy. A second cache
   // here could retain stale analytics/settings values after an admin update.
-  const config = await getStoreConfig();
+  const [config, publishedNavigation] = await Promise.all([
+    getStoreConfig(),
+    getCachedPublishedCatalogSidebarNavigation().catch((error) => {
+      console.error("[layout] Unable to preload catalog navigation", error);
+      return [];
+    }),
+  ]);
   const { googleAnalyticsId, facebookPixelId } = config;
+  const publishedCatalogPaths = publishedNavigation.map((item) => item.path);
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -128,9 +137,11 @@ export default async function RootLayout({
           enableSystem
           disableTransitionOnChange={false}
         >
-          <div id="main-content" tabIndex={-1}>
-            {children}
-          </div>
+          <PublishedCatalogProvider paths={publishedCatalogPaths}>
+            <div id="main-content" tabIndex={-1}>
+              {children}
+            </div>
+          </PublishedCatalogProvider>
           <AuthSync />
           <ClientWidgets />
         </ThemeProvider>

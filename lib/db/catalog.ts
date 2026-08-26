@@ -1,5 +1,6 @@
 import { cache } from "react";
 import type { Prisma } from "@prisma/client";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { ARCHIVED_PRODUCT_TAG, visibleProductTags } from "@/lib/product-archive";
 import type { Product, ProductKind } from "@/lib/data";
@@ -502,8 +503,9 @@ export const resolveActiveCatalogNode = cache(
  * incomplete. This reflects Admin publication changes immediately while never
  * exposing a hidden or staged path in the customer sidebar.
  */
-export const getPublishedCatalogSidebarNavigation = cache(
-  async (): Promise<CatalogSidebarNavigationOption[]> => {
+async function loadPublishedCatalogSidebarNavigation(): Promise<
+  CatalogSidebarNavigationOption[]
+> {
     const nodes = await prisma.catalogNode.findMany({
       where: { isActive: true, isVisible: true },
       select: {
@@ -547,7 +549,21 @@ export const getPublishedCatalogSidebarNavigation = cache(
       })
       .filter((option): option is CatalogSidebarNavigationOption => option !== null)
       .sort((left, right) => left.label.localeCompare(right.label, "en"));
-  }
+}
+
+export const getPublishedCatalogSidebarNavigation = cache(
+  loadPublishedCatalogSidebarNavigation
+);
+
+/**
+ * Shared cross-request navigation cache. Catalog mutations invalidate this tag,
+ * while the five-minute fallback protects storefront renders if an invalidation
+ * is missed during a process restart.
+ */
+export const getCachedPublishedCatalogSidebarNavigation = unstable_cache(
+  loadPublishedCatalogSidebarNavigation,
+  ["published-catalog-sidebar-navigation"],
+  { revalidate: 300, tags: ["catalog-navigation"] }
 );
 
 function productWhereForCatalog(

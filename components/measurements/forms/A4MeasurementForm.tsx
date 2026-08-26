@@ -10,6 +10,7 @@ import {
   A4Pill,
   A4SubInput,
   A4MiniToggle,
+  A4QuantitySelect,
 } from "./A4PageLayout";
 import type { UnifiedMeasurementFormData } from "@/lib/validators/measurements-unified";
 
@@ -46,6 +47,7 @@ interface SectionConfig {
   side?: boolean;
   // Extra toggles/sub-fields shown in the entry area alongside the input
   toggles?: { label: string; key: DataKey }[];
+  quantities?: { label: string; key: DataKey }[];
   subInputs?: { label: string; key: DataKey }[];
 }
 
@@ -110,7 +112,7 @@ const CONFIGS: Record<string, FormLayout> = {
       {
         title: "Pocket",
         fields: [],
-        toggles: [
+        quantities: [
           { label: "Front", key: "frontPocket" },
           { label: "Side", key: "sidePocket" },
         ],
@@ -539,6 +541,24 @@ export function A4MeasurementForm({
           </div>
         </div>
       )}
+      {section.quantities && section.quantities.length > 0 && (
+        <div className="a4-row" style={{ borderBottom: "none" }}>
+          <div className="a4-label" style={{ borderRight: "none" }}>Pocket</div>
+          <div className="a4-entry">
+            <div className="a4-quantity-grid">
+              {section.quantities.map((quantity) => (
+                <A4QuantitySelect
+                  key={quantity.key}
+                  label={quantity.label}
+                  value={String(data[quantity.key] ?? "0")}
+                  onChange={(value) => setField(quantity.key, value)}
+                  readOnly={readOnly}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </A4Card>
   );
 
@@ -652,9 +672,19 @@ function BottomTypeTabs({
           <A4Row label="2. Pancha"><A4Input value={String(data.shalwarPancha1 ?? "")} onChange={(v) => setField("shalwarPancha1", v)} readOnly={readOnly} /></A4Row>
           <A4Row label="3. Gherra"><A4Input value={String(data.shalwarGherra1 ?? "")} onChange={(v) => setField("shalwarGherra1", v)} readOnly={readOnly} /></A4Row>
           <A4Row label="4. Pocket">
-            <div style={{ display: "flex", gap: "3mm" }}>
-              <A4Pill label="Front" checked={String(data.frontPocket ?? "0") === "1"} onChange={(v) => setToggle("frontPocket", v)} readOnly={readOnly} />
-              <A4Pill label="Side" checked={String(data.sidePocket ?? "0") === "1"} onChange={(v) => setToggle("sidePocket", v)} readOnly={readOnly} />
+            <div className="a4-quantity-grid">
+              <A4QuantitySelect
+                label="Front"
+                value={String(data.frontPocket ?? "0")}
+                onChange={(value) => setField("frontPocket", value)}
+                readOnly={readOnly}
+              />
+              <A4QuantitySelect
+                label="Side"
+                value={String(data.sidePocket ?? "0")}
+                onChange={(value) => setField("sidePocket", value)}
+                readOnly={readOnly}
+              />
             </div>
           </A4Row>
         </div>

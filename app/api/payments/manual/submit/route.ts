@@ -6,6 +6,7 @@ import { createManualPaymentSubmission } from '@/lib/db-queries'
 import { sendAdminPaymentAlert } from '@/lib/notifications/admin-alerts'
 import { FEATURE_FLAGS } from '@/lib/feature-flags'
 import { validateCsrf } from '@/lib/csrf'
+import { sanitizeDbError } from '@/lib/utils/errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,6 +21,11 @@ const schema = z.object({
 export async function POST(request: Request) {
   try {
     await validateCsrf(request)
+  } catch {
+    return NextResponse.json({ error: 'Your session expired. Refresh the page and try again.' }, { status: 403 })
+  }
+
+  try {
     const session = await auth()
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -59,8 +65,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, submissionId: submission.id })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid data' }, { status: 400 })
+      return NextResponse.json({ error: 'Check the payment details and try again.' }, { status: 400 })
     }
-    return NextResponse.json({ error: 'Failed to submit payment' }, { status: 500 })
+    if (
+      error instanceof Error
+      && error.message === 'Payment proof has already been submitted for this order'
+    ) {
+      return NextResponse.json({ error: error.message }, { status: 409 })
+    }
+    console.error('[payments/manual] Payment submission failed', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    })
+    const { message, status } = sanitizeDbError(error)
+    return NextResponse.json({ error: message }, { status })
   }
 }

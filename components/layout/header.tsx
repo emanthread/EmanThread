@@ -43,6 +43,7 @@ import { CatalogHeaderMenu } from "./catalog-header-menu";
 import { CatalogMobileMenu } from "./catalog-mobile-menu";
 import { StitchingNoticeBanner } from "./stitching-notice-banner";
 import catalogStyles from "./catalog-header-menu.module.css";
+import { useInitialPublishedCatalogPaths } from "./published-catalog-provider";
 
 const SearchModal = dynamic(
   () => import("@/components/search/search-modal").then((module) => module.SearchModal),
@@ -526,10 +527,13 @@ function LegacyHeader() {
 function CatalogHeaderV1() {
   const router = useRouter();
   const pathname = usePathname();
+  const initialPublishedCatalogPaths = useInitialPublishedCatalogPaths();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [publishedCatalogPaths, setPublishedCatalogPaths] = useState<string[]>([]);
+  const [publishedCatalogPaths, setPublishedCatalogPaths] = useState<string[]>(
+    () => [...initialPublishedCatalogPaths]
+  );
   const headerRef = useRef<HTMLElement>(null);
   const { getTotalItems, openCart } = useCartStore();
   const {
@@ -558,8 +562,7 @@ function CatalogHeaderV1() {
     const controller = new AbortController();
 
     const loadPublishedCatalogPaths = () => {
-      fetch(`/api/catalog/navigation?_t=${Date.now()}`, {
-        cache: "no-store",
+      fetch("/api/catalog/navigation", {
         signal: controller.signal,
       })
         .then((response) => (response.ok ? response.json() : null))

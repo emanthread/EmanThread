@@ -37,6 +37,7 @@ export interface Order {
   subtotal: number;
   shippingCost: number;
   stitchingFee?: number;
+  stitchingDeliveryDate?: string | null;
   discount: number;
   total: number;
   status: OrderStatus;

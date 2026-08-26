@@ -135,10 +135,8 @@ export default function AdminMeasurementProfileEditPage() {
   const serialNo = profile.serialNumber || `MP-${profile.id.slice(0, 6).toUpperCase()}`;
   
   const printDate = profile.deliveryDate
-    ? new Date(profile.deliveryDate as string).toLocaleDateString()
-    : profile.createdAt
-      ? new Date(profile.createdAt).toLocaleDateString()
-      : new Date().toLocaleDateString();
+    ? String(profile.deliveryDate)
+    : "";
 
   const printCardData: TailorCardData = {
     serialNo,

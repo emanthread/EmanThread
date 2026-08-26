@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { createAuditLog } from "@/lib/db/audit";
@@ -241,6 +242,9 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
       ipAddress: getClientIp(request),
       userAgent: request.headers.get("user-agent") || undefined,
     });
+
+    revalidateTag("catalog-navigation", { expire: 0 });
+    revalidatePath("/", "layout");
 
     return NextResponse.json({ node }, { status: 201 });
   } catch (error) {

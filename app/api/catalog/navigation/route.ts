@@ -1,14 +1,18 @@
 import { NextResponse } from "next/server";
-import { getPublishedCatalogSidebarNavigation } from "@/lib/db/catalog";
+import { getCachedPublishedCatalogSidebarNavigation } from "@/lib/db/catalog";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const navigation = await getPublishedCatalogSidebarNavigation();
+    const navigation = await getCachedPublishedCatalogSidebarNavigation();
     return NextResponse.json(
       { paths: navigation.map((item) => item.path) },
-      { headers: { "Cache-Control": "no-store" } }
+      {
+        headers: {
+          "Cache-Control": "private, max-age=0, must-revalidate",
+        },
+      }
     );
   } catch (error) {
     console.error("Get published catalog navigation error:", error);

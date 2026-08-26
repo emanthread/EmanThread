@@ -2,6 +2,13 @@
 
 import React from "react";
 import { cn } from "@/lib/utils";
+import {
+  composeMeasurementValue,
+  MEASUREMENT_FRACTIONS,
+  normalizePocketQuantity,
+  splitMeasurementValue,
+  type MeasurementFraction,
+} from "@/lib/measurement-values";
 import "./a4-layout.css";
 
 export type DataKey = string;
@@ -142,6 +149,45 @@ export function A4Input({
   readOnly?: boolean;
   placeholder?: string;
 }) {
+  const parts = splitMeasurementValue(value);
+
+  if (!readOnly) {
+    return (
+      <span className="a4-measurement-control">
+        <input
+          className="a4-inputline"
+          value={parts.whole}
+          inputMode="decimal"
+          onChange={(event) =>
+            onChange(composeMeasurementValue(event.target.value, parts.fraction))
+          }
+          placeholder={placeholder || ""}
+          aria-label="Whole measurement"
+        />
+        <select
+          className="a4-fraction-select"
+          value={parts.fraction}
+          onChange={(event) =>
+            onChange(
+              composeMeasurementValue(
+                parts.whole,
+                event.target.value as MeasurementFraction
+              )
+            )
+          }
+          aria-label="Measurement fraction"
+        >
+          <option value="">Fraction</option>
+          {MEASUREMENT_FRACTIONS.map((fraction) => (
+            <option key={fraction} value={fraction}>
+              {fraction}
+            </option>
+          ))}
+        </select>
+      </span>
+    );
+  }
+
   return (
     <input
       className="a4-inputline"
@@ -150,6 +196,41 @@ export function A4Input({
       disabled={readOnly}
       placeholder={placeholder || ""}
     />
+  );
+}
+
+export function A4QuantitySelect({
+  label,
+  value,
+  onChange,
+  readOnly,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: "0" | "1" | "2") => void;
+  readOnly?: boolean;
+}) {
+  const quantity = normalizePocketQuantity(value);
+
+  return (
+    <div className="a4-quantity-choice">
+      <span>{label}</span>
+      {readOnly ? (
+        <strong>{quantity === "0" ? "—" : quantity}</strong>
+      ) : (
+        <select
+          value={quantity}
+          onChange={(event) =>
+            onChange(event.target.value as "0" | "1" | "2")
+          }
+          aria-label={`${label} pocket quantity`}
+        >
+          <option value="0">None</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+        </select>
+      )}
+    </div>
   );
 }
 
@@ -233,15 +314,46 @@ export function A4SubInput({
   onChange: (v: string) => void;
   readOnly?: boolean;
 }) {
+  const parts = splitMeasurementValue(value);
+
   return (
     <div className="a4-subitem">
       {label}
       <span className="a4-smallline">
-        <input
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={readOnly}
-        />
+        {readOnly ? (
+          <input value={value} disabled />
+        ) : (
+          <span className="a4-measurement-control a4-measurement-control-small">
+            <input
+              value={parts.whole}
+              inputMode="decimal"
+              onChange={(event) =>
+                onChange(composeMeasurementValue(event.target.value, parts.fraction))
+              }
+              aria-label={`${label} whole measurement`}
+            />
+            <select
+              className="a4-fraction-select"
+              value={parts.fraction}
+              onChange={(event) =>
+                onChange(
+                  composeMeasurementValue(
+                    parts.whole,
+                    event.target.value as MeasurementFraction
+                  )
+                )
+              }
+              aria-label={`${label} fraction`}
+            >
+              <option value="">—</option>
+              {MEASUREMENT_FRACTIONS.map((fraction) => (
+                <option key={fraction} value={fraction}>
+                  {fraction}
+                </option>
+              ))}
+            </select>
+          </span>
+        )}
       </span>
     </div>
   );

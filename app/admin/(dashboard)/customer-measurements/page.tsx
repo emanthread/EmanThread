@@ -681,7 +681,7 @@ function CustomerMeasurementsContent() {
               data={{
                 serialNo: `CM-${printRecord.id.slice(0, 6).toUpperCase()}`,
                 customerName: printRecord.customer_name,
-                deliveryDate: new Date(printRecord.created_at).toLocaleDateString(),
+                deliveryDate: "",
                 productName: "Admin Customer Measurement",
                 garmentType: printRecord.garment_type,
                 gender: printRecord.gender || "Male",

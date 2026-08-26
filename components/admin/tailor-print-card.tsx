@@ -11,6 +11,7 @@ import type {
   GarmentType,
 } from "@/lib/validators/measurements-unified";
 import { UNIFIED_MEASUREMENT_EMPTY } from "@/lib/validators/measurements-unified";
+import { formatPKTDate } from "@/lib/utils/date";
 
 export interface TailorCardData {
   serialNo: string;
@@ -49,10 +50,16 @@ function buildFormData(data: TailorCardData): UnifiedMeasurementFormData {
     garmentType:
       data.garmentType as UnifiedMeasurementFormData["garmentType"],
     customerName: data.customerName,
-    deliveryDate: data.deliveryDate || "",
+    deliveryDate: formatTailorDeliveryDate(data.deliveryDate),
     notes: data.notes || "",
     serialNumber: data.serialNo,
   };
+}
+
+function formatTailorDeliveryDate(value: string | undefined): string {
+  if (!value) return "";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : formatPKTDate(parsed);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { createAuditLog } from "@/lib/db/audit";
 import { getClientIp } from "@/lib/client-ip";
@@ -410,6 +411,9 @@ export const PATCH = withLoggedAdminHandler(
         userAgent: request.headers.get("user-agent") || undefined,
       });
 
+      revalidateTag("catalog-navigation", { expire: 0 });
+      revalidatePath("/", "layout");
+
       return NextResponse.json({ node: updated });
     } catch (error) {
       return catalogApiError(error, "Unable to update catalog path");
@@ -493,6 +497,9 @@ export const DELETE = withLoggedAdminHandler(
         ipAddress: getClientIp(request),
         userAgent: request.headers.get("user-agent") || undefined,
       });
+
+      revalidateTag("catalog-navigation", { expire: 0 });
+      revalidatePath("/", "layout");
 
       return NextResponse.json({ success: true });
     } catch (error) {

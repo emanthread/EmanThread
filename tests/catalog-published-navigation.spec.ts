@@ -45,12 +45,16 @@ test.describe("published catalog navigation", () => {
     expect(mobile).toContain("item.href,");
   });
 
-  test("uses a no-store database-backed feed and excludes hidden paths from SEO", () => {
+  test("uses the cached database-backed feed and excludes hidden paths from SEO", () => {
     const navigationApi = source("app/api/catalog/navigation/route.ts");
+    const catalogDb = source("lib/db/catalog.ts");
     const sitemap = source("app/sitemap.ts");
 
-    expect(navigationApi).toContain("getPublishedCatalogSidebarNavigation");
-    expect(navigationApi).toContain('"Cache-Control": "no-store"');
+    expect(navigationApi).toContain("getCachedPublishedCatalogSidebarNavigation");
+    expect(navigationApi).toContain(
+      '"Cache-Control": "private, max-age=0, must-revalidate"'
+    );
+    expect(catalogDb).toContain('tags: ["catalog-navigation"]');
     expect(sitemap).toContain("getPublishedCatalogSidebarNavigation");
     expect(sitemap).not.toContain("catalogMenu");
   });

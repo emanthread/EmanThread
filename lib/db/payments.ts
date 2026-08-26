@@ -206,7 +206,28 @@ export async function createManualPaymentSubmission(data: {
 }) {
   return prisma.$transaction(async (tx) => {
     const normalizedTransactionId = data.transactionId.trim().toLocaleLowerCase('en-US');
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`manual-payment:${normalizedTransactionId}`}))`;
+    await tx.$queryRaw<{ locked: boolean }[]>`
+      SELECT TRUE AS "locked"
+      FROM pg_advisory_xact_lock(hashtext(${`manual-payment-order:${data.orderId}`}))
+    `;
+    await tx.$queryRaw<{ locked: boolean }[]>`
+      SELECT TRUE AS "locked"
+      FROM pg_advisory_xact_lock(hashtext(${`manual-payment-transaction:${normalizedTransactionId}`}))
+    `;
+
+    const existingForOrder = await tx.manualPaymentSubmission.findUnique({
+      where: { orderId: data.orderId },
+    });
+    if (existingForOrder) {
+      if (
+        existingForOrder.transactionId.toLocaleLowerCase('en-US') === normalizedTransactionId
+        && existingForOrder.status === 'PENDING'
+      ) {
+        return existingForOrder;
+      }
+      throw new Error('Payment proof has already been submitted for this order');
+    }
+
     const duplicate = await tx.manualPaymentSubmission.findFirst({
       where: {
         transactionId: { equals: data.transactionId.trim(), mode: 'insensitive' },

@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
 import { formatPrice } from "@/lib/data";
+import { apiFetch } from "@/lib/api-fetch";
 import {
   CheckCircle,
   Lock,
@@ -52,6 +53,7 @@ function PaymentConfirmationContent() {
   const [order, setOrder] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [codConfirmed, setCodConfirmed] = useState(false);
 
   // Payment confirmation fields
@@ -126,7 +128,10 @@ function PaymentConfirmationContent() {
       formData.append("file", file);
       formData.append("tags[]", "payment-screenshot");
       
-      const res = await fetch("/api/upload/payment-screenshot", { method: "POST", body: formData });
+      const res = await apiFetch("/api/upload/payment-screenshot", {
+        method: "POST",
+        body: formData,
+      });
       const data = await res.json();
       
       if (!res.ok || !data.url) {
@@ -141,12 +146,13 @@ function PaymentConfirmationContent() {
   };
 
   const handleConfirmPayment = async () => {
+    setSubmitError(null);
     if (!transactionId.trim()) {
-      alert("Please enter your transaction ID");
+      setSubmitError("Please enter your transaction ID.");
       return;
     }
     if (!senderName.trim()) {
-      alert("Please enter the sender account name");
+      setSubmitError("Please enter the sender account name.");
       return;
     }
     if (!paymentScreenshot) {
@@ -156,7 +162,7 @@ function PaymentConfirmationContent() {
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/payments/manual/submit", {
+      const res = await apiFetch("/api/payments/manual/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -171,11 +177,11 @@ function PaymentConfirmationContent() {
       if (res.ok) {
         setSubmitted(true);
       } else {
-        const data = await res.json();
-        alert(data.error || "Failed to submit payment. Please try again.");
+        const data = await res.json().catch(() => ({}));
+        setSubmitError(data.error || "Failed to submit payment. Please try again.");
       }
     } catch {
-      alert("Something went wrong. Please try again.");
+      setSubmitError("Something went wrong. Check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
@@ -565,6 +571,16 @@ function PaymentConfirmationContent() {
                       </p>
                     </div>
                   </div>
+
+                  {submitError ? (
+                    <p
+                      role="alert"
+                      aria-live="assertive"
+                      className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+                    >
+                      {submitError}
+                    </p>
+                  ) : null}
 
                   <Button
                     size="lg"
