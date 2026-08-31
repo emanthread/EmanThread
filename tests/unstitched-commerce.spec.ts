@@ -55,6 +55,8 @@ test.describe("unstitched fabric purchase flow", () => {
   test("repairs stale size metadata when every catalog placement is unstitched", () => {
     for (const path of [
       "/women/unstitched/2-piece",
+      "/women/unstitched/partywear",
+      "/women/unstitched/saari-blouse",
       "/men/new-in/unstitched-collection",
       "/teens/unstitched/3-piece",
       "/women/partywear",

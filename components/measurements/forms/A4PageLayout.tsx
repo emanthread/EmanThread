@@ -4,8 +4,10 @@ import React from "react";
 import { cn } from "@/lib/utils";
 import {
   composeMeasurementValue,
+  MAX_POCKET_QUANTITY,
   MEASUREMENT_FRACTIONS,
   normalizePocketQuantity,
+  sanitizePocketQuantityInput,
   splitMeasurementValue,
   type MeasurementFraction,
 } from "@/lib/measurement-values";
@@ -207,28 +209,36 @@ export function A4QuantitySelect({
 }: {
   label: string;
   value: string;
-  onChange: (value: "0" | "1" | "2") => void;
+  onChange: (value: string) => void;
   readOnly?: boolean;
 }) {
-  const quantity = normalizePocketQuantity(value);
+  const quantity = value === "" ? "" : normalizePocketQuantity(value);
+  const printedQuantity = normalizePocketQuantity(value);
 
   return (
     <div className="a4-quantity-choice">
       <span>{label}</span>
       {readOnly ? (
-        <strong>{quantity === "0" ? "—" : quantity}</strong>
+        <strong>{printedQuantity === "0" ? "—" : printedQuantity}</strong>
       ) : (
-        <select
+        <input
+          className="a4-quantity-input"
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={MAX_POCKET_QUANTITY}
+          step={1}
           value={quantity}
-          onChange={(event) =>
-            onChange(event.target.value as "0" | "1" | "2")
-          }
+          onChange={(event) => {
+            const nextQuantity = sanitizePocketQuantityInput(event.target.value);
+            if (nextQuantity !== null) onChange(nextQuantity);
+          }}
+          onBlur={() => {
+            if (quantity === "") onChange("0");
+          }}
+          placeholder="0"
           aria-label={`${label} pocket quantity`}
-        >
-          <option value="0">None</option>
-          <option value="1">1</option>
-          <option value="2">2</option>
-        </select>
+        />
       )}
     </div>
   );

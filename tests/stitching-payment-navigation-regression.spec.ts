@@ -4,8 +4,10 @@ import { expect, test } from "@playwright/test";
 import {
   composeMeasurementValue,
   normalizePocketQuantity,
+  sanitizePocketQuantityInput,
   splitMeasurementValue,
 } from "../lib/measurement-values";
+import { unifiedMeasurementSchema } from "../lib/validators/measurements-unified";
 
 function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
@@ -43,21 +45,46 @@ test("measurement values combine whole numbers with selectable fractions", () =>
   expect(composeMeasurementValue("42", "")).toBe("42");
 });
 
-test("Shalwar Kameez pockets use explicit none, one, or two quantities", () => {
+test("Shalwar Kameez pockets accept non-negative numeric quantities", () => {
   const form = source("components/measurements/forms/A4MeasurementForm.tsx");
   const layout = source("components/measurements/forms/A4PageLayout.tsx");
 
   expect(normalizePocketQuantity("")).toBe("0");
   expect(normalizePocketQuantity("1")).toBe("1");
   expect(normalizePocketQuantity("2")).toBe("2");
+  expect(normalizePocketQuantity("5")).toBe("5");
+  expect(normalizePocketQuantity("true")).toBe("1");
+  expect(sanitizePocketQuantityInput("04")).toBe("4");
+  expect(sanitizePocketQuantityInput("-1")).toBeNull();
+  expect(sanitizePocketQuantityInput("1.5")).toBeNull();
+  const parsed = unifiedMeasurementSchema.parse({
+    profileName: "Pocket quantity regression",
+    frontPocket: "5",
+    sidePocket: "4",
+    shalwarPocket: "3",
+  });
+  expect(parsed.frontPocket).toBe("5");
+  expect(parsed.sidePocket).toBe("4");
+  expect(parsed.shalwarPocket).toBe("3");
   expect(form).toContain('quantities: [');
   expect(form).toContain('{ label: "Front", key: "frontPocket" }');
   expect(form).toContain('{ label: "Side", key: "sidePocket" }');
-  expect(layout).toContain('<option value="0">None</option>');
-  expect(layout).toContain('<option value="1">1</option>');
-  expect(layout).toContain('<option value="2">2</option>');
+  expect(form).toContain('label="Shalwar"');
+  expect(form).toContain('label="Trouser"');
+  expect(layout).toContain('type="number"');
+  expect(layout).toContain("MAX_POCKET_QUANTITY");
   expect(form).not.toContain('<A4Pill label="Front"');
   expect(form).not.toContain('<A4Pill label="Side"');
+  expect(form).not.toContain('<A4Pill label="Pocket"');
+});
+
+test("measurement editing adapts to narrow containers without affecting print", () => {
+  const layout = source("components/measurements/forms/a4-layout.css");
+
+  expect(layout).toContain("container-name: measurement-preview");
+  expect(layout).toContain("@media screen");
+  expect(layout).toContain("@container measurement-preview (max-width: 700px)");
+  expect(layout).toContain("repeat(auto-fit, minmax(105px, 1fr))");
 });
 
 test("manual payment locking is Prisma-safe and submission errors remain actionable", () => {

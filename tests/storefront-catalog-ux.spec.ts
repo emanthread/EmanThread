@@ -174,14 +174,16 @@ test.describe("storefront catalog UX", () => {
 
   test("routes header departments to catalog pages without changing hero tabs", () => {
     const desktopMenu = source("components/layout/catalog-header-menu.tsx");
-    const mobileMenu = source("components/layout/catalog-mobile-menu.tsx");
+    const mobileMenu = source(
+      "components/layout/catalog-mobile-department-menu.tsx"
+    );
     const hero = source("components/home/hero-section.tsx");
 
     expect(desktopMenu).toContain('href={`/${department.id}`}');
     expect(desktopMenu).toContain("onPointerEnter");
     expect(desktopMenu).not.toContain("eman-thread:hero-department");
-    expect(mobileMenu).toContain("Shop All {department.label}");
-    expect(mobileMenu).toContain('href={`/${department.id}`}');
+    expect(mobileMenu).toContain("{department.label}");
+    expect(mobileMenu).toContain('href={`/${openDepartment.id}`}');
     expect(mobileMenu).not.toContain("eman-thread:hero-department");
     expect(hero).toContain("window.addEventListener(\"eman-thread:hero-department\"");
     expect(hero).toContain("const selectDepartment = useCallback(");

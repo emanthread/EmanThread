@@ -37,7 +37,9 @@ test.describe("published catalog navigation", () => {
 
   test("desktop, mobile, and hover cards all require a published destination", () => {
     const desktop = source("components/layout/catalog-header-menu.tsx");
-    const mobile = source("components/layout/catalog-mobile-menu.tsx");
+    const mobile = source(
+      "components/layout/catalog-mobile-department-menu.tsx"
+    );
 
     expect(desktop).toContain("isPublishedCatalogHref(item.href, publishedPaths)");
     expect(desktop).toContain("isPublishedCatalogHref(href, publishedPaths)");

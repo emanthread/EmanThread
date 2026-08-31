@@ -42,6 +42,8 @@ test.describe("admin measurement print background", () => {
     expect(printCard).toContain("/* A6 print clarity only. Keep the page, scale, spacing and geometry above unchanged. */");
     expect(printCard).toContain("--ink: #000 !important;");
     expect(printCard).toContain("font-family: Arial, Helvetica, sans-serif !important;");
+    expect(printCard).toContain(".a4-quantity-choice strong");
+    expect(printCard).toContain("font-weight: 400 !important;");
     expect(printCard).toContain("-webkit-text-fill-color: #000 !important;");
     expect(printCard).toContain(".a4-box.disabled");
   });

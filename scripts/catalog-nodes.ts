@@ -19,7 +19,7 @@ import {
   type MenuVisualCard,
 } from "../lib/navigation/catalog-menu";
 
-const MANIFEST_VERSION = 3;
+const MANIFEST_VERSION = 4;
 const APPLY_ACKNOWLEDGEMENT =
   "I_ACKNOWLEDGE_CATALOGNODE_ONLY_WRITES";
 const DISPOSABLE_ACKNOWLEDGEMENT =

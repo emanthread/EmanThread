@@ -312,8 +312,9 @@ export function classifyCatalogPath(
     path.startsWith("/women/partywear") ||
     path.startsWith("/women/bridal-wear")
   ) {
-    // Partywear and bridal are catalog collections, not merchandise kinds.
-    // They are sold as fabric with optional stitching and measurements.
+    // Legacy root URLs were sold as fabric with optional stitching. Keep that
+    // behavior for existing products/bookmarks; the canonical nested RTW and
+    // Unstitched destinations classify from their explicit parent path below.
     kind = "UNSTITCHED_FABRIC";
   } else if (path.includes("unstitched")) {
     kind = "UNSTITCHED_FABRIC";

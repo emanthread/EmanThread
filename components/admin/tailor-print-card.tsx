@@ -199,24 +199,28 @@ function ensurePrintStyleInHead() {
         font-synthesis: none !important;
       }
       body.tailor-printing-a6 .tailor-print-portal .a4-title-area h1 {
-        font-weight: 700 !important;
+        font-weight: 600 !important;
       }
       body.tailor-printing-a6 .tailor-print-portal .a4-card h3,
       body.tailor-printing-a6 .tailor-print-portal .a4-label,
       body.tailor-printing-a6 .tailor-print-portal .a4-side .a4-label,
       body.tailor-printing-a6 .tailor-print-portal button {
-        font-weight: 600 !important;
+        font-weight: 500 !important;
       }
       body.tailor-printing-a6 .tailor-print-portal .a4-meta,
       body.tailor-printing-a6 .tailor-print-portal .a4-meta-input,
       body.tailor-printing-a6 .tailor-print-portal .a4-subitem,
       body.tailor-printing-a6 .tailor-print-portal .a4-mini,
       body.tailor-printing-a6 .tailor-print-portal .a4-pill {
-        font-weight: 500 !important;
+        font-weight: 400 !important;
       }
       body.tailor-printing-a6 .tailor-print-portal .a4-inputline,
       body.tailor-printing-a6 .tailor-print-portal .a4-subitem .a4-smallline input {
-        font-weight: 600 !important;
+        font-weight: 400 !important;
+      }
+      body.tailor-printing-a6 .tailor-print-portal .a4-quantity-choice,
+      body.tailor-printing-a6 .tailor-print-portal .a4-quantity-choice strong {
+        font-weight: 400 !important;
       }
       body.tailor-printing-a6 .tailor-print-portal .a4-meta-input:disabled,
       body.tailor-printing-a6 .tailor-print-portal .a4-inputline:disabled,

@@ -41,6 +41,7 @@ import {
 } from "@/lib/navigation/storefront-routes";
 import { CatalogHeaderMenu } from "./catalog-header-menu";
 import { CatalogMobileMenu } from "./catalog-mobile-menu";
+import { CatalogMobileDepartmentMenu } from "./catalog-mobile-department-menu";
 import { StitchingNoticeBanner } from "./stitching-notice-banner";
 import catalogStyles from "./catalog-header-menu.module.css";
 import { useInitialPublishedCatalogPaths } from "./published-catalog-provider";
@@ -838,9 +839,6 @@ function CatalogHeaderV1() {
             <div className={catalogStyles.mobileBarLeft}>
               <CatalogMobileMenu
                 isAuthenticated={isAuthenticated}
-                linksEnabled={FEATURE_FLAGS.CATALOG_PAGES_V1}
-                showNavigation={showCatalogNavigation}
-                publishedCatalogPaths={publishedCatalogPaths}
                 user={user}
                 utilityLinks={utilityLinks}
                 wishlistCount={wishlistItems}
@@ -889,6 +887,11 @@ function CatalogHeaderV1() {
               </button>
             </div>
           </div>
+          <CatalogMobileDepartmentMenu
+            linksEnabled={FEATURE_FLAGS.CATALOG_PAGES_V1}
+            showNavigation={showCatalogNavigation}
+            publishedCatalogPaths={publishedCatalogPaths}
+          />
         </div>
         <span aria-live="polite" aria-atomic="true" className="sr-only">
           {mounted && totalItems > 0

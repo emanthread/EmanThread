@@ -43,15 +43,16 @@ const expectedHierarchy = [
           },
           {
             label: "SHOP BY OCCASION",
-            items: ["FORMALS", "CASUAL"],
+            items: ["FORMALS", "CASUAL", "PARTYWEAR", "BRIDAL WEAR"],
           },
         ],
       },
       {
         label: "UNSTITCHED",
         groups: [
-          { label: "SHOP BY CATEGORY", items: ["3 PIECE", "2 PIECE", "1 PIECE"] },
+          { label: "SHOP BY CATEGORY", items: ["3 PIECE", "2 PIECE", "1 PIECE", "SAARI BLOUSE"] },
           { label: "SHOP BY COLLECTION", items: ["NOYA", "ZARIYA", "LUXE"] },
+          { label: "SHOP BY OCCASION", items: ["PARTYWEAR"] },
         ],
       },
       {
@@ -61,8 +62,6 @@ const expectedHierarchy = [
           { label: "SHOP BY COLLECTION", items: ["FESTIVE '26"] },
         ],
       },
-      { label: "PARTYWEAR", groups: [] },
-      { label: "BRIDAL WEAR", groups: [] },
       { label: "SALE", groups: [] },
     ],
   },
@@ -315,8 +314,8 @@ test.describe("catalog navigation configuration", () => {
 
     expect(configuredHierarchy).toEqual(expectedHierarchy);
     expect(catalogMenu).toHaveLength(4);
-    expect(catalogMenu.flatMap((department) => department.sections)).toHaveLength(20);
-    expect(allLeaves()).toHaveLength(130);
+    expect(catalogMenu.flatMap((department) => department.sections)).toHaveLength(18);
+    expect(allLeaves()).toHaveLength(134);
 
     for (const department of catalogMenu) {
       expectSequentialOrder(department.sections);
@@ -524,6 +523,8 @@ test.describe("catalog navigation configuration", () => {
     expect(womenOccasions.items).toMatchObject([
       { label: "FORMALS", href: "/women/formals" },
       { label: "CASUAL", href: "/women/ready-to-wear/casual" },
+      { label: "PARTYWEAR", href: "/women/ready-to-wear/partywear" },
+      { label: "BRIDAL WEAR", href: "/women/ready-to-wear/bridal-wear" },
     ]);
 
     const men = catalogMenu.find((department) => department.id === "men")!;
@@ -658,6 +659,30 @@ test.describe("catalog navigation configuration", () => {
         id: "catalog:leaf:men.ready-to-wear.casual",
         parentId: "catalog:section:men.ready-to-wear",
         productKind: "READY_TO_WEAR",
+      },
+      {
+        path: "/women/ready-to-wear/partywear",
+        id: "catalog:leaf:women.ready-to-wear.partywear",
+        parentId: "catalog:section:women.ready-to-wear",
+        productKind: "READY_TO_WEAR",
+      },
+      {
+        path: "/women/ready-to-wear/bridal-wear",
+        id: "catalog:leaf:women.ready-to-wear.bridal-wear",
+        parentId: "catalog:section:women.ready-to-wear",
+        productKind: "READY_TO_WEAR",
+      },
+      {
+        path: "/women/unstitched/partywear",
+        id: "catalog:leaf:women.unstitched.partywear",
+        parentId: "catalog:section:women.unstitched",
+        productKind: "UNSTITCHED_FABRIC",
+      },
+      {
+        path: "/women/unstitched/saari-blouse",
+        id: "catalog:leaf:women.unstitched.saari-blouse",
+        parentId: "catalog:section:women.unstitched",
+        productKind: "UNSTITCHED_FABRIC",
       },
       ...(["teen-girls", "teen-boys"] as const).flatMap((audience) =>
         ["casual", "occasion-wear"].map((slug) => ({

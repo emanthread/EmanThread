@@ -672,17 +672,11 @@ function BottomTypeTabs({
           <A4Row label="2. Pancha"><A4Input value={String(data.shalwarPancha1 ?? "")} onChange={(v) => setField("shalwarPancha1", v)} readOnly={readOnly} /></A4Row>
           <A4Row label="3. Gherra"><A4Input value={String(data.shalwarGherra1 ?? "")} onChange={(v) => setField("shalwarGherra1", v)} readOnly={readOnly} /></A4Row>
           <A4Row label="4. Pocket">
-            <div className="a4-quantity-grid">
+            <div className="a4-quantity-grid a4-quantity-grid-single">
               <A4QuantitySelect
-                label="Front"
-                value={String(data.frontPocket ?? "0")}
-                onChange={(value) => setField("frontPocket", value)}
-                readOnly={readOnly}
-              />
-              <A4QuantitySelect
-                label="Side"
-                value={String(data.sidePocket ?? "0")}
-                onChange={(value) => setField("sidePocket", value)}
+                label="Shalwar"
+                value={String(data.shalwarPocket ?? "0")}
+                onChange={(value) => setField("shalwarPocket", value)}
                 readOnly={readOnly}
               />
             </div>
@@ -700,8 +694,13 @@ function BottomTypeTabs({
             <>
               <A4Row label="4. Elastic Length"><A4Input value={String(data.trouserElastic1 ?? "")} onChange={(v) => setField("trouserElastic1", v)} readOnly={readOnly} /></A4Row>
               <A4Row label="5. Pocket">
-                <div style={{ display: "flex", gap: "3mm" }}>
-                  <A4Pill label="Pocket" checked={String(data.shalwarPocket ?? "0") === "1"} onChange={(v) => setToggle("shalwarPocket", v)} readOnly={readOnly} />
+                <div className="a4-quantity-grid a4-quantity-grid-single">
+                  <A4QuantitySelect
+                    label="Trouser"
+                    value={String(data.shalwarPocket ?? "0")}
+                    onChange={(value) => setField("shalwarPocket", value)}
+                    readOnly={readOnly}
+                  />
                 </div>
               </A4Row>
             </>

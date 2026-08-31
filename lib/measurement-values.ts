@@ -39,6 +39,29 @@ export function composeMeasurementValue(
   return [whole.trim(), fraction].filter(Boolean).join(" ");
 }
 
-export function normalizePocketQuantity(value: string): "0" | "1" | "2" {
-  return value === "2" ? "2" : value === "1" ? "1" : "0";
+export const MAX_POCKET_QUANTITY = 99;
+
+/**
+ * Keep legacy checkbox values readable while allowing real pocket counts.
+ * Invalid historical values safely display as zero.
+ */
+export function normalizePocketQuantity(value: string): string {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true") return "1";
+  if (normalized === "false" || normalized === "") return "0";
+  if (!/^\d+$/.test(normalized)) return "0";
+
+  return String(
+    Math.min(Number.parseInt(normalized, 10), MAX_POCKET_QUANTITY)
+  );
+}
+
+export function sanitizePocketQuantityInput(value: string): string | null {
+  const trimmed = value.trim();
+  if (!/^\d{0,2}$/.test(trimmed)) return null;
+  if (!trimmed) return "";
+
+  return String(
+    Math.min(Number.parseInt(trimmed, 10), MAX_POCKET_QUANTITY)
+  );
 }

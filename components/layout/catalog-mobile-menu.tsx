@@ -3,15 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  type KeyboardEvent as ReactKeyboardEvent,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
 import {
-  ChevronDown,
   Heart,
   LayoutDashboard,
   LogOut,
@@ -23,15 +20,7 @@ import {
   X,
 } from "lucide-react";
 
-import {
-  catalogMenu,
-  type MenuLeaf,
-} from "@/lib/navigation/catalog-menu";
 import styles from "./catalog-header-menu.module.css";
-import {
-  isPublishedCatalogHref,
-  publishedCatalogPathSet,
-} from "@/lib/navigation/published-catalog";
 
 type MobileMenuUser = {
   name: string;
@@ -47,9 +36,6 @@ type MobileUtilityLink = {
 
 type CatalogMobileMenuProps = {
   isAuthenticated: boolean;
-  linksEnabled: boolean;
-  showNavigation: boolean;
-  publishedCatalogPaths: readonly string[];
   user: MobileMenuUser | null;
   utilityLinks: readonly MobileUtilityLink[];
   wishlistCount: number;
@@ -58,23 +44,8 @@ type CatalogMobileMenuProps = {
   onLogout: () => void | Promise<void>;
 };
 
-const byOrder = <T extends { order: number }>(items: readonly T[]) =>
-  [...items].sort((a, b) => a.order - b.order);
-
-const visibleLeaves = (items: readonly MenuLeaf[]) =>
-  byOrder(items.filter((item) => item.visibility === "visible"));
-
-const isLeafEnabled = (item: MenuLeaf, linksEnabled: boolean) =>
-  linksEnabled &&
-  item.status === "active" &&
-  Boolean(item.href) &&
-  !item.comingSoon;
-
 export function CatalogMobileMenu({
   isAuthenticated,
-  linksEnabled,
-  showNavigation,
-  publishedCatalogPaths,
   user,
   utilityLinks,
   wishlistCount,
@@ -83,23 +54,8 @@ export function CatalogMobileMenu({
   onLogout,
 }: CatalogMobileMenuProps) {
   const pathname = usePathname();
-  const publishedPaths = useMemo(
-    () => publishedCatalogPathSet(publishedCatalogPaths),
-    [publishedCatalogPaths]
-  );
-  const departments = useMemo(
-    () =>
-      byOrder(catalogMenu).filter((department) =>
-        isPublishedCatalogHref(`/${department.id}`, publishedPaths)
-      ),
-    [publishedPaths]
-  );
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [openDepartmentId, setOpenDepartmentId] = useState<string | null>(
-    departments[0]?.id ?? null,
-  );
-  const [openSectionId, setOpenSectionId] = useState<string | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -173,15 +129,6 @@ export function CatalogMobileMenu({
     void callback?.();
   };
 
-  const handleAccordionKeyDown = (
-    event: ReactKeyboardEvent<HTMLButtonElement>,
-  ) => {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      setIsOpen(false);
-    }
-  };
-
   const drawerLayerContent = (
     <div
       className={styles.drawerLayer}
@@ -192,7 +139,7 @@ export function CatalogMobileMenu({
         <button
           type="button"
           className={styles.drawerOverlay}
-          aria-label="Close catalog menu"
+          aria-label="Close account and support menu"
           tabIndex={isOpen ? 0 : -1}
           onClick={() => setIsOpen(false)}
         />
@@ -201,7 +148,7 @@ export function CatalogMobileMenu({
           className={styles.drawer}
           role="dialog"
           aria-modal="true"
-          aria-label="Catalog menu"
+          aria-label="Account and support menu"
         >
           <div className={styles.drawerHeader}>
             <span className={styles.drawerTitle}>Menu</span>
@@ -209,7 +156,7 @@ export function CatalogMobileMenu({
               ref={closeRef}
               type="button"
               className={styles.mobileIconButton}
-              aria-label="Close catalog menu"
+              aria-label="Close account and support menu"
               onClick={() => setIsOpen(false)}
             >
               <X aria-hidden="true" size={20} />
@@ -227,178 +174,6 @@ export function CatalogMobileMenu({
                 <span>Search products</span>
               </button>
             </div>
-
-            {showNavigation ? <nav className={styles.drawerNav} aria-label="Mobile catalog">
-              {departments.map((department) => {
-                const departmentOpen =
-                  openDepartmentId === department.id;
-
-                return (
-                  <div key={department.id} className={styles.drawerDepartment}>
-                    <button
-                      type="button"
-                      className={styles.drawerButton}
-                      aria-expanded={departmentOpen}
-                      aria-controls={`mobile-department-${department.id}`}
-                      onKeyDown={handleAccordionKeyDown}
-                      onClick={() => {
-                        setOpenDepartmentId(
-                          departmentOpen ? null : department.id,
-                        );
-                        setOpenSectionId(null);
-                      }}
-                    >
-                      <span className={styles.drawerButtonLabel}>
-                        {department.label}
-                      </span>
-                      <ChevronDown
-                        className={styles.drawerChevron}
-                        data-open={departmentOpen}
-                        aria-hidden="true"
-                        size={16}
-                      />
-                    </button>
-
-                    {departmentOpen ? (
-                      <div
-                        id={`mobile-department-${department.id}`}
-                        className={styles.drawerSections}
-                      >
-                        {linksEnabled ? (
-                          <Link
-                            href={`/${department.id}`}
-                            className={styles.drawerLanding}
-                            onClick={() => setIsOpen(false)}
-                          >
-                            Shop All {department.label}
-                          </Link>
-                        ) : null}
-                        {byOrder(department.sections)
-                          .filter((section) =>
-                            isPublishedCatalogHref(section.href, publishedPaths)
-                          )
-                          .map((section) => {
-                          const sectionOpen = openSectionId === section.id;
-
-                          return (
-                            <div
-                              key={section.id}
-                              className={styles.drawerSection}
-                            >
-                              <button
-                                type="button"
-                                className={styles.drawerButton}
-                                aria-expanded={sectionOpen}
-                                aria-controls={`mobile-section-${section.id}`}
-                                onKeyDown={handleAccordionKeyDown}
-                                onClick={() =>
-                                  setOpenSectionId(
-                                    sectionOpen ? null : section.id,
-                                  )
-                                }
-                              >
-                                <span className={styles.drawerButtonLabel}>
-                                  {section.label}
-                                </span>
-                                <ChevronDown
-                                  className={styles.drawerChevron}
-                                  data-open={sectionOpen}
-                                  aria-hidden="true"
-                                  size={15}
-                                />
-                              </button>
-
-                              {sectionOpen ? (
-                                <div
-                                  id={`mobile-section-${section.id}`}
-                                  className={styles.drawerGroups}
-                                >
-                                  {linksEnabled && section.href ? (
-                                    <Link
-                                      href={section.href}
-                                      className={styles.drawerLanding}
-                                      onClick={() => setIsOpen(false)}
-                                    >
-                                      {section.label}
-                                    </Link>
-                                  ) : null}
-
-                                  {byOrder(section.groups).map((group) => {
-                                    const items = visibleLeaves(group.items).filter(
-                                      (item) =>
-                                        isPublishedCatalogHref(
-                                          item.href,
-                                          publishedPaths
-                                        )
-                                    );
-                                    if (items.length === 0) return null;
-
-                                    return (
-                                      <section key={group.id}>
-                                        <h3
-                                          className={
-                                            styles.drawerGroupHeading
-                                          }
-                                        >
-                                          {group.label}
-                                        </h3>
-                                        <div
-                                          className={styles.drawerGroupLinks}
-                                        >
-                                          {items.map((item) =>
-                                            isLeafEnabled(
-                                              item,
-                                              linksEnabled,
-                                            ) && item.href ? (
-                                              <Link
-                                                key={item.id}
-                                                href={item.href}
-                                                className={styles.drawerLink}
-                                                onClick={() =>
-                                                  setIsOpen(false)
-                                                }
-                                              >
-                                                <span>{item.label}</span>
-                                                {item.badge ? (
-                                                  <span
-                                                    className={styles.badge}
-                                                  >
-                                                    {item.badge}
-                                                  </span>
-                                                ) : null}
-                                              </Link>
-                                            ) : (
-                                              <span
-                                                key={item.id}
-                                                className={`${styles.drawerLink} ${styles.unavailable}`}
-                                                aria-disabled="true"
-                                              >
-                                                <span>{item.label}</span>
-                                                {item.badge ? (
-                                                  <span
-                                                    className={styles.badge}
-                                                  >
-                                                    {item.badge}
-                                                  </span>
-                                                ) : null}
-                                              </span>
-                                            ),
-                                          )}
-                                        </div>
-                                      </section>
-                                    );
-                                  })}
-                                </div>
-                              ) : null}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </nav> : null}
 
             <div className={styles.drawerUtilities}>
               {utilityLinks.map((link) => (
@@ -496,7 +271,7 @@ export function CatalogMobileMenu({
         ref={triggerRef}
         type="button"
         className={styles.mobileIconButton}
-        aria-label="Open catalog menu"
+        aria-label="Open account and support menu"
         aria-haspopup="dialog"
         aria-expanded={isOpen}
         onClick={() => setIsOpen(true)}

@@ -1,0 +1,243 @@
+.mobileDepartmentNavigation {
+  position: relative;
+  display: block;
+  border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  background: transparent;
+  color: inherit;
+}
+
+.mobileDepartmentNavigation[data-open="true"] {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.departmentScroller,
+.sectionScroller {
+  scrollbar-width: none;
+}
+
+.departmentScroller::-webkit-scrollbar,
+.sectionScroller::-webkit-scrollbar {
+  display: none;
+}
+
+.departmentScroller {
+  display: flex;
+  align-items: stretch;
+  gap: 24px;
+  min-height: 44px;
+  padding-inline: 16px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+
+.departmentButton,
+.sectionButton {
+  position: relative;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  scroll-snap-align: start;
+}
+
+.departmentButton {
+  min-height: 44px;
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.departmentButton::after,
+.sectionButton::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 2px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 160ms ease;
+}
+
+.departmentButton[data-active="true"]::after,
+.sectionButton[aria-pressed="true"]::after {
+  transform: scaleX(1);
+}
+
+.departmentButton:focus-visible,
+.sectionButton:focus-visible,
+.shopAllLink:focus-visible,
+.sectionLanding:focus-visible,
+.leafLink:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.menuPanel {
+  position: absolute;
+  inset: 100% 0 auto;
+  z-index: 5;
+  max-height: min(68dvh, 560px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-top: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--foreground) 18%, transparent);
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow: 0 18px 34px rgb(0 0 0 / 0.18);
+}
+
+.menuBackdrop {
+  position: absolute;
+  inset: 100% 0 auto;
+  z-index: 4;
+  width: 100%;
+  height: calc(100dvh - var(--catalog-header-height, 116px));
+  border: 0;
+  background: rgb(0 0 0 / 0.24);
+  cursor: default;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 0 16px;
+}
+
+.panelTitle {
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+}
+
+.shopAllLink,
+.sectionLanding {
+  color: inherit;
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-transform: uppercase;
+}
+
+.sectionScroller {
+  display: flex;
+  gap: 20px;
+  min-height: 44px;
+  padding-inline: 16px;
+  overflow-x: auto;
+  border-block: 1px solid color-mix(in srgb, var(--foreground) 11%, transparent);
+}
+
+.sectionButton {
+  min-height: 44px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.sectionContent {
+  padding: 18px 16px 24px;
+}
+
+.sectionLanding {
+  display: inline-flex;
+  margin-bottom: 18px;
+}
+
+.groupGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px 20px;
+}
+
+.groupTitle {
+  margin: 0 0 11px;
+  color: color-mix(in srgb, var(--foreground) 58%, transparent);
+  font-size: 0.58rem;
+  font-weight: 750;
+  letter-spacing: 0.095em;
+  text-transform: uppercase;
+}
+
+.groupLinks {
+  display: grid;
+  gap: 11px;
+}
+
+.leafLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  min-height: 24px;
+  color: inherit;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  text-decoration: none;
+}
+
+.badge {
+  color: #9d2b24;
+  font-size: 0.53rem;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.unavailable {
+  opacity: 0.48;
+}
+
+.emptyState {
+  margin: 0;
+  padding: 20px 16px 24px;
+  color: color-mix(in srgb, var(--foreground) 62%, transparent);
+  font-size: 0.72rem;
+}
+
+@media (max-width: 374px) {
+  .departmentScroller {
+    gap: 20px;
+    padding-inline: 12px;
+  }
+
+  .departmentButton {
+    font-size: 0.64rem;
+  }
+}
+
+@media (min-width: 640px) {
+  .departmentScroller {
+    justify-content: center;
+  }
+
+  .groupGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .mobileDepartmentNavigation {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .departmentButton::after,
+  .sectionButton::after {
+    transition-duration: 0.01ms;
+  }
+}

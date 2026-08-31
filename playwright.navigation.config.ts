@@ -37,6 +37,8 @@ export default defineConfig({
     "admin-commerce-reliability.spec.ts",
     "shipping-order-regression.spec.ts",
     "stitching-payment-navigation-regression.spec.ts",
+    "mobile-catalog-header.spec.ts",
+    "women-catalog-expansion.spec.ts",
   ],
   fullyParallel: true,
   workers: 1,

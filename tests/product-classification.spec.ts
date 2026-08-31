@@ -59,10 +59,27 @@ test.describe("catalog-driven product classification", () => {
     expect(classifyCatalogPath("/women/bridal-wear")?.productKind).toBe(
       "UNSTITCHED_FABRIC"
     );
+    expect(
+      classifyCatalogPath("/women/ready-to-wear/partywear")?.productKind
+    ).toBe("READY_TO_WEAR");
+    expect(
+      classifyCatalogPath("/women/ready-to-wear/bridal-wear")?.productKind
+    ).toBe("READY_TO_WEAR");
+    expect(
+      classifyCatalogPath("/women/unstitched/partywear")?.productKind
+    ).toBe("UNSTITCHED_FABRIC");
+    expect(
+      classifyCatalogPath("/women/unstitched/saari-blouse")?.productKind
+    ).toBe("UNSTITCHED_FABRIC");
   });
 
-  test("keeps partywear and bridal in the unstitched fabric purchase model", () => {
-    for (const path of ["/women/partywear", "/women/bridal-wear"]) {
+  test("keeps legacy and canonical unstitched collections in the fabric purchase model", () => {
+    for (const path of [
+      "/women/partywear",
+      "/women/bridal-wear",
+      "/women/unstitched/partywear",
+      "/women/unstitched/saari-blouse",
+    ]) {
       expect(classifyCatalogPath(path)).toMatchObject({
         productKind: "UNSTITCHED_FABRIC",
         editorSchema: {
@@ -73,6 +90,26 @@ test.describe("catalog-driven product classification", () => {
           },
           inventorySource: "product",
           options: { mode: "optional" },
+        },
+      });
+    }
+  });
+
+  test("gives ready-to-wear Partywear and Bridal real size inventory", () => {
+    for (const path of [
+      "/women/ready-to-wear/partywear",
+      "/women/ready-to-wear/bridal-wear",
+    ]) {
+      expect(classifyCatalogPath(path)).toMatchObject({
+        productKind: "READY_TO_WEAR",
+        editorSchema: {
+          fields: {
+            fabric: { mode: "optional" },
+            sizeGuide: { mode: "optional" },
+            stitching: { mode: "hidden" },
+          },
+          inventorySource: "variant",
+          options: { mode: "required", label: "Size" },
         },
       });
     }
