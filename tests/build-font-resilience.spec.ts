@@ -28,6 +28,18 @@ test("PWA build tooling uses the stable source-map release", () => {
   expect(lockfile).not.toContain('"source-map": "0.8.0-beta.0"');
 });
 
+test("Prisma tooling uses the cycle-safe deepmerge release", () => {
+  const packageJson = JSON.parse(source("package.json")) as {
+    overrides: Record<string, string>;
+  };
+  const lockfile = JSON.parse(source("package-lock.json")) as {
+    packages: Record<string, { version?: string }>;
+  };
+
+  expect(packageJson.overrides["deepmerge-ts"]).toBe("8.0.0");
+  expect(lockfile.packages["node_modules/deepmerge-ts"]?.version).toBe("8.0.0");
+});
+
 test("homepage prerender degrades per section when the database is unavailable", () => {
   const homepage = source("app/page.tsx");
 
