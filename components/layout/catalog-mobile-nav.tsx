@@ -19,6 +19,7 @@ import {
   LogOut,
   Menu,
   Package,
+  Ruler,
   Search,
   Settings,
   User,
@@ -457,6 +458,9 @@ export function CatalogMobileNav({
                       className={styles.authLink}
                       onClick={close}
                     >
+                      {link.id === "stitching" ? (
+                        <Ruler size={15} aria-hidden="true" />
+                      ) : null}
                       <span>{link.label}</span>
                     </Link>
                   ))}
@@ -507,6 +511,9 @@ export function CatalogMobileNav({
                       className={styles.authLink}
                       onClick={close}
                     >
+                      {link.id === "stitching" ? (
+                        <Ruler size={15} aria-hidden="true" />
+                      ) : null}
                       <span>{link.label}</span>
                     </Link>
                   ))}

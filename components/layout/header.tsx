@@ -67,6 +67,13 @@ function DeferredSearchModal({
   return hasOpened ? <SearchModal isOpen={isOpen} onClose={onClose} /> : null;
 }
 
+const mobileDepartments = [
+  { href: "/women", label: "Women" },
+  { href: "/men", label: "Men" },
+  { href: "/fragrance-beauty", label: "Fragrance & Beauty" },
+  { href: "/teens", label: "Teens" },
+];
+
 const navLinks = [
   { href: "/", label: "Home" },
   { href: "/women", label: "Women" },
@@ -85,6 +92,7 @@ const categories = [
 
 function LegacyHeader() {
   const router = useRouter();
+  const pathname = usePathname();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -397,6 +405,40 @@ function LegacyHeader() {
               </span>
             </div>
           </div>
+
+          {/* Top Mobile Departments Bar */}
+          <nav
+            aria-label="Mobile top departments navigation"
+            className={cn(
+              "lg:hidden flex items-center justify-around gap-1 px-3 py-2 text-[11px] font-bold tracking-wider uppercase border-t transition-colors overflow-x-auto scrollbar-none",
+              !isScrolled
+                ? "border-white/15 text-white/80"
+                : "border-border/30 bg-background/95 text-muted-foreground"
+            )}
+          >
+            {mobileDepartments.map((dept) => {
+              const isActive =
+                pathname === dept.href || pathname.startsWith(`${dept.href}/`);
+              return (
+                <Link
+                  key={dept.href}
+                  href={dept.href}
+                  className={cn(
+                    "px-2 py-1 rounded transition-all whitespace-nowrap",
+                    !isScrolled
+                      ? isActive
+                        ? "text-white font-extrabold underline underline-offset-4 decoration-2"
+                        : "hover:text-white"
+                      : isActive
+                        ? "text-primary font-extrabold underline underline-offset-4 decoration-2"
+                        : "hover:text-foreground"
+                  )}
+                >
+                  {dept.label}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
       </header>
 
@@ -455,10 +497,13 @@ function LegacyHeader() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="block text-lg font-medium tracking-wide py-2 hover:text-accent transition-colors"
+                className="flex items-center gap-2 text-lg font-medium tracking-wide py-2 hover:text-accent transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                {link.label}
+                {link.label === "Stitching" ? (
+                  <Ruler className="h-5 w-5" />
+                ) : null}
+                <span>{link.label}</span>
               </Link>
             ))}
             
@@ -889,6 +934,40 @@ function CatalogHeaderV1() {
               </button>
             </div>
           </div>
+
+          {/* Top Mobile Departments Bar */}
+          <nav
+            aria-label="Mobile top departments navigation"
+            className={cn(
+              "lg:hidden flex items-center justify-around gap-1 px-3 py-2 text-[11px] font-bold tracking-wider uppercase border-t transition-colors overflow-x-auto scrollbar-none",
+              isHeroMode
+                ? "border-white/15 text-white/80"
+                : "border-border/30 bg-background/95 text-muted-foreground"
+            )}
+          >
+            {mobileDepartments.map((dept) => {
+              const isActive =
+                pathname === dept.href || pathname.startsWith(`${dept.href}/`);
+              return (
+                <Link
+                  key={dept.href}
+                  href={dept.href}
+                  className={cn(
+                    "px-2 py-1 rounded transition-all whitespace-nowrap",
+                    isHeroMode
+                      ? isActive
+                        ? "text-white font-extrabold underline underline-offset-4 decoration-2"
+                        : "hover:text-white"
+                      : isActive
+                        ? "text-primary font-extrabold underline underline-offset-4 decoration-2"
+                        : "hover:text-foreground"
+                  )}
+                >
+                  {dept.label}
+                </Link>
+              );
+            })}
+          </nav>
 
         </div>
         <span aria-live="polite" aria-atomic="true" className="sr-only">

@@ -713,39 +713,57 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
             />
           )}
 
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex items-center border border-border rounded">
+          {/* Quantity selector */}
+          <div className="space-y-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+              Quantity
+            </span>
+            <div className="flex items-center border border-border rounded-lg w-fit bg-background">
               <button
+                type="button"
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                className="p-4 hover:bg-secondary transition-colors"
+                className="p-3 hover:bg-secondary transition-colors text-foreground"
                 disabled={quantity <= 1}
+                aria-label="Decrease quantity"
               >
                 <Minus className="h-4 w-4" />
               </button>
-              <span className="px-6 text-base font-medium min-w-[60px] text-center">
+              <span className="px-5 text-base font-semibold min-w-[48px] text-center text-foreground">
                 {quantity}
               </span>
               <button
+                type="button"
                 onClick={() => setQuantity(quantity + 1)}
-                className="p-4 hover:bg-secondary transition-colors"
+                className="p-3 hover:bg-secondary transition-colors text-foreground"
+                aria-label="Increase quantity"
               >
                 <Plus className="h-4 w-4" />
               </button>
             </div>
+          </div>
+
+          {/* Action buttons (Add to Cart & Buy Now side-by-side) */}
+          <div className="grid grid-cols-2 gap-3">
             <Button 
               size="lg" 
               className={cn(
-                "flex-1 transition-all",
+                "w-full transition-all text-xs sm:text-sm font-bold uppercase tracking-wider h-12 px-2 sm:px-4",
                 !productAvailable && "disabled:opacity-100 disabled:bg-destructive disabled:text-destructive-foreground"
               )} 
               onClick={handleAddToCart} 
               disabled={!productAvailable}
             >
-              {productAvailable && <Plus className="h-4 w-4 mr-2" />}
-              {requiredSelectionUnavailable ? "Option Unavailable" : productAvailable ? "Add to Cart" : "Out of Stock"}
+              {productAvailable && <Plus className="h-4 w-4 mr-1 sm:mr-2 hidden sm:inline-block" />}
+              {requiredSelectionUnavailable ? "Unavailable" : productAvailable ? "Add to Cart" : "Out of Stock"}
             </Button>
-            <Button size="lg" variant="secondary" className="flex-1" onClick={handleBuyNow} disabled={!productAvailable}>
-              Buy Now - {formatPrice(displayedPrice * quantity)}
+            <Button 
+              size="lg" 
+              variant="secondary" 
+              className="w-full text-xs sm:text-sm font-bold uppercase tracking-wider h-12 px-2 sm:px-4" 
+              onClick={handleBuyNow} 
+              disabled={!productAvailable}
+            >
+              Buy Now
             </Button>
           </div>
           <div className="flex gap-4">
