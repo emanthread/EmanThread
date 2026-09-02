@@ -319,7 +319,7 @@ export default function AdminOrderDetails({ params }: { params: Promise<{ id: st
                   const cardData: TailorCardData = {
                     serialNo: `ORD-${order.orderNumber}`,
                     customerName: order.customerName,
-                    deliveryDate: order.stitchingDeliveryDate || "",
+                    deliveryDate: new Date(order.createdAt).toLocaleDateString(),
                     productName: om.productName,
                     garmentType: garmentType,
                     measurements: m,

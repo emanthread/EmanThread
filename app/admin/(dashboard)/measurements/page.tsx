@@ -311,7 +311,7 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
               data={{
                 serialNo: (viewProfile as any).serialNumber || `MP-${viewProfile.id.slice(0, 6).toUpperCase()}`,
                 customerName: (viewProfile as any).customerName || viewProfile.user.name,
-                deliveryDate: (viewProfile as any).deliveryDate || "",
+                deliveryDate: (viewProfile as any).deliveryDate ? new Date((viewProfile as any).deliveryDate).toLocaleDateString() : new Date(viewProfile.createdAt).toLocaleDateString(),
                 productName: viewProfile.profileName.startsWith("[Admin] ") ? `${viewProfile.profileName.replace("[Admin] ", "")} (Default)` : viewProfile.profileName,
                 garmentType: viewProfile.garmentType,
                 gender: viewProfile.gender,
@@ -354,7 +354,7 @@ function LegacyProfilesTab({ initialSearch = "" }: { initialSearch?: string }) {
               data={{
                 serialNo: (printProfile as any).serialNumber || `MP-${printProfile.id.slice(0, 6).toUpperCase()}`,
                 customerName: (printProfile as any).customerName || printProfile.user.name,
-                deliveryDate: (printProfile as any).deliveryDate || "",
+                deliveryDate: (printProfile as any).deliveryDate ? new Date((printProfile as any).deliveryDate).toLocaleDateString() : new Date(printProfile.createdAt).toLocaleDateString(),
                 productName: printProfile.profileName.startsWith("[Admin] ") ? `${printProfile.profileName.replace("[Admin] ", "")} (Default)` : printProfile.profileName,
                 garmentType: printProfile.garmentType,
                 gender: printProfile.gender,
@@ -611,7 +611,7 @@ function CompletedTab() {
               data={{
                 serialNo: (viewRecord as any).serialNumber || `MP-${viewRecord.id.slice(0, 6).toUpperCase()}`,
                 customerName: (viewRecord as any).customerName || viewRecord.user.name,
-                deliveryDate: (viewRecord as any).deliveryDate || "",
+                deliveryDate: (viewRecord as any).deliveryDate ? new Date((viewRecord as any).deliveryDate).toLocaleDateString() : new Date(viewRecord.updatedAt).toLocaleDateString(),
                 productName: "Completed Profile",
                 garmentType: viewRecord.garmentType,
                 gender: (viewRecord as any).gender || "Male",
@@ -636,7 +636,7 @@ function CompletedTab() {
               data={{
                 serialNo: (printRecord as any).serialNumber || `MP-${printRecord.id.slice(0, 6).toUpperCase()}`,
                 customerName: (printRecord as any).customerName || printRecord.user.name,
-                deliveryDate: (printRecord as any).deliveryDate || "",
+                deliveryDate: (printRecord as any).deliveryDate ? new Date((printRecord as any).deliveryDate).toLocaleDateString() : new Date(printRecord.updatedAt).toLocaleDateString(),
                 productName: "Completed Profile",
                 garmentType: printRecord.garmentType,
                 gender: (printRecord as any).gender || "Male",
@@ -883,7 +883,7 @@ function RejectedTab() {
               data={{
                 serialNo: (viewRecord as any).serialNumber || `MP-${viewRecord.id.slice(0, 6).toUpperCase()}`,
                 customerName: (viewRecord as any).customerName || viewRecord.user.name,
-                deliveryDate: (viewRecord as any).deliveryDate || "",
+                deliveryDate: (viewRecord as any).deliveryDate ? new Date((viewRecord as any).deliveryDate).toLocaleDateString() : new Date(viewRecord.updatedAt).toLocaleDateString(),
                 productName: "Rejected Profile",
                 garmentType: viewRecord.garmentType,
                 gender: (viewRecord as any).gender || "Male",

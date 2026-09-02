@@ -9,12 +9,9 @@
   --ink: #172554;
   --muted: #64748b;
   --line: #93a4bf;
-  --soft: #fff;
+  --soft: #f8fafc;
   --gold: #b08d57;
   --brand: #0f172a;
-  container-name: measurement-preview;
-  container-type: inline-size;
-  width: 100%;
 }
 
 .a4-page {
@@ -77,6 +74,14 @@
   }
 }
 
+@media screen and (max-width: 800px) {
+  .a4-page {
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+  }
+}
+
 .a4-watermark {
   position: absolute;
   top: 28mm;
@@ -97,7 +102,7 @@
   grid-template-columns: 36mm 1fr;
   min-height: 30mm;
   position: relative;
-  background: #fff;
+  background: linear-gradient(180deg, #fff, #f8fafc);
 }
 
 .a4-logo {
@@ -148,7 +153,6 @@
   font-size: 11px;
   font-weight: 600;
   color: var(--ink);
-  background: #fff;
 }
 
 .a4-meta > div {
@@ -195,6 +199,12 @@
   display: block;
 }
 
+@media screen and (max-width: 800px) {
+  .a4-grid {
+    display: block;
+  }
+}
+
 .a4-card {
   border: 2px solid var(--ink);
   background: #fff;
@@ -205,7 +215,7 @@
 
 .a4-card h3 {
   margin: 0;
-  background: #fff;
+  background: #f1f5f9;
   color: var(--ink);
   font-size: 15px;
   letter-spacing: 0.8px;
@@ -235,7 +245,7 @@
   color: var(--ink);
   border-right: 1.5px solid var(--line);
   font-size: 15px;
-  background: #fff;
+  background: #fbfdff;
 }
 
 .a4-entry {
@@ -274,75 +284,6 @@
   -webkit-text-fill-color: #64748b;
 }
 
-.a4-measurement-control {
-  display: flex;
-  align-items: flex-end;
-  flex: 1;
-  min-width: 42mm;
-  gap: 2mm;
-}
-
-.a4-measurement-control .a4-inputline {
-  min-width: 20mm;
-}
-
-.a4-fraction-select {
-  min-width: 22mm;
-  height: 9mm;
-  border: 1px solid #cbd5e1;
-  border-radius: 4px;
-  background: #fff;
-  color: var(--ink);
-  padding: 0 1.5mm;
-  font: inherit;
-}
-
-.a4-quantity-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(28mm, 1fr));
-  gap: 3mm;
-  width: 100%;
-}
-
-.a4-quantity-grid-single {
-  grid-template-columns: minmax(28mm, 1fr);
-}
-
-.a4-quantity-choice {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 3mm;
-  border: 1px solid #cbd5e1;
-  border-radius: 4px;
-  padding: 2mm 3mm;
-  background: #fff;
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.a4-quantity-choice select,
-.a4-quantity-choice input {
-  min-width: 18mm;
-  height: 8mm;
-  border: 1px solid #cbd5e1;
-  border-radius: 4px;
-  background: #fff;
-  color: var(--ink);
-  padding: 0 1mm;
-}
-
-.a4-quantity-choice input {
-  width: 18mm;
-  text-align: center;
-  font: inherit;
-}
-
-.a4-quantity-choice strong {
-  font-size: 14px;
-}
-
 .a4-box {
   width: 5.8mm;
   height: 5.8mm;
@@ -378,7 +319,7 @@
   border-radius: 999px;
   padding: 1.5mm 2.6mm;
   font-size: 10.5px;
-  background: #fff;
+  background: #f8fafc;
   color: #334155;
   cursor: pointer;
 }
@@ -396,7 +337,7 @@
 
 .a4-subitem {
   border: 1px solid #cbd5e1;
-  background: #fff;
+  background: #f8fafc;
   border-radius: 2px;
   min-height: 15mm;
   padding: 2mm;
@@ -441,25 +382,6 @@
   font-size: 12px;
   font-weight: 600;
   outline: none;
-}
-
-.a4-measurement-control-small {
-  min-width: 0;
-  width: 100%;
-  gap: 1mm;
-}
-
-.a4-subitem .a4-smallline .a4-measurement-control-small input {
-  min-width: 0;
-  width: calc(100% - 16mm);
-}
-
-.a4-measurement-control-small .a4-fraction-select {
-  min-width: 15mm;
-  width: 15mm;
-  height: 6mm;
-  padding: 0;
-  font-size: 9px;
 }
 
 .a4-side .a4-row {
@@ -518,141 +440,5 @@
   .a4-scale-inner {
     position: static;
     transform: none;
-  }
-}
-
-/*
- * Screen preview only. Container queries respond to the actual form panel
- * width (including admin dialogs/sidebar layouts), not merely the viewport.
- * Print dimensions and scaling are intentionally unaffected.
- */
-@media screen {
-  @container measurement-preview (max-width: 700px) {
-    .a4-scale-wrapper {
-      width: 100%;
-      height: auto;
-      margin: 0;
-    }
-
-    .a4-scale-inner {
-      position: static;
-      width: 100%;
-      transform: none;
-    }
-
-    .a4-page {
-      width: 100%;
-      min-height: 0;
-      height: auto;
-      margin: 0;
-      padding: 12px;
-      overflow: visible;
-    }
-
-    .a4-header {
-      grid-template-columns: 92px minmax(0, 1fr);
-      min-height: 88px;
-    }
-
-    .a4-logo img {
-      max-width: 76px;
-      max-height: 76px;
-    }
-
-    .a4-title-area {
-      padding: 12px 10px;
-    }
-
-    .a4-title-area h1 {
-      font-size: 17px;
-    }
-
-    .a4-title-area h2 {
-      font-size: 25px;
-      letter-spacing: 2px;
-    }
-
-    .a4-meta {
-      height: auto;
-      min-height: 44px;
-    }
-
-    .a4-grid {
-      display: block;
-    }
-
-    .a4-side {
-      margin-top: 12px;
-    }
-
-    .a4-subgrid {
-      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    }
-
-    .a4-measurement-control,
-    .a4-measurement-control-small,
-    .a4-entry,
-    .a4-inputline {
-      min-width: 0;
-      width: 100%;
-    }
-
-    .a4-quantity-grid {
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    }
-  }
-
-  @container measurement-preview (max-width: 440px) {
-    .a4-header {
-      grid-template-columns: 74px minmax(0, 1fr);
-      min-height: 74px;
-    }
-
-    .a4-logo img {
-      max-width: 62px;
-      max-height: 62px;
-    }
-
-    .a4-title-area h1 {
-      font-size: 14px;
-    }
-
-    .a4-title-area h2 {
-      font-size: 20px;
-      letter-spacing: 1px;
-    }
-
-    .a4-meta {
-      grid-template-columns: 1fr;
-    }
-
-    .a4-meta > div {
-      border-right: 0;
-      border-bottom: 1.5px solid var(--ink);
-    }
-
-    .a4-meta > div:last-child {
-      border-bottom: 0;
-    }
-
-    .a4-row,
-    .a4-side .a4-row {
-      grid-template-columns: 1fr;
-    }
-
-    .a4-label,
-    .a4-side .a4-label {
-      border-right: 0;
-      border-bottom: 1px solid var(--line);
-      padding: 9px 10px;
-    }
-
-    .a4-entry {
-      padding: 8px 10px 12px;
-    }
-
-    .a4-subgrid {
-      grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)) !important;
-    }
   }
 }

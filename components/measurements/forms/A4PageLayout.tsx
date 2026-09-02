@@ -2,15 +2,6 @@
 
 import React from "react";
 import { cn } from "@/lib/utils";
-import {
-  composeMeasurementValue,
-  MAX_POCKET_QUANTITY,
-  MEASUREMENT_FRACTIONS,
-  normalizePocketQuantity,
-  sanitizePocketQuantityInput,
-  splitMeasurementValue,
-  type MeasurementFraction,
-} from "@/lib/measurement-values";
 import "./a4-layout.css";
 
 export type DataKey = string;
@@ -151,45 +142,6 @@ export function A4Input({
   readOnly?: boolean;
   placeholder?: string;
 }) {
-  const parts = splitMeasurementValue(value);
-
-  if (!readOnly) {
-    return (
-      <span className="a4-measurement-control">
-        <input
-          className="a4-inputline"
-          value={parts.whole}
-          inputMode="decimal"
-          onChange={(event) =>
-            onChange(composeMeasurementValue(event.target.value, parts.fraction))
-          }
-          placeholder={placeholder || ""}
-          aria-label="Whole measurement"
-        />
-        <select
-          className="a4-fraction-select"
-          value={parts.fraction}
-          onChange={(event) =>
-            onChange(
-              composeMeasurementValue(
-                parts.whole,
-                event.target.value as MeasurementFraction
-              )
-            )
-          }
-          aria-label="Measurement fraction"
-        >
-          <option value="">Fraction</option>
-          {MEASUREMENT_FRACTIONS.map((fraction) => (
-            <option key={fraction} value={fraction}>
-              {fraction}
-            </option>
-          ))}
-        </select>
-      </span>
-    );
-  }
-
   return (
     <input
       className="a4-inputline"
@@ -198,49 +150,6 @@ export function A4Input({
       disabled={readOnly}
       placeholder={placeholder || ""}
     />
-  );
-}
-
-export function A4QuantitySelect({
-  label,
-  value,
-  onChange,
-  readOnly,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  readOnly?: boolean;
-}) {
-  const quantity = value === "" ? "" : normalizePocketQuantity(value);
-  const printedQuantity = normalizePocketQuantity(value);
-
-  return (
-    <div className="a4-quantity-choice">
-      <span>{label}</span>
-      {readOnly ? (
-        <strong>{printedQuantity === "0" ? "—" : printedQuantity}</strong>
-      ) : (
-        <input
-          className="a4-quantity-input"
-          type="number"
-          inputMode="numeric"
-          min={0}
-          max={MAX_POCKET_QUANTITY}
-          step={1}
-          value={quantity}
-          onChange={(event) => {
-            const nextQuantity = sanitizePocketQuantityInput(event.target.value);
-            if (nextQuantity !== null) onChange(nextQuantity);
-          }}
-          onBlur={() => {
-            if (quantity === "") onChange("0");
-          }}
-          placeholder="0"
-          aria-label={`${label} pocket quantity`}
-        />
-      )}
-    </div>
   );
 }
 
@@ -324,46 +233,15 @@ export function A4SubInput({
   onChange: (v: string) => void;
   readOnly?: boolean;
 }) {
-  const parts = splitMeasurementValue(value);
-
   return (
     <div className="a4-subitem">
       {label}
       <span className="a4-smallline">
-        {readOnly ? (
-          <input value={value} disabled />
-        ) : (
-          <span className="a4-measurement-control a4-measurement-control-small">
-            <input
-              value={parts.whole}
-              inputMode="decimal"
-              onChange={(event) =>
-                onChange(composeMeasurementValue(event.target.value, parts.fraction))
-              }
-              aria-label={`${label} whole measurement`}
-            />
-            <select
-              className="a4-fraction-select"
-              value={parts.fraction}
-              onChange={(event) =>
-                onChange(
-                  composeMeasurementValue(
-                    parts.whole,
-                    event.target.value as MeasurementFraction
-                  )
-                )
-              }
-              aria-label={`${label} fraction`}
-            >
-              <option value="">—</option>
-              {MEASUREMENT_FRACTIONS.map((fraction) => (
-                <option key={fraction} value={fraction}>
-                  {fraction}
-                </option>
-              ))}
-            </select>
-          </span>
-        )}
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={readOnly}
+        />
       </span>
     </div>
   );

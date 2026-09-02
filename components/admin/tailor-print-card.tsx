@@ -11,7 +11,6 @@ import type {
   GarmentType,
 } from "@/lib/validators/measurements-unified";
 import { UNIFIED_MEASUREMENT_EMPTY } from "@/lib/validators/measurements-unified";
-import { formatPKTDate } from "@/lib/utils/date";
 
 export interface TailorCardData {
   serialNo: string;
@@ -50,16 +49,10 @@ function buildFormData(data: TailorCardData): UnifiedMeasurementFormData {
     garmentType:
       data.garmentType as UnifiedMeasurementFormData["garmentType"],
     customerName: data.customerName,
-    deliveryDate: formatTailorDeliveryDate(data.deliveryDate),
+    deliveryDate: data.deliveryDate || "",
     notes: data.notes || "",
     serialNumber: data.serialNo,
   };
-}
-
-function formatTailorDeliveryDate(value: string | undefined): string {
-  if (!value) return "";
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? value : formatPKTDate(parsed);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -183,78 +176,9 @@ function ensurePrintStyleInHead() {
         --line: #023E8A !important;
         --brand: #023E8A !important;
       }
-
-      /* A6 print clarity only. Keep the page, scale, spacing and geometry above unchanged. */
-      body.tailor-printing-a6 .tailor-print-portal {
-        --ink: #000 !important;
-        --muted: #000 !important;
-        --line: #000 !important;
-        --brand: #000 !important;
-        --gold: #000 !important;
-      }
-      body.tailor-printing-a6 .tailor-print-portal .a4-page,
-      body.tailor-printing-a6 .tailor-print-portal .a4-page input,
-      body.tailor-printing-a6 .tailor-print-portal .a4-page button {
-        font-family: Arial, Helvetica, sans-serif !important;
-        font-synthesis: none !important;
-      }
-      body.tailor-printing-a6 .tailor-print-portal .a4-title-area h1 {
-        font-weight: 600 !important;
-      }
-      body.tailor-printing-a6 .tailor-print-portal .a4-card h3,
-      body.tailor-printing-a6 .tailor-print-portal .a4-label,
-      body.tailor-printing-a6 .tailor-print-portal .a4-side .a4-label,
-      body.tailor-printing-a6 .tailor-print-portal button {
-        font-weight: 500 !important;
-      }
-      body.tailor-printing-a6 .tailor-print-portal .a4-meta,
-      body.tailor-printing-a6 .tailor-print-portal .a4-meta-input,
-      body.tailor-printing-a6 .tailor-print-portal .a4-subitem,
-      body.tailor-printing-a6 .tailor-print-portal .a4-mini,
-      body.tailor-printing-a6 .tailor-print-portal .a4-pill {
-        font-weight: 400 !important;
-      }
-      body.tailor-printing-a6 .tailor-print-portal .a4-inputline,
-      body.tailor-printing-a6 .tailor-print-portal .a4-subitem .a4-smallline input {
-        font-weight: 400 !important;
-      }
-      body.tailor-printing-a6 .tailor-print-portal .a4-quantity-choice,
-      body.tailor-printing-a6 .tailor-print-portal .a4-quantity-choice strong {
-        font-weight: 400 !important;
-      }
-      body.tailor-printing-a6 .tailor-print-portal .a4-meta-input:disabled,
-      body.tailor-printing-a6 .tailor-print-portal .a4-inputline:disabled,
-      body.tailor-printing-a6 .tailor-print-portal .a4-subitem .a4-smallline input:disabled {
-        color: #000 !important;
-        -webkit-text-fill-color: #000 !important;
-        opacity: 1 !important;
-      }
-      body.tailor-printing-a6 .tailor-print-portal .a4-inputline,
-      body.tailor-printing-a6 .tailor-print-portal .a4-inputline:disabled,
-      body.tailor-printing-a6 .tailor-print-portal .a4-subitem .a4-smallline input,
-      body.tailor-printing-a6 .tailor-print-portal .a4-pill,
-      body.tailor-printing-a6 .tailor-print-portal .a4-subitem,
-      body.tailor-printing-a6 .tailor-print-portal .a4-side .a4-label,
-      body.tailor-printing-a6 .tailor-print-portal .a4-footer {
-        border-color: #000 !important;
-      }
-      body.tailor-printing-a6 .tailor-print-portal .a4-footer {
-        color: #000 !important;
-      }
-      body.tailor-printing-a6 .tailor-print-portal .a4-box.disabled {
-        opacity: 1 !important;
-      }
-      body.tailor-printing-a6 .tailor-print-portal .a4-box.checked::after {
-        color: #000 !important;
-      }
       body.tailor-printing .tailor-print-portal .a4-header,
-      body.tailor-printing .tailor-print-portal .a4-page,
-      body.tailor-printing .tailor-print-portal .a4-meta,
-      body.tailor-printing .tailor-print-portal .a4-card,
       body.tailor-printing .tailor-print-portal .a4-card h3,
-      body.tailor-printing .tailor-print-portal .a4-row,
       body.tailor-printing .tailor-print-portal .a4-label,
-      body.tailor-printing .tailor-print-portal .a4-entry,
       body.tailor-printing .tailor-print-portal .a4-pill,
       body.tailor-printing .tailor-print-portal .a4-subitem {
         background: #fff !important;

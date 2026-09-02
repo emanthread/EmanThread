@@ -25,7 +25,6 @@ export default defineConfig({
     "chatbot-email-modernization.spec.ts",
     "email-delivery-compliance.spec.ts",
     "stitching-profile-flow.spec.ts",
-    "measurement-print-background.spec.ts",
     "build-font-resilience.spec.ts",
     "storefront-performance.spec.ts",
     "admin-performance.spec.ts",

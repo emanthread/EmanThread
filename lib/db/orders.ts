@@ -644,7 +644,6 @@ export async function getOrdersByUser(userId: string) {
     id: order.id,
     orderNumber: order.orderNumber,
     date: order.createdAt.toISOString().split("T")[0],
-    stitchingDeliveryDate: order.stitchingDeliveryDate?.toISOString() ?? null,
     status: order.status.toLowerCase() as
       | "pending"
       | "processing"
@@ -701,7 +700,6 @@ export async function getOrderById(id: string) {
     id: order.id,
     orderNumber: order.orderNumber,
     date: order.createdAt.toISOString().split("T")[0],
-    stitchingDeliveryDate: order.stitchingDeliveryDate?.toISOString() ?? null,
     status: order.status.toLowerCase() as
       | "pending"
       | "processing"
@@ -768,7 +766,6 @@ export async function getAdminOrders(options: {
         subtotal: true,
         shippingCost: true,
         stitchingFee: true,
-        stitchingDeliveryDate: true,
         discountAmount: true,
         grandTotal: true,
         notes: true,
@@ -852,7 +849,6 @@ export async function getAdminOrders(options: {
       subtotal: Number(order.subtotal),
       shippingCost: Number(order.shippingCost),
       stitchingFee: Number(order.stitchingFee),
-      stitchingDeliveryDate: order.stitchingDeliveryDate?.toISOString() ?? null,
       discount: Number(order.discountAmount || 0),
       total: Number(order.grandTotal),
       status: order.status.toLowerCase() as
