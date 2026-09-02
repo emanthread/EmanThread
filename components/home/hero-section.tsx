@@ -194,18 +194,39 @@ export function HeroSection({ initialSlides, initialDepartment = "all", locked =
                 onReady={() => setMediaPreloadReady(true)}
               />
             ) : backgroundSlide.image ? (
-              <Image
-                src={backgroundSlide.image}
-                alt={backgroundSlide.title}
-                fill
-                priority={isActive && index === 0}
-                loading={isActive && index === 0 ? undefined : "lazy"}
-                sizes="100vw"
-                className="object-cover"
-                onLoad={() => {
-                  if (isActive) setMediaPreloadReady(true);
-                }}
-              />
+              <>
+                {/* Desktop image (hidden on mobile if mobileImage is set) */}
+                <Image
+                  src={backgroundSlide.image}
+                  alt={backgroundSlide.title}
+                  fill
+                  priority={isActive && index === 0}
+                  loading={isActive && index === 0 ? undefined : "lazy"}
+                  sizes="100vw"
+                  className={cn(
+                    "object-cover",
+                    backgroundSlide.mobileImage ? "hidden md:block" : "block"
+                  )}
+                  onLoad={() => {
+                    if (isActive) setMediaPreloadReady(true);
+                  }}
+                />
+                {/* Mobile image (portrait crop) — only shown when provided */}
+                {backgroundSlide.mobileImage && (
+                  <Image
+                    src={backgroundSlide.mobileImage}
+                    alt={backgroundSlide.title}
+                    fill
+                    priority={isActive && index === 0}
+                    loading={isActive && index === 0 ? undefined : "lazy"}
+                    sizes="100vw"
+                    className="object-cover block md:hidden"
+                    onLoad={() => {
+                      if (isActive) setMediaPreloadReady(true);
+                    }}
+                  />
+                )}
+              </>
             ) : null}
 
           </div>

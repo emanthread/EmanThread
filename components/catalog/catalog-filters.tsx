@@ -26,6 +26,13 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 
+/** Normalises any stored label to Title Case for consistent UI display. */
+function toTitleCase(str: string): string {
+  return str.replace(/\w\S*/g, (word) =>
+    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+  );
+}
+
 type CatalogFiltersProps = {
   data: CatalogPageData;
 };
@@ -247,7 +254,7 @@ function CatalogFilterFields({
             <option value="">All fabrics</option>
             {currentValue(facets.fabrics, query.fabricType).map((fabric) => (
               <option key={fabric} value={fabric}>
-                {fabric}
+                {toTitleCase(fabric)}
               </option>
             ))}
           </select>
@@ -271,7 +278,7 @@ function CatalogFilterFields({
               <optgroup key={group.label} label={group.label}>
                 {currentValue(group.values, query.option).map((option) => (
                   <option key={`${group.label}-${option}`} value={option}>
-                    {option}
+                    {toTitleCase(option)}
                   </option>
                 ))}
               </optgroup>
@@ -302,7 +309,7 @@ function CatalogFilterFields({
             <option value="">{colorCopy.allLabel}</option>
             {currentValue(facets.colors, query.color).map((color) => (
               <option key={color} value={color}>
-                {color}
+                {toTitleCase(color)}
               </option>
             ))}
           </select>

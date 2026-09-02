@@ -330,10 +330,40 @@ function SlideEditor({
             />
           </>
         ) : (
-          <ImageUploader
-            currentImage={slide.image ?? ""}
-            onImageChange={(url) => update("image", url)}
-          />
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              {/* Desktop Image */}
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 pb-1 border-b border-border">
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">🖥 Desktop Image</span>
+                  <span className="text-[10px] text-muted-foreground/60">16:9 · 1920×1080px</span>
+                </div>
+                <ImageUploader
+                  label="Desktop Image"
+                  currentImage={slide.image ?? ""}
+                  onImageChange={(url) => update("image", url)}
+                />
+              </div>
+
+              {/* Mobile Image */}
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 pb-1 border-b border-border">
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">📱 Mobile Image</span>
+                  <span className="text-[10px] text-muted-foreground/60">4:5 or 9:16 · portrait crop</span>
+                </div>
+                <ImageUploader
+                  label="Mobile Image"
+                  currentImage={slide.mobileImage ?? ""}
+                  onImageChange={(url) => update("mobileImage", url)}
+                />
+                {!slide.mobileImage && (
+                  <p className="text-[11px] text-muted-foreground/70 mt-1">
+                    If left empty, the desktop image will be used on mobile too.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
         )}
 
       </CardContent>

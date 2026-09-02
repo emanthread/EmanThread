@@ -154,6 +154,7 @@ export interface HeroSlide {
   department?: HeroDepartment;
   mediaType?: HeroMediaType;
   image?: string;
+  mobileImage?: string;
   videoUrl?: string;
   poster?: string;
   title: string;
@@ -228,12 +229,14 @@ export function normalizeHeroSlide(value: unknown): HeroSlide | null {
 
   const id = readString(value.id);
   const department = isHeroDepartment(value.department) ? value.department : "all";
+  const mobileImage = readString(value.mobileImage);
 
   return {
     ...(id ? { id } : {}),
     department,
     mediaType,
     ...(image ? { image } : {}),
+    ...(mobileImage ? { mobileImage } : {}),
     ...(videoUrl ? { videoUrl } : {}),
     ...(poster ? { poster } : {}),
     title,

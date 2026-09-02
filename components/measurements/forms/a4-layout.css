@@ -74,11 +74,77 @@
   }
 }
 
-@media screen and (max-width: 800px) {
-  .a4-page {
+@media screen and (max-width: 768px) {
+  .a4-page-root {
+    width: 100% !important;
+    overflow-x: hidden !important;
+  }
+  .a4-scale-wrapper {
     width: 100% !important;
     height: auto !important;
+    margin: 0 !important;
+  }
+  .a4-scale-inner {
+    position: relative !important;
+    transform: none !important;
+    width: 100% !important;
+    top: 0 !important;
+    left: 0 !important;
+  }
+  .a4-page {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
     min-height: auto !important;
+    padding: 10px 8px !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border-radius: 6px !important;
+  }
+  .a4-header {
+    grid-template-columns: 24mm 1fr !important;
+    min-height: 24mm !important;
+  }
+  .a4-title-area {
+    padding: 2mm 3mm !important;
+  }
+  .a4-title-area h1 {
+    font-size: 14px !important;
+  }
+  .a4-title-area h2 {
+    font-size: 20px !important;
+  }
+  .a4-grid {
+    display: block !important;
+  }
+  .a4-row {
+    grid-template-columns: 28mm 1fr !important;
+    min-height: auto !important;
+  }
+  .a4-label {
+    font-size: 13px !important;
+    padding: 2.5mm 2mm !important;
+  }
+  .a4-entry {
+    padding: 2mm 2mm !important;
+    gap: 2mm !important;
+  }
+  .a4-inputline {
+    min-width: 20mm !important;
+    font-size: 14px !important;
+  }
+  .a4-subgrid {
+    grid-template-columns: repeat(auto-fit, minmax(65px, 1fr)) !important;
+    gap: 1.5mm !important;
+  }
+  .a4-subitem {
+    min-height: 12mm !important;
+    font-size: 11px !important;
+    padding: 1.5mm 1mm !important;
+  }
+  .a4-watermark {
+    font-size: 24px !important;
+    letter-spacing: 2px !important;
   }
 }
 

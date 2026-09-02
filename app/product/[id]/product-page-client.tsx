@@ -330,10 +330,20 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
   };
 
   const handleAddToCart = () => {
+    if (selectionRequired && (!selectedVariant || !isVariantAvailable(selectedVariant))) {
+      setOptionError(true);
+      setSizeDrawerOpen(true); // auto-open size drawer on mobile
+      return;
+    }
     addConfiguredItem();
   };
 
   const handleBuyNow = () => {
+    if (selectionRequired && (!selectedVariant || !isVariantAvailable(selectedVariant))) {
+      setOptionError(true);
+      setSizeDrawerOpen(true); // auto-open size drawer on mobile
+      return;
+    }
     if (addConfiguredItem()) {
       router.push("/checkout");
     }
@@ -632,12 +642,26 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
               </div>
 
               {/* Mobile prominent SELECT SIZE button */}
-              <div className="lg:hidden">
+              <div className="lg:hidden space-y-1">
                 <SheetTrigger asChild>
-                  <Button size="lg" className="w-full font-bold uppercase tracking-widest h-12 bg-foreground text-background hover:bg-foreground/90">
-                    {selectedVariant ? `Size: ${canonicalStorefrontSizeLabel(selectedVariant.label)}` : "SELECT SIZE"}
+                  <Button
+                    size="lg"
+                    className={cn(
+                      "w-full font-bold uppercase tracking-widest h-12 bg-foreground text-background hover:bg-foreground/90 transition-all",
+                      optionError && "ring-2 ring-red-500 ring-offset-1 animate-[shake_0.35s_ease-in-out]"
+                    )}
+                    onClick={() => setOptionError(false)}
+                  >
+                    {selectedVariant
+                      ? `Size: ${canonicalStorefrontSizeLabel(selectedVariant.label)}`
+                      : "SELECT SIZE"}
                   </Button>
                 </SheetTrigger>
+                {optionError && (
+                  <p className="text-xs text-red-500 font-medium text-center animate-in fade-in slide-in-from-top-1 duration-200">
+                    ⚠ Please select a size before adding to cart
+                  </p>
+                )}
               </div>
 
               {/* Mobile SELECT SIZE Bottom Sheet Drawer */}
