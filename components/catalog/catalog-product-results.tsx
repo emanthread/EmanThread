@@ -3,18 +3,17 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  ChevronDown,
+  Columns,
   Grid3X3,
-  LayoutGrid,
   PackageOpen,
-  Search,
+  Square,
 } from "lucide-react";
 import { ProductCard } from "@/components/product/product-card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import type { CatalogPageData } from "@/lib/db/catalog";
 import type { Product } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { CatalogFilters } from "@/components/catalog/catalog-filters";
 
 type CatalogProductResultsProps = {
   path: string;
@@ -23,56 +22,8 @@ type CatalogProductResultsProps = {
   total: number;
   hasFilters: boolean;
   indexable: boolean;
+  data: CatalogPageData;
 };
-
-type PreservedFieldsProps = {
-  query: CatalogPageData["query"];
-  omit: "search" | "sort";
-};
-
-function PreservedCatalogFields({ query, omit }: PreservedFieldsProps) {
-  return (
-    <>
-      {omit !== "search" && query.search ? (
-        <input type="hidden" name="q" value={query.search} />
-      ) : null}
-      {omit !== "sort" && query.sort !== "featured" ? (
-        <input type="hidden" name="sort" value={query.sort} />
-      ) : null}
-      {query.fabricType ? (
-        <input type="hidden" name="fabric" value={query.fabricType} />
-      ) : null}
-      {query.color ? (
-        <input type="hidden" name="color" value={query.color} />
-      ) : null}
-      {query.season ? (
-        <input type="hidden" name="season" value={query.season} />
-      ) : null}
-      {query.productKind ? (
-        <input type="hidden" name="kind" value={query.productKind} />
-      ) : null}
-      {query.option ? (
-        <input type="hidden" name="option" value={query.option} />
-      ) : null}
-      {query.minPrice !== undefined ? (
-        <input type="hidden" name="minPrice" value={query.minPrice} />
-      ) : null}
-      {query.maxPrice !== undefined ? (
-        <input type="hidden" name="maxPrice" value={query.maxPrice} />
-      ) : null}
-      {query.inStock ? (
-        <input type="hidden" name="inStock" value="true" />
-      ) : null}
-      {query.categoryIds?.length ? (
-        <input
-          type="hidden"
-          name="category"
-          value={query.categoryIds.join(",")}
-        />
-      ) : null}
-    </>
-  );
-}
 
 export function CatalogProductResults({
   path,
@@ -81,124 +32,88 @@ export function CatalogProductResults({
   total,
   hasFilters,
   indexable,
+  data,
 }: CatalogProductResultsProps) {
-  const [gridDensity, setGridDensity] = useState<"compact" | "comfortable">(
-    "compact"
+  const [gridDensity, setGridDensity] = useState<"1-col" | "2-col" | "4-col">(
+    "4-col"
   );
 
   return (
     <>
-      <div className="mb-8 flex flex-col items-stretch justify-center gap-3 rounded-xl border border-border bg-card/60 p-4 sm:flex-row sm:flex-wrap sm:items-center lg:p-5">
-        <form
-          action={path}
-          method="get"
-          role="search"
-          aria-label="Search this collection"
-          className="relative w-full sm:w-64"
-        >
-          <PreservedCatalogFields query={query} omit="search" />
-          <Search
-            aria-hidden="true"
-            className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            type="search"
-            name="q"
-            defaultValue={query.search}
-            maxLength={100}
-            placeholder="Search products..."
-            className="h-11 rounded-sm pl-10"
-          />
-        </form>
-
-        <div
-          className="flex h-11 overflow-hidden rounded-md border border-border"
-          role="group"
-          aria-label="Product grid size"
-        >
-          <button
-            type="button"
-            aria-label="Show more products per row"
-            aria-pressed={gridDensity === "compact"}
-            className={cn(
-              "flex w-11 items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-              gridDensity === "compact"
-                ? "bg-primary text-primary-foreground"
-                : "bg-background hover:bg-muted"
-            )}
-            onClick={() => setGridDensity("compact")}
-          >
-            <Grid3X3 aria-hidden="true" className="size-4" />
-          </button>
-          <button
-            type="button"
-            aria-label="Show larger product cards"
-            aria-pressed={gridDensity === "comfortable"}
-            className={cn(
-              "flex w-11 items-center justify-center border-l border-border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-              gridDensity === "comfortable"
-                ? "bg-primary text-primary-foreground"
-                : "bg-background hover:bg-muted"
-            )}
-            onClick={() => setGridDensity("comfortable")}
-          >
-            <LayoutGrid aria-hidden="true" className="size-4" />
-          </button>
-        </div>
-
-        <form action={path} method="get" className="relative w-full sm:w-56">
-          <PreservedCatalogFields query={query} omit="sort" />
-          <label className="sr-only" htmlFor="catalog-sort">
-            Sort products
-          </label>
-          <select
-            id="catalog-sort"
-            name="sort"
-            defaultValue={query.sort}
-            onChange={(event) => event.currentTarget.form?.requestSubmit()}
-            className="h-11 w-full appearance-none rounded-sm border border-input bg-background px-4 pr-10 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            <option value="featured">Featured</option>
-            <option value="newest">Newest</option>
-            <option value="trending">Trending</option>
-            <option value="price-asc">Price: low to high</option>
-            <option value="price-desc">Price: high to low</option>
-            <option value="name-asc">Name: A to Z</option>
-          </select>
-          <ChevronDown
-            aria-hidden="true"
-            className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-          />
-        </form>
-      </div>
-
-      <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2
-            id="catalog-products-heading"
-            className="font-serif text-2xl font-semibold"
-          >
-            Products
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {total} {total === 1 ? "product" : "products"}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 pb-2">
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            {total} {total === 1 ? "Product" : "Products"}
           </p>
         </div>
-        {process.env.NODE_ENV === "development" && !indexable ? (
-          <p className="text-xs text-muted-foreground">
-            Preview collection — not indexed
-          </p>
-        ) : null}
+
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Grid View Toggles (1-col, 2-col, 4-col) */}
+          <div
+            className="flex items-center gap-0.5 rounded-md border border-border bg-background p-1"
+            role="group"
+            aria-label="Product grid view size"
+          >
+            <button
+              type="button"
+              aria-label="1 product per row"
+              title="1 Column View"
+              aria-pressed={gridDensity === "1-col"}
+              className={cn(
+                "flex size-8 items-center justify-center rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                gridDensity === "1-col"
+                  ? "bg-primary text-primary-foreground font-bold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              onClick={() => setGridDensity("1-col")}
+            >
+              <Square aria-hidden="true" className="size-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="2 products per row"
+              title="2 Columns View"
+              aria-pressed={gridDensity === "2-col"}
+              className={cn(
+                "flex size-8 items-center justify-center rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                gridDensity === "2-col"
+                  ? "bg-primary text-primary-foreground font-bold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              onClick={() => setGridDensity("2-col")}
+            >
+              <Columns aria-hidden="true" className="size-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="4 products per row"
+              title="4 Columns View"
+              aria-pressed={gridDensity === "4-col"}
+              className={cn(
+                "flex size-8 items-center justify-center rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                gridDensity === "4-col"
+                  ? "bg-primary text-primary-foreground font-bold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              onClick={() => setGridDensity("4-col")}
+            >
+              <Grid3X3 aria-hidden="true" className="size-4" />
+            </button>
+          </div>
+
+          {/* Slide-out Filter & Sort Trigger Drawer */}
+          <CatalogFilters data={data} />
+        </div>
       </div>
 
       {products.length ? (
         <div
           data-grid-density={gridDensity}
           className={cn(
-            "grid gap-x-4 gap-y-8",
-            gridDensity === "compact"
-              ? "grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
-              : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
+            "grid gap-4 sm:gap-6 transition-all",
+            gridDensity === "1-col" && "grid-cols-1 max-w-2xl mx-auto",
+            gridDensity === "2-col" && "grid-cols-2",
+            gridDensity === "4-col" && "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
           )}
         >
           {products.map((product, index) => (

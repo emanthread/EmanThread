@@ -22,26 +22,9 @@ import {
 
 export function SizeGuideModal({ product }: { product: Product }) {
   const guideUrl = resolveProductSizeGuideUrl(product);
-  const usesKidsGuide = guideUrl === KIDS_SIZE_GUIDE_URL;
   const templateKeys = resolveProductSizeGuideTemplates(product);
 
   if (!hasProductSizeGuide(product)) return null;
-
-  if (usesKidsGuide) {
-    return (
-      <Button
-        type="button"
-        variant="link"
-        className="h-auto gap-2 px-0 text-sm"
-        asChild
-      >
-        <a href={guideUrl} target="_blank" rel="noopener noreferrer">
-          <Ruler className="h-4 w-4" />
-          Size Guide
-        </a>
-      </Button>
-    );
-  }
 
   return (
     <Dialog>

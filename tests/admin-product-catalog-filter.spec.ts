@@ -92,14 +92,14 @@ test("server validates active nodes and filters any assignment in the active des
   );
 });
 
-test("admin list identifies the primary category and reports additional placements", () => {
+test("admin list presents one natural category without placement flags", () => {
   const list = source("components/admin/product-list-page.tsx");
   const store = source("lib/admin-store.ts");
   const products = source("lib/db/products.ts");
 
-  expect(list).toContain("Primary category");
-  expect(list).toContain("additionalCatalogPlacements(product)");
-  expect(list).toContain("total catalog placements");
+  expect(list).toMatch(/<th[^>]*>\s*Category\s*<\/th>/);
+  expect(list).not.toContain("additionalCatalogPlacements(product)");
+  expect(list).not.toContain("total catalog placements");
   expect(store).toContain("catalogPlacementCount?: number");
   expect(products).toContain(
     "_count: { select: { catalogAssignments: true } }"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
 import { Plus, Trash2, Star, Pencil, Ruler, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -50,9 +51,9 @@ interface MeasurementProfileManagerProps {
   onSelect?: (profile: ProfileSummary) => void;
   /** If true, shows a "select" button next to each profile */
   showSelect?: boolean;
-  /** If true, opens the form for creating a new profile immediately */
+  /** Legacy entry point: redirects the old modal URL to the full-page form. */
   defaultCreateMode?: boolean;
-  /** Called after the server has created and returned the new owned profile. */
+  /** Retained for compatibility with callers using the former modal flow. */
   onCreated?: (profile: ProfileSummary) => void;
 }
 
@@ -61,11 +62,10 @@ export function MeasurementProfileManager({
   onSelect,
   showSelect = false,
   defaultCreateMode = false,
-  onCreated,
 }: MeasurementProfileManagerProps) {
+  const router = useRouter();
   const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [createOpen, setCreateOpen] = useState(defaultCreateMode);
   const [formMode, setFormMode] = useState<"edit" | "readonly">("edit");
   const [editProfile, setEditProfile] = useState<ProfileSummary | null>(null);
   // fullEditData holds the complete profile fetched from /api/measurements/[id]
@@ -101,8 +101,14 @@ export function MeasurementProfileManager({
   }, [fetchProfiles]);
 
   useEffect(() => {
-    if (defaultCreateMode) setCreateOpen(true);
-  }, [defaultCreateMode]);
+    if (!defaultCreateMode) return;
+    const params = new URLSearchParams(window.location.search);
+    const requestedReturn = params.get("returnTo");
+    const query = requestedReturn
+      ? `?returnTo=${encodeURIComponent(requestedReturn)}`
+      : "";
+    router.replace(`/account/measurements/new${query}`);
+  }, [defaultCreateMode, router]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -132,22 +138,6 @@ export function MeasurementProfileManager({
       console.error("[MEASUREMENT_MANAGER_ERROR]", error);
       toast({ title: "Something went wrong. Please try again.", variant: "destructive" });
     }
-  };
-
-  const handleSaveNew = async (data: UnifiedMeasurementFormData) => {
-    const res = await fetch("/api/measurements", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || "Failed to create profile");
-    }
-    const payload = await res.json();
-    setCreateOpen(false);
-    await fetchProfiles();
-    if (payload.profile) onCreated?.(payload.profile as ProfileSummary);
   };
 
   const handleSaveEdit = async (data: UnifiedMeasurementFormData) => {
@@ -181,7 +171,7 @@ export function MeasurementProfileManager({
         <Button
           size="sm"
           variant="outline"
-          onClick={() => setCreateOpen(true)}
+          onClick={() => router.push("/account/measurements/new")}
           className="gap-1.5"
         >
           <Plus className="h-3.5 w-3.5" />
@@ -355,21 +345,6 @@ export function MeasurementProfileManager({
           )})}
         </div>
       )}
-
-      {/* Create Dialog */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Create New Measurement Profile</DialogTitle>
-          </DialogHeader>
-          <UnifiedMeasurementForm
-            data={{}}
-            mode="edit"
-            wizard={true}
-            onSave={handleSaveNew}
-          />
-        </DialogContent>
-      </Dialog>
 
       {/* Edit Dialog */}
       <Dialog

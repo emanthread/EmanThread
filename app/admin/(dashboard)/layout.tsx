@@ -19,7 +19,6 @@ import {
   X,
   LogOut,
   ChevronLeft,
-  ClipboardList,
   Mail,
   Ruler,
   CreditCard,
@@ -70,7 +69,7 @@ const navItems = [
   { href: "/admin/orders", icon: ShoppingCart, label: "Orders" },
   { href: "/admin/products", icon: Package, label: "Products" },
   ...(FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1
-    ? [{ href: "/admin/catalog", icon: Layers, label: "Catalog Assignment" }]
+    ? [{ href: "/admin/catalog", icon: Layers, label: "Categories" }]
     : []),
   { href: "/admin/customers", icon: Users, label: "Customers" },
   { href: "/admin/discounts", icon: Tag, label: "Discounts" },
@@ -78,7 +77,6 @@ const navItems = [
   { href: "/admin/payment-verification", icon: CreditCard, label: "Payments" },
   { href: "/admin/measurements", icon: Ruler, label: "Stitching" },
   { href: "/admin/stitching-calendar", icon: CalendarDays, label: "Delivery Calendar" },
-  { href: "/admin/audit-logs", icon: ClipboardList, label: "Audit Logs" },
   { href: "/admin/newsletter", icon: Mail, label: "Newsletter" },
   { href: "/admin/media-library", icon: ImageIcon, label: "Media Library" },
   { href: "/admin/monitoring", icon: Activity, label: "Monitoring" },

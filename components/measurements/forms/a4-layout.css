@@ -9,7 +9,7 @@
   --ink: #172554;
   --muted: #64748b;
   --line: #93a4bf;
-  --soft: #f8fafc;
+  --soft: #fff;
   --gold: #b08d57;
   --brand: #0f172a;
 }
@@ -102,7 +102,7 @@
   grid-template-columns: 36mm 1fr;
   min-height: 30mm;
   position: relative;
-  background: linear-gradient(180deg, #fff, #f8fafc);
+  background: #fff;
 }
 
 .a4-logo {
@@ -153,6 +153,7 @@
   font-size: 11px;
   font-weight: 600;
   color: var(--ink);
+  background: #fff;
 }
 
 .a4-meta > div {
@@ -215,7 +216,7 @@
 
 .a4-card h3 {
   margin: 0;
-  background: #f1f5f9;
+  background: #fff;
   color: var(--ink);
   font-size: 15px;
   letter-spacing: 0.8px;
@@ -245,7 +246,7 @@
   color: var(--ink);
   border-right: 1.5px solid var(--line);
   font-size: 15px;
-  background: #fbfdff;
+  background: #fff;
 }
 
 .a4-entry {
@@ -319,7 +320,7 @@
   border-radius: 999px;
   padding: 1.5mm 2.6mm;
   font-size: 10.5px;
-  background: #f8fafc;
+  background: #fff;
   color: #334155;
   cursor: pointer;
 }
@@ -337,7 +338,7 @@
 
 .a4-subitem {
   border: 1px solid #cbd5e1;
-  background: #f8fafc;
+  background: #fff;
   border-radius: 2px;
   min-height: 15mm;
   padding: 2mm;

@@ -906,7 +906,7 @@ export default function CheckoutPage() {
                                   if (val === "none" || val === "create_new") {
                                     if (val === "create_new") {
                                       const returnTo = `/checkout?stitchingLineId=${encodeURIComponent(item.lineId)}`;
-                                      router.push(`/account/measurements?create=1&returnTo=${encodeURIComponent(returnTo)}`);
+                                      router.push(`/account/measurements/new?returnTo=${encodeURIComponent(returnTo)}`);
                                       return;
                                     }
                                     // Clear variant selection too

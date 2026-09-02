@@ -123,11 +123,6 @@ function catalogFilterBreadcrumb(
     .join(" → ");
 }
 
-function additionalCatalogPlacements(product: AdminProduct): number {
-  const primaryCount = product.primaryCatalogCategory ? 1 : 0;
-  return Math.max(0, (product.catalogPlacementCount || 0) - primaryCount);
-}
-
 export default function ProductListPage({
   initialStockFilter = "all",
 }: {
@@ -745,7 +740,7 @@ export default function ProductListPage({
                   )}
                   <th className="p-4 text-left text-sm font-medium">Product</th>
                   <th className="hidden p-4 text-left text-sm font-medium md:table-cell">
-                    Primary category
+                    Category
                   </th>
                   <th className="p-4 text-left text-sm font-medium">Price</th>
                   <th className="p-4 text-left text-sm font-medium">Stock</th>
@@ -808,23 +803,9 @@ export default function ProductListPage({
                         </div>
                       </td>
                       <td className="hidden max-w-xs p-4 text-sm md:table-cell">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="line-clamp-2">
-                            {categoryLabel(product)}
-                          </span>
-                          {additionalCatalogPlacements(product) > 0 && (
-                            <Badge
-                              variant="outline"
-                              className="whitespace-nowrap font-normal"
-                              title={`${product.catalogPlacementCount} total catalog placements`}
-                            >
-                              +{additionalCatalogPlacements(product)} placement
-                              {additionalCatalogPlacements(product) === 1
-                                ? ""
-                                : "s"}
-                            </Badge>
-                          )}
-                        </div>
+                        <span className="line-clamp-2">
+                          {categoryLabel(product)}
+                        </span>
                       </td>
                       <td className="p-4">
                         <p className="font-medium">

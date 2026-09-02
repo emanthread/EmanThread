@@ -37,15 +37,15 @@ test.describe("Women Partywear, Bridal, and Saari catalog expansion", () => {
     expect(migration.match(/TRUE, FALSE, FALSE/g)).toHaveLength(4);
   });
 
-  test("reuses admin multi-placement and catalog filtering", () => {
+  test("uses one natural product category and retains catalog filtering", () => {
     const assignmentEditor = source(
       "components/admin/product-catalog-assignment-section.tsx"
     );
     const productList = source("components/admin/product-list-page.tsx");
 
-    expect(assignmentEditor).toContain("Choose another category");
-    expect(assignmentEditor).toContain("Add placement");
-    expect(assignmentEditor).toContain("...assignments.filter(");
+    expect(assignmentEditor).toContain("Choose a product category");
+    expect(assignmentEditor).toContain("onChange([primaryAssignment])");
+    expect(assignmentEditor).not.toContain("Add placement");
     expect(productList).toContain(
       '"/api/admin/catalog/nodes?active=true&visible=all&limit=1000"'
     );

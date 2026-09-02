@@ -48,13 +48,11 @@ test.describe("product editor draft validation", () => {
     expect(emptyCommerceProfileDraft().optionLabel).toBe("Option");
   });
 
-  test("rejects duplicate catalog placements", () => {
-    expect(() =>
-      serializeCatalogAssignments([
-        { catalogNodeId: "node-1", isFeatured: false, displayOrder: "" },
-        { catalogNodeId: "node-1", isFeatured: true, displayOrder: "2" },
-      ])
-    ).toThrow("Each catalog node can be assigned only once");
+  test("keeps one natural category and removes placement flags", () => {
+    expect(serializeCatalogAssignments([
+      { catalogNodeId: "node-1", isFeatured: true, displayOrder: "12" },
+      { catalogNodeId: "node-2", isFeatured: true, displayOrder: "2" },
+    ])).toEqual([{ catalogNodeId: "node-1", isFeatured: false, displayOrder: null }]);
   });
 
   test("requires an option name when options exist", () => {

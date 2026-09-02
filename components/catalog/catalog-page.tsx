@@ -23,6 +23,7 @@ import {
   type CatalogSearchParams,
 } from "@/lib/db/catalog";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
+import { catalogMenu } from "@/lib/navigation/catalog-menu";
 
 const configuredSiteUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://emanthread.com";
@@ -352,6 +353,38 @@ export interface CatalogPageProps {
   searchParams: CatalogSearchParams;
 }
 
+function getSubcategoryChips(currentPath: string): { label: string; href: string }[] {
+  const normalizedPath = currentPath.toLowerCase().replace(/\/+$/, "");
+  const chips: { label: string; href: string }[] = [];
+
+  for (const dept of catalogMenu) {
+    const deptPath = `/${dept.id}`;
+    if (normalizedPath === deptPath) {
+      for (const sec of dept.sections) {
+        if (sec.href) {
+          chips.push({ label: sec.label, href: sec.href });
+        }
+      }
+      return chips;
+    }
+
+    for (const sec of dept.sections) {
+      if (sec.href && normalizedPath === sec.href.toLowerCase()) {
+        for (const group of sec.groups) {
+          for (const item of group.items) {
+            if (item.href && item.visibility === "visible" && !chips.some((c) => c.href === item.href)) {
+              chips.push({ label: item.label, href: item.href });
+            }
+          }
+        }
+        return chips;
+      }
+    }
+  }
+
+  return chips;
+}
+
 export async function CatalogPage({
   canonicalPath,
   searchParams,
@@ -389,7 +422,9 @@ export async function CatalogPage({
   const heroSlides = heroDepartment
     ? selectHeroSlidesForDepartment(await getHeroSlides(), heroDepartment)
     : [];
-  
+
+  const subcategoryChips = getSubcategoryChips(data.node.path);
+
   return (
     <>
       <Header />
@@ -410,10 +445,10 @@ export async function CatalogPage({
           />
         )}
 
-        <div className={cn("mx-auto max-w-7xl px-4 sm:px-6 lg:px-8", isDepartmentRoot && "pt-12")}>
+        <div className={cn("mx-auto max-w-7xl px-4 sm:px-6 lg:px-8", isDepartmentRoot && "pt-8")}>
           <nav
             aria-label="Breadcrumb"
-            className="mb-5 overflow-x-auto py-1 text-xs uppercase tracking-[0.14em] text-muted-foreground"
+            className="mb-4 overflow-x-auto py-1 text-xs uppercase tracking-[0.14em] text-muted-foreground"
           >
             <ol className="flex min-w-max items-center gap-2">
               <li>
@@ -454,7 +489,7 @@ export async function CatalogPage({
           {!isDepartmentRoot && bannerImage ? (
             <section
               data-testid="catalog-node-banner"
-              className="relative isolate flex min-h-56 items-end overflow-hidden rounded-xl bg-muted sm:min-h-80"
+              className="relative isolate mb-8 flex min-h-56 items-end overflow-hidden rounded-xl bg-muted sm:min-h-80"
             >
               <Image
                 src={bannerImage}
@@ -479,40 +514,51 @@ export async function CatalogPage({
                 )}
               </div>
             </section>
-          ) : !isDepartmentRoot && (
-            <section
-              data-testid="catalog-node-banner"
-              className="border-y border-border py-10 text-center sm:py-16"
-            >
-              <h1 className="font-serif text-3xl font-semibold sm:text-5xl">
-                {data.node.label}
-              </h1>
+          ) : (
+            <div className="mb-6 border-b border-border/50 pb-5">
+              <div className="flex flex-wrap items-baseline gap-3">
+                <h1 className="font-serif text-3xl font-bold uppercase tracking-wider text-foreground sm:text-4xl">
+                  {data.node.label}
+                </h1>
+                <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  / {data.total} {data.total === 1 ? "Product" : "Products"}
+                </span>
+              </div>
               {data.node.description && (
-                <p className="mx-auto mt-4 max-w-2xl leading-7 text-muted-foreground">
+                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
                   {data.node.description}
                 </p>
               )}
-            </section>
+
+              {subcategoryChips.length > 0 && (
+                <div className="mt-4 flex flex-wrap items-center gap-2 pt-1">
+                  {subcategoryChips.map((chip) => (
+                    <Link
+                      key={chip.href}
+                      href={chip.href}
+                      className="inline-flex items-center rounded-full border border-border/80 bg-background px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-foreground transition-all hover:border-primary hover:bg-primary hover:text-primary-foreground"
+                    >
+                      {chip.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           <FeaturedContent data={data} />
 
-          <section aria-labelledby="catalog-products-heading" className="pt-8">
-            <div className="flex flex-col gap-5 lg:flex-row lg:gap-8">
-              <CatalogFilters data={data} />
-
-              <div className="min-w-0 flex-1">
-                <CatalogProductResults
-                  path={data.node.path}
-                  products={data.products}
-                  query={data.query}
-                  total={data.total}
-                  hasFilters={hasFilters}
-                  indexable={data.node.indexable}
-                />
-                <Pagination data={data} />
-              </div>
-            </div>
+          <section aria-labelledby="catalog-products-heading" className="pt-2">
+            <CatalogProductResults
+              path={data.node.path}
+              products={data.products}
+              query={data.query}
+              total={data.total}
+              hasFilters={hasFilters}
+              indexable={data.node.indexable}
+              data={data}
+            />
+            <Pagination data={data} />
           </section>
         </div>
       </main>

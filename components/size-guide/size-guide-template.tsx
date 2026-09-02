@@ -7,6 +7,7 @@ import mensSuitSizeGuide from "@/size guide/mens size guide for pent coat.jpeg";
 import pentCoatSizeGuide from "@/size guide/pent coat size guide.jpeg";
 import waistcoatSizeGuide from "@/size guide/waistcoat size chart.jpeg";
 import womensReadywearSizeGuide from "@/size guide/Ladies Measurement.jpeg";
+import kidsSizeGuide from "@/size guide/kids size guide.jpeg";
 import {
   getSizeGuideTemplate,
   SIZE_GUIDE_TEMPLATES,
@@ -20,6 +21,7 @@ const templateImages = {
   "pent-coat": pentCoatSizeGuide,
   waistcoat: waistcoatSizeGuide,
   "womens-readywear": womensReadywearSizeGuide,
+  kids: kidsSizeGuide,
 } satisfies Record<SizeGuideTemplateKey, typeof mensShirtSizeGuide>;
 
 export function SizeGuideTemplateImage({

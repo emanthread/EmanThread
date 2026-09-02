@@ -23,9 +23,39 @@ interface ProductOptionPickerProps {
   guideAction?: ReactNode;
 }
 
+const CANONICAL_SIZE_LABELS: Record<string, string> = {
+  "extra extra small": "XXS",
+  "double extra small": "XXS",
+  xxs: "XXS",
+  "extra small": "XS",
+  xs: "XS",
+  small: "S",
+  s: "S",
+  medium: "M",
+  med: "M",
+  m: "M",
+  large: "L",
+  l: "L",
+  "extra large": "XL",
+  xl: "XL",
+  "extra extra large": "XXL",
+  "double extra large": "XXL",
+  "double xl": "XXL",
+  "2xl": "XXL",
+  xxl: "XXL",
+  "triple extra large": "XXXL",
+  "3xl": "XXXL",
+  xxxl: "XXXL",
+};
+
+export function canonicalStorefrontSizeLabel(value: string): string {
+  const normalized = value.trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+  return CANONICAL_SIZE_LABELS[normalized] || value.trim();
+}
+
 function isGarmentSizeOption(value: string): boolean {
   return /^(?:xxs|xs|s|m|l|xl|xxl|xxxl|2xl|3xl|4xl|\d{2}|\d{2}-\d{2}|one size|free size)$/i.test(
-    value.trim(),
+    canonicalStorefrontSizeLabel(value),
   );
 }
 
@@ -100,15 +130,16 @@ export function ProductOptionPicker({
             <div className="mb-3 flex items-center justify-between gap-3">
               <p className="text-sm font-medium">
                 Select {option.label}
-                {(selectionRequired || option.isRequired) && <span className="text-destructive"> *</span>}
               </p>
               <div className="flex items-center gap-3">
-                {(selectionRequired || option.isRequired) && <span className="text-[11px] text-muted-foreground">Required</span>}
                 {option.type === "SIZE" ? guideAction : null}
               </div>
             </div>
             <div aria-label={`Choose ${option.label}`} className={cn("flex flex-wrap gap-2", compact && "gap-1.5")} role="radiogroup">
               {option.values.filter((value) => value.isActive).map((value) => {
+                const displayLabel = option.type === "SIZE"
+                  ? canonicalStorefrontSizeLabel(value.label)
+                  : value.label;
                 const requested = new Map(selectedValueByOptionId);
                 requested.delete(option.id);
                 requested.set(option.id, value.id);
@@ -140,7 +171,7 @@ export function ProductOptionPicker({
                         : "border-border bg-background hover:border-primary/60 hover:bg-secondary",
                       !available && "cursor-not-allowed border-border/60 bg-muted text-muted-foreground line-through opacity-70",
                     )}
-                    title={available ? `${value.label}${soleVariant ? ` — ${formatPrice(unitPrice)}` : ""}` : `${value.label} is unavailable with the current selection`}
+                    title={available ? `${displayLabel}${soleVariant ? ` — ${formatPrice(unitPrice)}` : ""}` : `${displayLabel} is unavailable with the current selection`}
                   >
                     {usesColorSwatches && (
                       <span aria-hidden="true" className="relative h-8 w-8 shrink-0 rounded-full border border-black/10 shadow-inner" style={{ backgroundColor: value.swatchHex || "#d1d5db" }}>
@@ -148,7 +179,7 @@ export function ProductOptionPicker({
                       </span>
                     )}
                     {selected && !usesCircularSizeChoices && !usesColorSwatches && <Check className="h-3 w-3" aria-hidden="true" />}
-                    <span>{value.label}</span>
+                    <span>{displayLabel}</span>
                     {soleVariant && soleVariant.priceAdjustment !== 0 && !usesCircularSizeChoices && (
                       <span className={cn("text-[10px]", selected ? "text-primary-foreground/80" : "text-muted-foreground")}>
                         {soleVariant.priceAdjustment > 0 ? "+" : ""}{formatPrice(soleVariant.priceAdjustment)}

@@ -423,6 +423,7 @@ export const catalogMenu: MenuDepartment[] = [
               { id: "men.ready-to-wear.kurta-trousers", label: "KURTA TROUSERS", href: "/men/ready-to-wear/kurta-trousers", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 6 },
               { id: "men.ready-to-wear.waistcoat", label: "WAISTCOAT", href: "/men/ready-to-wear/waistcoat", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 7 },
               { id: "men.ready-to-wear.coat", label: "COAT", href: "/men/ready-to-wear/coat", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 8 },
+              { id: "men.ready-to-wear.dress-shirt", label: "DRESS SHIRT", href: "/men/ready-to-wear/dress-shirt", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 9 },
             ],
           },
           {

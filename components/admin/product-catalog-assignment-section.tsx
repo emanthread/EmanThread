@@ -1,19 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Check,
   ChevronsUpDown,
   Loader2,
-  Plus,
-  Trash2,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Command,
@@ -246,6 +242,7 @@ function CatalogNodeCombobox({
 
 type AssignmentApiRow = Omit<CatalogAssignmentDraft, "displayOrder"> & {
   displayOrder: number | null;
+  isPrimary: boolean;
   catalogNode: NonNullable<CatalogAssignmentDraft["catalogNode"]>;
 };
 
@@ -262,41 +259,14 @@ function readApiError(payload: unknown, fallback: string): string {
 export function serializeCatalogAssignments(
   assignments: CatalogAssignmentDraft[]
 ): CatalogAssignmentPayload[] {
-  if (assignments.length > 25) {
-    throw new Error("A product can be assigned to at most 25 catalog nodes");
-  }
+  const assignment = assignments[0];
+  if (!assignment?.catalogNodeId) return [];
 
-  const nodeIds = new Set<string>();
-  return assignments.map((assignment) => {
-    if (!assignment.catalogNodeId || nodeIds.has(assignment.catalogNodeId)) {
-      throw new Error("Each catalog node can be assigned only once");
-    }
-    nodeIds.add(assignment.catalogNodeId);
-
-    const rawOrder = assignment.displayOrder.trim();
-    if (!rawOrder) {
-      return {
-        catalogNodeId: assignment.catalogNodeId,
-        isFeatured: assignment.isFeatured,
-        displayOrder: null,
-      };
-    }
-
-    if (!/^\d+$/.test(rawOrder)) {
-      throw new Error("Catalog display order must be a whole number of zero or greater");
-    }
-
-    const displayOrder = Number(rawOrder);
-    if (!Number.isSafeInteger(displayOrder) || displayOrder > 1_000_000) {
-      throw new Error("Catalog display order must be between 0 and 1,000,000");
-    }
-
-    return {
-      catalogNodeId: assignment.catalogNodeId,
-      isFeatured: assignment.isFeatured,
-      displayOrder,
-    };
-  });
+  return [{
+    catalogNodeId: assignment.catalogNodeId,
+    isFeatured: false,
+    displayOrder: null,
+  }];
 }
 
 export function ProductCatalogAssignmentSection({
@@ -327,10 +297,8 @@ export function ProductCatalogAssignmentSection({
   const [nodes, setNodes] = useState<CatalogNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [nodeToAdd, setNodeToAdd] = useState("");
   const [departmentPath, setDepartmentPath] = useState("");
   const [primaryNodeId, setPrimaryNodeId] = useState("");
-  const primaryToReplace = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -376,18 +344,19 @@ export function ProductCatalogAssignmentSection({
 
         // A newly-created Product may be switched into edit mode solely to
         // retry a failed assignment save. Keep that unsaved draft intact.
-        const nextAssignments =
-          assignments.length
-            ? assignments
-            : currentAssignments.map((assignment) => ({
-                catalogNodeId: assignment.catalogNodeId,
-                isFeatured: assignment.isFeatured,
-                displayOrder:
-                  assignment.displayOrder === null
-                    ? ""
-                    : String(assignment.displayOrder),
-                catalogNode: assignment.catalogNode,
-              }));
+        const savedPrimary =
+          currentAssignments.find((assignment) => assignment.isPrimary) ||
+          currentAssignments[0];
+        const nextAssignments = assignments.length
+          ? assignments.slice(0, 1)
+          : savedPrimary
+            ? [{
+                catalogNodeId: savedPrimary.catalogNodeId,
+                isFeatured: false,
+                displayOrder: "",
+                catalogNode: savedPrimary.catalogNode,
+              }]
+            : [];
         onChange(nextAssignments);
 
         const firstAssignment = nextAssignments[0];
@@ -397,7 +366,6 @@ export function ProductCatalogAssignmentSection({
           : null;
         if (firstAssignment && firstNode) {
           setPrimaryNodeId(firstAssignment.catalogNodeId);
-          primaryToReplace.current = null;
           const rootSegment = firstNode.path.split("/").filter(Boolean)[0];
           setDepartmentPath(rootSegment ? `/${rootSegment}` : "");
           const isSpecificCategory =
@@ -443,9 +411,6 @@ export function ProductCatalogAssignmentSection({
     () => new Map(nodes.map((node) => [node.id, node])),
     [nodes]
   );
-  const availableNodes = nodes.filter(
-    (node) => !assignments.some((assignment) => assignment.catalogNodeId === node.id)
-  );
   const departments = catalogDepartmentNodes(nodes);
   const nodesForDepartment = departmentPath
     ? nodes
@@ -463,30 +428,7 @@ export function ProductCatalogAssignmentSection({
         .sort((left, right) => left.path.localeCompare(right.path, "en"))
     : [];
 
-  const addNode = () => {
-    const node = nodesById.get(nodeToAdd);
-    if (!node) return;
-    onChange([
-      ...assignments,
-      {
-        catalogNodeId: node.id,
-        isFeatured: false,
-        displayOrder: "",
-        catalogNode: {
-          label: node.label,
-          path: node.path,
-          productKind: node.productKind,
-          isActive: node.isActive,
-          isVisible: node.isVisible,
-        },
-      },
-    ]);
-    setNodeToAdd("");
-  };
-
   const selectPrimaryNode = (catalogNodeId: string) => {
-    const previousPrimaryId = primaryToReplace.current || primaryNodeId;
-    primaryToReplace.current = null;
     setPrimaryNodeId(catalogNodeId);
     const node = nodesById.get(catalogNodeId);
     if (!node) return;
@@ -506,62 +448,14 @@ export function ProductCatalogAssignmentSection({
         isVisible: node.isVisible,
       },
     };
-    // A category correction replaces the old primary. Additional placements
-    // are retained only when the admin deliberately added them in Advanced.
-    onChange([
-      primaryAssignment,
-      ...assignments.filter(
-        (assignment) =>
-          assignment.catalogNodeId !== node.id &&
-          assignment.catalogNodeId !== previousPrimaryId
-      ),
-    ]);
+    // The simplified editor has one natural category per product.
+    onChange([primaryAssignment]);
 
     onPrimaryPathChange?.(node.path, "selection", node.productKind);
   };
 
-  const removeAssignment = (catalogNodeId: string) => {
-    const remaining = assignments.filter(
-      (item) => item.catalogNodeId !== catalogNodeId
-    );
-    primaryToReplace.current = null;
-    onChange(remaining);
-    if (catalogNodeId !== primaryNodeId) return;
-
-    const nextPrimary = remaining[0];
-    setPrimaryNodeId(nextPrimary?.catalogNodeId || "");
-    const node = nextPrimary
-      ? nodesById.get(nextPrimary.catalogNodeId) || nextPrimary.catalogNode
-      : null;
-    const rootSegment = node?.path.split("/").filter(Boolean)[0];
-    if (rootSegment) setDepartmentPath(`/${rootSegment}`);
-    const isSpecificCategory =
-      Boolean(node) &&
-      (node?._count?.children ?? 0) === 0 &&
-      Boolean(classifyCatalogNode(node));
-    onPrimaryPathChange?.(
-      isSpecificCategory ? node?.path || null : null,
-      "selection",
-      isSpecificCategory ? node?.productKind : null
-    );
-  };
-
-  const updateAssignment = (
-    catalogNodeId: string,
-    update: Partial<CatalogAssignmentDraft>
-  ) => {
-    onChange(
-      assignments.map((assignment) =>
-        assignment.catalogNodeId === catalogNodeId
-          ? { ...assignment, ...update }
-          : assignment
-      )
-    );
-  };
-
-  const resolvedPrimaryId = primaryNodeId;
   const primaryAssignment = assignments.find(
-    (assignment) => assignment.catalogNodeId === resolvedPrimaryId
+    (assignment) => assignment.catalogNodeId === primaryNodeId
   );
   const primaryNode = primaryAssignment
     ? nodesById.get(primaryAssignment.catalogNodeId) || primaryAssignment.catalogNode
@@ -605,7 +499,6 @@ export function ProductCatalogAssignmentSection({
           <Select
             value={departmentPath}
             onValueChange={(path) => {
-              if (primaryNodeId) primaryToReplace.current = primaryNodeId;
               setDepartmentPath(path);
               setPrimaryNodeId("");
               onPrimaryPathChange?.(null, "selection", null);
@@ -664,109 +557,11 @@ export function ProductCatalogAssignmentSection({
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Choose a more specific category</AlertTitle>
           <AlertDescription>
-            This existing placement is a broad storefront landing page. Choose
-            a subcategory above; broad pages can remain additional placements.
+            This existing selection is a broad storefront landing page. Choose
+            its final sellable category above.
           </AlertDescription>
         </Alert>
       )}
-
-      <details className="group rounded-lg border bg-muted/10">
-        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium">
-          Advanced: additional placements and display settings
-          <span className="ml-2 font-normal text-muted-foreground">
-            {Math.max(0, assignments.length - 1)} additional
-          </span>
-        </summary>
-        <div className="space-y-4 border-t p-4">
-          <div>
-            <Label className="mb-2 block">Add another storefront placement</Label>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <CatalogNodeCombobox
-                value={nodeToAdd}
-                nodes={availableNodes}
-                allNodes={nodes}
-                onChange={setNodeToAdd}
-                disabled={loading || !availableNodes.length}
-                placeholder={loading ? "Loading categories..." : "Choose another category"}
-                searchPlaceholder="Search all placements..."
-                ariaLabel="Additional catalog placement"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={addNode}
-                disabled={!nodeToAdd || loading}
-              >
-                {loading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Plus className="mr-2 h-4 w-4" />
-                )}
-                Add placement
-              </Button>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-          {assignments.map((assignment) => {
-            const node = nodesById.get(assignment.catalogNodeId) || assignment.catalogNode;
-            const nodeActive = node?.isActive !== false;
-            const isPrimary = assignment.catalogNodeId === resolvedPrimaryId;
-            return (
-              <div key={assignment.catalogNodeId} className="space-y-3 rounded-md border p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium">
-                        {node?.path
-                          ? catalogNodeBreadcrumb(node.path, nodes)
-                          : node?.label || "Catalog category unavailable"}
-                      </p>
-                      {isPrimary && <Badge>Primary</Badge>}
-                    </div>
-                    {!nodeActive && <Badge variant="destructive" className="mt-1">Inactive</Badge>}
-                    {node && !node.isVisible && <Badge variant="outline" className="ml-1 mt-1">Not visible</Badge>}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => removeAssignment(assignment.catalogNodeId)}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Remove
-                  </Button>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem] sm:items-end">
-                  <label className="flex min-h-10 items-center gap-2 text-sm">
-                    <Checkbox
-                      checked={assignment.isFeatured}
-                      onCheckedChange={(value) => updateAssignment(assignment.catalogNodeId, { isFeatured: value === true })}
-                      disabled={!nodeActive}
-                    />
-                    Featured in this node
-                  </label>
-                  <div className="space-y-1">
-                    <Label htmlFor={`catalog-order-${assignment.catalogNodeId}`}>Catalog display order</Label>
-                    <Input
-                      id={`catalog-order-${assignment.catalogNodeId}`}
-                      type="number"
-                      min={0}
-                      max={1_000_000}
-                      value={assignment.displayOrder}
-                      placeholder="Default"
-                      onChange={(event) => updateAssignment(assignment.catalogNodeId, { displayOrder: event.target.value })}
-                      disabled={!nodeActive}
-                    />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          </div>
-        </div>
-      </details>
     </section>
   );
 }

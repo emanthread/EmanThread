@@ -59,6 +59,7 @@ interface Order {
   subtotal: number;
   shippingCost: number;
   stitchingFee?: number;
+  stitchingDeliveryDate?: string | null;
   discountAmount?: number;
   total: number;
   notes?: string | null;
@@ -406,7 +407,7 @@ export default function OrdersPage() {
                                     data={{
                                       serialNo: `ORD-${order.orderNumber}`,
                                       customerName: m.snapshot?.measurements?.customerName || order.orderNumber,
-                                      deliveryDate: order.date,
+                                      deliveryDate: order.stitchingDeliveryDate || "",
                                       productName: m.productName,
                                       garmentType: m.snapshot?.garmentType || "",
                                       measurements: m.snapshot?.measurements || {},

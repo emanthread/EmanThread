@@ -183,15 +183,32 @@ function CatalogFilterFields({
 
   return (
     <>
-      {query.sort !== "featured" && (
-        <input type="hidden" name="sort" value={query.sort} />
-      )}
       {query.search ? (
         <input type="hidden" name="q" value={query.search} />
       ) : null}
       {query.categoryIds?.length ? (
         <input type="hidden" name="category" value={query.categoryIds.join(",")} />
       ) : null}
+
+      <div className="space-y-2">
+        <label htmlFor={`${idPrefix}-sort`} className="text-sm font-semibold uppercase tracking-wider">
+          Sort By
+        </label>
+        <select
+          id={`${idPrefix}-sort`}
+          name="sort"
+          defaultValue={query.sort || "featured"}
+          onChange={submitSelection}
+          className={selectClassName}
+        >
+          <option value="featured">Featured</option>
+          <option value="newest">New Arrivals</option>
+          <option value="trending">Trending</option>
+          <option value="price-asc">Price: Low to High</option>
+          <option value="price-desc">Price: High to Low</option>
+          <option value="name-asc">Name: A to Z</option>
+        </select>
+      </div>
 
       {showKinds ? (
         <div className="space-y-2">
@@ -340,96 +357,39 @@ function CatalogFilterForm({
   );
 }
 
-/** Desktop sidebar plus an equivalent left-hand drawer on smaller screens. */
+/** Slide-out Filter & Sort drawer for all screen sizes. */
 export function CatalogFilters({ data }: CatalogFiltersProps) {
   const count = activeFilterCount(data.query);
-  const desktopScrollRef = useRef<HTMLDivElement>(null);
-  const scrollFilters = (direction: -1 | 1) => {
-    desktopScrollRef.current?.scrollBy({
-      top: direction * 320,
-      behavior: "smooth",
-    });
-  };
 
   return (
-    <>
-      <aside className="hidden w-64 shrink-0 lg:block" aria-label="Catalog filters">
-        <div className="sticky top-[calc(var(--catalog-header-height,7rem)+1rem)] flex max-h-[calc(100dvh-var(--catalog-header-height,7rem)-2rem)] flex-col overflow-hidden rounded-xl border border-border bg-card/40">
-          <div className="flex items-center justify-between border-b border-border px-3 py-2">
-            <span className="text-xs font-medium text-muted-foreground">
-              Scroll filters
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button
+          variant="outline"
+          className="flex h-10 items-center gap-2 rounded-md border border-border px-4 text-xs font-semibold uppercase tracking-wider shadow-xs hover:bg-accent hover:text-accent-foreground"
+        >
+          <SlidersHorizontal aria-hidden="true" className="size-3.5" />
+          <span>Filter and Sort</span>
+          {count ? (
+            <span className="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+              {count}
             </span>
-            <div className="flex items-center gap-1" role="group" aria-label="Scroll filter panel">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-8"
-                aria-label="Scroll filters up"
-                onClick={() => scrollFilters(-1)}
-              >
-                <ChevronUp aria-hidden="true" className="size-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-8"
-                aria-label="Scroll filters down"
-                onClick={() => scrollFilters(1)}
-              >
-                <ChevronDown aria-hidden="true" className="size-4" />
-              </Button>
-            </div>
-          </div>
-          <div
-            ref={desktopScrollRef}
-            tabIndex={0}
-            className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 [scrollbar-width:thin]"
-            aria-label="Scrollable product filters"
-          >
-            <div className="space-y-7">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="font-serif text-xl font-semibold">Filters</h2>
-                {count ? (
-                  <Link
-                    href={data.node.path}
-                    className="text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
-                  >
-                    Clear all
-                  </Link>
-                ) : null}
-              </div>
-              <CatalogFilterForm data={data} idPrefix="catalog-desktop" />
-            </div>
-          </div>
+          ) : null}
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="right" className="flex w-full max-w-sm flex-col gap-0 overflow-y-auto p-0">
+        <SheetHeader className="border-b border-border p-5">
+          <SheetTitle className="font-serif text-lg font-semibold uppercase tracking-wider">
+            Filter & Sort
+          </SheetTitle>
+          <SheetDescription className="text-xs text-muted-foreground">
+            Refine {data.node.label} collection.
+          </SheetDescription>
+        </SheetHeader>
+        <div className="flex-1 p-5">
+          <CatalogFilterForm data={data} idPrefix="catalog-drawer" compact />
         </div>
-      </aside>
-
-      <div className="lg:hidden">
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="outline" className="w-full justify-between">
-              <span className="flex items-center gap-2">
-                <SlidersHorizontal aria-hidden="true" className="size-4" />
-                Filters
-              </span>
-              {count ? <span className="text-xs">{count} applied</span> : null}
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-full max-w-sm gap-0 overflow-y-auto p-0">
-            <SheetHeader className="border-b border-border pr-12">
-              <SheetTitle>Filters</SheetTitle>
-              <SheetDescription>
-                Refine {data.node.label} without leaving this collection.
-              </SheetDescription>
-            </SheetHeader>
-            <div className="p-5">
-              <CatalogFilterForm data={data} idPrefix="catalog-mobile" compact />
-            </div>
-          </SheetContent>
-        </Sheet>
-      </div>
-    </>
+      </SheetContent>
+    </Sheet>
   );
 }

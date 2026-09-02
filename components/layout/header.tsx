@@ -5,19 +5,19 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
-import { 
-  Menu, 
-  Search, 
-  ShoppingBag, 
-  X, 
-  User, 
+import {
+  Search,
+  ShoppingBag,
+  X,
+  User,
   ChevronDown,
   LogOut,
   Settings,
   Package,
   Heart,
   LayoutDashboard,
-  Ruler
+  Ruler,
+  Menu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,8 +40,7 @@ import {
   shouldShowCatalogNavigation,
 } from "@/lib/navigation/storefront-routes";
 import { CatalogHeaderMenu } from "./catalog-header-menu";
-import { CatalogMobileMenu } from "./catalog-mobile-menu";
-import { CatalogMobileDepartmentMenu } from "./catalog-mobile-department-menu";
+import { CatalogMobileNav } from "./catalog-mobile-nav";
 import { StitchingNoticeBanner } from "./stitching-notice-banner";
 import catalogStyles from "./catalog-header-menu.module.css";
 import { useInitialPublishedCatalogPaths } from "./published-catalog-provider";
@@ -837,7 +836,7 @@ function CatalogHeaderV1() {
 
           <div className={cn(catalogStyles.mobileBar, isHeroMode && catalogStyles.heroMode)}>
             <div className={catalogStyles.mobileBarLeft}>
-              <CatalogMobileMenu
+              <CatalogMobileNav
                 isAuthenticated={isAuthenticated}
                 user={user}
                 utilityLinks={utilityLinks}
@@ -845,6 +844,9 @@ function CatalogHeaderV1() {
                 wishlistReady={wishlistReady}
                 onSearch={() => setIsSearchOpen(true)}
                 onLogout={handleLogout}
+                linksEnabled={FEATURE_FLAGS.CATALOG_PAGES_V1}
+                showNavigation={showCatalogNavigation}
+                publishedCatalogPaths={publishedCatalogPaths}
               />
             </div>
             <Link
@@ -887,11 +889,7 @@ function CatalogHeaderV1() {
               </button>
             </div>
           </div>
-          <CatalogMobileDepartmentMenu
-            linksEnabled={FEATURE_FLAGS.CATALOG_PAGES_V1}
-            showNavigation={showCatalogNavigation}
-            publishedCatalogPaths={publishedCatalogPaths}
-          />
+
         </div>
         <span aria-live="polite" aria-atomic="true" className="sr-only">
           {mounted && totalItems > 0

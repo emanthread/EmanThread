@@ -9,7 +9,7 @@ export default function ProductPageLoading() {
       {/* Header placeholder */}
       <div className="h-20 bg-background border-b border-border/50" />
 
-      <main className="min-h-screen pt-20">
+      <main className="min-h-screen pt-[var(--catalog-header-height,116px)]">
         {/* Breadcrumb skeleton */}
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center gap-2">

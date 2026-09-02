@@ -97,6 +97,7 @@ const expectedHierarchy = [
               "KURTA TROUSERS",
               "WAISTCOAT",
               "COAT",
+              "DRESS SHIRT",
             ],
           },
           {
@@ -315,7 +316,7 @@ test.describe("catalog navigation configuration", () => {
     expect(configuredHierarchy).toEqual(expectedHierarchy);
     expect(catalogMenu).toHaveLength(4);
     expect(catalogMenu.flatMap((department) => department.sections)).toHaveLength(18);
-    expect(allLeaves()).toHaveLength(134);
+    expect(allLeaves()).toHaveLength(135);
 
     for (const department of catalogMenu) {
       expectSequentialOrder(department.sections);
@@ -476,7 +477,7 @@ test.describe("catalog navigation configuration", () => {
     ).toBe("invalid");
   });
 
-  test("adds Men Ready-to-Wear piece-count and coat leaves without changing its visual cards", () => {
+  test("adds Men Ready-to-Wear product categories without changing its visual cards", () => {
     const men = catalogMenu.find((department) => department.id === "men")!;
     const readyToWear = men.sections.find(
       (section) => section.id === "men.ready-to-wear",
@@ -499,11 +500,17 @@ test.describe("catalog navigation configuration", () => {
         order: 2,
       },
     ]);
-    expect(shopByCategory.items.at(-1)).toMatchObject({
+    expect(shopByCategory.items.find((item) => item.id === "men.ready-to-wear.coat")).toMatchObject({
       id: "men.ready-to-wear.coat",
       label: "COAT",
       href: "/men/ready-to-wear/coat",
       order: 8,
+    });
+    expect(shopByCategory.items.at(-1)).toMatchObject({
+      id: "men.ready-to-wear.dress-shirt",
+      label: "DRESS SHIRT",
+      href: "/men/ready-to-wear/dress-shirt",
+      order: 9,
     });
     expect(readyToWear.visualCards.map((card) => card.id)).toEqual([
       "men.ready-to-wear.card.kameez-shalwar",
@@ -637,6 +644,15 @@ test.describe("catalog navigation configuration", () => {
       ),
     ).toMatchObject({
       id: "catalog:leaf:men.ready-to-wear.coat",
+      parentId: "catalog:section:men.ready-to-wear",
+      productKind: "READY_TO_WEAR",
+    });
+    expect(
+      plan.entries.find(
+        (entry) => entry.path === "/men/ready-to-wear/dress-shirt",
+      ),
+    ).toMatchObject({
+      id: "catalog:leaf:men.ready-to-wear.dress-shirt",
       parentId: "catalog:section:men.ready-to-wear",
       productKind: "READY_TO_WEAR",
     });

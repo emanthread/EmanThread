@@ -3,7 +3,7 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { FlashSaleBanner } from "@/app/components/flash-sale-banner";
 import { HeroSection } from "@/components/home/hero-section";
-import { LuxuryHighlightsSection } from "@/components/home/luxury-highlights-section";
+
 import { CategoriesSection } from "@/components/home/categories-section";
 import { getAllProducts, getFeaturedCategoriesSection } from "@/lib/db-queries";
 import { DEFAULT_HERO_SLIDES, getHeroSlides } from "@/lib/db/store-config";
@@ -32,10 +32,7 @@ const NewArrivalsSection = dynamic(
   { ssr: true, loading: () => <div className="py-20 lg:py-28" /> }
 );
 
-const TestimonialsSection = dynamic(
-  () => import("@/components/home/testimonials-section").then((m) => ({ default: m.TestimonialsSection })),
-  { ssr: true, loading: () => <div className="py-20" /> }
-);
+
 
 export const revalidate = 300; // Cache the home page for 5 minutes
 
@@ -77,15 +74,14 @@ export default async function HomePage() {
       <main>
         {/* HeroSection receives pre-fetched slides — no client waterfall fetch */}
         <HeroSection initialSlides={heroSlides} />
-        {/* LuxuryHighlightsSection is now a pure RSC — zero hydration cost */}
-        <LuxuryHighlightsSection />
+
         {/* CategoriesSection is now a pure RSC — zero hydration cost */}
         <CategoriesSection {...featuredCategoriesSection} />
         {/* Below-the-fold sections are lazy-loaded to shrink the initial JS bundle */}
         <TrendingSection products={products} />
         <PromoSection />
         <NewArrivalsSection products={products} />
-        <TestimonialsSection />
+
       </main>
       <Footer />
     </>

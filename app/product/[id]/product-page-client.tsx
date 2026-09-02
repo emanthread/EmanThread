@@ -8,7 +8,7 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { CartDrawer } from "@/components/cart/lazy-cart-drawer";
 import { ProductCard } from "@/components/product/product-card";
-import { ProductOptionPicker } from "@/components/product/product-option-picker";
+import { ProductOptionPicker, canonicalStorefrontSizeLabel } from "@/components/product/product-option-picker";
 import { SizeGuideModal } from "@/components/product/size-guide-modal";
 import { StitchingProfileSelector } from "@/components/stitching/stitching-profile-selector";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,13 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { ProductReviews } from "@/components/product/product-reviews";
 import { getProductImage } from "@/lib/utils";
 import { useCartStore, type StitchingUpdate } from "@/lib/cart-store";
@@ -85,7 +92,7 @@ export default function ProductPageClient({
     <>
       <Header />
       <CartDrawer />
-      <main className="min-h-screen pt-20">
+      <main className="min-h-screen pt-[var(--catalog-header-height,116px)]">
         {/* Breadcrumb */}
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
           <nav className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -193,6 +200,7 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
     profileName: null,
   });
   const [preferredMeasurementProfileId, setPreferredMeasurementProfileId] = useState<string | null>(null);
+  const [sizeDrawerOpen, setSizeDrawerOpen] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const router = useRouter();
   const { addItem } = useCartStore();
@@ -277,7 +285,7 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
       JSON.stringify({ variantId: selectedVariantId, quantity }),
     );
     const returnTo = window.location.pathname;
-    router.push(`/account/measurements?create=1&returnTo=${encodeURIComponent(returnTo)}`);
+    router.push(`/account/measurements/new?returnTo=${encodeURIComponent(returnTo)}`);
   }, [product.id, quantity, router, selectedVariantId]);
 
   const handleMeasurementSignIn = useCallback(() => {
@@ -512,7 +520,7 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
           )}
         </div>
 
-        <div className="flex gap-3">
+        <div className="hidden lg:flex gap-3">
           {productImages.map((image, index) => (
             <button
               key={index}
@@ -578,18 +586,19 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
           <h1 className="text-3xl sm:text-4xl font-semibold leading-tight">
             {product.name}
           </h1>
+
           <div>
             {colorSelectionBlock}
           </div>
           <ProductDetailFlashSale />
-          <div className="flex items-center gap-3">
-            <span className="text-3xl font-bold">{formatPrice(displayedPrice)}</span>
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="text-2xl sm:text-3xl font-bold whitespace-nowrap">{formatPrice(displayedPrice)}</span>
             {displayedOriginalPrice && (
               <>
-                <span className="text-xl text-muted-foreground line-through">
+                <span className="text-lg sm:text-xl text-muted-foreground line-through whitespace-nowrap">
                   {formatPrice(displayedOriginalPrice)}
                 </span>
-                <Badge variant="secondary" className="text-emerald-600">
+                <Badge variant="secondary" className="text-emerald-600 whitespace-nowrap">
                   {Math.round(((displayedOriginalPrice - displayedPrice) / displayedOriginalPrice) * 100)}% Off
                 </Badge>
               </>
@@ -598,26 +607,101 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
           <p className="text-muted-foreground leading-relaxed">
             {product.description}
           </p>
+
+          {/* Size Selector: Inline on Desktop, Bottom Sheet Drawer on Mobile */}
           {hasOptions && !usesColorVariants && (
-            <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
-              {requiredSelectionUnavailable ? (
-                <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
-                  No {product.commerce?.optionLabel?.trim() || "options"} are available right now. This item cannot be ordered until one is restocked.
+            <Sheet open={sizeDrawerOpen} onOpenChange={setSizeDrawerOpen}>
+              {/* Desktop inline view */}
+              <div className="hidden lg:block rounded-lg border border-border/60 bg-secondary/20 p-4">
+                {requiredSelectionUnavailable ? (
+                  <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
+                    No {product.commerce?.optionLabel?.trim() || "options"} are available right now. This item cannot be ordered until one is restocked.
+                  </div>
+                ) : (
+                  <ProductOptionPicker
+                    product={product}
+                    selectedVariantId={selectedVariantId}
+                    onSelect={(variant: ProductVariant) => {
+                      setSelectedVariantId(variant.id);
+                      setOptionError(false);
+                    }}
+                    invalid={optionError}
+                    guideAction={<SizeGuideModal product={product} />}
+                  />
+                )}
+              </div>
+
+              {/* Mobile prominent SELECT SIZE button */}
+              <div className="lg:hidden">
+                <SheetTrigger asChild>
+                  <Button size="lg" className="w-full font-bold uppercase tracking-widest h-12 bg-foreground text-background hover:bg-foreground/90">
+                    {selectedVariant ? `Size: ${canonicalStorefrontSizeLabel(selectedVariant.label)}` : "SELECT SIZE"}
+                  </Button>
+                </SheetTrigger>
+              </div>
+
+              {/* Mobile SELECT SIZE Bottom Sheet Drawer */}
+              <SheetContent side="bottom" className="rounded-t-2xl max-h-[85dvh] overflow-y-auto p-6">
+                <SheetHeader className="p-0 border-b border-border pb-4 mb-4">
+                  <div className="flex items-center gap-4">
+                    <div className="relative w-16 h-20 bg-secondary rounded-lg overflow-hidden shrink-0">
+                      <Image
+                        src={productImages[0]}
+                        alt={product.name}
+                        fill
+                        sizes="64px"
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="space-y-1 text-left min-w-0">
+                      <SheetTitle className="text-sm font-bold uppercase tracking-wide truncate">
+                        {product.name}
+                      </SheetTitle>
+                      <p className="text-base font-bold whitespace-nowrap">
+                        {formatPrice(displayedPrice)}
+                      </p>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                        Product ID: {product.sku}
+                      </p>
+                    </div>
+                  </div>
+                </SheetHeader>
+
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider">
+                      SELECT SIZE
+                    </span>
+                    <SizeGuideModal product={product} />
+                  </div>
+
+                  <ProductOptionPicker
+                    product={product}
+                    selectedVariantId={selectedVariantId}
+                    onSelect={(variant: ProductVariant) => {
+                      setSelectedVariantId(variant.id);
+                      setOptionError(false);
+                    }}
+                    invalid={optionError}
+                  />
+
+                  <Button
+                    size="lg"
+                    className="w-full font-bold uppercase tracking-widest h-12"
+                    onClick={() => {
+                      if (addConfiguredItem()) {
+                        setSizeDrawerOpen(false);
+                      }
+                    }}
+                    disabled={!productAvailable}
+                  >
+                    ADD TO CART
+                  </Button>
                 </div>
-              ) : (
-                <ProductOptionPicker
-                  product={product}
-                  selectedVariantId={selectedVariantId}
-                  onSelect={(variant: ProductVariant) => {
-                    setSelectedVariantId(variant.id);
-                    setOptionError(false);
-                  }}
-                  invalid={optionError}
-                  guideAction={<SizeGuideModal product={product} />}
-                />
-              )}
-            </div>
+              </SheetContent>
+            </Sheet>
           )}
+
           {supportsStitching && (
             <StitchingProfileSelector
               selectedProfileId={stitchingSelection.profileId}

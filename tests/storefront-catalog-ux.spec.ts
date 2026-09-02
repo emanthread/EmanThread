@@ -162,14 +162,14 @@ test.describe("storefront catalog UX", () => {
     );
   });
 
-  test("removes duplicate catalog navigation and supplies a scrollable filter panel", () => {
+  test("removes duplicate catalog navigation and supplies a scrollable filter drawer", () => {
     const filters = source("components/catalog/catalog-filters.tsx");
 
     expect(filters).not.toContain("Department & Collection");
     expect(filters).not.toContain("Select a new department or subcategory");
     expect(filters).toContain("overflow-y-auto");
-    expect(filters).toContain('aria-label="Scroll filters up"');
-    expect(filters).toContain('aria-label="Scroll filters down"');
+    expect(filters).toContain("<SheetContent");
+    expect(filters).toContain("Filter and Sort");
   });
 
   test("routes header departments to catalog pages without changing hero tabs", () => {
@@ -200,16 +200,16 @@ test.describe("storefront catalog UX", () => {
 
     expect(catalogAdminSchema).toContain("catalogNodeBannerImageSchema");
     expect(catalogAdminSchema).toContain("catalogNodeBannerAltSchema");
-    expect(catalogAdmin).toContain("Subcategory banner (optional)");
+    expect(catalogAdmin).toContain("Category banner (optional)");
     expect(catalogAdmin).toContain("Banner image");
     expect(catalogPage).toContain(
       "const heroDepartment = catalogDepartmentFromRootPath(data.node.path)"
     );
     expect(catalogPage).toContain("initialDepartment={heroDepartment}");
     expect(catalogPage).toContain("!isDepartmentRoot && bannerImage");
-    expect(catalogPage).toContain(") : !isDepartmentRoot && (");
+    expect(catalogPage).toContain("{!isDepartmentRoot && bannerImage ? (");
     expect(catalogPage.indexOf("{!isDepartmentRoot && bannerImage ? (")).toBeLessThan(
-      catalogPage.indexOf("<CatalogFilters data={data} />")
+      catalogPage.indexOf("<CatalogProductResults")
     );
     expect(headerMenu).toContain("const routeDepartmentId = departmentFromPathname");
     expect(headerMenu).toContain(
@@ -217,13 +217,14 @@ test.describe("storefront catalog UX", () => {
     );
   });
 
-  test("puts search, grid density, and sorting together above results", () => {
+  test("puts grid density and the filter/sort drawer above results", () => {
     const results = source("components/catalog/catalog-product-results.tsx");
+    const filters = source("components/catalog/catalog-filters.tsx");
 
-    expect(results).toContain('placeholder="Search products..."');
-    expect(results).toContain('aria-label="Product grid size"');
-    expect(results).toContain('<option value="featured">Featured</option>');
-    expect(results).toContain('<option value="trending">Trending</option>');
+    expect(results).toContain('aria-label="Product grid view size"');
+    expect(results).toContain("<CatalogFilters data={data} />");
+    expect(filters).toContain('<option value="featured">Featured</option>');
+    expect(filters).toContain('<option value="trending">Trending</option>');
   });
 
   test("keeps image browsing in quick view and product details, not listing cards", () => {

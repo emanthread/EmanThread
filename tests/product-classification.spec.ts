@@ -26,6 +26,9 @@ test.describe("catalog-driven product classification", () => {
     expect(classifyCatalogPath("/men/ready-to-wear/coat")?.productKind).toBe(
       "READY_TO_WEAR"
     );
+    expect(
+      classifyCatalogPath("/men/ready-to-wear/dress-shirt")?.productKind
+    ).toBe("READY_TO_WEAR");
     expect(classifyCatalogPath("/women/ready-to-wear/casual")?.productKind).toBe(
       "READY_TO_WEAR"
     );

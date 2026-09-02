@@ -8,7 +8,8 @@ export type SizeGuideTemplateKey =
   | "mens-suit"
   | "pent-coat"
   | "waistcoat"
-  | "womens-readywear";
+  | "womens-readywear"
+  | "kids";
 
 export type SizeGuideTemplate = {
   key: SizeGuideTemplateKey;
@@ -19,7 +20,7 @@ export type SizeGuideTemplate = {
 export const SIZE_GUIDE_TEMPLATES: SizeGuideTemplate[] = [
   {
     key: "mens-shirt",
-    title: "Men's shirt / kurta",
+    title: "Men's shirt",
     description: "Finished garment measurements in inches.",
   },
   {
@@ -45,6 +46,11 @@ export const SIZE_GUIDE_TEMPLATES: SizeGuideTemplate[] = [
   {
     key: "womens-readywear",
     title: "Women's ready-to-wear",
+    description: "Finished garment measurements in inches.",
+  },
+  {
+    key: "kids",
+    title: "Kids / Teens ready-to-wear",
     description: "Finished garment measurements in inches.",
   },
 ];
@@ -85,17 +91,21 @@ function hasCatalogPath(paths: string[], pattern: RegExp): boolean {
  * considering its name. This keeps a chart tied to the actual department and
  * subcategory selected in Admin, rather than guessing from marketing copy.
  *
- * A wrong size chart is worse than no chart. Teens use their dedicated PDF
- * through resolveProductSizeGuideUrl; fragrance, beauty, gifts, and unstitched
- * fabric deliberately receive no adult bundled chart. Admin's product-specific
+ * A wrong size chart is worse than no chart. Fragrance, beauty, gifts, and unstitched
+ * fabric deliberately receive no bundled chart. Admin's product-specific
  * sizeGuideUrl remains available for every supported product.
  */
 export function resolveProductSizeGuideTemplates(
   product: Product
 ): SizeGuideTemplateKey[] {
-  if (product.commerce?.productKind !== "READY_TO_WEAR") return [];
+  if (product.commerce?.productKind === "TEENS") return ["kids"];
 
   const paths = productCatalogPaths(product);
+  if (hasCatalogPath(paths, /^\/teens(?:\/|$)/) || hasCatalogPath(paths, /^\/kids(?:\/|$)/)) {
+    return ["kids"];
+  }
+
+  if (product.commerce?.productKind !== "READY_TO_WEAR") return [];
 
   // Check combined garments first: this product needs both relevant charts.
   if (hasCatalogPath(paths, /\/kameez-shalwar-waistcoat(?:\/|$)/)) {
@@ -131,6 +141,7 @@ export function resolveProductSizeGuideTemplates(
   // Legacy products may not yet have a catalog assignment. Use a deliberately
   // narrow name/category fallback for those records only.
   const text = productGuideSearchText(product);
+  if (/\b(?:kids|teen|teens|boy|boys|girl|girls)\b/.test(text)) return ["kids"];
   if (/\bwaistcoat\b/.test(text)) return ["waistcoat"];
   if (/\b(?:pent|pant)[ -]?coat\b/.test(text)) return ["pent-coat"];
   if (/\b(?:suit|coat[ -]?and[ -]?pant)\b/.test(text)) return ["mens-suit"];
@@ -157,9 +168,7 @@ export function resolveProductSizeGuideTemplate(
 export function resolveProductSizeGuideUrl(product: Product): string | undefined {
   const customGuideUrl = product.commerce?.sizeGuideUrl?.trim();
   if (customGuideUrl) return customGuideUrl;
-  return product.commerce?.productKind === "TEENS"
-    ? KIDS_SIZE_GUIDE_URL
-    : undefined;
+  return undefined;
 }
 
 export function hasProductSizeGuide(product: Product): boolean {

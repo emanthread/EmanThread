@@ -62,7 +62,7 @@ test.describe("catalog subcategory banner admin", () => {
     expect(admin).toContain("Clear banner");
     expect(admin).toContain("Or paste an image URL");
     expect(admin).toContain("Banner image alt text");
-    expect(admin).toContain("Save the catalog path to publish it");
+    expect(admin).toContain("Save the category to publish it");
   });
 
   test("keeps department heroes separate and leaves storefront cards untouched", () => {
@@ -77,7 +77,7 @@ test.describe("catalog subcategory banner admin", () => {
     expect(catalogPage).toContain("isDepartmentRoot && heroSlides.length > 0");
     expect(catalogPage).toContain("!isDepartmentRoot && bannerImage");
     expect(catalogPage.indexOf("data-testid=\"catalog-node-banner\"")).toBeLessThan(
-      catalogPage.indexOf("<CatalogFilters data={data} />")
+      catalogPage.indexOf("<CatalogProductResults")
     );
   });
 });

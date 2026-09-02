@@ -336,53 +336,6 @@ function SlideEditor({
           />
         )}
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>Title</Label>
-            <Input
-              value={slide.title ?? ""}
-              onChange={(e) => update("title", e.target.value)}
-              placeholder="The Art of Fine Fabric"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Subtitle</Label>
-            <Input
-              value={slide.subtitle ?? ""}
-              onChange={(e) => update("subtitle", e.target.value)}
-              placeholder="Summer Collection 2026"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Description</Label>
-          <Textarea
-            value={slide.description ?? ""}
-            onChange={(e) => update("description", e.target.value)}
-            placeholder="Discover our curated selection..."
-            rows={2}
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>CTA Text</Label>
-            <Input
-              value={slide.cta ?? ""}
-              onChange={(e) => update("cta", e.target.value)}
-              placeholder="Shop Collection"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>CTA Link</Label>
-            <Input
-              value={slide.link ?? ""}
-              onChange={(e) => update("link", e.target.value)}
-              placeholder="/women"
-            />
-          </div>
-        </div>
       </CardContent>
     </Card>
   );
@@ -677,7 +630,7 @@ export default function HeroSlidesPage() {
       />
 
       {slides.length > 0 && (
-        <div className="text-sm text-muted-foreground bg-muted rounded-lg p-4">
+      <div className="text-sm text-muted-foreground bg-muted rounded-lg p-4">
           <p className="font-medium mb-1">Tips:</p>
           <ul className="list-disc list-inside space-y-1">
             <li>Click <strong>Upload Image</strong> to upload a new image from your computer</li>
@@ -686,7 +639,7 @@ export default function HeroSlidesPage() {
             <li>Videos support MP4, WebM, and MOV uploads up to 50 MB; add an optional poster image for the first frame</li>
             <li>Or paste an existing image path in the text field</li>
             <li>Hero slide optimal size: 1920x1080px (16:9 ratio)</li>
-            <li>Dark overlay is automatically applied on hero slides for text readability</li>
+            <li>Images display at full brightness — no overlay or dim is applied on the storefront</li>
           </ul>
         </div>
       )}

@@ -493,10 +493,13 @@ function CatalogTaxonomyManager({
       catalogTreeOrder(
         nodes.filter(
           (node) =>
-            node.id !== editingId && !unavailableParentIds.has(node.id)
+            node.id !== editingId &&
+            !unavailableParentIds.has(node.id) &&
+            (catalogPathParts(node.path).length === 1 ||
+              node.id === editingNode?.parentId)
         )
       ),
-    [editingId, nodes, unavailableParentIds]
+    [editingId, editingNode?.parentId, nodes, unavailableParentIds]
   );
   const orderedNodes = useMemo(() => catalogTreeOrder(nodes), [nodes]);
   const filteredNodes = useMemo(() => {
@@ -586,7 +589,7 @@ function CatalogTaxonomyManager({
       const data = (await response.json()) as { url?: string };
       if (!data.url) throw new Error("The upload did not return an image URL");
       setDraft((current) => ({ ...current, bannerImage: data.url! }));
-      toast.success("Banner uploaded. Save the catalog path to publish it.");
+      toast.success("Banner uploaded. Save the category to publish it.");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Banner upload failed";
@@ -685,6 +688,10 @@ function CatalogTaxonomyManager({
 
   const save = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!editingId && draft.parentId === ROOT_CATALOG_PARENT) {
+      toast.error("Choose a department for this category");
+      return;
+    }
     if (uploadingBanner) {
       toast.error("Wait for the banner upload to finish");
       return;
@@ -799,10 +806,10 @@ function CatalogTaxonomyManager({
     <div className="space-y-4">
       <Alert>
         <AlertTriangle aria-hidden="true" />
-        <AlertTitle>Catalog paths are staged by default</AlertTitle>
+        <AlertTitle>Categories are staged by default</AlertTitle>
         <AlertDescription>
-          New paths start inactive and hidden. Publish a parent before its
-          child. Existing product assignments are never changed by this form.
+          Add a category under a department, complete its banner and description,
+          then activate and publish it when it is ready.
         </AlertDescription>
       </Alert>
 
@@ -811,24 +818,24 @@ function CatalogTaxonomyManager({
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
               <CardTitle className="text-base">
-                {editingNode ? "Edit catalog path" : "Create catalog path"}
+                {editingNode ? "Edit category" : "Add category"}
               </CardTitle>
               <CardDescription>
-                Use a department as a root, then add categories or
-                subcategories beneath it.
+                Choose a department and enter the category details. Its URL slug
+                is generated automatically from the name.
               </CardDescription>
             </div>
             {editingNode && (
               <Button type="button" variant="outline" size="sm" onClick={startCreate}>
                 <Plus className="mr-2 h-4 w-4" />
-                New path
+                Add Category
               </Button>
             )}
           </CardHeader>
           <CardContent>
             <form onSubmit={save} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="catalog-node-parent">Parent path</Label>
+                <Label htmlFor="catalog-node-parent">Department</Label>
                 <Select
                   value={draft.parentId}
                   onValueChange={(value) =>
@@ -839,8 +846,8 @@ function CatalogTaxonomyManager({
                     <SelectValue placeholder="Choose a parent" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={ROOT_CATALOG_PARENT}>
-                      No parent (root / department)
+                    <SelectItem value={ROOT_CATALOG_PARENT} disabled>
+                      Choose department
                     </SelectItem>
                     {availableParents.map((node) => (
                       <SelectItem key={node.id} value={node.id}>
@@ -854,7 +861,7 @@ function CatalogTaxonomyManager({
                 </Select>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div>
                 <div className="space-y-2">
                   <Label htmlFor="catalog-node-name">Name</Label>
                   <Input
@@ -866,7 +873,7 @@ function CatalogTaxonomyManager({
                     required
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="hidden" aria-hidden="true">
                   <Label htmlFor="catalog-node-kind">Kind</Label>
                   <Input
                     id="catalog-node-kind"
@@ -885,7 +892,7 @@ function CatalogTaxonomyManager({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="catalog-node-product-kind">Product behavior</Label>
+                <Label htmlFor="catalog-node-product-kind">Product type</Label>
                 <Select
                   value={draft.productKind || "__mixed__"}
                   onValueChange={(value) =>
@@ -911,12 +918,12 @@ function CatalogTaxonomyManager({
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Controls which fields appear when an admin chooses this as a
-                  product category. Use mixed only for broad landing pages.
+                  This controls the correct fields, sizes, and inventory behavior
+                  for products placed in this category.
                 </p>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
+              <div className="hidden" aria-hidden="true">
                 <div className="space-y-2">
                   <Label htmlFor="catalog-node-slug">Slug</Label>
                   <Input
@@ -959,7 +966,7 @@ function CatalogTaxonomyManager({
 
               <details className="rounded-lg border bg-muted/20">
                 <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
-                  Subcategory banner (optional)
+                  Category banner (optional)
                 </summary>
                 <div className="space-y-4 border-t p-4">
                   <p className="text-xs text-muted-foreground">
@@ -1210,7 +1217,7 @@ function CatalogTaxonomyManager({
                   ) : (
                     <Save className="mr-2 h-4 w-4" />
                   )}
-                  {editingNode ? "Save path" : "Create path"}
+                  {editingNode ? "Save category" : "Add category"}
                 </Button>
                 {editingNode && (
                   <Button
@@ -1225,7 +1232,7 @@ function CatalogTaxonomyManager({
                     ) : (
                       <Trash2 className="mr-2 h-4 w-4" />
                     )}
-                    Delete path
+                    Delete category
                   </Button>
                 )}
               </div>
@@ -1243,10 +1250,10 @@ function CatalogTaxonomyManager({
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Existing catalog paths</CardTitle>
+            <CardTitle className="text-base">Departments and categories</CardTitle>
             <CardDescription>
-              Select a path to edit its name, placement, publication, or
-              display order. Product mappings stay in the Assign a product tab.
+              Select a category to edit its description, banner, or visibility.
+              Product assignment is handled directly inside Products.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -1259,8 +1266,8 @@ function CatalogTaxonomyManager({
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 className="pl-9"
-                placeholder="Filter paths, names, or kinds"
-                aria-label="Filter catalog paths to manage"
+                placeholder="Search departments or categories"
+                aria-label="Search departments or categories"
               />
             </div>
             <div className="max-h-[34rem] overflow-y-auto rounded-md border">
@@ -1295,7 +1302,7 @@ function CatalogTaxonomyManager({
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-medium">{node.label}</p>
                           <Badge variant="outline">
-                            {node.nodeType.toLowerCase() === "leaf" ? "Subcategory" : node.nodeType}
+                             {catalogPathParts(node.path).length === 1 ? "Department" : "Category"}
                           </Badge>
                           {!node.isActive && (
                             <Badge variant="secondary">Inactive</Badge>
@@ -1314,9 +1321,7 @@ function CatalogTaxonomyManager({
                           {catalogBreadcrumb(node.path, nodes)}
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          {node._count.children} child path(s) /{" "}
-                          {node._count.assignments} assignment(s) / order{" "}
-                          {node.displayOrder}
+                           {node._count.assignments} product(s)
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
@@ -1361,13 +1366,89 @@ function CatalogTaxonomyManager({
                 })
               ) : (
                 <p className="px-4 py-10 text-center text-sm text-muted-foreground">
-                  No catalog paths match this filter.
+                  No departments or categories match this search.
                 </p>
               )}
             </div>
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+export default function CatalogAssignmentClient({
+  canManageCatalogPaths,
+}: CatalogAssignmentClientProps) {
+  const [nodes, setNodes] = useState<CatalogNode[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadNodes = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(
+        "/api/admin/catalog/nodes?active=all&visible=all&limit=1000",
+        { cache: "no-store" }
+      );
+      if (!response.ok) {
+        throw new Error(
+          await readApiError(response, "Failed to load categories")
+        );
+      }
+      const data = (await response.json()) as { nodes?: CatalogNode[] };
+      setNodes(data.nodes || []);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to load categories"
+      );
+      setNodes([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (canManageCatalogPaths) void loadNodes();
+  }, [canManageCatalogPaths, loadNodes]);
+
+  const applyNodeUpdate = useCallback((updatedNode: CatalogNode) => {
+    setNodes((current) =>
+      current.map((node) => (node.id === updatedNode.id ? updatedNode : node))
+    );
+  }, []);
+
+  if (!canManageCatalogPaths) {
+    return (
+      <Alert>
+        <AlertTriangle aria-hidden="true" />
+        <AlertTitle>Category management requires settings access</AlertTitle>
+        <AlertDescription>
+          Assign a category while creating or editing a product.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Categories</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage departments, categories, banners, descriptions, and storefront visibility.
+          </p>
+        </div>
+        <Button variant="outline" onClick={() => void loadNodes()} disabled={loading}>
+          <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
+          Refresh
+        </Button>
+      </div>
+      <CatalogTaxonomyManager
+        nodes={nodes}
+        loading={loading}
+        onChanged={loadNodes}
+        onNodeUpdated={applyNodeUpdate}
+      />
     </div>
   );
 }
@@ -1533,7 +1614,7 @@ function AssignmentEditor({
   );
 }
 
-export default function CatalogAssignmentClient({
+function LegacyCatalogAssignmentClient({
   canManageCatalogPaths,
   canViewAuditLogs,
 }: CatalogAssignmentClientProps) {
@@ -1752,12 +1833,8 @@ export default function CatalogAssignmentClient({
   }, [canViewAuditLogs]);
 
   useEffect(() => {
-    void loadNodes();
-  }, [loadNodes]);
-
-  useEffect(() => {
-    void loadProducts();
-  }, [loadProducts]);
+    void loadTaxonomyNodes();
+  }, [loadTaxonomyNodes]);
 
   useEffect(() => {
     setNewNodeIds([]);
@@ -1766,20 +1843,8 @@ export default function CatalogAssignmentClient({
   }, [selectedProduct?.id]);
 
   const refreshAfterMutation = useCallback(async () => {
-    const selectedId = selectedProduct?.id;
-    const tasks: Promise<unknown>[] = [loadProducts(), loadNodes()];
-    if (taxonomyRequested.current) tasks.push(loadTaxonomyNodes());
-    if (selectedId) tasks.push(refreshProduct(selectedId));
-    if (auditRequested.current) tasks.push(loadAuditLogs());
-    await Promise.all(tasks);
-  }, [
-    loadAuditLogs,
-    loadNodes,
-    loadTaxonomyNodes,
-    loadProducts,
-    refreshProduct,
-    selectedProduct?.id,
-  ]);
+    await loadTaxonomyNodes();
+  }, [loadTaxonomyNodes]);
 
   const applyCatalogNodeUpdate = useCallback((updatedNode: CatalogNode) => {
     const replaceNode = (node: CatalogNode) =>
@@ -1994,6 +2059,45 @@ export default function CatalogAssignmentClient({
       setBulkSaving(false);
     }
   };
+
+  if (canManageCatalogPaths) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Categories</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Manage departments, categories, banners, descriptions, and storefront visibility.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => void loadTaxonomyNodes()}
+            disabled={taxonomyLoading}
+          >
+            <RefreshCw className={cn("mr-2 h-4 w-4", taxonomyLoading && "animate-spin")} />
+            Refresh
+          </Button>
+        </div>
+        <CatalogTaxonomyManager
+          nodes={taxonomyNodes}
+          loading={taxonomyLoading}
+          onChanged={refreshAfterMutation}
+          onNodeUpdated={applyCatalogNodeUpdate}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <Alert>
+      <AlertTriangle aria-hidden="true" />
+      <AlertTitle>Category management requires settings access</AlertTitle>
+      <AlertDescription>
+        Assign a category while creating or editing a product.
+      </AlertDescription>
+    </Alert>
+  );
 
   return (
     <div className="space-y-6">
@@ -2290,7 +2394,7 @@ export default function CatalogAssignmentClient({
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Package className="h-5 w-5" />
-                    Assign {selectedProduct.name}
+                    Assign {selectedProduct!.name}
                   </CardTitle>
                   <CardDescription>
                     Choose where this product should appear in the storefront.
@@ -2298,9 +2402,9 @@ export default function CatalogAssignmentClient({
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="rounded-lg bg-muted/40 p-4">
-                    <p className="font-medium">{selectedProduct.name}</p>
+                    <p className="font-medium">{selectedProduct!.name}</p>
                     <p className="mt-1 font-mono text-xs text-muted-foreground">
-                      {selectedProduct.sku}
+                      {selectedProduct!.sku}
                     </p>
                   </div>
 
@@ -2384,8 +2488,8 @@ export default function CatalogAssignmentClient({
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {selectedProduct.catalogAssignments.length ? (
-                      selectedProduct.catalogAssignments.map((assignment) => (
+                    {selectedProduct!.catalogAssignments.length ? (
+                      selectedProduct!.catalogAssignments.map((assignment) => (
                         <AssignmentEditor
                           key={assignment.id}
                           assignment={assignment}

@@ -38,6 +38,8 @@ export default defineConfig({
     "stitching-payment-navigation-regression.spec.ts",
     "mobile-catalog-header.spec.ts",
     "women-catalog-expansion.spec.ts",
+    "measurement-profile-full-page.spec.ts",
+    "catalog-admin-simplification.spec.ts",
   ],
   fullyParallel: true,
   workers: 1,
