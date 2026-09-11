@@ -34,6 +34,7 @@ import { useAuthStore } from "@/lib/auth-store";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
+import { MOBILE_HOMEPAGE_EVENT } from '@/lib/mobile-homepage';
 import { catalogUtilityLinks } from "@/lib/navigation/catalog-menu";
 import {
   catalogDepartmentFromRootPath,
@@ -575,6 +576,7 @@ function CatalogHeaderV1() {
   const initialPublishedCatalogPaths = useInitialPublishedCatalogPaths();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [activeHomeDepartment, setActiveHomeDepartment] = useState('women');
   const [mounted, setMounted] = useState(false);
   const [publishedCatalogPaths, setPublishedCatalogPaths] = useState<string[]>(
     () => [...initialPublishedCatalogPaths]
@@ -657,6 +659,20 @@ function CatalogHeaderV1() {
   // Hero mode: homepage + not scrolled → transparent navbar overlapping hero
   const isDepartmentRoot = catalogDepartmentFromRootPath(pathname) !== null;
   const isHeroMode = (pathname === "/" || isDepartmentRoot) && !isScrolled;
+  const isMobileHome = pathname === '/';
+
+  const announceHomeDepartment = (department: string) => {
+    setActiveHomeDepartment(department);
+    window.dispatchEvent(new CustomEvent(MOBILE_HOMEPAGE_EVENT, { detail: { department } }));
+    window.dispatchEvent(new CustomEvent('eman-thread:hero-department', { detail: { department } }));
+  };
+
+  const handleHomeLogoClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (pathname !== '/') return;
+    event.preventDefault();
+    if (window.matchMedia('(max-width: 1023px)').matches) announceHomeDepartment('women');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   useEffect(() => {
     const header = headerRef.current;
@@ -849,13 +865,18 @@ function CatalogHeaderV1() {
 
   return (
     <>
-      <header ref={headerRef} className={cn(catalogStyles.catalogHeader, isHeroMode && catalogStyles.heroMode)}>
+      <header ref={headerRef} className={cn(
+        catalogStyles.catalogHeader,
+        isHeroMode && catalogStyles.heroMode,
+        isMobileHome && catalogStyles.mobileHome,
+      )}>
         <StitchingNoticeBanner />
         <div
           className={cn(
             catalogStyles.solidSurface,
             isScrolled && catalogStyles.scrolled,
             isHeroMode && catalogStyles.heroMode,
+            isMobileHome && catalogStyles.mobileHome,
           )}
         >
           <CatalogHeaderMenu
@@ -863,12 +884,7 @@ function CatalogHeaderV1() {
               <Link 
                 href="/" 
                 aria-label="Eman Thread home"
-                onClick={(e) => {
-                  if (pathname === "/") {
-                    e.preventDefault();
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                  }
-                }}
+                onClick={handleHomeLogoClick}
               >
                 Eman Thread
               </Link>
@@ -879,7 +895,11 @@ function CatalogHeaderV1() {
             publishedCatalogPaths={publishedCatalogPaths}
           />
 
-          <div className={cn(catalogStyles.mobileBar, isHeroMode && catalogStyles.heroMode)}>
+          <div className={cn(
+            catalogStyles.mobileBar,
+            isHeroMode && catalogStyles.heroMode,
+            isMobileHome && catalogStyles.mobileHome,
+          )}>
             <div className={catalogStyles.mobileBarLeft}>
               <CatalogMobileNav
                 isAuthenticated={isAuthenticated}
@@ -898,12 +918,7 @@ function CatalogHeaderV1() {
               href="/"
               className={catalogStyles.mark}
               aria-label="Eman Thread home"
-              onClick={(e) => {
-                if (pathname === "/") {
-                  e.preventDefault();
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }
-              }}
+              onClick={handleHomeLogoClick}
             >
               Eman Thread
             </Link>
@@ -940,21 +955,34 @@ function CatalogHeaderV1() {
             aria-label="Mobile top departments navigation"
             className={cn(
               "lg:hidden flex items-center justify-around gap-1 px-3 py-2 text-[11px] font-bold tracking-wider uppercase border-t transition-colors overflow-x-auto scrollbar-none",
-              isHeroMode
+              isMobileHome
+                ? 'border-neutral-200 bg-white text-neutral-600'
+                : isHeroMode
                 ? "border-white/15 text-white/80"
                 : "border-border/30 bg-background/95 text-muted-foreground"
             )}
           >
             {mobileDepartments.map((dept) => {
-              const isActive =
-                pathname === dept.href || pathname.startsWith(`${dept.href}/`);
+              const isActive = isMobileHome
+                ? dept.href === `/${activeHomeDepartment}`
+                : pathname === dept.href || pathname.startsWith(`${dept.href}/`);
               return (
                 <Link
                   key={dept.href}
                   href={dept.href}
+                  onClick={(event) => {
+                    if (!isMobileHome) return;
+                    event.preventDefault();
+                    announceHomeDepartment(dept.href.slice(1));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
                   className={cn(
                     "px-2 py-1 rounded transition-all whitespace-nowrap",
-                    isHeroMode
+                    isMobileHome
+                      ? isActive
+                        ? 'text-black font-extrabold underline underline-offset-4 decoration-2'
+                        : 'hover:text-black'
+                      : isHeroMode
                       ? isActive
                         ? "text-white font-extrabold underline underline-offset-4 decoration-2"
                         : "hover:text-white"
@@ -978,8 +1006,7 @@ function CatalogHeaderV1() {
       </header>
       {pathname === "/" ? (
         <div
-          className={catalogStyles.homeHeaderSpacer}
-          style={isHeroMode ? { height: 0 } : undefined}
+          className={cn(catalogStyles.homeHeaderSpacer, catalogStyles.mobileHomeSpacer)}
           aria-hidden="true"
         />
       ) : null}

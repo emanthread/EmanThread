@@ -13,6 +13,11 @@ interface AdminApiPolicy {
 }
 
 const ADMIN_API_POLICIES: AdminApiPolicy[] = [
+  {
+    prefix: '/api/admin/mobile-homepage',
+    read: [Permission.VIEW_PRODUCTS],
+    write: [Permission.MANAGE_PRODUCTS],
+  },
   { prefix: "/api/admin/account", read: [], adminOnly: true },
   { prefix: "/api/admin/api-keys", read: [], adminOnly: true },
   { prefix: "/api/admin/audit-logs", read: [Permission.VIEW_AUDIT_LOGS] },

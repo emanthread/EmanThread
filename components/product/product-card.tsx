@@ -30,9 +30,14 @@ const QuickViewModal = dynamic(
 interface ProductCardProps {
   product: Product;
   priority?: boolean;
+  variant?: 'default' | 'mobileEditorial';
 }
 
-export function ProductCard({ product, priority = false }: ProductCardProps) {
+export function ProductCard({
+  product,
+  priority = false,
+  variant = 'default',
+}: ProductCardProps) {
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
@@ -85,9 +90,15 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
 
   return (
     <>
-      <div className="group relative overflow-hidden rounded-2xl shadow-md transition-shadow duration-300 lg:hover:-translate-y-1 lg:hover:scale-[1.02] lg:hover:shadow-xl lg:transition-transform">
+      <div className={cn(
+        'group relative overflow-hidden transition-shadow duration-300 lg:hover:-translate-y-1 lg:hover:scale-[1.02] lg:hover:shadow-xl lg:transition-transform',
+        variant === 'mobileEditorial' ? 'rounded-none bg-white shadow-none' : 'rounded-2xl shadow-md',
+      )}>
         {/* Image Container */}
-        <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-secondary">
+        <div className={cn(
+          'relative aspect-[2/3] overflow-hidden bg-secondary',
+          variant === 'mobileEditorial' ? 'rounded-none' : 'rounded-2xl',
+        )}>
           <Link href={`/product/${product.id}`} className="relative block h-full w-full" onClick={handleProductClick}>
             <Image
               src={productImage}

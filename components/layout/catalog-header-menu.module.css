@@ -13,6 +13,10 @@
   );
 }
 
+.mobileHomeSpacer {
+  height: var(--catalog-header-height, 108px);
+}
+
 .solidSurface {
   background-color: var(--background);
   background-image: none;
@@ -454,6 +458,24 @@
   background: transparent;
 }
 
+@media (max-width: 1023px) {
+  .catalogHeader.heroMode.mobileHome {
+    color: #111;
+  }
+
+  .solidSurface.heroMode.mobileHome,
+  .mobileBar.heroMode.mobileHome {
+    background: #fff;
+    background-image: none;
+    border-color: #e5e5e5;
+    backdrop-filter: none;
+  }
+
+  .solidSurface.heroMode.mobileHome {
+    border-bottom: 1px solid #e5e5e5 !important;
+  }
+}
+
 .mobileBarLeft,
 .mobileBarRight {
   display: flex;
@@ -715,6 +737,10 @@
 @media (min-width: 1024px) {
   .homeHeaderSpacer {
     --catalog-header-fallback-height: 104px;
+  }
+
+  .mobileHomeSpacer {
+    height: 0;
   }
 
   .desktopShell {

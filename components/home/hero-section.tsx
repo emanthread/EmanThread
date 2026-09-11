@@ -12,6 +12,7 @@ import { selectHeroSlidesForDepartment } from "@/lib/hero-slide-targeting";
 interface HeroSectionProps {
   initialSlides: HeroSlide[];
   initialDepartment?: HeroDepartment;
+  mobileInitialDepartment?: HeroDepartment;
   locked?: boolean;
 }
 
@@ -67,7 +68,12 @@ function HeroVideo({
   );
 }
 
-export function HeroSection({ initialSlides, initialDepartment = "all", locked = false }: HeroSectionProps) {
+export function HeroSection({
+  initialSlides,
+  initialDepartment = 'all',
+  mobileInitialDepartment,
+  locked = false,
+}: HeroSectionProps) {
   const [activeDepartment, setActiveDepartment] =
     useState<HeroDepartment>(initialDepartment);
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -118,6 +124,17 @@ export function HeroSection({ initialSlides, initialDepartment = "all", locked =
   );
 
   useEffect(() => clearTransition, [clearTransition]);
+
+  useEffect(() => {
+    if (
+      !locked &&
+      mobileInitialDepartment &&
+      window.matchMedia('(max-width: 1023px)').matches
+    ) {
+      setActiveDepartment(mobileInitialDepartment);
+      setCurrentSlide(0);
+    }
+  }, [locked, mobileInitialDepartment]);
 
   // Keep this local event listener for homepage promotional controls. Primary
   // catalog navigation routes directly to department pages instead.

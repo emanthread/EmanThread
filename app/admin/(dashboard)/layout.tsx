@@ -30,6 +30,7 @@ import {
   MoreHorizontal,
   Layers,
   CalendarDays,
+  Smartphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,6 +84,7 @@ const navItems = [
   { href: "/admin/analytics", icon: BarChart3, label: "Analytics" },
   { href: "/admin/shipping", icon: Truck, label: "Shipping" },
   { href: "/admin/hero-slides", icon: ImageIcon, label: "Hero Slider" },
+  { href: '/admin/mobile-homepage', icon: Smartphone, label: 'Mobile Homepage' },
   { href: "/admin/header-cards", icon: ImageIcon, label: "Header Menu Cards" },
   { href: "/admin/featured-categories", icon: ImageIcon, label: "Featured Categories" },
   { href: "/admin/fabric-types", icon: Layers, label: "Fabric Types" },
@@ -107,6 +109,7 @@ const navPermissions: Record<string, PermissionValue[]> = {
   "/admin/analytics": [Permission.VIEW_ANALYTICS],
   "/admin/shipping": [Permission.MANAGE_SHIPPING],
   "/admin/hero-slides": [Permission.MANAGE_PRODUCTS],
+  '/admin/mobile-homepage': [Permission.MANAGE_PRODUCTS],
   "/admin/header-cards": [Permission.MANAGE_PRODUCTS],
   "/admin/featured-categories": [Permission.MANAGE_PRODUCTS],
   "/admin/fabric-types": [Permission.MANAGE_PRODUCTS],
