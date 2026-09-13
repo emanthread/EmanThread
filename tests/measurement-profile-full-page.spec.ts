@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
+import {
+  UNIFIED_MEASUREMENT_EMPTY,
+  unifiedMeasurementSchema,
+} from "../lib/validators/measurements-unified";
 
 function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
@@ -50,4 +54,30 @@ test("stitching slips use the order delivery date without creation-date fallback
   expect(adminOrder).toContain('deliveryDate: order.stitchingDeliveryDate || ""');
   expect(adminOrder).not.toContain("deliveryDate: new Date(order.createdAt)");
   expect(ordersDb).toContain("stitchingDeliveryDate: order.stitchingDeliveryDate?.toISOString() ?? null");
+});
+
+test("pocket controls use a one-or-two count dropdown without schema changes", () => {
+  const form = source("components/measurements/forms/A4MeasurementForm.tsx");
+  const layout = source("components/measurements/forms/A4PageLayout.tsx");
+  const validator = source("lib/validators/measurements-unified.ts");
+
+  expect(form.match(/<A4PocketDropdown/g)).toHaveLength(3);
+  expect(form).toContain('frontPocket: value');
+  expect(form).toContain('sidePocket: ""');
+  expect(form).toContain('setField("shalwarPocket", v)');
+  expect(layout).toContain('aria-label="Pocket count"');
+  expect(layout).toContain('<option value="1">1</option>');
+  expect(layout).toContain('<option value="2">2</option>');
+  expect(layout).toContain('disabled={readOnly}');
+  expect(validator).toContain('const toggle = z.string().default("0")');
+
+  const parsed = unifiedMeasurementSchema.parse({
+    ...UNIFIED_MEASUREMENT_EMPTY,
+    frontPocket: "2",
+    sidePocket: "",
+    shalwarPocket: "1",
+  });
+  expect(parsed.frontPocket).toBe("2");
+  expect(parsed.sidePocket).toBe("");
+  expect(parsed.shalwarPocket).toBe("1");
 });

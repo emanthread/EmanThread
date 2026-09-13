@@ -246,3 +246,42 @@ export function A4SubInput({
     </div>
   );
 }
+
+/** Pocket count dropdown — replaces the old tick/checkbox pills.
+ *  Stores "1" or "2" (or "" for none) in the given data key. */
+export function A4PocketDropdown({
+  value,
+  onChange,
+  readOnly,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  readOnly?: boolean;
+}) {
+  return (
+    <select
+      aria-label="Pocket count"
+      value={value === "1" || value === "2" ? value : ""}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={readOnly}
+      style={{
+        border: "1.5px solid #93a4bf",
+        borderRadius: "4px",
+        padding: "1.5mm 2mm",
+        fontSize: "13px",
+        fontWeight: 700,
+        color: "#172554",
+        background: "#fff",
+        fontFamily: "inherit",
+        cursor: readOnly ? "default" : "pointer",
+        minWidth: "28mm",
+        height: "9mm",
+        outline: "none",
+      }}
+    >
+      <option value="">— Select —</option>
+      <option value="1">1</option>
+      <option value="2">2</option>
+    </select>
+  );
+}

@@ -10,6 +10,7 @@ import {
   A4Pill,
   A4SubInput,
   A4MiniToggle,
+  A4PocketDropdown,
 } from "./A4PageLayout";
 import type { UnifiedMeasurementFormData } from "@/lib/validators/measurements-unified";
 
@@ -520,22 +521,24 @@ export function A4MeasurementForm({
           </A4Row>
         );
       })}
-      {/* Section-level toggles (e.g., Pocket) */}
+      {/* Section-level pocket dropdown */}
       {section.toggles && section.toggles.length > 0 && (
         <div className="a4-row" style={{ borderBottom: "none" }}>
           <div className="a4-label" style={{ borderRight: "none" }}>Pocket</div>
           <div className="a4-entry">
-            <div style={{ display: "flex", gap: "3mm", flexWrap: "wrap" }}>
-              {section.toggles.map((t) => (
-                <A4Pill
-                  key={t.key}
-                  label={t.label}
-                  checked={String(data[t.key] ?? "0") === "1"}
-                  onChange={(v) => setToggle(t.key, v)}
-                  readOnly={readOnly}
-                />
-              ))}
-            </div>
+            <A4PocketDropdown
+              value={String(data[section.toggles[0].key] ?? "")}
+              onChange={(value) => {
+                const primaryKey = section.toggles![0].key;
+                const retiredKey = section.toggles![1]?.key;
+                onChange({
+                  ...data,
+                  [primaryKey]: value,
+                  ...(retiredKey ? { [retiredKey]: "" } : {}),
+                });
+              }}
+              readOnly={readOnly}
+            />
           </div>
         </div>
       )}
@@ -613,7 +616,6 @@ function BottomTypeTabs({
   }, [variant, data.serialNumber]);
 
   const setField = (k: DataKey, v: string) => onChange({ ...data, [k]: v });
-  const setToggle = (k: DataKey, v: boolean) => onChange({ ...data, [k]: v ? "1" : "0" });
 
   const btnStyle = (tab: string): React.CSSProperties => ({
     flex: "0 1 40%",
@@ -652,10 +654,15 @@ function BottomTypeTabs({
           <A4Row label="2. Pancha"><A4Input value={String(data.shalwarPancha1 ?? "")} onChange={(v) => setField("shalwarPancha1", v)} readOnly={readOnly} /></A4Row>
           <A4Row label="3. Gherra"><A4Input value={String(data.shalwarGherra1 ?? "")} onChange={(v) => setField("shalwarGherra1", v)} readOnly={readOnly} /></A4Row>
           <A4Row label="4. Pocket">
-            <div style={{ display: "flex", gap: "3mm" }}>
-              <A4Pill label="Front" checked={String(data.frontPocket ?? "0") === "1"} onChange={(v) => setToggle("frontPocket", v)} readOnly={readOnly} />
-              <A4Pill label="Side" checked={String(data.sidePocket ?? "0") === "1"} onChange={(v) => setToggle("sidePocket", v)} readOnly={readOnly} />
-            </div>
+            <A4PocketDropdown
+              value={String(data.frontPocket ?? "")}
+              onChange={(value) => onChange({
+                ...data,
+                frontPocket: value,
+                sidePocket: "",
+              })}
+              readOnly={readOnly}
+            />
           </A4Row>
         </div>
       )}
@@ -670,9 +677,11 @@ function BottomTypeTabs({
             <>
               <A4Row label="4. Elastic Length"><A4Input value={String(data.trouserElastic1 ?? "")} onChange={(v) => setField("trouserElastic1", v)} readOnly={readOnly} /></A4Row>
               <A4Row label="5. Pocket">
-                <div style={{ display: "flex", gap: "3mm" }}>
-                  <A4Pill label="Pocket" checked={String(data.shalwarPocket ?? "0") === "1"} onChange={(v) => setToggle("shalwarPocket", v)} readOnly={readOnly} />
-                </div>
+                <A4PocketDropdown
+                  value={String(data.shalwarPocket ?? "")}
+                  onChange={(v) => setField("shalwarPocket", v)}
+                  readOnly={readOnly}
+                />
               </A4Row>
             </>
           ) : (
