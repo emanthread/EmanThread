@@ -84,7 +84,7 @@ const navItems = [
   { href: "/admin/analytics", icon: BarChart3, label: "Analytics" },
   { href: "/admin/shipping", icon: Truck, label: "Shipping" },
   { href: "/admin/hero-slides", icon: ImageIcon, label: "Hero Slider" },
-  { href: '/admin/mobile-homepage', icon: Smartphone, label: 'Mobile Homepage' },
+  { href: '/admin/mobile-homepage', icon: Smartphone, label: 'Homepage Presentation' },
   { href: "/admin/header-cards", icon: ImageIcon, label: "Header Menu Cards" },
   { href: "/admin/featured-categories", icon: ImageIcon, label: "Featured Categories" },
   { href: "/admin/fabric-types", icon: Layers, label: "Fabric Types" },

@@ -21,7 +21,8 @@ export type MobileHomepageDepartment =
 export type MobileHomepageCard = {
   id: string;
   title: string;
-  image: string;
+  mobileImage: string;
+  desktopImage: string;
   destinationId: string;
   order: number;
   visible: boolean;
@@ -100,14 +101,35 @@ function defaultDepartmentConfig(
 ): MobileHomepageDepartmentConfig {
   const sections = departmentMenu(departmentId)?.sections ?? [];
   const images = CATEGORY_IMAGES[departmentId];
-  const categoryCards = sections.map((section, index) => ({
+  const categoryCards: MobileHomepageCard[] = sections.map((section, index) => ({
     id: `mobile-category-${section.id}`,
     title: section.label,
-    image: images[index % images.length],
+    mobileImage: images[index % images.length],
+    desktopImage: images[(index + 1) % images.length],
     destinationId: section.id,
     order: index + 1,
     visible: true,
   }));
+  categoryCards.push(
+    {
+      id: `mobile-category-${departmentId}-summer`,
+      title: 'SUMMER COLLECTION',
+      mobileImage: '/images/fabrics/hero_fabric_summer_1780065728421.png',
+      desktopImage: '/images/fabrics/cat_cotton_1776582727723.png',
+      destinationId: `${departmentId}.season.summer`,
+      order: categoryCards.length + 1,
+      visible: true,
+    },
+    {
+      id: `mobile-category-${departmentId}-winter`,
+      title: 'WINTER COLLECTION',
+      mobileImage: '/images/fabrics/cat_wool_1776583171222.png',
+      desktopImage: '/images/fabrics/hero_fabric_boski_1780066040016.png',
+      destinationId: `${departmentId}.season.winter`,
+      order: categoryCards.length + 2,
+      visible: true,
+    },
+  );
   const banners = Array.from({ length: MOBILE_BANNER_COUNT }, (_, index) => {
     const section = sections[index % sections.length];
     return {
@@ -115,7 +137,12 @@ function defaultDepartmentConfig(
       title: section.label,
       subtitle: index === 0 ? 'FEATURED COLLECTION' : 'DISCOVER MORE',
       cta: 'SHOP NOW',
-      image: index === 0 ? `/images/banners/${departmentId}.png` : BANNER_IMAGES[index],
+      mobileImage: index === 0
+        ? `/images/banners/${departmentId}.png`
+        : BANNER_IMAGES[index],
+      desktopImage: index === 0
+        ? `/images/banners/${departmentId}.png`
+        : BANNER_IMAGES[(index + 1) % BANNER_IMAGES.length],
       destinationId: section.id,
       order: index + 1,
       visible: true,
@@ -136,13 +163,30 @@ export function createDefaultMobileHomepageConfig(): MobileHomepageConfig {
 export function getMobileHomepageDestinations(
   departmentId?: MobileHomepageDepartment,
 ): CatalogHeaderDestination[] {
-  return getCatalogHeaderDestinations().filter(
+  const catalogDestinations = getCatalogHeaderDestinations().filter(
     (destination) => !departmentId || destination.departmentId === departmentId,
   );
+  const seasonalDestinations = MOBILE_HOMEPAGE_DEPARTMENTS
+    .filter((id) => !departmentId || id === departmentId)
+    .flatMap((id) => [
+      {
+        id: `${id}.season.summer`,
+        label: `${getMobileHomepageDepartmentLabel(id)} / SUMMER COLLECTION`,
+        href: `/${id}?season=Summer`,
+        departmentId: id,
+      },
+      {
+        id: `${id}.season.winter`,
+        label: `${getMobileHomepageDepartmentLabel(id)} / WINTER COLLECTION`,
+        href: `/${id}?season=Winter`,
+        departmentId: id,
+      },
+    ]);
+  return [...catalogDestinations, ...seasonalDestinations];
 }
 
 export function resolveMobileHomepageHref(destinationId: string) {
-  return getCatalogHeaderDestinations().find(({ id }) => id === destinationId)?.href ?? '/';
+  return getMobileHomepageDestinations().find(({ id }) => id === destinationId)?.href ?? '/';
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -167,12 +211,29 @@ function parseCard(
   );
   const id = cleanText(card.id, 160);
   const title = cleanText(card.title, 80);
-  const image = cleanText(card.image, 1000);
+  const legacyImage = cleanText(card.image, 1000);
+  const mobileImage = cleanText(card.mobileImage, 1000) || legacyImage;
+  const desktopImage =
+    cleanText(card.desktopImage, 1000) || legacyImage || mobileImage;
   const destinationId = cleanText(card.destinationId, 200);
-  if (!id || !title || !isAllowedCatalogHeaderImage(image) || !validDestinations.has(destinationId)) {
+  if (
+    !id ||
+    !title ||
+    !isAllowedCatalogHeaderImage(mobileImage) ||
+    !isAllowedCatalogHeaderImage(desktopImage) ||
+    !validDestinations.has(destinationId)
+  ) {
     return null;
   }
-  return { id, title, image, destinationId, order, visible: card.visible !== false };
+  return {
+    id,
+    title,
+    mobileImage,
+    desktopImage,
+    destinationId,
+    order,
+    visible: card.visible !== false,
+  };
 }
 
 function parseBanner(
@@ -206,15 +267,31 @@ export function parseMobileHomepageConfig(value: unknown): MobileHomepageConfig 
       const rawBanners = Array.isArray(rawDepartment?.banners)
         ? rawDepartment.banners
         : [];
-      const categoryCards = rawCards
+      const parsedCategoryCards = rawCards
         .slice(0, MAX_MOBILE_CATEGORY_CARDS)
         .map((card, index) => parseCard(card, departmentId, index + 1))
         .filter((card): card is MobileHomepageCard => Boolean(card));
+      const categoryCards = parsedCategoryCards.length
+        ? [...parsedCategoryCards]
+        : [...fallback.categoryCards];
+      const seasonalCards = fallback.categoryCards.filter(
+        ({ destinationId }) =>
+          destinationId === `${departmentId}.season.summer` ||
+          destinationId === `${departmentId}.season.winter`,
+      );
+      for (const seasonalCard of seasonalCards) {
+        if (
+          categoryCards.length < MAX_MOBILE_CATEGORY_CARDS &&
+          !categoryCards.some(({ destinationId }) => destinationId === seasonalCard.destinationId)
+        ) {
+          categoryCards.push({ ...seasonalCard, order: categoryCards.length + 1 });
+        }
+      }
       const banners = Array.from({ length: MOBILE_BANNER_COUNT }, (_, index) =>
         parseBanner(rawBanners[index], departmentId, index + 1) ?? fallback.banners[index],
       );
       return [departmentId, {
-        categoryCards: categoryCards.length ? categoryCards : fallback.categoryCards,
+        categoryCards,
         banners,
       }];
     }),

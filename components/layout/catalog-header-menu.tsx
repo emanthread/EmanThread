@@ -41,6 +41,8 @@ type CatalogHeaderMenuProps = {
   linksEnabled: boolean;
   showNavigation: boolean;
   publishedCatalogPaths: readonly string[];
+  homepageDepartment?: MenuDepartment['id'];
+  onHomepageDepartmentChange?: (department: MenuDepartment['id']) => void;
 };
 
 const byOrder = <T extends { order: number }>(items: readonly T[]) =>
@@ -79,6 +81,8 @@ export function CatalogHeaderMenu({
   linksEnabled,
   showNavigation,
   publishedCatalogPaths,
+  homepageDepartment,
+  onHomepageDepartmentChange,
 }: CatalogHeaderMenuProps) {
   const pathname = usePathname();
   const publishedPaths = useMemo(
@@ -93,6 +97,10 @@ export function CatalogHeaderMenu({
     [publishedPaths]
   );
   const routeDepartmentId = departmentFromPathname(pathname, departments);
+  const selectedDepartmentId =
+    pathname === '/' && homepageDepartment
+      ? homepageDepartment
+      : routeDepartmentId;
 
   const [activeDepartmentId, setActiveDepartmentId] = useState(() => {
     return (
@@ -295,9 +303,9 @@ export function CatalogHeaderMenu({
                 }}
                 href={`/${department.id}`}
                 className={styles.departmentButton}
-                data-active={routeDepartmentId === department.id}
+                data-active={selectedDepartmentId === department.id}
                 aria-current={
-                  routeDepartmentId === department.id ? "page" : undefined
+                  selectedDepartmentId === department.id ? "page" : undefined
                 }
                 onPointerEnter={() => {
                   interactionModeRef.current = "pointer";
@@ -305,7 +313,13 @@ export function CatalogHeaderMenu({
                 }}
                 onFocus={() => selectDepartment(department)}
                 onKeyDown={(event) => handleDepartmentKeyDown(event, index)}
-                onClick={() => closeMegaPanel(false)}
+                onClick={(event) => {
+                  if (pathname === '/' && onHomepageDepartmentChange) {
+                    event.preventDefault();
+                    onHomepageDepartmentChange(department.id);
+                  }
+                  closeMegaPanel(false);
+                }}
               >
                 {department.label}
               </Link>

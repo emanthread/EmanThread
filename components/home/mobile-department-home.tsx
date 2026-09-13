@@ -64,6 +64,41 @@ function ScrollRail({ children, itemCount, className, label }: {
   );
 }
 
+function ResponsiveArtwork({
+  mobileImage,
+  desktopImage,
+  alt,
+  sizes,
+  priority = false,
+}: {
+  mobileImage: string;
+  desktopImage: string;
+  alt: string;
+  sizes: string;
+  priority?: boolean;
+}) {
+  return (
+    <>
+      <Image
+        src={mobileImage}
+        alt={alt}
+        fill
+        priority={priority}
+        sizes={sizes}
+        className='object-cover lg:hidden'
+      />
+      <Image
+        src={desktopImage}
+        alt={alt}
+        fill
+        priority={priority}
+        sizes={sizes}
+        className='hidden object-cover lg:block'
+      />
+    </>
+  );
+}
+
 function EditorialBanner({ banner, eager = false }: {
   banner: MobileHomepageBanner | undefined;
   eager?: boolean;
@@ -72,25 +107,24 @@ function EditorialBanner({ banner, eager = false }: {
   return (
     <Link
       href={resolveMobileHomepageHref(banner.destinationId)}
-      className='group relative block aspect-[4/5] overflow-hidden bg-neutral-200'
+      className='group relative block aspect-[4/5] overflow-hidden bg-neutral-200 lg:aspect-[16/6]'
       aria-label={`${banner.cta}: ${banner.title}`}
     >
-      <Image
-        src={banner.image}
+      <ResponsiveArtwork
+        mobileImage={banner.mobileImage}
+        desktopImage={banner.desktopImage}
         alt={banner.title}
-        fill
         priority={eager}
         sizes='100vw'
-        className='object-cover transition-transform duration-700 group-active:scale-[1.02]'
       />
       <span className='absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent' />
-      <span className='absolute bottom-0 left-0 p-6 text-white'>
+      <span className='absolute bottom-0 left-0 p-6 text-white lg:p-12'>
         {banner.subtitle ? (
           <span className='mb-2 block text-sm font-medium uppercase tracking-[0.16em]'>
             {banner.subtitle}
           </span>
         ) : null}
-        <span className='block text-3xl font-semibold uppercase leading-none'>{banner.title}</span>
+        <span className='block text-3xl font-semibold uppercase leading-none lg:text-5xl'>{banner.title}</span>
         <span className='mt-5 inline-block border-b border-white pb-1 text-sm font-semibold uppercase'>
           {banner.cta}
         </span>
@@ -111,9 +145,16 @@ function ProductRail({ products, loading, label }: {
     return <p className='px-6 py-12 text-center text-sm text-neutral-500'>Products are coming soon.</p>;
   }
   return (
-    <ScrollRail itemCount={products.length} label={label} className='gap-1 px-2'>
+    <ScrollRail
+      itemCount={products.length}
+      label={label}
+      className='gap-1 px-2 lg:gap-4 lg:px-8 xl:px-12'
+    >
       {products.map((product) => (
-        <div key={product.id} className='w-[44vw] max-w-[205px] shrink-0 snap-start'>
+        <div
+          key={product.id}
+          className='w-[44vw] max-w-[205px] shrink-0 snap-start lg:w-[23vw] lg:max-w-[320px]'
+        >
           <ProductCard product={product} variant='mobileEditorial' />
         </div>
       ))}
@@ -193,22 +234,34 @@ export function MobileDepartmentHome({
   const secondaryProducts = departmentProducts.length ? departmentProducts : primaryProducts;
 
   return (
-    <div className='bg-white text-black lg:hidden' data-mobile-department={activeDepartment}>
-      <section aria-labelledby='mobile-shop-by-category'>
-        <h2 id='mobile-shop-by-category' className='px-6 py-6 text-xl font-semibold tracking-tight'>
+    <div className='bg-white text-black' data-home-department={activeDepartment}>
+      <section aria-labelledby='home-shop-by-category'>
+        <h2
+          id='home-shop-by-category'
+          className='px-6 py-6 text-xl font-semibold tracking-tight lg:px-12 lg:py-10 lg:text-3xl'
+        >
           SHOP BY CATEGORY
         </h2>
-        <ScrollRail itemCount={categoryCards.length} label='Shop by category' className='gap-1 px-1'>
+        <ScrollRail
+          itemCount={categoryCards.length}
+          label='Shop by category'
+          className='gap-1 px-1 lg:gap-4 lg:px-8 xl:px-12'
+        >
           {categoryCards.map((card) => (
             <Link
               key={card.id}
               href={resolveMobileHomepageHref(card.destinationId)}
-              className='w-[44vw] max-w-[210px] shrink-0 snap-start'
+              className='w-[44vw] max-w-[210px] shrink-0 snap-start lg:w-[23vw] lg:max-w-[360px]'
             >
-              <span className='relative block aspect-[4/5] overflow-hidden bg-neutral-100'>
-                <Image src={card.image} alt={card.title} fill sizes='44vw' className='object-cover' />
+              <span className='relative block aspect-[4/5] overflow-hidden bg-neutral-100 lg:aspect-[4/3]'>
+                <ResponsiveArtwork
+                  mobileImage={card.mobileImage}
+                  desktopImage={card.desktopImage}
+                  alt={card.title}
+                  sizes='(min-width: 1024px) 23vw, 44vw'
+                />
               </span>
-              <span className='block truncate px-2 py-4 text-center text-sm font-medium uppercase'>
+              <span className='block truncate px-2 py-4 text-center text-sm font-medium uppercase lg:text-base'>
                 {card.title}
               </span>
             </Link>
@@ -218,16 +271,16 @@ export function MobileDepartmentHome({
 
       <EditorialBanner banner={banners[0]} eager />
 
-      <section className='bg-white py-6' aria-labelledby='mobile-trending'>
-        <div className='flex items-end gap-5 overflow-x-auto px-6 pb-5'>
-          <h2 id='mobile-trending' className='shrink-0 text-xl font-semibold'>TRENDING</h2>
+      <section className='bg-white py-6 lg:py-12' aria-labelledby='home-trending'>
+        <div className='flex items-end gap-5 overflow-x-auto px-6 pb-5 lg:justify-center lg:gap-8 lg:px-12 lg:pb-8'>
+          <h2 id='home-trending' className='shrink-0 text-xl font-semibold lg:text-3xl'>TRENDING</h2>
           {categoryCards.slice(0, 3).map((card) => (
             <button
               key={card.id}
               type='button'
               onClick={() => setActiveCategoryId(card.id)}
               aria-pressed={activeCategory?.id === card.id}
-              className={`shrink-0 border-b-2 pb-1 text-sm ${
+              className={`shrink-0 border-b-2 pb-1 text-sm lg:text-base ${
                 activeCategory?.id === card.id ? 'border-black font-medium' : 'border-transparent'
               }`}
             >
@@ -250,8 +303,11 @@ export function MobileDepartmentHome({
       <EditorialBanner banner={banners[1]} />
       <EditorialBanner banner={banners[2]} />
 
-      <section className='bg-white py-7' aria-labelledby='mobile-trending-fits'>
-        <h2 id='mobile-trending-fits' className='px-6 pb-6 text-xl font-semibold'>
+      <section className='bg-white py-7 lg:py-12' aria-labelledby='home-trending-fits'>
+        <h2
+          id='home-trending-fits'
+          className='px-6 pb-6 text-xl font-semibold lg:px-12 lg:pb-8 lg:text-3xl'
+        >
           TRENDING FITS
         </h2>
         <ProductRail

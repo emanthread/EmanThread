@@ -34,7 +34,11 @@ import { useAuthStore } from "@/lib/auth-store";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
-import { MOBILE_HOMEPAGE_EVENT } from '@/lib/mobile-homepage';
+import {
+  MOBILE_HOMEPAGE_EVENT,
+  isMobileHomepageDepartment,
+  type MobileHomepageDepartment,
+} from '@/lib/mobile-homepage';
 import { catalogUtilityLinks } from "@/lib/navigation/catalog-menu";
 import {
   catalogDepartmentFromRootPath,
@@ -576,7 +580,8 @@ function CatalogHeaderV1() {
   const initialPublishedCatalogPaths = useInitialPublishedCatalogPaths();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [activeHomeDepartment, setActiveHomeDepartment] = useState('women');
+  const [activeHomeDepartment, setActiveHomeDepartment] =
+    useState<MobileHomepageDepartment>('women');
   const [mounted, setMounted] = useState(false);
   const [publishedCatalogPaths, setPublishedCatalogPaths] = useState<string[]>(
     () => [...initialPublishedCatalogPaths]
@@ -661,7 +666,7 @@ function CatalogHeaderV1() {
   const isHeroMode = (pathname === "/" || isDepartmentRoot) && !isScrolled;
   const isMobileHome = pathname === '/';
 
-  const announceHomeDepartment = (department: string) => {
+  const announceHomeDepartment = (department: MobileHomepageDepartment) => {
     setActiveHomeDepartment(department);
     window.dispatchEvent(new CustomEvent(MOBILE_HOMEPAGE_EVENT, { detail: { department } }));
     window.dispatchEvent(new CustomEvent('eman-thread:hero-department', { detail: { department } }));
@@ -670,7 +675,7 @@ function CatalogHeaderV1() {
   const handleHomeLogoClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
     if (pathname !== '/') return;
     event.preventDefault();
-    if (window.matchMedia('(max-width: 1023px)').matches) announceHomeDepartment('women');
+    announceHomeDepartment('women');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -893,6 +898,15 @@ function CatalogHeaderV1() {
             linksEnabled={FEATURE_FLAGS.CATALOG_PAGES_V1}
             showNavigation={showCatalogNavigation}
             publishedCatalogPaths={publishedCatalogPaths}
+            homepageDepartment={isMobileHome ? activeHomeDepartment : undefined}
+            onHomepageDepartmentChange={
+              isMobileHome
+                ? (department) => {
+                    announceHomeDepartment(department);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }
+                : undefined
+            }
           />
 
           <div className={cn(
@@ -973,7 +987,10 @@ function CatalogHeaderV1() {
                   onClick={(event) => {
                     if (!isMobileHome) return;
                     event.preventDefault();
-                    announceHomeDepartment(dept.href.slice(1));
+                    const department = dept.href.slice(1);
+                    if (isMobileHomepageDepartment(department)) {
+                      announceHomeDepartment(department);
+                    }
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   className={cn(
