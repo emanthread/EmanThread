@@ -250,38 +250,56 @@ export function A4SubInput({
 /** Pocket count dropdown — replaces the old tick/checkbox pills.
  *  Stores "1" or "2" (or "" for none) in the given data key. */
 export function A4PocketDropdown({
+  label,
   value,
   onChange,
   readOnly,
 }: {
+  label?: string;
   value: string;
   onChange: (v: string) => void;
   readOnly?: boolean;
 }) {
-  return (
+  const select = (
     <select
-      aria-label="Pocket count"
+      aria-label={label ? `${label} pocket count` : "Pocket count"}
       value={value === "1" || value === "2" ? value : ""}
       onChange={(e) => onChange(e.target.value)}
       disabled={readOnly}
       style={{
         border: "1.5px solid #93a4bf",
         borderRadius: "4px",
-        padding: "1.5mm 2mm",
+        padding: label ? "1mm" : "1.5mm 2mm",
         fontSize: "13px",
         fontWeight: 700,
         color: "#172554",
         background: "#fff",
         fontFamily: "inherit",
         cursor: readOnly ? "default" : "pointer",
-        minWidth: "28mm",
+        minWidth: label ? "13mm" : "28mm",
+        width: label ? "13mm" : undefined,
         height: "9mm",
         outline: "none",
       }}
     >
-      <option value="">— Select —</option>
+      <option value="">{label ? "—" : "— Select —"}</option>
       <option value="1">1</option>
       <option value="2">2</option>
     </select>
   );
+
+  return label ? (
+    <label style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "1.2mm",
+      color: "#334155",
+      fontSize: "10.5px",
+      fontWeight: 700,
+      whiteSpace: "nowrap",
+    }}>
+      <span>{label}</span>
+      {select}
+    </label>
+  ) : select;
 }

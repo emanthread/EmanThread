@@ -526,19 +526,17 @@ export function A4MeasurementForm({
         <div className="a4-row" style={{ borderBottom: "none" }}>
           <div className="a4-label" style={{ borderRight: "none" }}>Pocket</div>
           <div className="a4-entry">
-            <A4PocketDropdown
-              value={String(data[section.toggles[0].key] ?? "")}
-              onChange={(value) => {
-                const primaryKey = section.toggles![0].key;
-                const retiredKey = section.toggles![1]?.key;
-                onChange({
-                  ...data,
-                  [primaryKey]: value,
-                  ...(retiredKey ? { [retiredKey]: "" } : {}),
-                });
-              }}
-              readOnly={readOnly}
-            />
+            <div style={{ display: "flex", gap: "3mm", flexWrap: "nowrap" }}>
+              {section.toggles.map((toggle) => (
+                <A4PocketDropdown
+                  key={toggle.key}
+                  label={toggle.label}
+                  value={String(data[toggle.key] ?? "")}
+                  onChange={(value) => setField(toggle.key, value)}
+                  readOnly={readOnly}
+                />
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -654,15 +652,20 @@ function BottomTypeTabs({
           <A4Row label="2. Pancha"><A4Input value={String(data.shalwarPancha1 ?? "")} onChange={(v) => setField("shalwarPancha1", v)} readOnly={readOnly} /></A4Row>
           <A4Row label="3. Gherra"><A4Input value={String(data.shalwarGherra1 ?? "")} onChange={(v) => setField("shalwarGherra1", v)} readOnly={readOnly} /></A4Row>
           <A4Row label="4. Pocket">
-            <A4PocketDropdown
-              value={String(data.frontPocket ?? "")}
-              onChange={(value) => onChange({
-                ...data,
-                frontPocket: value,
-                sidePocket: "",
-              })}
-              readOnly={readOnly}
-            />
+            <div style={{ display: "flex", gap: "3mm", flexWrap: "nowrap" }}>
+              <A4PocketDropdown
+                label="Front"
+                value={String(data.frontPocket ?? "")}
+                onChange={(value) => setField("frontPocket", value)}
+                readOnly={readOnly}
+              />
+              <A4PocketDropdown
+                label="Side"
+                value={String(data.sidePocket ?? "")}
+                onChange={(value) => setField("sidePocket", value)}
+                readOnly={readOnly}
+              />
+            </div>
           </A4Row>
         </div>
       )}

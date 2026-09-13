@@ -61,11 +61,15 @@ test("pocket controls use a one-or-two count dropdown without schema changes", (
   const layout = source("components/measurements/forms/A4PageLayout.tsx");
   const validator = source("lib/validators/measurements-unified.ts");
 
-  expect(form.match(/<A4PocketDropdown/g)).toHaveLength(3);
-  expect(form).toContain('frontPocket: value');
-  expect(form).toContain('sidePocket: ""');
+  expect(form).toContain('section.toggles.map((toggle)');
+  expect(form).toContain('label="Front"');
+  expect(form).toContain('label="Side"');
+  expect(form).toContain('setField("frontPocket", value)');
+  expect(form).toContain('setField("sidePocket", value)');
   expect(form).toContain('setField("shalwarPocket", v)');
-  expect(layout).toContain('aria-label="Pocket count"');
+  expect(layout).toContain('label ? `${label} pocket count` : "Pocket count"');
+  expect(layout).toContain('height: "9mm"');
+  expect(layout).toContain('width: label ? "13mm" : undefined');
   expect(layout).toContain('<option value="1">1</option>');
   expect(layout).toContain('<option value="2">2</option>');
   expect(layout).toContain('disabled={readOnly}');
@@ -74,10 +78,10 @@ test("pocket controls use a one-or-two count dropdown without schema changes", (
   const parsed = unifiedMeasurementSchema.parse({
     ...UNIFIED_MEASUREMENT_EMPTY,
     frontPocket: "2",
-    sidePocket: "",
+    sidePocket: "1",
     shalwarPocket: "1",
   });
   expect(parsed.frontPocket).toBe("2");
-  expect(parsed.sidePocket).toBe("");
+  expect(parsed.sidePocket).toBe("1");
   expect(parsed.shalwarPocket).toBe("1");
 });
