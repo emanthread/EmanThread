@@ -29,6 +29,20 @@ test.describe("stitching profile estimates", () => {
     )).toBe(1800);
   });
 
+  test("uses the configured waistcoat price", () => {
+    expect(getProfileStitchingPrice(
+      { garmentType: "male_waistcoat", gender: "Male" },
+      { male: { waistcoat: 4500 } },
+    )).toBe(4500);
+  });
+
+  test("uses the configured Female Pent Coat price", () => {
+    expect(getProfileStitchingPrice(
+      { garmentType: "female_pent_coat", gender: "Female" },
+      { female: { "pent coat": 6100 } },
+    )).toBe(6100);
+  });
+
   test("uses a legacy same-garment price fallback", () => {
     expect(getProfileStitchingPrice(
       { garmentType: "male_shalwar_kameez", gender: "Male" },

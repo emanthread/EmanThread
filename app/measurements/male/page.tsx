@@ -4,7 +4,7 @@ import { MeasurementPage } from "./components/MeasurementPage";
 export const metadata: Metadata = {
   title: "Male Measurement Sheet",
   description:
-    "Eman Threads male stitching measurement sheets — Shalwar Kameez, 3 Piece Suit, Prince Coat, Shirt. A4 printable.",
+    "Eman Threads male stitching measurement sheets — Shalwar Kameez, 3 Piece Suit, Prince Coat, Shirt, and Waistcoat. A4 printable.",
   robots: { index: false },
 };
 

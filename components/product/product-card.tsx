@@ -125,7 +125,7 @@ export function ProductCard({
           {product.badge && (
             <Badge
               className={cn(
-                "absolute left-2 top-2 max-w-[calc(100%-1rem)] px-2 text-[9px] font-medium uppercase tracking-wide sm:left-4 sm:top-4 sm:max-w-none sm:text-xs sm:tracking-wider",
+                "absolute left-4 top-4 hidden max-w-none px-2 text-xs font-medium uppercase tracking-wider sm:inline-flex",
                 badgeVariants[product.badge]
               )}
             >
@@ -149,31 +149,20 @@ export function ProductCard({
                 toggleItem(product);
               }}
               className={cn(
-                "absolute right-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-background/85 shadow-md backdrop-blur-sm transition-all duration-200 sm:h-8 sm:w-8",
+                "absolute right-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-background/85 shadow-md backdrop-blur-sm transition-all duration-200 sm:right-3",
                 "hover:bg-background hover:scale-110 active:scale-95",
                 // Show below Premium Pick badge if present, otherwise align with left badge
-                displayedPrice >= 6000 ? "top-3 sm:top-14" : "top-3",
+                displayedPrice >= 6000 ? "top-2 sm:top-14" : "top-2 sm:top-3",
                 inWishlist ? "text-red-500" : "text-foreground"
               )}
             >
-              <Heart className={cn("h-4 w-4", inWishlist && "fill-current")} />
+              <Heart className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4", inWishlist && "fill-current")} />
             </button>
           )}
 
-          {/* Quick Actions — View Product + Quick View only */}
-          <div className="absolute bottom-0 left-0 right-0 flex gap-2 p-2 opacity-95 transition-all duration-300 sm:p-4 lg:translate-y-0 lg:group-hover:opacity-100">
-            {selectionRequired && productAvailable && !requiredSelectionUnavailable ? (
-              <Button
-                size="sm"
-                className="min-h-11 min-w-0 flex-1 bg-background/95 px-2 text-xs text-foreground backdrop-blur-sm hover:bg-background sm:min-h-8 sm:text-sm"
-                asChild
-              >
-                <Link href={`/product/${product.id}`} onClick={handleProductClick}>
-                  <ShoppingBag className="mr-2 hidden h-4 w-4 sm:block" />
-                  View Product
-                </Link>
-              </Button>
-            ) : (
+          {/* Quick Actions — purchase status + Quick View */}
+          <div className="absolute bottom-0 left-0 right-0 hidden gap-2 p-4 opacity-95 transition-all duration-300 sm:flex lg:translate-y-0 lg:group-hover:opacity-100">
+            {!(selectionRequired && productAvailable && !requiredSelectionUnavailable) && (
               <Button
                 size="sm"
                 className={cn(
@@ -198,7 +187,7 @@ export function ProductCard({
             <Button
               size="sm"
               variant="outline"
-              className="hidden border-0 bg-background/95 backdrop-blur-sm hover:bg-background sm:inline-flex"
+              className="ml-auto hidden border-0 bg-background/95 backdrop-blur-sm hover:bg-background sm:inline-flex"
               onClick={() => setIsQuickViewOpen(true)}
             >
               <Eye className="h-4 w-4" />

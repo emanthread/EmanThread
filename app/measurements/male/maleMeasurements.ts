@@ -43,7 +43,7 @@ export interface MeasurementSection {
 export interface MeasurementForm {
   id: string;
   label: string;
-  /** "full" = shirt (no side panel), "split" = main + side layout */
+  /** "full" = shirt/waistcoat (no side panel), "split" = main + side layout */
   layout: "full" | "split";
   sections: MeasurementSection[];
 }
@@ -57,7 +57,7 @@ const shalwarKameezForm: MeasurementForm = {
     {
       title: "Kameez",
       fields: [
-        { id: "sk-length",   label: "Length",   type: "input" },
+        { id: "sk-length", label: "Length", type: "input" },
         { id: "sk-shoulder", label: "Shoulder", type: "input" },
         {
           id: "sk-sleeves",
@@ -86,7 +86,7 @@ const shalwarKameezForm: MeasurementForm = {
         },
         { id: "sk-chest", label: "Chest", type: "input" },
         { id: "sk-waist", label: "Waist", type: "input" },
-        { id: "sk-hip",   label: "Hip",   type: "input" },
+        { id: "sk-hip", label: "Hip", type: "input" },
         {
           id: "sk-pocket",
           label: "Pocket",
@@ -100,21 +100,22 @@ const shalwarKameezForm: MeasurementForm = {
           fields: [
             { id: "shal-length", label: "Length", type: "input" },
             { id: "shal-pancha", label: "Pancha", type: "input" },
-            { id: "shal-tigh",   label: "Tigh",   type: "input" },
+            { id: "shal-tigh", label: "Tigh", type: "input" },
             { id: "shal-gherra", label: "Gherra", type: "input" },
-            { id: "shal-assan",  label: "Assan",  type: "input" },
-            { id: "shal-zip",    label: "Zip",    type: "input" },
+            { id: "shal-assan", label: "Assan", type: "input" },
+            { id: "shal-zip", label: "Zip", type: "input" },
           ],
         },
         {
           label: "Trouser",
           fields: [
-            { id: "trsr-length",        label: "Length",        type: "input" },
-            { id: "trsr-pancha",        label: "Pancha",        type: "input" },
-            { id: "trsr-tigh",          label: "Tigh",          type: "input" },
-            { id: "trsr-elastic-length",label: "Elastic Length",type: "input" },
-            { id: "trsr-pocket",        label: "Pocket",        type: "input" },
-            { id: "trsr-zip",           label: "Zip",           type: "input" },
+            { id: "trsr-length", label: "Length", type: "input" },
+            { id: "trsr-pancha", label: "Pancha", type: "input" },
+            { id: "trsr-tigh", label: "Tigh", type: "input" },
+            { id: "trsr-assan", label: "Assan", type: "input" },
+            { id: "trsr-elastic-length", label: "Elastic Length", type: "input" },
+            { id: "trsr-pocket", label: "Pocket", type: "input" },
+            { id: "trsr-zip", label: "Zip", type: "input" },
           ],
         },
       ],
@@ -122,16 +123,16 @@ const shalwarKameezForm: MeasurementForm = {
   ],
 };
 
-// ─── 2. Male Simple 3 Piece Suit ───────────────────────────────────────────
+// ─── 2. Male 3 Piece Suit ───────────────────────────────────────────
 const simple3PieceSuitForm: MeasurementForm = {
   id: "simple-3-piece-suit",
-  label: "Male Simple 3 Piece Suit",
+  label: "Male 3 Piece Suit",
   layout: "split",
   sections: [
     {
       title: "Coat",
       fields: [
-        { id: "s3-length",   label: "Length",   type: "input" },
+        { id: "s3-length", label: "Length", type: "input" },
         { id: "s3-shoulder", label: "Shoulder", type: "input" },
         {
           id: "s3-sleeves",
@@ -148,9 +149,9 @@ const simple3PieceSuitForm: MeasurementForm = {
             { label: "Bane", isCheckbox: true },
           ],
         },
-        { id: "s3-chest",  label: "Chest",  type: "input" },
-        { id: "s3-waist",  label: "Waist",  type: "input" },
-        { id: "s3-hip",    label: "Hip",    type: "input" },
+        { id: "s3-chest", label: "Chest", type: "input" },
+        { id: "s3-waist", label: "Waist", type: "input" },
+        { id: "s3-hip", label: "Hip", type: "input" },
       ],
     },
     {
@@ -159,8 +160,9 @@ const simple3PieceSuitForm: MeasurementForm = {
       fields: [
         { id: "s3-pent-length", label: "Length", type: "input" },
         { id: "s3-pent-pancha", label: "Pancha", type: "input" },
-        { id: "s3-pent-tigh",   label: "Tigh",   type: "input" },
-        { id: "s3-pent-waist",  label: "Waist",  type: "input" },
+        { id: "s3-pent-tigh", label: "Tigh", type: "input" },
+        { id: "s3-pent-assan", label: "Assan", type: "input" },
+        { id: "s3-pent-waist", label: "Waist", type: "input" },
       ],
     },
   ],
@@ -216,8 +218,9 @@ const princeCoatForm: MeasurementForm = {
       fields: [
         { id: "pc-pent-length", label: "Length", type: "input" },
         { id: "pc-pent-pancha", label: "Pancha", type: "input" },
-        { id: "pc-pent-tigh",   label: "Tigh",   type: "input" },
-        { id: "pc-pent-waist",  label: "Waist",  type: "input" },
+        { id: "pc-pent-tigh", label: "Tigh", type: "input" },
+        { id: "pc-pent-assan", label: "Assan", type: "input" },
+        { id: "pc-pent-waist", label: "Waist", type: "input" },
       ],
     },
   ],
@@ -232,7 +235,7 @@ const shirtForm: MeasurementForm = {
     {
       title: "Shirt",
       fields: [
-        { id: "sh-length",   label: "Length",   type: "input" },
+        { id: "sh-length", label: "Length", type: "input" },
         { id: "sh-shoulder", label: "Shoulder", type: "input" },
         {
           id: "sh-sleeves",
@@ -257,7 +260,7 @@ const shirtForm: MeasurementForm = {
         },
         { id: "sh-chest", label: "Chest", type: "input" },
         { id: "sh-waist", label: "Waist", type: "input" },
-        { id: "sh-hip",   label: "Hip",   type: "input" },
+        { id: "sh-hip", label: "Hip", type: "input" },
         {
           id: "sh-pocket",
           label: "Pocket",
@@ -270,10 +273,37 @@ const shirtForm: MeasurementForm = {
   ],
 };
 
+// ─── 5. Male Waistcoat ─────────────────────────────────────────────────────
+const waistcoatForm: MeasurementForm = {
+  id: "waistcoat",
+  label: "Male Waistcoat",
+  layout: "full",
+  sections: [
+    {
+      title: "Waistcoat",
+      fields: [
+        { id: "wc-length", label: "Length", type: "input" },
+        { id: "wc-shoulder", label: "Shoulder", type: "input" },
+        {
+          id: "wc-neck",
+          label: "Neck",
+          type: "sub-grid",
+          subItems: [
+            { label: "Bane" },
+            { label: "V-neck", isCheckbox: true },
+          ],
+        },
+        { id: "wc-chest", label: "Chest", type: "input" },
+        { id: "wc-waist", label: "Waist", type: "input" },
+      ],
+    },
+  ],
+};
 // ─── Exported list ──────────────────────────────────────────────────────────
 export const maleMeasurementForms: MeasurementForm[] = [
   shalwarKameezForm,
   simple3PieceSuitForm,
   princeCoatForm,
   shirtForm,
+  waistcoatForm,
 ];

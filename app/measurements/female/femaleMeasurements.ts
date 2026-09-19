@@ -81,7 +81,8 @@ const ladiesFrockForm: FemaleMeasurementForm = {
         { id: "lf-trouser-length",  label: "1. Length", type: "input" },
         { id: "lf-trouser-pancha",  label: "2. Pancha", type: "input" },
         { id: "lf-trouser-tigh",    label: "3. Tigh",   type: "input" },
-        { id: "lf-trouser-elastic", label: "4. Elastic", type: "input" },
+        { id: "lf-trouser-assan",   label: "4. Assan", type: "input" },
+        { id: "lf-trouser-elastic", label: "5. Elastic", type: "input" },
       ],
     },
   ],
@@ -127,7 +128,8 @@ const ladiesShalwarKameezForm: FemaleMeasurementForm = {
             { id: "lsk-trouser-length",  label: "1. Length", type: "input" },
             { id: "lsk-trouser-pancha",  label: "2. Pancha (Bottom)", type: "input" },
             { id: "lsk-trouser-tigh",    label: "3. Tigh",   type: "input" },
-            { id: "lsk-trouser-elastic", label: "4. Elastic", type: "input" },
+            { id: "lsk-trouser-assan",   label: "4. Assan", type: "input" },
+            { id: "lsk-trouser-elastic", label: "5. Elastic", type: "input" },
           ],
         },
         {
@@ -238,10 +240,55 @@ const saariBlouseForm: FemaleMeasurementForm = {
   ],
 };
 
+// ─── 5. Female Pent Coat ────────────────────────────────────────────────────
+const femalePentCoatForm: FemaleMeasurementForm = {
+  id: "female-pent-coat",
+  label: "Female Pent Coat",
+  layout: "split",
+  sections: [
+    {
+      title: "Coat",
+      fields: [
+        { id: "fpc-length", label: "Length", type: "input" },
+        { id: "fpc-shoulder", label: "Shoulder", type: "input" },
+        {
+          id: "fpc-sleeves",
+          label: "Sleeves",
+          type: "sub-grid",
+          subItems: [{ label: "Gol Bazoo", isCheckbox: true }],
+        },
+        {
+          id: "fpc-neck",
+          label: "Neck",
+          type: "sub-grid",
+          subItems: [
+            { label: "Collar", isCheckbox: true },
+            { label: "Bane", isCheckbox: true },
+          ],
+        },
+        { id: "fpc-chest", label: "Chest", type: "input" },
+        { id: "fpc-waist", label: "Waist", type: "input" },
+        { id: "fpc-hip", label: "Hip", type: "input" },
+      ],
+    },
+    {
+      title: "Pent",
+      isSide: true,
+      fields: [
+        { id: "fpc-pent-length", label: "Length", type: "input" },
+        { id: "fpc-pent-pancha", label: "Pancha", type: "input" },
+        { id: "fpc-pent-tigh", label: "Tigh", type: "input" },
+        { id: "fpc-pent-assan", label: "Assan", type: "input" },
+        { id: "fpc-pent-waist", label: "Waist", type: "input" },
+      ],
+    },
+  ],
+};
 // ─── Exported list ────────────────────────────────────────────────────────────
 export const femaleMeasurementForms: FemaleMeasurementForm[] = [
   ladiesFrockForm,
   ladiesShalwarKameezForm,
   lehngaKurtiForm,
   saariBlouseForm,
+  femalePentCoatForm,
 ];

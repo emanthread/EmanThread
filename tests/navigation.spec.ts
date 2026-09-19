@@ -35,7 +35,7 @@ const expectedHierarchy = [
         groups: [
           {
             label: "SHOP BY CATEGORY",
-            items: ["3 PIECE", "SHIRT & DUPATTA", "KURTA", "MODEST WEAR", "BOTTOMWEAR"],
+            items: ["3 PIECE", "SHIRT & DUPATTA", "KURTA", "MODEST WEAR", "BOTTOMWEAR", "PENT COAT"],
           },
           {
             label: "SHOP BY COLLECTION",
@@ -52,7 +52,7 @@ const expectedHierarchy = [
         groups: [
           { label: "SHOP BY CATEGORY", items: ["3 PIECE", "2 PIECE", "1 PIECE", "SAARI BLOUSE"] },
           { label: "SHOP BY COLLECTION", items: ["NOYA", "ZARIYA", "LUXE"] },
-          { label: "SHOP BY OCCASION", items: ["PARTYWEAR"] },
+          { label: "SHOP BY OCCASION", items: ["PARTYWEAR", "BRIDAL WEAR"] },
         ],
       },
       {
@@ -316,7 +316,7 @@ test.describe("catalog navigation configuration", () => {
     expect(configuredHierarchy).toEqual(expectedHierarchy);
     expect(catalogMenu).toHaveLength(4);
     expect(catalogMenu.flatMap((department) => department.sections)).toHaveLength(18);
-    expect(allLeaves()).toHaveLength(135);
+    expect(allLeaves()).toHaveLength(137);
 
     for (const department of catalogMenu) {
       expectSequentialOrder(department.sections);
@@ -534,6 +534,17 @@ test.describe("catalog navigation configuration", () => {
       { label: "BRIDAL WEAR", href: "/women/ready-to-wear/bridal-wear" },
     ]);
 
+    const womenUnstitched = women.sections.find(
+      (section) => section.id === "women.unstitched",
+    )!;
+    const womenUnstitchedOccasions = womenUnstitched.groups.find(
+      (group) => group.id === "women.unstitched.shop-by-occasion",
+    )!;
+    expect(womenUnstitchedOccasions.items).toMatchObject([
+      { label: "PARTYWEAR", href: "/women/unstitched/partywear" },
+      { label: "BRIDAL WEAR", href: "/women/unstitched/bridal-wear" },
+    ]);
+
     const men = catalogMenu.find((department) => department.id === "men")!;
     const menReadyToWear = men.sections.find(
       (section) => section.id === "men.ready-to-wear",
@@ -659,6 +670,12 @@ test.describe("catalog navigation configuration", () => {
 
     for (const expected of [
       {
+        path: "/women/ready-to-wear/pent-coat",
+        id: "catalog:leaf:women.ready-to-wear.pent-coat",
+        parentId: "catalog:section:women.ready-to-wear",
+        productKind: "READY_TO_WEAR",
+      },
+      {
         path: "/women/ready-to-wear/casual",
         id: "catalog:leaf:women.ready-to-wear.casual",
         parentId: "catalog:section:women.ready-to-wear",
@@ -691,6 +708,12 @@ test.describe("catalog navigation configuration", () => {
       {
         path: "/women/unstitched/partywear",
         id: "catalog:leaf:women.unstitched.partywear",
+        parentId: "catalog:section:women.unstitched",
+        productKind: "UNSTITCHED_FABRIC",
+      },
+      {
+        path: "/women/unstitched/bridal-wear",
+        id: "catalog:leaf:women.unstitched.bridal-wear",
         parentId: "catalog:section:women.unstitched",
         productKind: "UNSTITCHED_FABRIC",
       },

@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const gender = category.startsWith("Men") || category.startsWith("Shirt") || category.startsWith("Prince") || category.startsWith("Simple")
+    const gender = category.startsWith("Men") || category.startsWith("Male") || category.startsWith("Waistcoat") || category.startsWith("Shirt") || category.startsWith("Prince") || category.startsWith("Simple")
       ? "Male"
       : "Female";
 
@@ -162,11 +162,13 @@ function mapCategoryToGarmentType(category: string, gender: string): string {
     if (normalized.includes("shalwar")) return "male_shalwar_kameez";
     if (normalized.includes("3 piece") || normalized.includes("simple")) return "male_simple_3_piece";
     if (normalized.includes("prince")) return "male_prince_coat";
+    if (normalized.includes("waistcoat")) return "male_waistcoat";
     if (normalized.includes("shirt")) return "male_shirt";
     return "male_shalwar_kameez";
   }
 
   if (normalized.includes("simple shalwar") || normalized.includes("shalwar kameez")) return "female_simple_shalwar";
+  if (normalized.includes("pent coat") || normalized.includes("pant coat")) return "female_pent_coat";
   if (normalized.includes("frock")) return "female_frock";
   if (normalized.includes("saari") || normalized.includes("sari")) return "female_saari";
   if (normalized.includes("lehnga") || normalized.includes("kurti")) return "female_lehnga_kurti";

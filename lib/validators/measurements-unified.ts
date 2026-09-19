@@ -5,8 +5,9 @@ import { z } from "zod";
  * Used by: user profiles, tailor requests, admin edits, checkout snapshots, print slips.
  *
  * garmentType determines which fields are shown/relevant per category:
- *   male_shalwar_kameez, male_simple_3_piece, male_prince_coat, male_shirt
- *   female_simple_shalwar, female_frock, female_saari, female_lehnga_kurti
+ *   male_shalwar_kameez, male_simple_3_piece, male_prince_coat, male_shirt,
+ *   male_waistcoat
+ *   female_simple_shalwar, female_pent_coat, female_frock, female_saari, female_lehnga_kurti
  *
  * Each measurement field stores a simple string value (e.g., "42", "42 1/2")
  * matching the blank-line input style of the A4 measurement forms.
@@ -23,7 +24,9 @@ export const GARMENT_TYPES = [
   "male_simple_3_piece",
   "male_prince_coat",
   "male_shirt",
+  "male_waistcoat",
   "female_simple_shalwar",
+  "female_pent_coat",
   "female_frock",
   "female_saari",
   "female_lehnga_kurti",
@@ -394,10 +397,12 @@ export const UNIFIED_MEASUREMENT_EMPTY: UnifiedMeasurementFormData = {
 export function garmentTypeLabel(gt: string): string {
   const labels: Record<string, string> = {
     male_shalwar_kameez: "Male Shalwar Kameez",
-    male_simple_3_piece: "Male Simple 3 Piece Suit",
+    male_simple_3_piece: "Male 3 Piece Suit",
     male_prince_coat: "Male Prince Coat 3 Piece Suit",
     male_shirt: "Male Shirt",
+    male_waistcoat: "Male Waistcoat",
     female_simple_shalwar: "Female Simple Shalwar Kameez",
+    female_pent_coat: "Female Pent Coat",
     female_frock: "Female Frock",
     female_saari: "Female Saari",
     female_lehnga_kurti: "Female Lehnga Kurti",
@@ -448,7 +453,7 @@ export const A4_FIELDS: Record<string, { title: string; subtitle: string; fields
     },
   },
   male_simple_3_piece: {
-    title: "Simple 3 Piece Suit",
+    title: "Male 3 Piece Suit",
     subtitle: "EMAN THREADS",
     fields: {
       "Coat Measurements": [
@@ -504,6 +509,21 @@ export const A4_FIELDS: Record<string, { title: string; subtitle: string; fields
       ],
     },
   },
+  male_waistcoat: {
+    title: "Waistcoat",
+    subtitle: "EMAN THREADS",
+    fields: {
+      Waistcoat: [
+        { label: "Length", key: "length1", type: "text" },
+        { label: "Shoulder", key: "shoulder1", type: "text" },
+        { label: "Neck", key: "neck1", type: "text" },
+        { label: "Bane", key: "bane1", type: "text" },
+        { label: "V-neck", key: "roundneck", type: "toggle" },
+        { label: "Chest", key: "chest1", type: "text" },
+        { label: "Waist", key: "waist1", type: "text" },
+      ],
+    },
+  },
   female_frock: {
     title: "Ladies Frock",
     subtitle: "EMAN THREADS",
@@ -543,7 +563,8 @@ export const A4_FIELDS: Record<string, { title: string; subtitle: string; fields
         { label: "1. Length", key: "trouserLength1", type: "text" },
         { label: "2. Pancha (Bottom)", key: "trouserPancha1", type: "text" },
         { label: "3. Tigh", key: "trouserTigh1", type: "text" },
-        { label: "4. Elastic", key: "ladTrouserElastic1", type: "text" },
+        { label: "4. Assan", key: "trouserAssan1", type: "text" },
+        { label: "5. Elastic", key: "ladTrouserElastic1", type: "text" },
       ],
       "Simple Shalwar": [
         { label: "1. Length", key: "ladSimpleShalwar1", type: "text" },
@@ -596,4 +617,9 @@ export const A4_FIELDS: Record<string, { title: string; subtitle: string; fields
       ],
     },
   },
+};
+
+A4_FIELDS.female_pent_coat = {
+  ...A4_FIELDS.male_simple_3_piece,
+  title: "Female Pent Coat",
 };

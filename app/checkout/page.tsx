@@ -149,7 +149,9 @@ function AdminMeasurementLookup({
                   male_simple_3_piece: "Male 3 Piece Suit",
                   male_prince_coat: "Male Prince Coat",
                   male_shirt: "Male Shirt",
+                  male_waistcoat: "Male Waistcoat",
                   female_simple_shalwar: "Female Shalwar Kameez",
+                  female_pent_coat: "Female Pent Coat",
                   female_frock: "Female Frock",
                   female_lehnga_kurti: "Female Lehnga Kurti",
                   female_saari: "Female Saari"
@@ -250,8 +252,10 @@ export default function CheckoutPage() {
       male_simple_3_piece:   "simple 3 piece suit",
       male_prince_coat:      "prince coat 3 piece suit",
       male_shirt:            "shirt",
+      male_waistcoat:        "waistcoat",
       // Female profiles
       female_simple_shalwar: variant ?? "female_shalwar_kameez_simple_shalwar",
+      female_pent_coat:      "pent coat",
       female_frock:          "frock",
       female_lehnga_kurti:   "lehnga kurti",
       female_saari:          "saari",

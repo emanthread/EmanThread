@@ -174,6 +174,7 @@ export const catalogMenu: MenuDepartment[] = [
               { id: "women.ready-to-wear.kurta", label: "KURTA", href: "/women/ready-to-wear/kurta", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 3 },
               { id: "women.ready-to-wear.modest-wear", label: "MODEST WEAR", href: "/women/ready-to-wear/modest-wear", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 4 },
               { id: "women.ready-to-wear.bottomwear", label: "BOTTOMWEAR", href: "/women/ready-to-wear/bottomwear", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 5 },
+              { id: "women.ready-to-wear.pent-coat", label: "PENT COAT", href: "/women/ready-to-wear/pent-coat", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 6 },
             ],
           },
           {
@@ -267,6 +268,7 @@ export const catalogMenu: MenuDepartment[] = [
             order: 3,
             items: [
               { id: "women.unstitched.partywear", label: "PARTYWEAR", href: "/women/unstitched/partywear", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 1 },
+              { id: "women.unstitched.bridal-wear", label: "BRIDAL WEAR", href: "/women/unstitched/bridal-wear", image: null, badge: null, comingSoon: false, visibility: "visible", status: "active", order: 2 },
             ],
           },
         ],

@@ -8,7 +8,7 @@ import { PrintableA4Sheet } from "./PrintableA4Sheet";
 /**
  * The main page component for /measurements/male.
  * Renders:
- * - A category tab bar (Shalwar Kameez / Simple 3 Piece / Prince Coat / Shirt)
+ * - A category tab bar (Shalwar Kameez / Male 3 Piece / Prince Coat / Shirt)
  * - A live A4 preview of the selected form
  * - A "Print A4" button (triggers window.print())
  */

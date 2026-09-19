@@ -173,7 +173,8 @@ const CONFIGS: Record<string, FormLayout> = {
           { label: "1. Length", key: "trouserLength1", type: "text" },
           { label: "2. Pancha", key: "trouserPancha1", type: "text" },
           { label: "3. Tigh", key: "trouserTigh1", type: "text" },
-          { label: "4. Waist", key: "trouserWaist1", type: "text" },
+          { label: "4. Assan", key: "trouserAssan1", type: "text" },
+          { label: "5. Waist", key: "trouserWaist1", type: "text" },
         ],
         side: true,
       },
@@ -181,7 +182,7 @@ const CONFIGS: Record<string, FormLayout> = {
   },
 
   male_simple_3_piece: {
-    title: "Simple 3 Piece Suit",
+    title: "Male 3 Piece Suit",
     sections: [
       {
         title: "Coat Measurements",
@@ -276,6 +277,29 @@ const CONFIGS: Record<string, FormLayout> = {
     ],
   },
 
+  male_waistcoat: {
+    title: "Waistcoat",
+    sections: [
+      {
+        title: "Waistcoat",
+        fields: [
+          { label: "Length", key: "length1", type: "text" },
+          { label: "Shoulder", key: "shoulder1", type: "text" },
+          {
+            label: "Neck",
+            key: "neck1",
+            type: "toggle",
+            gridCols: 2,
+            subInputs: [{ label: "Bane", key: "bane1" }],
+            toggles: [{ label: "V-neck", key: "roundneck" }],
+            toggleType: "mini",
+          },
+          { label: "Chest", key: "chest1", type: "text" },
+          { label: "Waist", key: "waist1", type: "text" },
+        ],
+      },
+    ],
+  },
   female_frock: {
     title: "Ladies Frock",
     sections: [
@@ -307,7 +331,8 @@ const CONFIGS: Record<string, FormLayout> = {
           { label: "1. Length", key: "trouserLength1", type: "text" },
           { label: "2. Pancha", key: "trouserPancha1", type: "text" },
           { label: "3. Tigh", key: "trouserTigh1", type: "text" },
-          { label: "4. Elastic", key: "trouserElastic1", type: "text" },
+          { label: "4. Assan", key: "trouserAssan1", type: "text" },
+          { label: "5. Elastic", key: "trouserElastic1", type: "text" },
         ],
         side: true,
       },
@@ -424,6 +449,12 @@ const CONFIGS: Record<string, FormLayout> = {
       },
     ],
   },
+};
+
+// Female Pent Coat intentionally shares the complete coat + Pent layout.
+CONFIGS.female_pent_coat = {
+  ...CONFIGS.male_simple_3_piece,
+  title: "Female Pent Coat",
 };
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -587,10 +618,10 @@ function BottomTypeTabs({
   const [bottomType, setBottomType] = useState<"shalwar" | "trouser" | "simple" | "belt">(() => {
     if (variant === 'ladies') {
       if (data.ladShalwarBelt1 || data.ladShalwarBeltPancha1 || data.ladShalwarBeltGherra1) return "belt";
-      if (data.trouserLength1 || data.trouserPancha1 || data.trouserTigh1) return "trouser";
+      if (data.trouserLength1 || data.trouserPancha1 || data.trouserTigh1 || data.trouserAssan1) return "trouser";
       return "simple";
     } else {
-      if (data.trouserLength1 || data.trouserPancha1 || data.trouserTigh1) return "trouser";
+      if (data.trouserLength1 || data.trouserPancha1 || data.trouserTigh1 || data.trouserAssan1) return "trouser";
       return "shalwar";
     }
   });
@@ -599,13 +630,13 @@ function BottomTypeTabs({
     if (variant === 'ladies') {
       if (data.ladShalwarBelt1 || data.ladShalwarBeltPancha1 || data.ladShalwarBeltGherra1) {
         setBottomType("belt");
-      } else if (data.trouserLength1 || data.trouserPancha1 || data.trouserTigh1) {
+      } else if (data.trouserLength1 || data.trouserPancha1 || data.trouserTigh1 || data.trouserAssan1) {
         setBottomType("trouser");
       } else {
         setBottomType("simple");
       }
     } else {
-      if (data.trouserLength1 || data.trouserPancha1 || data.trouserTigh1) {
+      if (data.trouserLength1 || data.trouserPancha1 || data.trouserTigh1 || data.trouserAssan1) {
         setBottomType("trouser");
       } else {
         setBottomType("shalwar");
@@ -651,21 +682,13 @@ function BottomTypeTabs({
           <A4Row label="1. Length"><A4Input value={String(data.shalwarLength1 ?? "")} onChange={(v) => setField("shalwarLength1", v)} readOnly={readOnly} /></A4Row>
           <A4Row label="2. Pancha"><A4Input value={String(data.shalwarPancha1 ?? "")} onChange={(v) => setField("shalwarPancha1", v)} readOnly={readOnly} /></A4Row>
           <A4Row label="3. Gherra"><A4Input value={String(data.shalwarGherra1 ?? "")} onChange={(v) => setField("shalwarGherra1", v)} readOnly={readOnly} /></A4Row>
-          <A4Row label="4. Pocket">
-            <div style={{ display: "flex", gap: "3mm", flexWrap: "nowrap" }}>
-              <A4PocketDropdown
-                label="Front"
-                value={String(data.frontPocket ?? "")}
-                onChange={(value) => setField("frontPocket", value)}
-                readOnly={readOnly}
-              />
-              <A4PocketDropdown
-                label="Side"
-                value={String(data.sidePocket ?? "")}
-                onChange={(value) => setField("sidePocket", value)}
-                readOnly={readOnly}
-              />
-            </div>
+          <A4Row label="4. Assan"><A4Input value={String(data.shalwarAssan1 ?? "")} onChange={(v) => setField("shalwarAssan1", v)} readOnly={readOnly} /></A4Row>
+          <A4Row label="5. Pocket">
+            <A4PocketDropdown
+              value={String(data.shalwarPocket ?? "")}
+              onChange={(value) => setField("shalwarPocket", value)}
+              readOnly={readOnly}
+            />
           </A4Row>
         </div>
       )}
@@ -676,10 +699,11 @@ function BottomTypeTabs({
           <A4Row label="1. Length"><A4Input value={String(data.trouserLength1 ?? "")} onChange={(v) => setField("trouserLength1", v)} readOnly={readOnly} /></A4Row>
           <A4Row label={variant === 'ladies' ? "2. Pancha (Bottom)" : "2. Pancha"}><A4Input value={String(data.trouserPancha1 ?? "")} onChange={(v) => setField("trouserPancha1", v)} readOnly={readOnly} /></A4Row>
           <A4Row label="3. Tigh"><A4Input value={String(data.trouserTigh1 ?? "")} onChange={(v) => setField("trouserTigh1", v)} readOnly={readOnly} /></A4Row>
+          <A4Row label="4. Assan"><A4Input value={String(data.trouserAssan1 ?? "")} onChange={(v) => setField("trouserAssan1", v)} readOnly={readOnly} /></A4Row>
           {variant === 'mens' ? (
             <>
-              <A4Row label="4. Elastic Length"><A4Input value={String(data.trouserElastic1 ?? "")} onChange={(v) => setField("trouserElastic1", v)} readOnly={readOnly} /></A4Row>
-              <A4Row label="5. Pocket">
+              <A4Row label="5. Elastic Length"><A4Input value={String(data.trouserElastic1 ?? "")} onChange={(v) => setField("trouserElastic1", v)} readOnly={readOnly} /></A4Row>
+              <A4Row label="6. Pocket">
                 <A4PocketDropdown
                   value={String(data.shalwarPocket ?? "")}
                   onChange={(v) => setField("shalwarPocket", v)}
@@ -688,7 +712,7 @@ function BottomTypeTabs({
               </A4Row>
             </>
           ) : (
-            <A4Row label="4. Elastic"><A4Input value={String(data.ladTrouserElastic1 ?? "")} onChange={(v) => setField("ladTrouserElastic1", v)} readOnly={readOnly} /></A4Row>
+            <A4Row label="5. Elastic"><A4Input value={String(data.ladTrouserElastic1 ?? "")} onChange={(v) => setField("ladTrouserElastic1", v)} readOnly={readOnly} /></A4Row>
           )}
         </div>
       )}

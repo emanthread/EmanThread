@@ -27,6 +27,8 @@ const FIXED_STITCHING_PRICE_KEYS: Record<string, string> = {
   male_simple_3_piece: "simple 3 piece suit",
   male_prince_coat: "prince coat 3 piece suit",
   male_shirt: "shirt",
+  male_waistcoat: "waistcoat",
+  female_pent_coat: "pent coat",
   female_frock: "frock",
   female_lehnga_kurti: "lehnga kurti",
   female_saari: "saari",

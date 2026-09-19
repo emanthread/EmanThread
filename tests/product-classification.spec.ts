@@ -17,6 +17,9 @@ test.describe("catalog-driven product classification", () => {
     expect(classifyCatalogPath("/women/ready-to-wear/kurta")?.productKind).toBe(
       "READY_TO_WEAR"
     );
+    expect(
+      classifyCatalogPath("/women/ready-to-wear/pent-coat")?.productKind
+    ).toBe("READY_TO_WEAR");
     expect(classifyCatalogPath("/men/ready-to-wear/2-piece")?.productKind).toBe(
       "READY_TO_WEAR"
     );
@@ -81,6 +84,7 @@ test.describe("catalog-driven product classification", () => {
       "/women/partywear",
       "/women/bridal-wear",
       "/women/unstitched/partywear",
+      "/women/unstitched/bridal-wear",
       "/women/unstitched/saari-blouse",
     ]) {
       expect(classifyCatalogPath(path)).toMatchObject({
@@ -98,8 +102,9 @@ test.describe("catalog-driven product classification", () => {
     }
   });
 
-  test("gives ready-to-wear Partywear and Bridal real size inventory", () => {
+  test("gives ready-to-wear categories real size inventory", () => {
     for (const path of [
+      "/women/ready-to-wear/pent-coat",
       "/women/ready-to-wear/partywear",
       "/women/ready-to-wear/bridal-wear",
     ]) {

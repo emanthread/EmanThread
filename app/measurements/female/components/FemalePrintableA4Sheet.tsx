@@ -89,10 +89,7 @@ export function FemalePrintableA4Sheet({ form }: FemalePrintableA4SheetProps) {
               textTransform: "uppercase",
             }}
           >
-            {form.id === "ladies-frock" ? "Ladies Frock" :
-             form.id === "ladies-shalwar-kameez" ? "Ladies Shalwar Kameez" :
-             form.id === "lehnga-kurti" ? "Lehnga Kurti" :
-             "Saari Blouse"}
+            {form.label}
           </h1>
           <h2
             style={{

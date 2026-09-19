@@ -109,8 +109,17 @@ export function FemaleMeasurementRow({ field, isSide }: FemaleMeasurementRowProp
                   flexDirection: "column",
                   justifyContent: "center",
                 }}>
-                  {sub.label}
-                  {!sub.isCheckbox && <span style={{ display: "block", height: "5mm", borderBottom: "1px solid #64748b", marginTop: "2mm" }} />}
+                  {sub.isCheckbox ? (
+                    <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "1.5mm" }}>
+                      <span style={{ width: "5mm", height: "5mm", border: "1.6px solid #172554", display: "inline-block", borderRadius: "1px" }} />
+                      {sub.label}
+                    </span>
+                  ) : (
+                    <>
+                      {sub.label}
+                      <span style={{ display: "block", height: "5mm", borderBottom: "1px solid #64748b", marginTop: "2mm" }} />
+                    </>
+                  )}
                 </div>
               ))}
             </div>

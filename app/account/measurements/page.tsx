@@ -26,13 +26,15 @@ const GARMENT_LABELS: Record<string, string> = {
   // ── Male (canonical keys) ─────────────────────────────────────────────────
   "shalwar_kameez_simple_shalwar": "Shalwar Kameez (with simple Shalwar)",
   "shalwar_kameez_trouser": "Shalwar Kameez with Trouser",
-  "simple 3 piece suit": "Simple 3 Piece Suit",
+  "simple 3 piece suit": "Male 3 Piece Suit",
   "prince coat 3 piece suit": "Prince Coat 3 Piece Suit",
   "shirt": "Shirt",
+  "waistcoat": "Waistcoat",
   // ── Female (canonical keys) ───────────────────────────────────────────────
   "female_shalwar_kameez_simple_shalwar": "Shalwar Kameez (with simple Shalwar)",
   "female_shalwar_kameez_trouser": "Shalwar Kameez with Trouser",
   "female_shalwar_kameez_belt_shalwar": "Shalwar Kameez with Belt Shalwar",
+  "pent coat": "Pent Coat",
   "frock": "Frock",
   "lehnga kurti": "Lehnga Kurti",
   "saari": "Saari",
@@ -40,7 +42,7 @@ const GARMENT_LABELS: Record<string, string> = {
   "shalwar_kameez": "Shalwar Kameez",
   "simple shalwar kameez": "Simple Shalwar Kameez",
   "shalwar kameez": "Shalwar Kameez",
-  "simple 3 piece": "Simple 3 Piece",
+  "simple 3 piece": "Male 3 Piece Suit",
   "prince coat": "Prince Coat",
   "simple shalwar": "Simple Shalwar Kameez",
 };
@@ -51,12 +53,14 @@ const ACTIVE_MALE_GARMENTS = [
   "simple 3 piece suit",
   "prince coat 3 piece suit",
   "shirt",
+  "waistcoat",
 ];
 
 const ACTIVE_FEMALE_GARMENTS = [
   "female_shalwar_kameez_simple_shalwar",
   "female_shalwar_kameez_trouser",
   "female_shalwar_kameez_belt_shalwar",
+  "pent coat",
   "frock",
   "lehnga kurti",
   "saari",

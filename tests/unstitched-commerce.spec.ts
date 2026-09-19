@@ -56,6 +56,7 @@ test.describe("unstitched fabric purchase flow", () => {
     for (const path of [
       "/women/unstitched/2-piece",
       "/women/unstitched/partywear",
+      "/women/unstitched/bridal-wear",
       "/women/unstitched/saari-blouse",
       "/men/new-in/unstitched-collection",
       "/teens/unstitched/3-piece",

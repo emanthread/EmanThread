@@ -71,4 +71,22 @@ test.describe('mobile department homepage', () => {
     expect(homepageSource).toContain("data-home-department={activeDepartment}");
     expect(homepageSource).not.toContain("text-black lg:hidden");
   });
+
+  test('keeps mobile product cards focused on a compact wishlist action', () => {
+    const productCardSource = readFileSync(
+      'components/product/product-card.tsx',
+      'utf8',
+    );
+
+    expect(productCardSource).toContain(
+      'hidden max-w-none px-2 text-xs font-medium uppercase tracking-wider sm:inline-flex',
+    );
+    expect(productCardSource).toContain(
+      'hidden gap-2 p-4 opacity-95 transition-all duration-300 sm:flex',
+    );
+    expect(productCardSource).toContain(
+      'right-2 z-10 flex h-8 w-8 items-center justify-center rounded-full',
+    );
+    expect(productCardSource).toContain('h-3.5 w-3.5 sm:h-4 sm:w-4');
+  });
 });

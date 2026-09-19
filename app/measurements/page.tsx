@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Measurement Sheets — Eman Threads",
   description:
-    "A4 printable measurement sheets for men's and women's stitching — Shalwar Kameez, 3 Piece Suit, Prince Coat, Shirt, Ladies Frock, Lehnga Kurti, Saari Blouse.",
+    "A4 printable measurement sheets for men's and women's stitching — Shalwar Kameez, 3 Piece Suit, Prince Coat, Shirt, Ladies Frock, Lehnga Kurti, Saari Blouse, Female Pent Coat.",
   robots: { index: false },
 };
 
@@ -46,7 +46,7 @@ export default function MeasurementsLandingPage() {
                 </li>
                 <li className="flex items-center gap-3 text-slate-700">
                   <span className="w-2 h-2 bg-[#b08d57] rounded-full" />
-                  Simple 3 Piece Suit
+                  Male 3 Piece Suit
                 </li>
               </ul>
               <div className="mt-8 text-[#b08d57] font-semibold text-sm uppercase tracking-wider group-hover:translate-x-1 transition-transform">
@@ -80,6 +80,10 @@ export default function MeasurementsLandingPage() {
                 <li className="flex items-center gap-3 text-slate-700">
                   <span className="w-2 h-2 bg-[#172554] rounded-full" />
                   Saari Blouse
+                </li>
+                <li className="flex items-center gap-3 text-slate-700">
+                  <span className="w-2 h-2 bg-[#172554] rounded-full" />
+                  Female Pent Coat
                 </li>
               </ul>
               <div className="mt-8 text-[#172554] font-semibold text-sm uppercase tracking-wider group-hover:translate-x-1 transition-transform">
