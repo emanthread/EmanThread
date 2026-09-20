@@ -166,13 +166,21 @@ export function MeasurementRow({ field, isSide }: MeasurementRowProps) {
             {/* Input line */}
             <div className="h-[10mm] border-b border-b-[#64748b] flex-1 min-w-[32mm]" />
             {/* Checkboxes */}
-            {field.checkboxes?.map((cb, i) => (
-              <CheckboxOption
-                key={`${cb.label}-${i}`}
-                id={`${field.id}-${cb.label}`}
-                label={cb.label}
-              />
-            ))}
+            <div
+              className={`flex ${
+                field.stackCheckboxes
+                  ? "flex-col items-start gap-[2.2mm]"
+                  : "flex-wrap items-center gap-[3mm]"
+              }`}
+            >
+              {field.checkboxes?.map((cb, i) => (
+                <CheckboxOption
+                  key={`${cb.label}-${i}`}
+                  id={`${field.id}-${cb.label}`}
+                  label={cb.label}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </div>

@@ -129,7 +129,37 @@ export function FemaleMeasurementRow({ field, isSide }: FemaleMeasurementRowProp
     );
   }
 
-  // ── Default: plain input row ──────────────────────────────────────────────
+  // Checkbox row: measurement line with inline options.
+  if (field.type === "checkbox-row") {
+    return (
+      <div style={{ borderBottom: "1.5px solid #93a4bf", minHeight: isSide ? "12mm" : "19mm" }}>
+        <div style={{ display: "grid", gridTemplateColumns: isSide ? "1fr" : "35mm 1fr" }}>
+          <div style={{
+            padding: isSide ? "2mm 3mm" : "3.2mm 3mm",
+            fontWeight: isSide ? 800 : 700,
+            color: "#172554",
+            borderRight: isSide ? undefined : "1.5px solid #93a4bf",
+            borderBottom: isSide ? "1px solid #e2e8f0" : undefined,
+            fontSize: isSide ? "14px" : "15px",
+            background: isSide ? undefined : "#fbfdff",
+          }}>
+            {field.label}
+          </div>
+          <div style={{ padding: "2mm 3mm", display: "flex", alignItems: "center", gap: "3mm", flexWrap: "wrap" }}>
+            <div style={{ height: "10mm", borderBottom: "1.5px solid #64748b", flex: 1, minWidth: isSide ? "0" : "32mm" }} />
+            {field.checkboxes?.map((checkbox) => (
+              <span key={checkbox.label} style={{ display: "inline-flex", alignItems: "center", gap: "1.5mm" }}>
+                <span style={{ width: "5mm", height: "5mm", border: "1.6px solid #172554", display: "inline-block", borderRadius: "1px" }} />
+                {checkbox.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Default: plain input row.
   return (
     <div style={{
       borderBottom: "1.5px solid #93a4bf",

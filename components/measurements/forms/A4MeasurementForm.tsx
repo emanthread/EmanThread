@@ -36,6 +36,7 @@ interface FieldConfig {
   subInputs?: { label: string; key: DataKey }[];
   toggles?: { label: string; key: DataKey }[];
   groupToggles?: boolean;
+  stackToggles?: boolean;
   gridCols?: number;
   toggleType?: "mini" | "pill";
   forceSubgrid?: boolean;
@@ -288,10 +289,12 @@ const CONFIGS: Record<string, FormLayout> = {
           {
             label: "Neck",
             key: "neck1",
-            type: "toggle",
-            gridCols: 2,
-            subInputs: [{ label: "Bane", key: "bane1" }],
-            toggles: [{ label: "V-neck", key: "roundneck" }],
+            type: "text",
+            toggles: [
+              { label: "Bane", key: "baneCb" },
+              { label: "V-neck", key: "roundneck" },
+            ],
+            stackToggles: true,
             toggleType: "mini",
           },
           { label: "Chest", key: "chest1", type: "text" },
@@ -451,10 +454,25 @@ const CONFIGS: Record<string, FormLayout> = {
   },
 };
 
-// Female Pent Coat intentionally shares the complete coat + Pent layout.
+// Female Pent Coat shares the coat + Pent layout, with female-only shoulder options.
 CONFIGS.female_pent_coat = {
   ...CONFIGS.male_simple_3_piece,
   title: "Female Pent Coat",
+  sections: CONFIGS.male_simple_3_piece.sections.map((section) => ({
+    ...section,
+    fields: section.fields.map((field) =>
+      field.key === "shoulder1"
+        ? {
+            ...field,
+            toggles: [
+              { label: "Straight", key: "straightCb" },
+              { label: "Down", key: "downCb" },
+            ],
+            toggleType: "pill",
+          }
+        : field
+    ),
+  })),
 };
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -537,16 +555,35 @@ export function A4MeasurementForm({
               </div>
             )}
             {!hasSubs && hasToggles && (
-              <div style={{ display: "flex", gap: "2mm", marginTop: field.type === "toggle" ? "0" : "2mm", flexWrap: "wrap" }}>
-                {field.toggles!.map((t) => (
-                  <A4Pill
-                    key={t.key}
-                    label={t.label}
-                    checked={String(data[t.key] ?? "0") === "1"}
-                    onChange={(v) => setToggle(t.key, v)}
-                    readOnly={readOnly}
-                  />
-                ))}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: field.stackToggles ? "column" : "row",
+                  alignItems: field.stackToggles ? "flex-start" : "center",
+                  gap: "2mm",
+                  marginTop: field.type === "toggle" ? "0" : "2mm",
+                  flexWrap: "wrap",
+                }}
+              >
+                {field.toggles!.map((t) =>
+                  field.stackToggles ? (
+                    <A4MiniToggle
+                      key={t.key}
+                      label={t.label}
+                      checked={String(data[t.key] ?? "0") === "1"}
+                      onChange={(v) => setToggle(t.key, v)}
+                      readOnly={readOnly}
+                    />
+                  ) : (
+                    <A4Pill
+                      key={t.key}
+                      label={t.label}
+                      checked={String(data[t.key] ?? "0") === "1"}
+                      onChange={(v) => setToggle(t.key, v)}
+                      readOnly={readOnly}
+                    />
+                  )
+                )}
               </div>
             )}
           </A4Row>

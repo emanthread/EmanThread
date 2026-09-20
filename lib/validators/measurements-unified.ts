@@ -517,7 +517,7 @@ export const A4_FIELDS: Record<string, { title: string; subtitle: string; fields
         { label: "Length", key: "length1", type: "text" },
         { label: "Shoulder", key: "shoulder1", type: "text" },
         { label: "Neck", key: "neck1", type: "text" },
-        { label: "Bane", key: "bane1", type: "text" },
+        { label: "Bane", key: "baneCb", type: "toggle" },
         { label: "V-neck", key: "roundneck", type: "toggle" },
         { label: "Chest", key: "chest1", type: "text" },
         { label: "Waist", key: "waist1", type: "text" },
@@ -622,4 +622,18 @@ export const A4_FIELDS: Record<string, { title: string; subtitle: string; fields
 A4_FIELDS.female_pent_coat = {
   ...A4_FIELDS.male_simple_3_piece,
   title: "Female Pent Coat",
+  fields: {
+    ...A4_FIELDS.male_simple_3_piece.fields,
+    "Coat Measurements": A4_FIELDS.male_simple_3_piece.fields[
+      "Coat Measurements"
+    ].flatMap((field) =>
+      field.key === "shoulder1"
+        ? [
+            field,
+            { label: "Straight", key: "straightCb", type: "toggle" },
+            { label: "Down", key: "downCb", type: "toggle" },
+          ]
+        : [field]
+    ),
+  },
 };

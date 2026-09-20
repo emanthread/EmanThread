@@ -22,6 +22,8 @@ export interface MeasurementField {
   subItems?: SubItem[];
   /** Checkboxes shown inline with the label */
   checkboxes?: CheckboxItem[];
+  /** Render checkbox options as a vertical stack beside the input line. */
+  stackCheckboxes?: boolean;
   /** Pocket pill labels (pocket-grid type) */
   pills?: string[];
 }
@@ -287,11 +289,9 @@ const waistcoatForm: MeasurementForm = {
         {
           id: "wc-neck",
           label: "Neck",
-          type: "sub-grid",
-          subItems: [
-            { label: "Bane" },
-            { label: "V-neck", isCheckbox: true },
-          ],
+          type: "checkbox-row",
+          checkboxes: [{ label: "Bane" }, { label: "V-neck" }],
+          stackCheckboxes: true,
         },
         { id: "wc-chest", label: "Chest", type: "input" },
         { id: "wc-waist", label: "Waist", type: "input" },

@@ -250,7 +250,12 @@ const femalePentCoatForm: FemaleMeasurementForm = {
       title: "Coat",
       fields: [
         { id: "fpc-length", label: "Length", type: "input" },
-        { id: "fpc-shoulder", label: "Shoulder", type: "input" },
+        {
+          id: "fpc-shoulder",
+          label: "Shoulder",
+          type: "checkbox-row",
+          checkboxes: [{ label: "Straight" }, { label: "Down" }],
+        },
         {
           id: "fpc-sleeves",
           label: "Sleeves",

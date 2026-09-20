@@ -48,6 +48,24 @@ test("A6 print output stays fixed-size while improving contrast and white backgr
   expect(layout).not.toContain("linear-gradient(180deg, #fff, #f8fafc)");
 });
 
+test("A4 print output enlarges uniformly within the fixed paper without changing the form grid", () => {
+  const printCard = source("components/admin/tailor-print-card.tsx");
+
+  expect(printCard).toContain("const FIXED_PRINT_PAGE_WIDTH_MM = 253.3");
+  expect(printCard).toContain("const FIXED_PRINT_PAGE_HEIGHT_MM = 352.8");
+  expect(printCard).toContain("const A4_PRINT_SCALE = 1.15");
+  expect(printCard).toContain('function ensurePrintStyleInHead(format: "a4" | "a6")');
+  expect(printCard).toContain("ensurePrintStyleInHead(format)");
+  expect(printCard).toContain("top: ${A4_PRINT_TOP_MM}mm !important");
+  expect(printCard).toContain("left: ${A4_PRINT_LEFT_MM}mm !important");
+  expect(printCard).toContain("transform: scale(${A4_PRINT_SCALE}) !important");
+  expect(printCard).toContain("transform-origin: top left !important");
+
+  const safetyMarginMm = 5;
+  expect(210 * 1.15 + safetyMarginMm * 2).toBeLessThanOrEqual(253.3);
+  expect(297 * 1.15 + safetyMarginMm * 2).toBeLessThanOrEqual(352.8);
+});
+
 test("stitching slips use the order delivery date without creation-date fallbacks", () => {
   const printCard = source("components/admin/tailor-print-card.tsx");
   const customerOrders = source("app/account/orders/page.tsx");
@@ -145,10 +163,14 @@ test("Male Waistcoat is the fifth full-width male form with only its requested f
   const parsed = unifiedMeasurementSchema.parse({
     ...UNIFIED_MEASUREMENT_EMPTY,
     garmentType: "male_waistcoat",
+    neck1: "15",
     bane1: "2.5",
+    baneCb: "1",
     roundneck: "1",
   });
+  expect(parsed.neck1).toBe("15");
   expect(parsed.bane1).toBe("2.5");
+  expect(parsed.baneCb).toBe("1");
   expect(parsed.roundneck).toBe("1");
 
   const form = source("components/measurements/forms/A4MeasurementForm.tsx");
@@ -159,9 +181,11 @@ test("Male Waistcoat is the fifth full-width male form with only its requested f
   expect(start).toBeGreaterThan(-1);
   expect(end).toBeGreaterThan(start);
   expect(waistcoat).toContain('title: "Waistcoat"');
-  expect(waistcoat).toContain('subInputs: [{ label: "Bane", key: "bane1" }]');
-  expect(waistcoat).toContain('toggles: [{ label: "V-neck", key: "roundneck" }]');
-  expect(waistcoat).toContain('type: "toggle"');
+  expect(waistcoat).toContain('key: "neck1"');
+  expect(waistcoat).toContain('{ label: "Bane", key: "baneCb" }');
+  expect(waistcoat).toContain('{ label: "V-neck", key: "roundneck" }');
+  expect(waistcoat).toContain('stackToggles: true');
+  expect(waistcoat).not.toContain('subInputs: [{ label: "Bane"');
   const orderedLabels = ["Length", "Shoulder", "Neck", "Chest", "Waist"];
   let previousIndex = -1;
   for (const label of orderedLabels) {
@@ -185,15 +209,17 @@ test("Male Waistcoat is the fifth full-width male form with only its requested f
     "Chest",
     "Waist",
   ]);
-  expect(printable?.sections[0].fields[2].subItems).toEqual([
-    { label: "Bane" },
-    { label: "V-neck", isCheckbox: true },
-  ]);
+  expect(printable?.sections[0].fields[2]).toMatchObject({
+    label: "Neck",
+    type: "checkbox-row",
+    checkboxes: [{ label: "Bane" }, { label: "V-neck" }],
+    stackCheckboxes: true,
+  });
   expect(printable?.sections[0].bottomType).toBeUndefined();
   expect(printable?.sections.some(({ isSide }) => isSide)).toBe(false);
 });
 
-test("Female Pent Coat reuses the exact Male 3 Piece Suit measurements and layout", () => {
+test("Female Pent Coat reuses the Male 3 Piece Suit layout with shoulder options", () => {
   expect(garmentTypeLabel("male_simple_3_piece")).toBe("Male 3 Piece Suit");
   expect(GARMENT_TYPES_BY_GENDER.Female).toContain("female_pent_coat");
   expect(garmentTypeLabel("female_pent_coat")).toBe("Female Pent Coat");
@@ -203,16 +229,22 @@ test("Female Pent Coat reuses the exact Male 3 Piece Suit measurements and layou
     gender: "Female",
     garmentType: "female_pent_coat",
     length1: "40",
+    straightCb: "1",
+    downCb: "1",
     trouserWaist1: "30",
   });
   expect(parsed.garmentType).toBe("female_pent_coat");
   expect(parsed.length1).toBe("40");
+  expect(parsed.straightCb).toBe("1");
+  expect(parsed.downCb).toBe("1");
   expect(parsed.trouserWaist1).toBe("30");
 
   const form = source("components/measurements/forms/A4MeasurementForm.tsx");
   expect(form).toContain("CONFIGS.female_pent_coat = {");
   expect(form).toContain("...CONFIGS.male_simple_3_piece");
   expect(form).toContain('title: "Female Pent Coat"');
+  expect(form).toContain('{ label: "Straight", key: "straightCb" }');
+  expect(form).toContain('{ label: "Down", key: "downCb" }');
 
   const male = maleMeasurementForms.find(({ id }) => id === "simple-3-piece-suit");
   const female = femaleMeasurementForms.find(({ id }) => id === "female-pent-coat");
@@ -238,5 +270,19 @@ test("Female Pent Coat reuses the exact Male 3 Piece Suit measurements and layou
     }));
 
   expect(female?.layout).toBe("split");
-  expect(shape(female!.sections)).toEqual(shape(male!.sections));
+  const femaleShoulder = female!.sections[0].fields.find(
+    ({ label }) => label === "Shoulder"
+  );
+  expect(femaleShoulder).toMatchObject({
+    type: "checkbox-row",
+    checkboxes: [{ label: "Straight" }, { label: "Down" }],
+  });
+  const shapeWithoutShoulder = (sections: Parameters<typeof shape>[0]) =>
+    shape(sections).map((section) => ({
+      ...section,
+      fields: section.fields.filter(({ label }) => label !== "Shoulder"),
+    }));
+  expect(shapeWithoutShoulder(female!.sections)).toEqual(
+    shapeWithoutShoulder(male!.sections)
+  );
 });

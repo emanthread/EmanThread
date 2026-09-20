@@ -68,8 +68,17 @@ function formatTailorDeliveryDate(value: string | undefined): string {
    tabs, deeply nested admin layouts, etc.)
 ────────────────────────────────────────────────────────────────────────────── */
 const PRINT_STYLE_ID = "tailor-print-global-style";
+const FIXED_PRINT_PAGE_WIDTH_MM = 253.3;
+const FIXED_PRINT_PAGE_HEIGHT_MM = 352.8;
+const A4_FORM_WIDTH_MM = 210;
+const A4_FORM_HEIGHT_MM = 297;
+const A4_PRINT_SCALE = 1.15;
+const A4_PRINT_LEFT_MM =
+  (FIXED_PRINT_PAGE_WIDTH_MM - A4_FORM_WIDTH_MM * A4_PRINT_SCALE) / 2;
+const A4_PRINT_TOP_MM =
+  (FIXED_PRINT_PAGE_HEIGHT_MM - A4_FORM_HEIGHT_MM * A4_PRINT_SCALE) / 2;
 
-function ensurePrintStyleInHead() {
+function ensurePrintStyleInHead(format: "a4" | "a6") {
   if (typeof document === "undefined") return;
   
   let style = document.getElementById(PRINT_STYLE_ID) as HTMLStyleElement;
@@ -79,7 +88,10 @@ function ensurePrintStyleInHead() {
     document.head.appendChild(style);
   }
 
-  const pageRules = `@page { size: 105mm 148mm; margin: 0; }`;
+  const pageRules =
+    format === "a4"
+      ? `@page { size: ${FIXED_PRINT_PAGE_WIDTH_MM}mm ${FIXED_PRINT_PAGE_HEIGHT_MM}mm; margin: 0; }`
+      : `@page { size: 105mm 148mm; margin: 0; }`;
 
   style.textContent = `
     ${pageRules}
@@ -103,8 +115,9 @@ function ensurePrintStyleInHead() {
       }
 
       body.tailor-printing-a4 > .tailor-print-portal {
-        width: 210mm !important;
-        height: 297mm !important;
+        width: ${FIXED_PRINT_PAGE_WIDTH_MM}mm !important;
+        height: ${FIXED_PRINT_PAGE_HEIGHT_MM}mm !important;
+        overflow: hidden !important;
       }
 
       body.tailor-printing-a6 > .tailor-print-portal {
@@ -115,11 +128,15 @@ function ensurePrintStyleInHead() {
 
       /* ── 3. Strip the screen-only scale wrapper ── */
       body.tailor-printing-a4 .tailor-print-portal .a4-scale-wrapper {
-        position: static !important;
-        height: auto !important;
-        width: auto !important;
+        position: absolute !important;
+        top: ${A4_PRINT_TOP_MM}mm !important;
+        left: ${A4_PRINT_LEFT_MM}mm !important;
+        height: ${A4_FORM_HEIGHT_MM}mm !important;
+        width: ${A4_FORM_WIDTH_MM}mm !important;
         overflow: visible !important;
         margin: 0 !important;
+        transform: scale(${A4_PRINT_SCALE}) !important;
+        transform-origin: top left !important;
       }
       body.tailor-printing-a4 .tailor-print-portal .a4-scale-inner {
         position: static !important;
@@ -341,7 +358,7 @@ export function TailorPrintCard({ data, hidePrint }: { data: TailorCardData, hid
     if (portalContainerRef.current) return;
 
     // Ensure the print CSS is in <head> — idempotent
-    ensurePrintStyleInHead();
+    ensurePrintStyleInHead(format);
 
     // 1. Create portal container directly on <body>
     const container = document.createElement("div");
