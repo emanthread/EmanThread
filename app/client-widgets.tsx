@@ -20,11 +20,6 @@ const UnifiedWidget = dynamic(
   { ssr: false, loading: () => null }
 )
 
-const GoogleOneTap = dynamic(
-  () => import('@/components/google-one-tap').then((m) => ({ default: m.GoogleOneTap })),
-  { ssr: false, loading: () => null }
-)
-
 
 import { useState, useEffect } from 'react'
 
@@ -69,7 +64,6 @@ export function ClientWidgets() {
       <WhatsAppButton />
       <ChatWidgetWrapper />
       <UnifiedWidget />
-      <GoogleOneTap />
     </>
   )
 }

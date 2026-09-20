@@ -18,10 +18,19 @@ test.describe("production database deployment safety", () => {
     );
   });
 
-  test("the deployment build never mutates or seeds the production database", () => {
-    const buildCommand = packageJson.scripts["vercel-build"];
+  test("the default Hostinger build also refuses pending migrations", () => {
+    expect(packageJson.scripts["build"]).toBe(
+      "prisma generate && prisma migrate status && next build"
+    );
+  });
 
-    expect(buildCommand).not.toMatch(
+  test("the deployment build never mutates or seeds the production database", () => {
+    const buildCommands = [
+      packageJson.scripts["build"],
+      packageJson.scripts["vercel-build"],
+    ].join(" ");
+
+    expect(buildCommands).not.toMatch(
       /migrate deploy|migrate reset|db push|seed/i
     );
     expect(packageJson.scripts["db:migrate-safe"]).toBe(

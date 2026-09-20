@@ -59,12 +59,13 @@ test("guest auth sync and mobile navigation stay console-clean", () => {
   expect(mobileNav).not.toContain('inert={!isOpen ? "" : undefined}');
 });
 
-test("responsive artwork and Google One Tap avoid deprecated preload APIs", () => {
+test("responsive artwork avoids deprecated preload APIs and One Tap is not auto-mounted", () => {
   const mobileHome = source("components/home/mobile-department-home.tsx");
-  const oneTap = source("components/google-one-tap.tsx");
+  const widgets = source("app/client-widgets.tsx");
+  const login = source("app/login/login-client.tsx");
 
   expect(mobileHome).toContain("fetchPriority={priority ? 'high' : undefined}");
   expect(mobileHome).not.toContain("priority={priority}");
-  expect(oneTap).toContain("google.accounts.id.prompt();");
-  expect(oneTap).not.toContain("getDismissedReason");
+  expect(widgets).not.toContain("GoogleOneTap");
+  expect(login).not.toContain("GoogleOneTap");
 });

@@ -6,7 +6,7 @@ export type TrackingConsent = "granted" | "denied";
 export function readTrackingConsent(): TrackingConsent | null {
   if (typeof window === "undefined") return null;
   const value = window.localStorage.getItem(TRACKING_CONSENT_KEY);
-  return value === "granted" || value === "denied" ? value : null;
+  return value === "granted" || value === "denied" ? value : "granted";
 }
 
 export function saveTrackingConsent(value: TrackingConsent) {

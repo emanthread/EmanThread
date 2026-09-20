@@ -21,7 +21,7 @@ test("privacy policy uses the correct brand and covers every requested data flow
   expect(policy).toContain("does not write chat transcripts");
 });
 
-test("marketing consent is additive, channel-specific, and defaults off", () => {
+test("marketing consent remains channel-specific and is not requested during checkout", () => {
   const schema = source("prisma/schema.prisma");
   const migration = source(
     "prisma/migrations/20260920000000_marketing_privacy_consent/migration.sql",
@@ -33,19 +33,19 @@ test("marketing consent is additive, channel-specific, and defaults off", () => 
   expect(schema).toContain("phoneMarketingConsent");
   expect(migration).toContain('"whatsappMarketingConsent" BOOLEAN NOT NULL DEFAULT false');
   expect(migration).toContain('"phoneMarketingConsent" BOOLEAN NOT NULL DEFAULT false');
-  expect(checkout).toContain("transactional order, payment, and delivery updates");
-  expect(checkout).toContain("Send WhatsApp marketing");
-  expect(checkout).toContain("authorized Eman Thread representative");
+  expect(checkout).not.toContain("Communication preferences (optional)");
   expect(orders).toContain("whatsappTransactionalConsent: whatsappConsent === true");
   expect(orders).toContain('source: "checkout"');
 });
 
 test("tracking is consent gated and browser/server Meta events share an event id", () => {
   const tracking = source("components/storefront-tracking.tsx");
+  const consent = source("lib/tracking-consent.ts");
   const browser = source("lib/meta-browser.ts");
   const api = source("app/api/meta/events/route.ts");
 
   expect(tracking).toContain('consent !== "granted"');
+  expect(consent).toContain('? value : "granted"');
   expect(tracking).toContain('window.fbq?.("consent", "revoke")');
   expect(tracking).toContain("eventID: id");
   expect(browser).toContain('readTrackingConsent() !== "granted"');

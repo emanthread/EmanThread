@@ -1284,51 +1284,6 @@ export default function CheckoutPage() {
                     )}
                   </div>
 
-                  <div className="mt-4 space-y-3 rounded-lg border border-border bg-muted/30 p-4">
-                    <p className="text-sm font-semibold">Communication preferences (optional)</p>
-                    <label className="flex items-start gap-3 text-sm">
-                      <Checkbox
-                        checked={whatsappConsent}
-                        onCheckedChange={(checked) => setWhatsappConsent(checked === true)}
-                      />
-                      <span>
-                        Send transactional order, payment, and delivery updates for this
-                        order on WhatsApp.
-                      </span>
-                    </label>
-                    <label className="flex items-start gap-3 text-sm">
-                      <Checkbox
-                        checked={whatsappMarketingConsent}
-                        onCheckedChange={(checked) =>
-                          setWhatsappMarketingConsent(checked === true)
-                        }
-                      />
-                      <span>
-                        Send WhatsApp marketing about new collections, launches, offers,
-                        and promotions.
-                      </span>
-                    </label>
-                    <label className="flex items-start gap-3 text-sm">
-                      <Checkbox
-                        checked={phoneMarketingConsent}
-                        onCheckedChange={(checked) =>
-                          setPhoneMarketingConsent(checked === true)
-                        }
-                      />
-                      <span>
-                        An authorized Eman Thread representative may call me about
-                        relevant products, services, and marketing offers.
-                      </span>
-                    </label>
-                    <p className="text-xs leading-relaxed text-muted-foreground">
-                      Marketing choices are separate from transactional updates and can
-                      be withdrawn through{" "}
-                      <Link href="/marketing-preferences" className="underline underline-offset-2">
-                        Marketing Preferences
-                      </Link>
-                      .
-                    </p>
-                  </div>
 
                   {submitError && <p role="alert" aria-live="assertive" className="text-sm text-red-500 mt-2">{submitError}</p>}
 

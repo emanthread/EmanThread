@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuthStore } from "@/lib/auth-store";
 import { signIn } from "next-auth/react";
-import { GoogleOneTap } from "@/components/google-one-tap";
 
 export default function LoginClient() {
   const router = useRouter();
@@ -39,6 +38,10 @@ export default function LoginClient() {
       setError("Email verification failed. Please try again.");
     } else if (errorParam === "missing_token") {
       setError("Invalid verification link.");
+    } else if (errorParam === "AccessDenied") {
+      setError("Sign-in was not permitted for this account. Please use the correct customer or admin login page.");
+    } else if (errorParam === "Configuration") {
+      setError("Sign-in is temporarily unavailable. Please try again shortly.");
     }
   }, [searchParams]);
 
@@ -104,7 +107,6 @@ export default function LoginClient() {
 
   return (
     <>
-      <GoogleOneTap />
       <div className="min-h-screen flex">
         {/* Left Side - Branding */}
         <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-primary via-primary/90 to-primary/80">
