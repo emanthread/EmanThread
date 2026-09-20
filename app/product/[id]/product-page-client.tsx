@@ -46,6 +46,7 @@ import {
 } from "@/lib/commerce";
 import { cn } from "@/lib/utils";
 import { buildWhatsAppUrl, fetchWhatsAppNumber } from "@/lib/whatsapp-utils";
+import { trackMetaEvent } from "@/lib/meta-browser";
 import { ProductFlashSaleBadge } from "@/app/components/flash-sale-banner";
 import {
   Plus,
@@ -230,6 +231,14 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
   useEffect(() => {
     setMounted(true);
   }, []);
+  useEffect(() => {
+    trackMetaEvent("ViewContent", {
+      currency: "PKR",
+      value: product.price,
+      content_ids: [product.id],
+      content_type: "product",
+    });
+  }, [product.id, product.price]);
 
   useEffect(() => {
     setSelectedImage(0);
@@ -325,6 +334,12 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
         }
       : undefined;
     addItem(product, quantity, supportsStitching ? stitchingSelection : undefined, selection);
+    trackMetaEvent("AddToCart", {
+      currency: "PKR",
+      value: displayedPrice * quantity,
+      content_ids: [product.id],
+      content_type: "product",
+    });
     setQuantity(1);
     return true;
   };

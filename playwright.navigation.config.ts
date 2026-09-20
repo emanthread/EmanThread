@@ -41,6 +41,8 @@ export default defineConfig({
     "women-catalog-expansion.spec.ts",
     "measurement-profile-full-page.spec.ts",
     "catalog-admin-simplification.spec.ts",
+    "console-reliability.spec.ts",
+    "privacy-tracking.spec.ts",
   ],
   fullyParallel: true,
   workers: 1,

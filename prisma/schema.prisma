@@ -16,6 +16,9 @@ model User {
   phone               String?
   whatsappConsent     Boolean              @default(false)
   whatsappPhone       String?
+  whatsappMarketingConsent Boolean         @default(false)
+  phoneMarketingConsent    Boolean         @default(false)
+  marketingConsentUpdatedAt DateTime?
   role                Role                 @default(CUSTOMER)
   permissions         Json                 @default("[]")
   isVerified          Boolean              @default(false)
@@ -31,6 +34,28 @@ model User {
   passwordResetTokens PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
 
+  @@index([createdAt])
+}
+
+model MarketingContact {
+  id                       String    @id @default(cuid())
+  normalizedPhone          String    @unique
+  name                     String?
+  email                    String?
+  city                     String?
+  interest                 String?
+  source                   String
+  whatsappMarketingConsent Boolean   @default(false)
+  phoneMarketingConsent    Boolean   @default(false)
+  consentVersion           String?
+  consentedAt              DateTime?
+  whatsappOptedOutAt       DateTime?
+  phoneOptedOutAt          DateTime?
+  metaLeadId               String?   @unique
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  @@index([source])
   @@index([createdAt])
 }
 

@@ -164,6 +164,8 @@ const createOrderSchema = z.object({
   notes: z.string().optional(),
   couponCode: z.string().optional(),
   whatsappConsent: z.boolean().optional(),
+  whatsappMarketingConsent: z.boolean().optional(),
+  phoneMarketingConsent: z.boolean().optional(),
   stitchingFee: z.number().finite().nonnegative().optional(),
   stitchingItems: z.array(z.object({
     productId: z.string().min(1).max(191),
@@ -221,6 +223,8 @@ export async function POST(req: Request) {
       notes,
       couponCode,
       whatsappConsent,
+      whatsappMarketingConsent,
+      phoneMarketingConsent,
       stitchingItems,
       measurementItems,
       preferredDeliveryDate,
@@ -683,6 +687,7 @@ export async function POST(req: Request) {
       zoneId: shippingQuote.id,
       zoneName: shippingQuote.name,
       estimatedDays: shippingQuote.estimatedDays,
+      whatsappTransactionalConsent: whatsappConsent === true,
     };
 
     // FIX C2: Hard guard — guests cannot place orders with stitching
@@ -693,11 +698,45 @@ export async function POST(req: Request) {
       );
     }
 
-    // Update user's whatsappConsent if authenticated and consent was provided
-    if (userId && whatsappConsent !== undefined) {
+    // Transactional WhatsApp permission remains separate from optional marketing.
+    if (
+      userId &&
+      (whatsappConsent !== undefined ||
+        whatsappMarketingConsent === true ||
+        phoneMarketingConsent === true)
+    ) {
       await prisma.user.update({
         where: { id: userId },
-        data: { whatsappConsent },
+        data: {
+          ...(whatsappConsent !== undefined ? { whatsappConsent } : {}),
+          ...(whatsappMarketingConsent === true
+            ? {
+                whatsappMarketingConsent: true,
+                marketingConsentUpdatedAt: new Date(),
+              }
+            : {}),
+          ...(phoneMarketingConsent === true
+            ? {
+                phoneMarketingConsent: true,
+                marketingConsentUpdatedAt: new Date(),
+              }
+            : {}),
+        },
+      });
+    }
+
+    if (whatsappMarketingConsent === true || phoneMarketingConsent === true) {
+      const { updateMarketingConsent } = await import("@/lib/marketing-consent");
+      await updateMarketingConsent({
+        phone: shippingAddress.phone,
+        name: [shippingAddress.firstName, shippingAddress.lastName].filter(Boolean).join(" "),
+        email: shippingAddress.email,
+        city: shippingAddress.city,
+        source: "checkout",
+        ...(whatsappMarketingConsent === true
+          ? { whatsappMarketingConsent: true }
+          : {}),
+        ...(phoneMarketingConsent === true ? { phoneMarketingConsent: true } : {}),
       });
     }
 

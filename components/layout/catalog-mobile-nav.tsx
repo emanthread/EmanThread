@@ -258,8 +258,7 @@ export function CatalogMobileNav({
       className={styles.portal}
       data-open={isOpen}
       aria-hidden={!isOpen}
-      // @ts-expect-error – inert is a valid HTML attribute not yet in React types
-      inert={!isOpen ? "" : undefined}
+      inert={!isOpen}
     >
       {/* Backdrop */}
       <button

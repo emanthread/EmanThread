@@ -46,6 +46,21 @@ function DialogOverlay({
   )
 }
 
+function hasDialogDescription(children: React.ReactNode): boolean {
+  return React.Children.toArray(children).some((child) => {
+    if (!React.isValidElement<{ children?: React.ReactNode }>(child)) {
+      return false
+    }
+    if (
+      child.type === DialogPrimitive.Description ||
+      child.type === DialogDescription
+    ) {
+      return true
+    }
+    return hasDialogDescription(child.props.children)
+  })
+}
+
 function DialogContent({
   className,
   children,
@@ -65,6 +80,11 @@ function DialogContent({
         )}
         {...props}
       >
+        {!hasDialogDescription(children) ? (
+          <DialogPrimitive.Description className="sr-only">
+            Additional information and available actions.
+          </DialogPrimitive.Description>
+        ) : null}
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close

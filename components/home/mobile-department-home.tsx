@@ -83,7 +83,7 @@ function ResponsiveArtwork({
         src={mobileImage}
         alt={alt}
         fill
-        priority={priority}
+        fetchPriority={priority ? 'high' : undefined}
         sizes={sizes}
         className='object-cover lg:hidden'
       />
@@ -91,7 +91,7 @@ function ResponsiveArtwork({
         src={desktopImage}
         alt={alt}
         fill
-        priority={priority}
+        fetchPriority={priority ? 'high' : undefined}
         sizes={sizes}
         className='hidden object-cover lg:block'
       />
@@ -106,6 +106,7 @@ function EditorialBanner({ banner, eager = false }: {
   if (!banner?.visible) return null;
   return (
     <Link
+      prefetch={false}
       href={resolveMobileHomepageHref(banner.destinationId)}
       className='group relative block aspect-[4/5] overflow-hidden bg-neutral-200 lg:aspect-[16/6]'
       aria-label={`${banner.cta}: ${banner.title}`}
@@ -249,6 +250,7 @@ export function MobileDepartmentHome({
         >
           {categoryCards.map((card) => (
             <Link
+              prefetch={false}
               key={card.id}
               href={resolveMobileHomepageHref(card.destinationId)}
               className='w-[44vw] max-w-[210px] shrink-0 snap-start lg:w-[23vw] lg:max-w-[360px]'
@@ -294,7 +296,7 @@ export function MobileDepartmentHome({
           label={`${activeDepartment} trending products`}
         />
         <div className='pt-1 text-center'>
-          <Link href={primaryPath} className='inline-block border-b-2 border-black pb-1 text-sm font-medium'>
+          <Link prefetch={false} href={primaryPath} className='inline-block border-b-2 border-black pb-1 text-sm font-medium'>
             SEE ALL
           </Link>
         </div>
@@ -316,7 +318,7 @@ export function MobileDepartmentHome({
           label={`${activeDepartment} trending fits`}
         />
         <div className='pt-1 text-center'>
-          <Link href={secondaryPath} className='inline-block border-b-2 border-black pb-1 text-sm font-medium'>
+          <Link prefetch={false} href={secondaryPath} className='inline-block border-b-2 border-black pb-1 text-sm font-medium'>
             SEE ALL
           </Link>
         </div>

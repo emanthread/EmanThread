@@ -915,17 +915,25 @@ export default function AdminMeasurementsPage() {
 
   const fetchStats = useCallback(async () => {
     if (document.visibilityState !== "visible") return;
-    const res = await adminFetch("/api/admin/measurements/stats");
-    if (res.ok) setStats(await res.json());
+    try {
+      const res = await adminFetch("/api/admin/measurements/stats");
+      if (res.ok) setStats(await res.json());
+    } catch {
+      // Polling is non-critical. Keep the last successful values and retry on
+      // the next interval instead of creating an unhandled browser rejection.
+    }
   }, []);
 
   useEffect(() => {
-    void fetchStats();
-    const interval = setInterval(fetchStats, 30000);
-    document.addEventListener("visibilitychange", fetchStats);
+    const refreshStats = () => {
+      void fetchStats();
+    };
+    refreshStats();
+    const interval = setInterval(refreshStats, 30000);
+    document.addEventListener("visibilitychange", refreshStats);
     return () => {
       clearInterval(interval);
-      document.removeEventListener("visibilitychange", fetchStats);
+      document.removeEventListener("visibilitychange", refreshStats);
     };
   }, [fetchStats, refreshKey]);
 

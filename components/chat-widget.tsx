@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback, FormEvent } from 'react'
+import Link from 'next/link'
 import { MessageCircle, X, Send, User } from 'lucide-react'
 
 // â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -446,7 +447,14 @@ export function ChatWidget() {
               )}
 
               {/* Input area */}
-              <form onSubmit={handleSubmit} className="border-t border-border p-3 flex gap-2 flex-shrink-0">
+              <form onSubmit={handleSubmit} className="border-t border-border p-3 flex flex-wrap gap-2 flex-shrink-0">
+                <p className="w-full text-[10px] leading-relaxed text-muted-foreground">
+                  Messages are processed by our AI provider. Do not share passwords or
+                  full payment-card details.{" "}
+                  <Link href="/privacy-policy#ai-chat" className="underline underline-offset-2">
+                    Privacy details
+                  </Link>
+                </p>
                 <input
                   ref={inputRef}
                   type="text"

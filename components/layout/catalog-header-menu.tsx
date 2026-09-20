@@ -296,6 +296,7 @@ export function CatalogHeaderMenu({
           >
             {departments.map((department, index) => (
               <Link
+                prefetch={false}
                 key={department.id}
                 ref={(node) => {
                   if (node) departmentRefs.current.set(department.id, node);
@@ -402,6 +403,7 @@ export function CatalogHeaderMenu({
               <div className={styles.megaHeadingRow}>
                 {linksEnabled && activeSection.href ? (
                   <Link
+                    prefetch={false}
                     href={activeSection.href}
                     className={styles.sectionLanding}
                     onClick={() => closeMegaPanel(false)}
@@ -442,6 +444,7 @@ export function CatalogHeaderMenu({
                             <li key={item.id}>
                               {isLinkEnabled(item, linksEnabled) && item.href ? (
                                 <Link
+                                  prefetch={false}
                                   href={item.href}
                                   className={styles.megaLink}
                                   onClick={() => closeMegaPanel(false)}
@@ -509,6 +512,7 @@ export function CatalogHeaderMenu({
 
                   return linksEnabled && href ? (
                     <Link
+                      prefetch={false}
                       key={card.id}
                       href={href}
                       className={styles.visualCard}

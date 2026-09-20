@@ -47,3 +47,17 @@ export const shopCatalogOptions: ShopCatalogOption[] = (() => {
 export function isShopCatalogPath(value: string | null | undefined): value is string {
   return Boolean(value && shopCatalogOptions.some((option) => option.path === value));
 }
+
+const catalogDepartmentRootPaths = new Set(
+  catalogMenu.map((department) => `/${department.id}`)
+);
+
+/** Valid paths for the storefront catalog-products endpoint, including roots. */
+export function isCatalogProductPath(
+  value: string | null | undefined
+): value is string {
+  return Boolean(
+    value &&
+      (catalogDepartmentRootPaths.has(value) || isShopCatalogPath(value))
+  );
+}

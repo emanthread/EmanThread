@@ -2,7 +2,7 @@
 
 import { apiFetch } from "@/lib/api-fetch";
 
-const READ_TIMEOUT_MS = 15_000;
+const READ_TIMEOUT_MS = 30_000;
 const WRITE_TIMEOUT_MS = 45_000;
 const RETRYABLE_GATEWAY_STATUSES = new Set([502, 503, 504]);
 

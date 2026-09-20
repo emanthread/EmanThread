@@ -78,6 +78,8 @@ export default function AdminLoginPage() {
           phone: profile.phone,
           whatsappConsent: profile.whatsappConsent,
           whatsappPhone: profile.whatsappPhone,
+          whatsappMarketingConsent: profile.whatsappMarketingConsent,
+          phoneMarketingConsent: profile.phoneMarketingConsent,
           role: profile.role,
           permissions: profile.permissions,
           isVerified: profile.isVerified ?? true,

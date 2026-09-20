@@ -25,7 +25,7 @@ function suppressFedCMAbortError() {
 }
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-const ONE_TAP_KEY = "eman-one-tap-dismissed";
+
 
 export function GoogleOneTap() {
   const router = useRouter();
@@ -64,6 +64,8 @@ export function GoogleOneTap() {
                 phone: profile.phone,
                 whatsappConsent: profile.whatsappConsent,
                 whatsappPhone: profile.whatsappPhone,
+                whatsappMarketingConsent: profile.whatsappMarketingConsent,
+                phoneMarketingConsent: profile.phoneMarketingConsent,
                 role: profile.role,
                 isVerified: profile.isVerified ?? true,
                 addresses: profile.addresses,
@@ -89,8 +91,6 @@ export function GoogleOneTap() {
     if (initialized.current || !GOOGLE_CLIENT_ID) return;
     if (typeof window === "undefined" || !(window as any).google?.accounts) return;
 
-    const dismissed = sessionStorage.getItem(ONE_TAP_KEY);
-    if (dismissed === "true") return;
 
     initialized.current = true;
 
@@ -106,11 +106,7 @@ export function GoogleOneTap() {
       });
 
       try {
-        google.accounts.id.prompt((moment: any) => {
-          if (moment.getDismissedReason()) {
-            sessionStorage.setItem(ONE_TAP_KEY, "true");
-          }
-        });
+        google.accounts.id.prompt();
       } catch (promptErr: any) {
         // Silently suppress FedCM AbortError — harmless, Chrome FedCM API quirk
         if (promptErr?.message?.includes("AbortError") || promptErr?.message?.includes("NetworkError")) {

@@ -43,6 +43,11 @@ test("A6 print output stays fixed-size while improving contrast and white backgr
   expect(printCard).toContain("A6 readability only");
   expect(printCard).toContain("font-family: Arial, Helvetica, sans-serif !important");
   expect(printCard).toContain("--ink: #000 !important");
+  expect(printCard).toContain("font-size: 20px !important");
+  expect(printCard).toContain("font-size: 16px !important");
+  expect(printCard).toContain("font-size: 15.5px !important");
+  expect(printCard).toContain("font-weight: 800 !important");
+  expect(printCard).toContain("font-weight: 700 !important");
   expect(printCard).toContain(".tailor-print-portal .a4-entry");
   expect(layout).toContain("--soft: #fff");
   expect(layout).not.toContain("linear-gradient(180deg, #fff, #f8fafc)");
@@ -50,6 +55,8 @@ test("A6 print output stays fixed-size while improving contrast and white backgr
 
 test("A4 print output enlarges uniformly within the fixed paper without changing the form grid", () => {
   const printCard = source("components/admin/tailor-print-card.tsx");
+  const form = source("components/measurements/forms/A4MeasurementForm.tsx");
+  const layout = source("components/measurements/forms/a4-layout.css");
 
   expect(printCard).toContain("const FIXED_PRINT_PAGE_WIDTH_MM = 253.3");
   expect(printCard).toContain("const FIXED_PRINT_PAGE_HEIGHT_MM = 352.8");
@@ -60,6 +67,14 @@ test("A4 print output enlarges uniformly within the fixed paper without changing
   expect(printCard).toContain("left: ${A4_PRINT_LEFT_MM}mm !important");
   expect(printCard).toContain("transform: scale(${A4_PRINT_SCALE}) !important");
   expect(printCard).toContain("transform-origin: top left !important");
+  expect(printCard).toContain("padding: 4mm !important");
+  expect(printCard).toContain("font-size: 18px !important");
+  expect(printCard).toContain("font-size: 14px !important");
+  expect(printCard).toContain("-webkit-text-fill-color: var(--ink) !important");
+  expect(layout).toContain("font-size: 18px");
+  expect(layout).toContain("font-size: 14px");
+  expect(form).toContain('background: bottomType === tab ? "#dbeafe" : "#fff"');
+  expect(form).toContain('color: "var(--ink)"');
 
   const safetyMarginMm = 5;
   expect(210 * 1.15 + safetyMarginMm * 2).toBeLessThanOrEqual(253.3);

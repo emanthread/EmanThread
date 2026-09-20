@@ -5,7 +5,7 @@ import {
   getCatalogPageData,
   type CatalogSort,
 } from "@/lib/db/catalog";
-import { isShopCatalogPath } from "@/lib/shop-catalog-options";
+import { isCatalogProductPath } from "@/lib/shop-catalog-options";
 import { sanitizeDbError } from "@/lib/utils/errors";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const path = searchParams.get("catalogPath");
-    if (!isShopCatalogPath(path)) {
+    if (!isCatalogProductPath(path)) {
       return NextResponse.json({ error: "Choose a valid catalog path" }, { status: 400 });
     }
 

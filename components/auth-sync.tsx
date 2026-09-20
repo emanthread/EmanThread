@@ -62,14 +62,27 @@ export function AuthSync() {
     if (isAdminLogin) return;
 
     const controller = new AbortController();
-    const endpoint = isAdminRoute ? "/api/auth/session" : "/api/user/profile";
-    fetch(endpoint, { signal: controller.signal })
-      .then((res) => {
-        if (res.ok) return res.json();
-        throw new Error("Not authenticated");
-      })
-      .then((data) => {
-        const profile = isAdminRoute ? data.user : data;
+    const syncAuth = async () => {
+      try {
+        const sessionResponse = await fetch("/api/auth/session", {
+          signal: controller.signal,
+        });
+        if (!sessionResponse.ok) throw new Error("Not authenticated");
+
+        const session = await sessionResponse.json();
+        if (!session?.user?.id || !session.user.role) {
+          throw new Error("Not authenticated");
+        }
+
+        let profile = session.user;
+        if (!isAdminRoute) {
+          const profileResponse = await fetch("/api/user/profile", {
+            signal: controller.signal,
+          });
+          if (!profileResponse.ok) throw new Error("Not authenticated");
+          profile = await profileResponse.json();
+        }
+
         if (!profile?.id || !profile?.role) throw new Error("Not authenticated");
 
         useAuthStore.setState({
@@ -80,6 +93,8 @@ export function AuthSync() {
             phone: profile.phone,
             whatsappConsent: profile.whatsappConsent,
             whatsappPhone: profile.whatsappPhone,
+            whatsappMarketingConsent: profile.whatsappMarketingConsent,
+            phoneMarketingConsent: profile.phoneMarketingConsent,
             role: profile.role,
             permissions: profile.permissions,
             isVerified: profile.isVerified ?? true,
@@ -94,8 +109,7 @@ export function AuthSync() {
         useWishlistStore
           .getState()
           .setWishlistIdentity(getUserWishlistIdentity(profile.id));
-      })
-      .catch((error) => {
+      } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
         if (
           isAdminRoute &&
@@ -109,7 +123,10 @@ export function AuthSync() {
           .getState()
           .setWishlistIdentity(getGuestWishlistIdentity());
         if (isAdminRoute) window.location.assign("/admin/login");
-      });
+      }
+    };
+
+    void syncAuth();
 
     return () => controller.abort();
   }, [isAdminLogin, isAdminRoute]);

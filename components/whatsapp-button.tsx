@@ -41,6 +41,7 @@ export function WhatsAppButton({ productName, productPrice, productUrl, orderSha
 
   useEffect(() => {
     let cancelled = false;
+
     fetch("/api/store/public", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
@@ -48,13 +49,15 @@ export function WhatsAppButton({ productName, productPrice, productUrl, orderSha
           setPhoneNumber(normalizeWhatsAppNumber(data.whatsappNumber));
         }
       })
-      .catch((err) => {
-        console.error("Failed to load WhatsApp number:", err);
+      .catch(() => {
+        // The widget is optional. Navigation can abort this request safely.
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {

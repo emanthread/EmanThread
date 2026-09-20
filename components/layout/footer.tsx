@@ -255,6 +255,23 @@ export function Footer() {
                 Privacy Policy
               </Link>
               <Link
+                href="/marketing-preferences"
+                className="text-sm text-primary-foreground/60 hover:text-primary-foreground transition-colors"
+              >
+                Marketing Opt-out
+              </Link>
+              <button
+                type="button"
+                onClick={() =>
+                  window.dispatchEvent(
+                    new CustomEvent("emanthread:open-privacy-preferences"),
+                  )
+                }
+                className="text-sm text-primary-foreground/60 hover:text-primary-foreground transition-colors"
+              >
+                Privacy Choices
+              </button>
+              <Link
                 href="/terms"
                 className="text-sm text-primary-foreground/60 hover:text-primary-foreground transition-colors"
               >

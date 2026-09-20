@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
@@ -31,6 +32,12 @@ export default function AccountSettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [name, setName] = useState(user?.name ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
+  const [whatsappMarketingConsent, setWhatsappMarketingConsent] = useState(
+    user?.whatsappMarketingConsent ?? false,
+  );
+  const [phoneMarketingConsent, setPhoneMarketingConsent] = useState(
+    user?.phoneMarketingConsent ?? false,
+  );
 
   // Change password state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -52,6 +59,8 @@ export default function AccountSettingsPage() {
         body: JSON.stringify({
           name: name.trim() || undefined,
           phone: phone.trim() || undefined,
+          whatsappMarketingConsent,
+          phoneMarketingConsent,
         }),
       });
 
@@ -69,6 +78,8 @@ export default function AccountSettingsPage() {
       updateProfile({
         name: updated.name,
         phone: updated.phone,
+        whatsappMarketingConsent: updated.whatsappMarketingConsent,
+        phoneMarketingConsent: updated.phoneMarketingConsent,
       });
 
       toast({
@@ -213,6 +224,42 @@ export default function AccountSettingsPage() {
                   />
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-lg">Marketing communication</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                These optional choices are separate from order, payment, and delivery
+                messages. You can withdraw either permission at any time.
+              </p>
+              <label className="flex items-start gap-3 text-sm">
+                <Checkbox
+                  checked={whatsappMarketingConsent}
+                  onCheckedChange={(checked) =>
+                    setWhatsappMarketingConsent(checked === true)
+                  }
+                />
+                <span>
+                  Send me WhatsApp updates about new collections, product launches,
+                  offers, and promotions.
+                </span>
+              </label>
+              <label className="flex items-start gap-3 text-sm">
+                <Checkbox
+                  checked={phoneMarketingConsent}
+                  onCheckedChange={(checked) =>
+                    setPhoneMarketingConsent(checked === true)
+                  }
+                />
+                <span>
+                  An authorized Eman Thread representative may call me about relevant
+                  products, services, and marketing offers.
+                </span>
+              </label>
             </CardContent>
           </Card>
 

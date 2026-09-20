@@ -10,6 +10,8 @@ export const dynamic = "force-dynamic";
 const updateProfileSchema = z.object({
   whatsappConsent: z.boolean().optional(),
   whatsappPhone: z.string().optional(),
+  whatsappMarketingConsent: z.boolean().optional(),
+  phoneMarketingConsent: z.boolean().optional(),
   name: z.string().min(1).optional(),
   phone: z.string().optional(),
 });
@@ -52,6 +54,8 @@ export async function GET() {
     phone: user.phone || undefined,
     whatsappConsent: user.whatsappConsent,
     whatsappPhone: user.whatsappPhone || undefined,
+      whatsappMarketingConsent: user.whatsappMarketingConsent,
+      phoneMarketingConsent: user.phoneMarketingConsent,
     role: user.role,
     permissions: normalizePermissions(user.permissions),
     isVerified: user.isVerified,
@@ -89,11 +93,26 @@ export async function PUT(req: Request) {
       );
     }
 
-    const { whatsappConsent, whatsappPhone, name, phone } = result.data;
+    const {
+      whatsappConsent,
+      whatsappPhone,
+      whatsappMarketingConsent,
+      phoneMarketingConsent,
+      name,
+      phone,
+    } = result.data;
 
     const updateData: Record<string, unknown> = {};
     if (whatsappConsent !== undefined) updateData.whatsappConsent = whatsappConsent;
     if (whatsappPhone !== undefined) updateData.whatsappPhone = whatsappPhone || null;
+    if (whatsappMarketingConsent !== undefined) {
+      updateData.whatsappMarketingConsent = whatsappMarketingConsent;
+      updateData.marketingConsentUpdatedAt = new Date();
+    }
+    if (phoneMarketingConsent !== undefined) {
+      updateData.phoneMarketingConsent = phoneMarketingConsent;
+      updateData.marketingConsentUpdatedAt = new Date();
+    }
     if (name !== undefined) updateData.name = name;
     if (phone !== undefined) updateData.phone = phone || null;
 
@@ -106,6 +125,20 @@ export async function PUT(req: Request) {
       data: updateData,
       include: { addresses: true },
     });
+    if (
+      user.phone &&
+      (whatsappMarketingConsent !== undefined || phoneMarketingConsent !== undefined)
+    ) {
+      const { updateMarketingConsent } = await import("@/lib/marketing-consent");
+      await updateMarketingConsent({
+        phone: user.phone,
+        name: user.name,
+        email: user.email,
+        source: "account",
+        whatsappMarketingConsent,
+        phoneMarketingConsent,
+      });
+    }
 
     return NextResponse.json({
       id: user.id,
@@ -114,6 +147,8 @@ export async function PUT(req: Request) {
       phone: user.phone || undefined,
       whatsappConsent: user.whatsappConsent,
       whatsappPhone: user.whatsappPhone || undefined,
+      whatsappMarketingConsent: user.whatsappMarketingConsent,
+      phoneMarketingConsent: user.phoneMarketingConsent,
       role: user.role,
       permissions: normalizePermissions(user.permissions),
       isVerified: user.isVerified,

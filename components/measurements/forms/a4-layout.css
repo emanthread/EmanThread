@@ -19,7 +19,7 @@
   min-height: 297mm;
   margin: 8px auto;
   background: #fff;
-  padding: 6mm;
+  padding: 4mm;
   border: 1px solid #cbd5e1;
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
   position: relative;
@@ -216,8 +216,8 @@
   border: 2px solid var(--ink);
   border-top: 0;
   height: 12mm;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   color: var(--ink);
   background: #fff;
 }
@@ -239,8 +239,8 @@
   height: 4mm;
   background: transparent;
   outline: none;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   color: var(--ink);
 }
 
@@ -253,8 +253,8 @@
 .a4-grid {
   display: grid;
   grid-template-columns: 1fr 62mm;
-  gap: 4mm;
-  margin-top: 3mm;
+  gap: 3mm;
+  margin-top: 2.5mm;
 }
 
 .a4-grid > section,
@@ -284,7 +284,8 @@
   margin: 0;
   background: #fff;
   color: var(--ink);
-  font-size: 15px;
+  font-size: 17px;
+  font-weight: 800;
   letter-spacing: 0.8px;
   text-transform: uppercase;
   padding: 3.5mm 4mm;
@@ -298,7 +299,7 @@
 .a4-row {
   display: grid;
   grid-template-columns: 35mm 1fr;
-  min-height: 19mm;
+  min-height: 20.5mm;
   border-bottom: 1.5px solid var(--line);
 }
 
@@ -307,19 +308,20 @@
 }
 
 .a4-label {
-  padding: 3.2mm 3mm;
-  font-weight: 700;
+  padding: 3.2mm 2.5mm;
+  font-weight: 800;
   color: var(--ink);
   border-right: 1.5px solid var(--line);
-  font-size: 15px;
+  font-size: 18px;
+  line-height: 1.2;
   background: #fff;
 }
 
 .a4-entry {
-  padding: 2mm 3mm;
+  padding: 2.2mm 2.5mm;
   display: flex;
   align-items: center;
-  gap: 3mm;
+  gap: 2.5mm;
   flex-wrap: wrap;
 }
 
@@ -332,8 +334,8 @@
   border-left: none;
   border-right: none;
   background: transparent;
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 800;
   color: var(--ink);
   padding: 0 2mm;
   outline: none;
@@ -385,9 +387,10 @@
   border: 1px solid #cbd5e1;
   border-radius: 999px;
   padding: 1.5mm 2.6mm;
-  font-size: 10.5px;
+  font-size: 12.5px;
+  font-weight: 800;
   background: #fff;
-  color: #334155;
+  color: var(--ink);
   cursor: pointer;
 }
 
@@ -399,19 +402,20 @@
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   width: 100%;
-  gap: 2mm;
+  gap: 1.5mm;
 }
 
 .a4-subitem {
   border: 1px solid #cbd5e1;
   background: #fff;
   border-radius: 2px;
-  min-height: 15mm;
-  padding: 2mm;
-  font-size: 12.5px;
+  min-height: 16.5mm;
+  padding: 1.8mm 1mm;
+  font-size: 14px;
+  line-height: 1.2;
   text-align: center;
   color: var(--ink);
-  font-weight: 650;
+  font-weight: 800;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -429,14 +433,15 @@
   align-items: center;
   gap: 2mm;
   margin: 0;
-  font-size: 12.5px;
-  line-height: 1;
+  font-size: 13.5px;
+  line-height: 1.2;
+  font-weight: 800;
 }
 
 .a4-subitem .a4-smallline {
   display: block;
-  height: 5mm;
-  margin-top: 2mm;
+  height: 5.5mm;
+  margin-top: 1.5mm;
 }
 
 .a4-subitem .a4-smallline input {
@@ -446,14 +451,14 @@
   height: 100%;
   background: transparent;
   text-align: center;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 800;
   outline: none;
 }
 
 .a4-side .a4-row {
   grid-template-columns: 1fr;
-  min-height: 13mm;
+  min-height: 14.5mm;
 }
 
 .a4-side .a4-label {
@@ -461,7 +466,8 @@
   border-bottom: 1px solid #e2e8f0;
   padding: 2mm 3mm;
   font-weight: 800;
-  font-size: 14px;
+  font-size: 17px;
+  line-height: 1.2;
 }
 
 .a4-side .a4-entry {

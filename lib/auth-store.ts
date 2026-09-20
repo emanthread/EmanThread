@@ -8,6 +8,8 @@ export interface User {
   phone?: string;
   whatsappConsent?: boolean;
   whatsappPhone?: string;
+  whatsappMarketingConsent?: boolean;
+  phoneMarketingConsent?: boolean;
   avatar?: string;
   role: string; // e.g. "customer" | "admin" | "super_admin" | "manager" | "support"
   permissions?: string[];
@@ -92,6 +94,8 @@ export const useAuthStore = create<AuthState>()(
               phone: profile.phone,
               whatsappConsent: profile.whatsappConsent,
               whatsappPhone: profile.whatsappPhone,
+              whatsappMarketingConsent: profile.whatsappMarketingConsent,
+              phoneMarketingConsent: profile.phoneMarketingConsent,
               role: profile.role,
               permissions: profile.permissions,
               isVerified: profile.isVerified ?? true,
@@ -159,6 +163,8 @@ export const useAuthStore = create<AuthState>()(
               phone: profile.phone,
               whatsappConsent: profile.whatsappConsent,
               whatsappPhone: profile.whatsappPhone,
+              whatsappMarketingConsent: profile.whatsappMarketingConsent,
+              phoneMarketingConsent: profile.phoneMarketingConsent,
               role: profile.role,
               permissions: profile.permissions,
               isVerified: profile.isVerified ?? true,
@@ -200,6 +206,8 @@ export const useAuthStore = create<AuthState>()(
               phone: profile.phone,
               whatsappConsent: profile.whatsappConsent,
               whatsappPhone: profile.whatsappPhone,
+              whatsappMarketingConsent: profile.whatsappMarketingConsent,
+              phoneMarketingConsent: profile.phoneMarketingConsent,
               role: profile.role,
               permissions: profile.permissions,
               isVerified: profile.isVerified ?? true,

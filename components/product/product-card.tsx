@@ -99,7 +99,7 @@ export function ProductCard({
           'relative aspect-[2/3] overflow-hidden bg-secondary',
           variant === 'mobileEditorial' ? 'rounded-none' : 'rounded-2xl',
         )}>
-          <Link href={`/product/${product.id}`} className="relative block h-full w-full" onClick={handleProductClick}>
+          <Link prefetch={false} href={`/product/${product.id}`} className="relative block h-full w-full" onClick={handleProductClick}>
             <Image
               src={productImage}
               alt={product.name}
@@ -201,7 +201,7 @@ export function ProductCard({
           <p className="text-xs uppercase tracking-wider text-muted-foreground">
             {product.fabricType}{product.color && ` • ${product.color}`}
           </p>
-          <Link href={`/product/${product.id}`} onClick={handleProductClick}>
+          <Link prefetch={false} href={`/product/${product.id}`} onClick={handleProductClick}>
             <h3 className="line-clamp-2 text-sm font-medium leading-tight transition-colors hover:text-accent">
               {product.name}
             </h3>

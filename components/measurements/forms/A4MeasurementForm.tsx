@@ -684,15 +684,16 @@ function BottomTypeTabs({
   const setField = (k: DataKey, v: string) => onChange({ ...data, [k]: v });
 
   const btnStyle = (tab: string): React.CSSProperties => ({
-    flex: "0 1 40%",
+    flex: "1 1 0",
     border: "2px solid var(--ink)",
-    background: bottomType === tab ? "var(--ink)" : "#fff",
-    color: bottomType === tab ? "#fff" : "var(--ink)",
-    fontWeight: 800,
+    background: bottomType === tab ? "#dbeafe" : "#fff",
+    color: "var(--ink)",
+    boxShadow: bottomType === tab ? "inset 0 0 0 1px var(--ink)" : "none",
+    fontWeight: 900,
     padding: variant === 'ladies' ? "2.8mm 2mm" : "3mm 1mm",
     cursor: readOnly ? "default" : "pointer",
     borderRadius: "4px",
-    fontSize: variant === 'ladies' ? "12.5px" : "11.5px",
+    fontSize: variant === 'ladies' ? "14px" : "13.5px",
     textTransform: "uppercase",
     pointerEvents: readOnly ? "none" : "auto",
     opacity: readOnly && bottomType !== tab ? 0.6 : 1,
