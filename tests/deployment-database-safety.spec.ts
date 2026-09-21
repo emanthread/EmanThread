@@ -11,16 +11,16 @@ const vercelConfig = JSON.parse(
 ) as { buildCommand?: string };
 
 test.describe("production database deployment safety", () => {
-  test("Vercel refuses to publish against a database with pending migrations", () => {
+  test("Vercel generates the Prisma client without running schema-engine checks", () => {
     expect(vercelConfig.buildCommand).toBe("npm run vercel-build");
     expect(packageJson.scripts["vercel-build"]).toBe(
-      "prisma generate && prisma migrate status && next build"
+      "prisma generate && next build"
     );
   });
 
-  test("the default Hostinger build also refuses pending migrations", () => {
+  test("the default Hostinger build avoids the non-executable schema engine", () => {
     expect(packageJson.scripts["build"]).toBe(
-      "prisma generate && prisma migrate status && next build"
+      "prisma generate && next build"
     );
   });
 
@@ -31,7 +31,7 @@ test.describe("production database deployment safety", () => {
     ].join(" ");
 
     expect(buildCommands).not.toMatch(
-      /migrate deploy|migrate reset|db push|seed/i
+      /migrate (deploy|status|reset)|db push|seed/i
     );
     expect(packageJson.scripts["db:migrate-safe"]).toBe(
       "prisma migrate deploy"
