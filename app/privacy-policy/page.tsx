@@ -148,17 +148,17 @@ export default async function PrivacyPolicyPage() {
               <h2 className="text-2xl font-semibold">8. Cookies, Meta Pixel, and Conversions API</h2>
               <p className="leading-relaxed text-muted-foreground">
                 Necessary browser storage supports security and core website functions.
-                Optional analytics and advertising technologies load only after you
-                select “Allow analytics.” When enabled, Google Analytics and Meta Pixel
-                may receive page, device, browser, referral, cookie, and interaction
-                data. Where Meta Conversions API is configured, a corresponding
-                server-side event may be sent to Meta using the same event identifier
-                to support measurement and avoid duplicate counting.
+                Analytics and advertising technologies are enabled by default without
+                displaying a consent popup. Google Analytics and Meta Pixel may receive
+                page, device, browser, referral, cookie, and interaction data. Where Meta
+                Conversions API is configured, a corresponding server-side event may be
+                sent to Meta using the same event identifier to support measurement and
+                avoid duplicate counting.
               </p>
               <p className="leading-relaxed text-muted-foreground">
-                You can reopen “Privacy Choices” in the website footer and change your
-                selection. We also honor a supported browser Global Privacy Control
-                signal by defaulting optional tracking to denied.
+                We honor a supported browser Global Privacy Control signal by defaulting
+                optional tracking to denied. You may also control tracking through your
+                browser privacy, cookie, or content-blocking settings.
               </p>
             </section>
 

@@ -207,9 +207,6 @@ export default function CheckoutPage() {
   const [orderNumber, setOrderNumber] = useState<string>("");
   const [orderId, setOrderId] = useState<string>("");
   const [submitError, setSubmitError] = useState("");
-  const [whatsappConsent, setWhatsappConsent] = useState(false);
-  const [whatsappMarketingConsent, setWhatsappMarketingConsent] = useState(false);
-  const [phoneMarketingConsent, setPhoneMarketingConsent] = useState(false);
   const [couponCode, setCouponCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState<number | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
@@ -598,9 +595,6 @@ export default function CheckoutPage() {
         },
         paymentMethod: paymentMethod.toUpperCase(),
         notes: formData.notes,
-        whatsappConsent,
-        whatsappMarketingConsent,
-        phoneMarketingConsent,
         couponCode: appliedDiscount && appliedDiscount > 0 ? couponCode : undefined,
       };
 

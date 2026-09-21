@@ -27,20 +27,11 @@ test("privacy, tracking consent, opt-out, and AI disclosure work in the browser"
   await page.goto("/privacy-policy", { waitUntil: "domcontentloaded" });
 
   await expect(page.getByRole("heading", { name: "Privacy Policy" })).toBeVisible();
-  await expect(page.getByRole("complementary", { name: "Privacy choices" })).toBeVisible();
-  await expect(page.locator("main")).not.toContainText("Emaan Thread");
-  expect(thirdPartyRequests).toEqual([]);
-
-  await page.getByRole("button", { name: "Necessary only" }).click();
   await expect(page.getByRole("complementary", { name: "Privacy choices" })).toHaveCount(0);
+  await expect(page.locator("main")).not.toContainText("Emaan Thread");
   await expect
     .poll(() => page.evaluate(() => localStorage.getItem("emanthread_tracking_consent_v1")))
-    .toBe("denied");
-  expect(thirdPartyRequests).toEqual([]);
-
-  await page.getByRole("button", { name: "Privacy Choices" }).click();
-  await expect(page.getByRole("complementary", { name: "Privacy choices" })).toBeVisible();
-  await page.getByRole("button", { name: "Necessary only" }).click();
+    .toBeNull();
 
   await page.getByRole("link", { name: "Marketing Opt-out" }).click();
   await page.waitForURL("**/marketing-preferences");

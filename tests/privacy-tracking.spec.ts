@@ -34,6 +34,8 @@ test("marketing consent remains channel-specific and is not requested during che
   expect(migration).toContain('"whatsappMarketingConsent" BOOLEAN NOT NULL DEFAULT false');
   expect(migration).toContain('"phoneMarketingConsent" BOOLEAN NOT NULL DEFAULT false');
   expect(checkout).not.toContain("Communication preferences (optional)");
+  expect(checkout).not.toContain("whatsappMarketingConsent");
+  expect(checkout).not.toContain("phoneMarketingConsent");
   expect(orders).toContain("whatsappTransactionalConsent: whatsappConsent === true");
   expect(orders).toContain('source: "checkout"');
 });
@@ -54,6 +56,16 @@ test("tracking is consent gated and browser/server Meta events share an event id
   expect(api).toContain("sendMetaServerEvent");
 });
 
+test("analytics defaults on without rendering a privacy popup", () => {
+  const layout = source("app/layout.tsx");
+  const footer = source("components/layout/footer.tsx");
+  const consent = source("lib/tracking-consent.ts");
+
+  expect(consent).toContain('? value : "granted"');
+  expect(layout).not.toContain("<PrivacyConsent");
+  expect(footer).not.toContain("emanthread:open-privacy-preferences");
+  expect(footer).not.toContain("Privacy Choices");
+});
 test("Meta lead webhook verifies signatures and never infers marketing consent", () => {
   const webhook = source("app/api/meta/lead-webhook/route.ts");
 

@@ -4,7 +4,6 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { AuthSync } from "@/components/auth-sync";
 import { ClientWidgets } from "@/app/client-widgets";
 import { StorefrontTracking } from "@/components/storefront-tracking";
-import { PrivacyConsent } from "@/components/privacy-consent";
 import { getStoreConfig } from "@/lib/db-queries";
 import { getCachedPublishedCatalogSidebarNavigation } from "@/lib/db/catalog";
 import { PublishedCatalogProvider } from "@/components/layout/published-catalog-provider";
@@ -145,7 +144,6 @@ export default async function RootLayout({
           </PublishedCatalogProvider>
           <AuthSync />
           <ClientWidgets />
-          <PrivacyConsent />
         </ThemeProvider>
 
         {/* JSON-LD structured data — afterInteractive so crawlers get it but it never blocks hydration */}
