@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 
 import Image from "next/image";
-import Link from "next/link";
+import Link from "@/components/navigation/no-prefetch-link";
 import { X, Plus, Minus, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getCartItemImages, getCartItemUnitPrice, isCartItemAvailable, useCartStore } from "@/lib/cart-store";

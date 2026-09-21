@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/navigation/no-prefetch-link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";

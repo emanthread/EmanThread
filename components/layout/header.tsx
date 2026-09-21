@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
+import Link from "@/components/navigation/no-prefetch-link";
 import { usePathname, useRouter } from "next/navigation";
 
 import {

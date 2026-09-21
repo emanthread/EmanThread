@@ -29,11 +29,11 @@ test("admin polling tolerates cold starts without unhandled promise rejections",
   expect(measurementsPage).toContain("instead of creating an unhandled browser rejection");
 });
 
-test("shared dialogs always provide an accessible description", () => {
+test("shared dialogs either provide a description or explicitly opt out", () => {
   const dialog = source("components/ui/dialog.tsx");
   expect(dialog).toContain("function hasDialogDescription");
-  expect(dialog).toContain("!hasDialogDescription(children)");
-  expect(dialog).toContain("<DialogPrimitive.Description");
+  expect(dialog).toContain("const contentProps = hasDialogDescription(children)");
+  expect(dialog).toContain("'aria-describedby': undefined");
 });
 
 test("high-volume storefront links do not preload unused route styles", () => {
@@ -44,6 +44,26 @@ test("high-volume storefront links do not preload unused route styles", () => {
   expect(productCard.match(/prefetch=\{false\}/g)).toHaveLength(2);
   expect(mobileHome.match(/prefetch=\{false\}/g)?.length).toBeGreaterThanOrEqual(4);
   expect(headerMenu.match(/prefetch=\{false\}/g)?.length).toBeGreaterThanOrEqual(4);
+});
+
+test("persistent navigation does not prefetch unused route CSS", () => {
+  const noPrefetchLink = source("components/navigation/no-prefetch-link.tsx");
+  const navigationFiles = [
+    "components/layout/header.tsx",
+    "components/layout/footer.tsx",
+    "components/layout/catalog-header-menu.tsx",
+    "components/layout/catalog-mobile-department-menu.tsx",
+    "components/layout/catalog-mobile-menu.tsx",
+    "components/layout/catalog-mobile-nav.tsx",
+    "components/cart/cart-drawer.tsx",
+  ];
+
+  expect(noPrefetchLink).toContain("prefetch = false");
+  for (const file of navigationFiles) {
+    expect(source(file)).toContain(
+      'from "@/components/navigation/no-prefetch-link"',
+    );
+  }
 });
 
 test("guest auth sync and mobile navigation stay console-clean", () => {
