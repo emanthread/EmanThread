@@ -42,6 +42,8 @@ let nextConfig = {
 
   // ── Bundle size & Build settings ────────────────────────────────────────
   experimental: {
+    // Leave room for multipart metadata around the route's 10 MB file limit.
+    proxyClientMaxBodySize: '12mb',
     // Limit workers to prevent Hostinger server from hanging at the end of the build.
     // Hostinger reports 64 CPU cores, causing Next.js to spawn 63 workers and run out of RAM.
     cpus: 4,

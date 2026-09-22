@@ -692,7 +692,7 @@ function NormalizedOptionEditor({
                       {value.images.map((url, imageIndex) => (
                         <div key={`${url}-${imageIndex}`} className="relative h-20 w-16 overflow-hidden rounded border"><Image src={url} alt="" fill sizes="64px" className="object-cover" /><button type="button" className="absolute right-1 top-1 rounded-full bg-background p-1" onClick={() => updateValue(axisIndex, valueIndex, { images: value.images.filter((_, index) => index !== imageIndex) })}><X className="h-3 w-3" /></button></div>
                       ))}
-                      {value.images.length < 10 && onUploadVariantImage && <label className="flex h-20 w-16 cursor-pointer items-center justify-center rounded border-2 border-dashed"><ImagePlus className="h-4 w-4" /><input type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" onChange={async (event) => { let images = [...value.images]; for (const file of Array.from(event.target.files || []).slice(0, 10 - images.length)) { const url = await onUploadVariantImage(file); if (url) images.push(url); } updateValue(axisIndex, valueIndex, { images }); event.target.value = ""; }} /></label>}
+                      {value.images.length < 10 && onUploadVariantImage && <label className="flex h-20 w-16 cursor-pointer items-center justify-center rounded border-2 border-dashed"><ImagePlus className="h-4 w-4" /><input type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif" multiple className="sr-only" onChange={async (event) => { let images = [...value.images]; for (const file of Array.from(event.target.files || []).slice(0, 10 - images.length)) { const url = await onUploadVariantImage(file); if (url) images.push(url); } updateValue(axisIndex, valueIndex, { images }); event.target.value = ""; }} /></label>}
                     </div>
                   </div>
                 )}
@@ -1234,7 +1234,7 @@ export function ProductCommerceProfileSection({
                         <input
                           className="sr-only"
                           type="file"
-                          accept="image/jpeg,image/png,image/webp"
+                          accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif"
                           multiple
                           onChange={async (event) => {
                             const files = Array.from(event.target.files || []).slice(0, 10 - variant.images.length);

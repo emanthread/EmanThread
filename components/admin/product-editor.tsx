@@ -45,6 +45,7 @@ import {
   type CommerceProfileDraft,
 } from "@/components/admin/product-commerce-profile-section";
 import { adminFetch } from "@/lib/admin-fetch";
+import { prepareProductImageUpload } from "@/lib/product-image-upload";
 import type { AdminProduct } from "@/lib/admin-store";
 import type { ProductKind } from "@/lib/data";
 import {
@@ -158,6 +159,7 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [mediaUploadError, setMediaUploadError] = useState<string | null>(null);
   const [tagInput, setTagInput] = useState("");
   const [seoOpen, setSeoOpen] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
@@ -445,10 +447,12 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
   const upload = async (file: File, resourceType: "image" | "video") => {
     const setUploading = resourceType === "image" ? setUploadingImage : setUploadingVideo;
     setUploading(true);
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("resourceType", resourceType);
     try {
+      const uploadFile =
+        resourceType === "image" ? await prepareProductImageUpload(file) : file;
+      const formData = new FormData();
+      formData.append("file", uploadFile);
+      formData.append("resourceType", resourceType);
       const response = await adminFetch("/api/admin/upload", {
         method: "POST",
         body: formData,
@@ -467,7 +471,10 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
       }
       toast.success(resourceType === "image" ? "Image uploaded" : "Video uploaded");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Upload failed");
+      const reason = error instanceof Error ? error.message : "Upload failed";
+      const message = `${file.name} was not uploaded. ${reason}`;
+      setMediaUploadError(message);
+      toast.error(message);
     } finally {
       setUploading(false);
     }
@@ -475,10 +482,12 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
 
   const uploadVariantImage = async (file: File): Promise<string> => {
     setUploadingImage(true);
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("resourceType", "image");
+    setMediaUploadError(null);
     try {
+      const uploadFile = await prepareProductImageUpload(file);
+      const formData = new FormData();
+      formData.append("file", uploadFile);
+      formData.append("resourceType", "image");
       const response = await adminFetch("/api/admin/upload", {
         method: "POST",
         body: formData,
@@ -490,7 +499,10 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
       toast.success("Color image uploaded");
       return String(data.url);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Upload failed");
+      const reason = error instanceof Error ? error.message : "Upload failed";
+      const message = `${file.name} was not uploaded. ${reason}`;
+      setMediaUploadError(message);
+      toast.error(message);
       return "";
     } finally {
       setUploadingImage(false);
@@ -882,6 +894,13 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
       <Card>
         <CardHeader><SectionHeading>Photos and video</SectionHeading></CardHeader>
         <CardContent className="space-y-4">
+          {mediaUploadError && (
+            <Alert variant="destructive" role="alert">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Product image upload failed</AlertTitle>
+              <AlertDescription>{mediaUploadError}</AlertDescription>
+            </Alert>
+          )}
           <div id="images" tabIndex={-1} className="space-y-2">
             <Label>Product images *</Label>
             <div className="flex flex-wrap gap-3">
@@ -900,8 +919,9 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
                   Add images
                 </label>
               )}
-              <input id="product-image-upload" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={uploadingImage || product.images.length >= 10} onChange={async (event) => {
+              <input id="product-image-upload" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif" multiple disabled={uploadingImage || product.images.length >= 10} onChange={async (event) => {
                 const files = Array.from(event.target.files || []).slice(0, 10 - product.images.length);
+                setMediaUploadError(null);
                 for (const file of files) await upload(file, "image");
                 event.target.value = "";
               }} />
@@ -924,7 +944,10 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
             )}
             <input id="product-video-upload" className="sr-only" type="file" accept="video/mp4,video/webm" disabled={uploadingVideo} onChange={(event) => {
               const file = event.target.files?.[0];
-              if (file) void upload(file, "video");
+              if (file) {
+                setMediaUploadError(null);
+                void upload(file, "video");
+              }
               event.target.value = "";
             }} />
           </div>

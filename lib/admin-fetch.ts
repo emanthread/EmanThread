@@ -4,12 +4,28 @@ import { apiFetch } from "@/lib/api-fetch";
 
 const READ_TIMEOUT_MS = 30_000;
 const WRITE_TIMEOUT_MS = 45_000;
+const UPLOAD_TIMEOUT_MS = 120_000;
 const RETRYABLE_GATEWAY_STATUSES = new Set([502, 503, 504]);
 
 function isWriteMethod(method?: string): boolean {
   return ["POST", "PUT", "PATCH", "DELETE"].includes(
     (method || "GET").toUpperCase()
   );
+}
+
+function isAdminUploadRequest(input: RequestInfo | URL): boolean {
+  const raw =
+    typeof input === "string"
+      ? input
+      : input instanceof URL
+        ? input.pathname
+        : input.url;
+
+  try {
+    return new URL(raw, window.location.origin).pathname === "/api/admin/upload";
+  } catch {
+    return raw.includes("/api/admin/upload");
+  }
 }
 
 function isAdminLoginRedirect(response: Response): boolean {
@@ -30,9 +46,12 @@ export async function adminFetch(
   input: RequestInfo | URL,
   init?: RequestInit
 ): Promise<Response> {
-  const timeoutMs = isWriteMethod(init?.method)
-    ? WRITE_TIMEOUT_MS
-    : READ_TIMEOUT_MS;
+  const isUpload = isAdminUploadRequest(input);
+  const timeoutMs = isUpload
+    ? UPLOAD_TIMEOUT_MS
+    : isWriteMethod(init?.method)
+      ? WRITE_TIMEOUT_MS
+      : READ_TIMEOUT_MS;
   const timeoutController = new AbortController();
   const timeoutId = window.setTimeout(() => timeoutController.abort(), timeoutMs);
   const signal = init?.signal
@@ -63,9 +82,11 @@ export async function adminFetch(
   } catch (error) {
     if (timeoutController.signal.aborted && !init?.signal?.aborted) {
       throw new Error(
-        isWriteMethod(init?.method)
-          ? "The admin update took too long. Refresh before retrying."
-          : "The admin request timed out. Please retry."
+        isUpload
+          ? "The image upload took too long. Please retry with a smaller image."
+          : isWriteMethod(init?.method)
+            ? "The admin update took too long. Refresh before retrying."
+            : "The admin request timed out. Please retry."
       );
     }
     throw error;
