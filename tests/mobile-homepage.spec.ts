@@ -13,6 +13,7 @@ import {
 import {
   fetchMobileHomepageProducts,
   getMobileHomepageCatalogTarget,
+  seedMobileHomepageProducts,
 } from '../lib/mobile-homepage-products';
 
 test.describe('mobile department homepage', () => {
@@ -39,6 +40,12 @@ test.describe('mobile department homepage', () => {
     expect(products).toEqual([{ id: 'summer-1' }]);
   });
 
+  test('retries failed server preloads but keeps a genuinely empty category loaded', () => {
+    expect(seedMobileHomepageProducts([
+      ['/women', undefined],
+      ['/men', []],
+    ])).toEqual({ '/men': [] });
+  });
   test('reports a failed product request instead of treating it as an empty category', async () => {
     await expect(
       fetchMobileHomepageProducts(

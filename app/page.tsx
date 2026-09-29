@@ -56,11 +56,11 @@ export default async function HomePage() {
     getCatalogPageData(initialSecondaryPath, { pageSize: 12, sort: 'trending' }),
   ]);
   const mobilePrimaryProducts = mobilePrimaryResult.status === 'fulfilled'
-    ? mobilePrimaryResult.value?.products ?? []
-    : [];
+    ? mobilePrimaryResult.value?.products
+    : undefined;
   const mobileSecondaryProducts = mobileSecondaryResult.status === 'fulfilled'
-    ? mobileSecondaryResult.value?.products ?? []
-    : [];
+    ? mobileSecondaryResult.value?.products
+    : undefined;
 
   // One unavailable cached section must not turn the entire storefront into a
   // build-time or runtime 500 during a temporary database interruption.

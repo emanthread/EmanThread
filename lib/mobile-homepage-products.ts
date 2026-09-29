@@ -16,6 +16,15 @@ export function getMobileHomepageCatalogTarget(
   };
 }
 
+export function seedMobileHomepageProducts(
+  entries: ReadonlyArray<readonly [string, Product[] | undefined]>,
+): Record<string, Product[]> {
+  const productsByPath: Record<string, Product[]> = {};
+  for (const [path, products] of entries) {
+    if (products !== undefined) productsByPath[path] = products;
+  }
+  return productsByPath;
+}
 export async function fetchMobileHomepageProducts(
   href: string,
   fetcher: typeof fetch = fetch,

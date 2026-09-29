@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { ProductCard } from '@/components/product/product-card';
 import type { Product } from '@/lib/data';
-import { fetchMobileHomepageProducts } from '@/lib/mobile-homepage-products';
+import { fetchMobileHomepageProducts, seedMobileHomepageProducts } from '@/lib/mobile-homepage-products';
 import {
   MOBILE_HOMEPAGE_EVENT,
   getVisibleMobileHomepageItems,
@@ -21,9 +21,9 @@ import {
 type MobileDepartmentHomeProps = {
   config: MobileHomepageConfig;
   initialPrimaryPath: string;
-  initialPrimaryProducts: Product[];
+  initialPrimaryProducts?: Product[];
   initialSecondaryPath: string;
-  initialSecondaryProducts: Product[];
+  initialSecondaryProducts?: Product[];
 };
 
 function ScrollRail({ children, itemCount, className, label }: {
@@ -186,10 +186,12 @@ export function MobileDepartmentHome({
   const [activeDepartment, setActiveDepartment] =
     useState<MobileHomepageDepartment>('women');
   const [activeCategoryId, setActiveCategoryId] = useState('');
-  const [productsByPath, setProductsByPath] = useState<Record<string, Product[]>>({
-    [initialPrimaryPath]: initialPrimaryProducts,
-    [initialSecondaryPath]: initialSecondaryProducts,
-  });
+  const [productsByPath, setProductsByPath] = useState<Record<string, Product[]>>(() =>
+    seedMobileHomepageProducts([
+      [initialPrimaryPath, initialPrimaryProducts],
+      [initialSecondaryPath, initialSecondaryProducts],
+    ]),
+  );
   const [loadingPaths, setLoadingPaths] = useState<string[]>([]);
   const [failedPaths, setFailedPaths] = useState<string[]>([]);
   const [retryCount, setRetryCount] = useState(0);
