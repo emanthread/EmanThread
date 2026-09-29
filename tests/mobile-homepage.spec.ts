@@ -10,8 +10,45 @@ import {
   resolveMobileHomepageHref,
   validateMobileHomepageConfig,
 } from '../lib/mobile-homepage';
+import {
+  fetchMobileHomepageProducts,
+  getMobileHomepageCatalogTarget,
+} from '../lib/mobile-homepage-products';
 
 test.describe('mobile department homepage', () => {
+  test('keeps a seasonal filter separate from the catalog path', async () => {
+    expect(getMobileHomepageCatalogTarget('/women?season=Summer')).toEqual({
+      catalogPath: '/women',
+      season: 'Summer',
+    });
+
+    let requestedUrl = '';
+    const products = await fetchMobileHomepageProducts(
+      '/women?season=Summer',
+      (async (input: RequestInfo | URL) => {
+        requestedUrl = String(input);
+        return new Response(JSON.stringify({ products: [{ id: 'summer-1' }] }), {
+          status: 200,
+        });
+      }) as typeof fetch,
+    );
+
+    expect(requestedUrl).toBe(
+      '/api/catalog/products?catalogPath=%2Fwomen&limit=12&sort=trending&season=Summer',
+    );
+    expect(products).toEqual([{ id: 'summer-1' }]);
+  });
+
+  test('reports a failed product request instead of treating it as an empty category', async () => {
+    await expect(
+      fetchMobileHomepageProducts(
+        '/women',
+        (async () => new Response(JSON.stringify({ error: 'Unavailable' }), {
+          status: 503,
+        })) as typeof fetch,
+      ),
+    ).rejects.toThrow('Catalog products request failed (503)');
+  });
   test('provides categories and five valid banners for every department', () => {
     const config = createDefaultMobileHomepageConfig();
     for (const departmentId of MOBILE_HOMEPAGE_DEPARTMENTS) {

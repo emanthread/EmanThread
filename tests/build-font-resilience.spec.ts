@@ -46,5 +46,5 @@ test("homepage prerender degrades per section when the database is unavailable",
   expect(homepage).toContain("Promise.allSettled");
   expect(homepage).toContain('status === "fulfilled"');
   expect(homepage).toContain("DEFAULT_HERO_SLIDES");
-  expect(homepage).toContain(": { categories: [] }");
+  expect(homepage).toContain(": createDefaultMobileHomepageConfig()");
 });

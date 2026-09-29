@@ -213,7 +213,7 @@ test.describe("storefront catalog UX", () => {
     );
     expect(headerMenu).toContain("const routeDepartmentId = departmentFromPathname");
     expect(headerMenu).toContain(
-      "data-active={routeDepartmentId === department.id}"
+      "data-active={selectedDepartmentId === department.id}"
     );
   });
 

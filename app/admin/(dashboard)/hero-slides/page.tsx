@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Save, Plus, Trash2, GripVertical, ExternalLink, Upload, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { adminFetch } from "@/lib/admin-fetch";
 import type {
   HeroDepartment,
   HeroMediaType,
@@ -66,7 +67,7 @@ function ImageUploader({
     formData.append("file", file);
 
     try {
-      const res = await fetch("/api/admin/upload", { method: "POST", body: formData });
+      const res = await adminFetch("/api/admin/upload", { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload failed");
       onImageChange(data.url);
@@ -165,7 +166,7 @@ function VideoUploader({
     formData.append("resourceType", "video");
 
     try {
-      const res = await fetch("/api/admin/upload", { method: "POST", body: formData });
+      const res = await adminFetch("/api/admin/upload", { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload failed");
       onVideoChange(data.url);

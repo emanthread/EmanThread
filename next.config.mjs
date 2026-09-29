@@ -84,7 +84,18 @@ let nextConfig = {
       '/size-guides/:path*',
     ];
 
+    const privateResponseHeaders = [
+      {
+        key: 'Cache-Control',
+        value: 'private, no-store, max-age=0, must-revalidate',
+      },
+    ];
+
     return [
+      ...['/admin/:path*', '/api/admin/:path*', '/api/auth/:path*', '/api/user/:path*'].map((source) => ({
+        source,
+        headers: privateResponseHeaders,
+      })),
       ...reusablePublicAssets.map((source) => ({
         source,
         headers: reusablePublicAssetHeaders,

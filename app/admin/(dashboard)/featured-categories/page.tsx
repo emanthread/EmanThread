@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Save, Plus, Trash2, GripVertical, ExternalLink, Upload } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { adminFetch } from "@/lib/admin-fetch";
 import { catalogMenu } from "@/lib/navigation/catalog-menu";
 
 interface FeaturedCategory {
@@ -62,7 +63,7 @@ function ImageUploader({
     formData.append("file", file);
 
     try {
-      const res = await fetch("/api/admin/upload", { method: "POST", body: formData });
+      const res = await adminFetch("/api/admin/upload", { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload failed");
       onImageChange(data.url);

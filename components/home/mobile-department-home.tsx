@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { ProductCard } from '@/components/product/product-card';
 import type { Product } from '@/lib/data';
+import { fetchMobileHomepageProducts } from '@/lib/mobile-homepage-products';
 import {
   MOBILE_HOMEPAGE_EVENT,
   getVisibleMobileHomepageItems,
@@ -134,13 +135,25 @@ function EditorialBanner({ banner, eager = false }: {
   );
 }
 
-function ProductRail({ products, loading, label }: {
+function ProductRail({ products, loading, error, onRetry, label }: {
   products: Product[];
   loading: boolean;
+  error: boolean;
+  onRetry: () => void;
   label: string;
 }) {
   if (loading) {
     return <div className='mx-4 h-[390px] animate-pulse bg-neutral-100' aria-label={`Loading ${label}`} />;
+  }
+  if (error) {
+    return (
+      <div className='px-6 py-12 text-center text-sm text-neutral-600' role='status'>
+        <p>Products could not be loaded.</p>
+        <button type='button' onClick={onRetry} className='mt-3 border-b border-black pb-1 font-medium' aria-label='Retry products'>
+          Retry products
+        </button>
+      </div>
+    );
   }
   if (!products.length) {
     return <p className='px-6 py-12 text-center text-sm text-neutral-500'>Products are coming soon.</p>;
@@ -163,14 +176,6 @@ function ProductRail({ products, loading, label }: {
   );
 }
 
-async function fetchProducts(path: string): Promise<Product[]> {
-  const params = new URLSearchParams({ catalogPath: path, limit: '12', sort: 'trending' });
-  const response = await fetch(`/api/catalog/products?${params}`, { cache: 'no-store' });
-  if (!response.ok) return [];
-  const payload = (await response.json()) as { products?: Product[] };
-  return payload.products ?? [];
-}
-
 export function MobileDepartmentHome({
   config,
   initialPrimaryPath,
@@ -186,6 +191,8 @@ export function MobileDepartmentHome({
     [initialSecondaryPath]: initialSecondaryProducts,
   });
   const [loadingPaths, setLoadingPaths] = useState<string[]>([]);
+  const [failedPaths, setFailedPaths] = useState<string[]>([]);
+  const [retryCount, setRetryCount] = useState(0);
 
   const department = config.departments[activeDepartment];
   const categoryCards = useMemo(
@@ -218,21 +225,42 @@ export function MobileDepartmentHome({
     if (!missingPaths.length) return;
     let active = true;
     setLoadingPaths((current) => [...new Set([...current, ...missingPaths])]);
-    void Promise.all(missingPaths.map(async (path) => [path, await fetchProducts(path)] as const))
-      .then((entries) => {
-        if (active) setProductsByPath((current) => ({ ...current, ...Object.fromEntries(entries) }));
+    void Promise.allSettled(missingPaths.map((path) => fetchMobileHomepageProducts(path)))
+      .then((results) => {
+        if (!active) return;
+        const loaded: Array<readonly [string, Product[]]> = [];
+        const failed: string[] = [];
+        results.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            loaded.push([missingPaths[index], result.value]);
+          } else {
+            failed.push(missingPaths[index]);
+          }
+        });
+        if (loaded.length) {
+          setProductsByPath((current) => ({ ...current, ...Object.fromEntries(loaded) }));
+        }
+        setFailedPaths((current) => [
+          ...new Set([
+            ...current.filter((path) => !loaded.some(([loadedPath]) => loadedPath === path)),
+            ...failed,
+          ]),
+        ]);
       })
       .finally(() => {
         if (active) setLoadingPaths((current) => current.filter((path) => !missingPaths.includes(path)));
       });
     return () => { active = false; };
-  }, [primaryPath, productsByPath, secondaryPath]);
+  }, [primaryPath, productsByPath, retryCount, secondaryPath]);
 
   const banners = department.banners;
   const departmentProducts = productsByPath[secondaryPath] ?? [];
   const categoryProducts = productsByPath[primaryPath] ?? [];
-  const primaryProducts = categoryProducts.length ? categoryProducts : departmentProducts;
-  const secondaryProducts = departmentProducts.length ? departmentProducts : primaryProducts;
+  const primaryFailed = failedPaths.includes(primaryPath);
+  const secondaryFailed = failedPaths.includes(secondaryPath);
+  const primaryProducts = primaryFailed ? [] : categoryProducts.length ? categoryProducts : departmentProducts;
+  const secondaryProducts = secondaryFailed ? [] : departmentProducts.length ? departmentProducts : primaryProducts;
+  const retryProducts = () => setRetryCount((current) => current + 1);
 
   return (
     <div className='bg-white text-black' data-home-department={activeDepartment}>
@@ -293,6 +321,8 @@ export function MobileDepartmentHome({
         <ProductRail
           products={primaryProducts}
           loading={loadingPaths.includes(primaryPath)}
+          error={primaryFailed}
+          onRetry={retryProducts}
           label={`${activeDepartment} trending products`}
         />
         <div className='pt-1 text-center'>
@@ -315,6 +345,8 @@ export function MobileDepartmentHome({
         <ProductRail
           products={secondaryProducts}
           loading={loadingPaths.includes(secondaryPath)}
+          error={secondaryFailed}
+          onRetry={retryProducts}
           label={`${activeDepartment} trending fits`}
         />
         <div className='pt-1 text-center'>

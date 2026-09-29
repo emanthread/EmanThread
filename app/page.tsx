@@ -8,6 +8,7 @@ import { MobileDepartmentHome } from '@/components/home/mobile-department-home';
 import { DEFAULT_HERO_SLIDES, getHeroSlides } from "@/lib/db/store-config";
 import { getCatalogPageData } from '@/lib/db/catalog';
 import { getMobileHomepageConfig } from '@/lib/db/mobile-homepage';
+import { getMobileHomepageCatalogTarget } from '@/lib/mobile-homepage-products';
 import {
   createDefaultMobileHomepageConfig,
   getVisibleMobileHomepageItems,
@@ -45,8 +46,13 @@ export default async function HomePage() {
     ? resolveMobileHomepageHref(firstWomenCategory.destinationId)
     : '/women';
   const initialSecondaryPath = '/women';
+  const initialPrimaryCatalogTarget = getMobileHomepageCatalogTarget(initialPrimaryPath);
   const [mobilePrimaryResult, mobileSecondaryResult] = await Promise.allSettled([
-    getCatalogPageData(initialPrimaryPath, { pageSize: 12, sort: 'trending' }),
+    getCatalogPageData(initialPrimaryCatalogTarget.catalogPath, {
+      pageSize: 12,
+      sort: 'trending',
+      season: initialPrimaryCatalogTarget.season,
+    }),
     getCatalogPageData(initialSecondaryPath, { pageSize: 12, sort: 'trending' }),
   ]);
   const mobilePrimaryProducts = mobilePrimaryResult.status === 'fulfilled'
