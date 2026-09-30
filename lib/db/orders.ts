@@ -182,7 +182,7 @@ export async function createOrder(data: CreateOrderInput, skipStockDeduction = f
     }>();
     const inferredUnstitchedProductIds = new Set<string>();
 
-    if (FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1) {
+    if (FEATURE_FLAGS.CATALOG_PRODUCT_CONTEXT_V1) {
       const assignments = await tx.productCatalogAssignment.findMany({
         where: { productId: { in: data.items.map((item) => item.productId) } },
         select: { productId: true, catalogNode: { select: { path: true } } },

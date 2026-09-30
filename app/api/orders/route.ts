@@ -254,7 +254,7 @@ export async function POST(req: Request) {
               select: { productId: true, productKind: true, stitchingEligible: true },
             })
           : Promise.resolve([]),
-        FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1
+        FEATURE_FLAGS.CATALOG_PRODUCT_CONTEXT_V1
           ? prisma.productCatalogAssignment.findMany({
               where: { productId: { in: requestedStitchingProductIds } },
               select: { productId: true, catalogNode: { select: { path: true } } },

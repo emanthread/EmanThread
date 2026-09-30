@@ -7,6 +7,7 @@ import { createAuditLog } from "@/lib/db-queries";
 import { withLoggedAdminHandler } from "@/lib/logger";
 import { requireAdminApiAccess } from "@/lib/admin-route-guard";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
+import { requiresCatalogSelection } from "@/lib/catalog-editor-policy";
 import {
   canSaveProductKindWithoutCompanionFeature,
   classifyCatalogNode,
@@ -530,6 +531,7 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
         const classification = classifyCatalogNode(primaryNode);
         if (
           FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1 &&
+          requiresCatalogSelection(Boolean(existing), desiredAssignments !== undefined) &&
           (!desiredAssignments?.length ||
             !classification ||
             !primaryNode?.isActive ||
@@ -653,22 +655,17 @@ export const POST = withLoggedAdminHandler(async (request: Request) => {
           const editorSchema =
             classification?.editorSchema ||
             productEditorSchemaForKind(productKind);
+          // Omitted assignments preserve the existing placement, including
+          // products whose commerce profile has not yet been created.
+          const establishedProductKind = existingCommerceProfile?.productKind ||
+            existingCatalogAssignments.find((assignment) => assignment.isPrimary)
+              ?.catalogNode.productKind;
           if (
-            !FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1 &&
-            existingCommerceProfile &&
-            existingCommerceProfile.productKind !== productKind
+            (!FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1 || desiredAssignments === undefined) &&
+            !canSaveProductKindWithoutCompanionFeature(establishedProductKind, productKind)
           ) {
             throw new ProductEditorError(
-              "Enable catalog assignments before changing this product's type"
-            );
-          }
-          if (
-            !FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1 &&
-            !existingCommerceProfile &&
-            productKind !== "UNSTITCHED_FABRIC"
-          ) {
-            throw new ProductEditorError(
-              "Enable catalog assignments before creating a non-fabric product"
+              "Choose a product category before changing this product's type"
             );
           }
           commerce = {

@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
 import { adminFetch, adminResponseError } from '@/lib/admin-fetch';
+import { ADMIN_IMAGE_ACCEPT, prepareProductImageUpload } from '@/lib/product-image-upload';
 import {
   MOBILE_HOMEPAGE_DEPARTMENTS,
   createDefaultMobileHomepageConfig,
@@ -55,7 +56,7 @@ function ImageField({ value, title, label, format, onChange }: {
     setUploading(true);
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', await prepareProductImageUpload(file));
       const response = await adminFetch('/api/admin/upload', { method: 'POST', body: formData });
       if (!response.ok) throw await adminResponseError(response, 'Image upload failed');
       const data = (await response.json()) as { url?: string };
@@ -88,7 +89,7 @@ function ImageField({ value, title, label, format, onChange }: {
         {uploading ? <span className='absolute inset-0 grid place-items-center bg-black/40'><Loader2 className='h-7 w-7 animate-spin text-white' /></span> : null}
       </div>
 
-      <input ref={inputRef} type='file' accept='image/jpeg,image/png,image/webp' className='sr-only' onChange={(event) => {
+      <input ref={inputRef} type='file' accept={ADMIN_IMAGE_ACCEPT} className='sr-only' onChange={(event) => {
         const file = event.target.files?.[0];
         if (file) void upload(file);
       }} />

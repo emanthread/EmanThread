@@ -17,6 +17,7 @@ import {
 import { Loader2, Save, Plus, Trash2, GripVertical, ExternalLink, Upload, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { adminFetch } from "@/lib/admin-fetch";
+import { ADMIN_IMAGE_ACCEPT, prepareProductImageUpload } from "@/lib/product-image-upload";
 import type {
   HeroDepartment,
   HeroMediaType,
@@ -63,13 +64,14 @@ function ImageUploader({
     if (!file) return;
 
     setUploading(true);
-    const formData = new FormData();
-    formData.append("file", file);
-
     try {
+      const uploadFile = await prepareProductImageUpload(file);
+      const formData = new FormData();
+      formData.append("file", uploadFile);
       const res = await adminFetch("/api/admin/upload", { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload failed");
+      if (!data.url) throw new Error("The upload did not return an image URL");
       onImageChange(data.url);
       toast({ title: "Success", description: "Image uploaded" });
     } catch (err: any) {
@@ -106,7 +108,7 @@ function ImageUploader({
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept={ADMIN_IMAGE_ACCEPT}
         className="hidden"
         onChange={handleUpload}
       />

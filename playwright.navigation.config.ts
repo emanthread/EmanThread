@@ -9,6 +9,8 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests",
   testMatch: [
+    'catalog-editor-rollout.spec.ts',
+    'product-image-upload.spec.ts',
     'admin-cache-policy.spec.ts',
     'mobile-homepage.spec.ts',
     "navigation.spec.ts",

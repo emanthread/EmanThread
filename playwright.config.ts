@@ -9,6 +9,7 @@ export default defineConfig({
   // Pure catalog configuration checks use playwright.navigation.config.ts so
   // they never start this database-backed application server.
   testIgnore: [
+    "admin-editor-reliability.spec.ts",
     "navigation.spec.ts",
     "product-classification.spec.ts",
     "product-admin-policy.spec.ts",

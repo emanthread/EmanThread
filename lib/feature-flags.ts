@@ -7,7 +7,13 @@ export const FEATURE_FLAGS = {
   // environment variable can no longer turn `/shop` into a redirect to a 404.
   CATALOG_HEADER_V1: process.env.NEXT_PUBLIC_CATALOG_HEADER_V1 !== "false",
   CATALOG_PAGES_V1: process.env.NEXT_PUBLIC_CATALOG_PAGES_V1 !== "false",
+  // Catalog tables are deployed. A missing build flag should not hide admin tools.
+  // Explicit false remains the rollback switch.
   CATALOG_ADMIN_ASSIGNMENTS_V1:
+    process.env.NEXT_PUBLIC_CATALOG_ADMIN_ASSIGNMENTS_V1 !== "false",
+  // Preserve the previous opt-in for product/checkout inference. Restoring the
+  // admin picker alone must not alter customers' purchase or stitching rules.
+  CATALOG_PRODUCT_CONTEXT_V1:
     process.env.NEXT_PUBLIC_CATALOG_ADMIN_ASSIGNMENTS_V1 === "true",
 
   // New merchandise profiles/variants are isolated in additive tables. Keep

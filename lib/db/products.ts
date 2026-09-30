@@ -300,7 +300,7 @@ async function _getProductById(id: string): Promise<Product | null> {
     where: { id, NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } } },
     include: {
       category: true,
-      ...(FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1
+      ...(FEATURE_FLAGS.CATALOG_PRODUCT_CONTEXT_V1
         ? {
             catalogAssignments: {
               select: { catalogNode: { select: { path: true } } },
@@ -327,7 +327,7 @@ async function _getProductBySlug(slug: string): Promise<Product | null> {
     where: { slug, NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } } },
     include: {
       category: true,
-      ...(FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1
+      ...(FEATURE_FLAGS.CATALOG_PRODUCT_CONTEXT_V1
         ? {
             catalogAssignments: {
               select: { catalogNode: { select: { path: true } } },

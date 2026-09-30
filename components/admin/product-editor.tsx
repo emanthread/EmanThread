@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -45,7 +45,7 @@ import {
   type CommerceProfileDraft,
 } from "@/components/admin/product-commerce-profile-section";
 import { adminFetch } from "@/lib/admin-fetch";
-import { prepareProductImageUpload } from "@/lib/product-image-upload";
+import { applyProductImageUpload, prepareProductImageUpload } from "@/lib/product-image-upload";
 import type { AdminProduct } from "@/lib/admin-store";
 import type { ProductKind } from "@/lib/data";
 import {
@@ -59,6 +59,7 @@ import {
   type CatalogProductClassification,
 } from "@/lib/catalog-product-classification";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
+import { requiresCatalogSelection } from "@/lib/catalog-editor-policy";
 import {
   colorPickerValue,
   isValidHexColor,
@@ -158,6 +159,8 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
   const [optionsLoading, setOptionsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const replacementInputRef = useRef<HTMLInputElement>(null);
+  const replacementIndexRef = useRef<number | null>(null);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [mediaUploadError, setMediaUploadError] = useState<string | null>(null);
   const [tagInput, setTagInput] = useState("");
@@ -167,6 +170,8 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
   const [serverSaveError, setServerSaveError] = useState<string | null>(null);
 
   const [assignments, setAssignments] = useState<CatalogAssignmentDraft[]>([]);
+  const [catalogSelectionChanged, setCatalogSelectionChanged] = useState(false);
+  const catalogSelectionRequired = requiresCatalogSelection(isEdit, catalogSelectionChanged);
   const [assignmentsLoading, setAssignmentsLoading] = useState(Boolean(sourceProductId) && catalogEnabled);
   const [assignmentLoadError, setAssignmentLoadError] = useState<string | null>(null);
   const [primaryCatalogPath, setPrimaryCatalogPath] = useState<string | null>(null);
@@ -316,7 +321,11 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
     if (reason === "initial" && productKind) {
       setInitialCatalogProductKind(productKind);
     }
-    if (reason === "selection") setServerSaveError(null);
+    if (reason === "selection") {
+      setCatalogSelectionChanged(true);
+      setIsDirty(true);
+      setServerSaveError(null);
+    }
     const nextClassification = classifyCatalogNode({ path, productKind });
     setClassification(nextClassification);
     setErrors((current) => ({ ...current, classification: undefined }));
@@ -394,7 +403,7 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
   const selectedClassification =
     classification || classificationForProductKind(commerceProfile.productKind);
   const selectedEditorSchema = selectedClassification.editorSchema;
-  const classificationReady = !catalogEnabled || Boolean(classification);
+  const classificationReady = !catalogEnabled || !catalogSelectionRequired || Boolean(classification);
 
   useEffect(() => {
     if (
@@ -444,7 +453,7 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
     setTagInput("");
   };
 
-  const upload = async (file: File, resourceType: "image" | "video") => {
+  const upload = async (file: File, resourceType: "image" | "video", replaceIndex?: number) => {
     const setUploading = resourceType === "image" ? setUploadingImage : setUploadingVideo;
     setUploading(true);
     try {
@@ -459,10 +468,11 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error || "Upload failed");
+      if (typeof data?.url !== "string" || !data.url.trim()) throw new Error("The upload did not return an image URL");
       if (resourceType === "image") {
         setIsDirty(true);
         setServerSaveError(null);
-        setProduct((current) => ({ ...current, images: [...current.images, data.url] }));
+        setProduct((current) => ({ ...current, images: applyProductImageUpload(current.images, data.url, replaceIndex) }));
         setErrors((current) => ({ ...current, images: undefined }));
       } else {
         setIsDirty(true);
@@ -511,7 +521,7 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
 
   const validate = (): EditorErrors => {
     const next: EditorErrors = {};
-    if (catalogEnabled && (!primaryCatalogPath || !classification || assignments.length === 0)) {
+    if (catalogEnabled && catalogSelectionRequired && (!primaryCatalogPath || !classification || assignments.length === 0)) {
       next.classification = "Choose a department and product category";
     }
     if (!product.name.trim()) next.name = "Enter a product name";
@@ -604,7 +614,7 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
 
     let serializedAssignments;
     let serializedCommerce;
-    if (catalogEnabled) {
+    if (catalogEnabled && catalogSelectionRequired) {
       try {
         serializedAssignments = serializeCatalogAssignments(assignments);
       } catch (error) {
@@ -659,7 +669,9 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
       .find((option) => option.type === "COLOR" || option.type === "SHADE")
       ?.values.find((value) => value.isActive) ||
       (hasUnstitchedColorVariants ? commerceProfile.variants[0] : undefined);
-    const compatibility = normalizeCatalogCompatibilityFields(selectedClassification, {
+    const compatibility = isEdit && !catalogSelectionChanged && !commerceEnabled
+      ? { fabricType: product.fabricType, color: product.color, colorHex: product.colorHex }
+      : normalizeCatalogCompatibilityFields(selectedClassification, {
       ...product,
       ...(firstColorVariant
         ? { color: firstColorVariant.label, colorHex: "swatchHex" in firstColorVariant ? firstColorVariant.swatchHex : firstColorVariant.colorHex }
@@ -826,6 +838,11 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
                   ]
             }
           />
+          {isEdit && !catalogSelectionChanged && !primaryCatalogPath && !assignmentsLoading && (
+            <p className="text-sm text-muted-foreground">
+              This product can be saved with its current category. Choose a department and category when you want to update its placement.
+            </p>
+          )}
           <FieldError message={errors.classification} />
         </>
       ) : (
@@ -849,7 +866,7 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
                     ? "*"
                     : "(optional)"}
                 </Label>
-                <Select value={product.fabricType} onValueChange={(value) => updateProduct("fabricType", value)}>
+                <Select value={product.fabricType} onValueChange={(value) => { if (value) updateProduct("fabricType", value); }}>
                   <SelectTrigger><SelectValue placeholder="Choose fabric" /></SelectTrigger>
                   <SelectContent>{fabricTypes.map((item) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent>
                 </Select>
@@ -907,10 +924,22 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
               {product.images.map((source, index) => (
                 <div key={`${source}-${index}`} className="group relative h-28 w-28 overflow-hidden rounded-lg border bg-muted">
                   <Image src={source} alt={`Product image ${index + 1}`} fill sizes="112px" className="object-cover" />
-                  <button type="button" aria-label={`Remove product image ${index + 1}`} onClick={() => { setIsDirty(true); setProduct((current) => ({ ...current, images: current.images.filter((_, itemIndex) => itemIndex !== index) })); }} className="absolute right-1 top-1 rounded-full bg-background/90 p-1 text-destructive opacity-100 shadow-sm sm:opacity-0 sm:group-hover:opacity-100">
+                  <button type="button" disabled={uploadingImage} aria-label={`Remove product image ${index + 1}`} onClick={() => { setIsDirty(true); setProduct((current) => ({ ...current, images: current.images.filter((_, itemIndex) => itemIndex !== index) })); }} className="absolute right-1 top-1 rounded-full bg-background/90 p-1 text-destructive opacity-100 shadow-sm sm:opacity-0 sm:group-hover:opacity-100">
                     <X className="h-4 w-4" />
                   </button>
                   {index === 0 && <Badge className="absolute bottom-1 left-1">Cover</Badge>}
+                  <button
+                    type="button"
+                    aria-label={`Replace product image ${index + 1}`}
+                    disabled={uploadingImage}
+                    className="absolute bottom-1 right-1 rounded bg-background/95 px-1.5 py-1 text-xs shadow-sm disabled:opacity-50"
+                    onClick={() => {
+                      replacementIndexRef.current = index;
+                      replacementInputRef.current?.click();
+                    }}
+                  >
+                    Replace
+                  </button>
                 </div>
               ))}
               {product.images.length < 10 && (
@@ -919,6 +948,23 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
                   Add images
                 </label>
               )}
+              <input
+                ref={replacementInputRef}
+                type="file"
+                className="sr-only"
+                accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif"
+                disabled={uploadingImage}
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0];
+                  const index = replacementIndexRef.current;
+                  event.currentTarget.value = "";
+                  replacementIndexRef.current = null;
+                  if (file && index !== null) {
+                    setMediaUploadError(null);
+                    void upload(file, "image", index);
+                  }
+                }}
+              />
               <input id="product-image-upload" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif" multiple disabled={uploadingImage || product.images.length >= 10} onChange={async (event) => {
                 const files = Array.from(event.target.files || []).slice(0, 10 - product.images.length);
                 setMediaUploadError(null);
@@ -1018,7 +1064,7 @@ export function ProductEditor({ productId, duplicateFromId }: ProductEditorProps
                     ? "*"
                     : "(optional)"}
                 </Label>
-                <Select value={product.fabricType} onValueChange={(value) => updateProduct("fabricType", value)}>
+                <Select value={product.fabricType} onValueChange={(value) => { if (value) updateProduct("fabricType", value); }}>
                   <SelectTrigger id="fabricType" aria-invalid={Boolean(errors.fabricType)}><SelectValue placeholder={optionsLoading ? "Loading…" : "Choose fabric or material"} /></SelectTrigger>
                   <SelectContent>{fabricTypes.map((item) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent>
                 </Select>

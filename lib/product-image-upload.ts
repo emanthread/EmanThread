@@ -1,4 +1,7 @@
 const SAFE_UPLOAD_BYTES = 7.5 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
+export const ADMIN_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif,image/avif,image/heic,image/heif,.heic,.heif";
 const MAX_IMAGE_DIMENSION = 2500;
 const MIN_WEBP_QUALITY = 0.55;
 
@@ -8,6 +11,7 @@ const SUPPORTED_IMAGE_TYPES = new Set([
   "image/png",
   "image/webp",
   "image/avif",
+  "image/gif",
   "image/heic",
   "image/heif",
 ]);
@@ -50,18 +54,26 @@ function canvasBlob(
 export async function prepareProductImageUpload(file: File): Promise<File> {
   if (!isSupportedProductImage(file)) {
     throw new Error(
-      "Unsupported image format. Use JPG, PNG, WebP, AVIF, HEIC, or HEIF."
+      "Unsupported image format. Use JPG, PNG, WebP, GIF, AVIF, HEIC, or HEIF."
     );
   }
 
+  // A canvas would flatten an animated GIF. Keep it intact within the API limit.
+  if (file.type.toLowerCase() === "image/gif") {
+    if (file.size > MAX_UPLOAD_BYTES) throw new Error("Use a GIF below 10 MB.");
+    return file;
+  }
   if (!shouldOptimizeProductImage(file)) return file;
 
   let bitmap: ImageBitmap;
   try {
     bitmap = await createImageBitmap(file);
   } catch {
+    // Cloudinary accepts HEIC/HEIF even when this browser has no decoder.
+    // The multipart proxy has headroom above the API's 10 MB file limit.
+    if (file.size <= MAX_UPLOAD_BYTES) return file;
     throw new Error(
-      "This large image cannot be optimized by the browser. Convert it to JPG or PNG and try again."
+      "This image exceeds 10 MB and cannot be optimized by this browser. Convert it to JPG or PNG, or choose a smaller image."
     );
   }
 
@@ -97,4 +109,18 @@ export async function prepareProductImageUpload(file: File): Promise<File> {
   } finally {
     bitmap.close();
   }
+}
+
+/** Update a gallery only after an upload has returned a usable URL. */
+export function applyProductImageUpload(
+  images: readonly string[],
+  uploadedUrl: string,
+  replaceIndex?: number,
+): string[] {
+  if (!uploadedUrl.trim()) throw new Error("The upload did not return an image URL");
+  if (replaceIndex === undefined) return [...images, uploadedUrl];
+  if (!Number.isInteger(replaceIndex) || replaceIndex < 0 || replaceIndex >= images.length) {
+    throw new Error("The selected image is no longer available. Please try again.");
+  }
+  return images.map((image, index) => index === replaceIndex ? uploadedUrl : image);
 }

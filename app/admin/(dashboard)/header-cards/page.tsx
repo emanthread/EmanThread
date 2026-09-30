@@ -29,6 +29,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 import { adminFetch, adminResponseError } from "@/lib/admin-fetch";
+import { ADMIN_IMAGE_ACCEPT, prepareProductImageUpload } from "@/lib/product-image-upload";
 import {
   MAX_HEADER_CARDS_PER_CONTEXT,
   type CatalogHeaderCard,
@@ -66,7 +67,7 @@ function CardImageEditor({
     setUploading(true);
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", await prepareProductImageUpload(file));
       const response = await adminFetch("/api/admin/upload", {
         method: "POST",
         body: formData,
@@ -108,7 +109,7 @@ function CardImageEditor({
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept={ADMIN_IMAGE_ACCEPT}
         className="sr-only"
         onChange={(event) => {
           const file = event.target.files?.[0];
