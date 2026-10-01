@@ -5,13 +5,16 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { useInitialPublishedCatalogPaths } from '@/components/layout/published-catalog-provider';
 import { ProductCard } from '@/components/product/product-card';
 import type { Product } from '@/lib/data';
 import {
   MOBILE_HOMEPAGE_EVENT,
   getVisibleMobileHomepageItems,
   isMobileHomepageDepartment,
+  mobileCatalogProductSearchParams,
   resolveMobileHomepageHref,
+  resolvePublishedMobileCatalogPath,
   type MobileHomepageBanner,
   type MobileHomepageConfig,
   type MobileHomepageDepartment,
@@ -164,7 +167,7 @@ function ProductRail({ products, loading, label }: {
 }
 
 async function fetchProducts(path: string): Promise<Product[]> {
-  const params = new URLSearchParams({ catalogPath: path, limit: '12', sort: 'trending' });
+  const params = mobileCatalogProductSearchParams(path);
   const response = await fetch(`/api/catalog/products?${params}`, { cache: 'no-store' });
   if (!response.ok) return [];
   const payload = (await response.json()) as { products?: Product[] };
@@ -178,6 +181,7 @@ export function MobileDepartmentHome({
   initialSecondaryPath,
   initialSecondaryProducts,
 }: MobileDepartmentHomeProps) {
+  const publishedCatalogPaths = useInitialPublishedCatalogPaths();
   const [activeDepartment, setActiveDepartment] =
     useState<MobileHomepageDepartment>('women');
   const [activeCategoryId, setActiveCategoryId] = useState('');
@@ -194,10 +198,15 @@ export function MobileDepartmentHome({
   );
   const activeCategory =
     categoryCards.find(({ id }) => id === activeCategoryId) ?? categoryCards[0];
-  const primaryPath = activeCategory
+  const requestedPrimaryPath = activeCategory
     ? resolveMobileHomepageHref(activeCategory.destinationId)
     : `/${activeDepartment}`;
   const secondaryPath = `/${activeDepartment}`;
+  const primaryPath = resolvePublishedMobileCatalogPath(
+    requestedPrimaryPath,
+    secondaryPath,
+    publishedCatalogPaths,
+  );
 
   useEffect(() => {
     const changeDepartment = (event: Event) => {

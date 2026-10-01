@@ -6,7 +6,9 @@ import {
   MOBILE_HOMEPAGE_DEPARTMENTS,
   createDefaultMobileHomepageConfig,
   getMobileHomepageDestinations,
+  mobileCatalogProductSearchParams,
   parseMobileHomepageConfig,
+  resolvePublishedMobileCatalogPath,
   resolveMobileHomepageHref,
   validateMobileHomepageConfig,
 } from '../lib/mobile-homepage';
@@ -56,6 +58,41 @@ test.describe('mobile department homepage', () => {
     expect(parsed.departments.women.categoryCards[0].desktopImage).toBe(legacyImage);
   });
 
+  test('falls back to the department before fetching an unpublished homepage destination', () => {
+    const publishedPaths = [
+      '/women',
+      '/women/new-in',
+      '/teens',
+      '/fragrance-beauty',
+    ];
+
+    expect(resolvePublishedMobileCatalogPath(
+      '/women/new-in',
+      '/women',
+      publishedPaths,
+    )).toBe('/women/new-in');
+    expect(resolvePublishedMobileCatalogPath(
+      '/women?season=Summer',
+      '/women',
+      publishedPaths,
+    )).toBe('/women?season=Summer');
+    expect(resolvePublishedMobileCatalogPath(
+      '/teens/new-in',
+      '/teens',
+      publishedPaths,
+    )).toBe('/teens');
+    expect(resolvePublishedMobileCatalogPath(
+      '/fragrance-beauty/new-in',
+      '/fragrance-beauty',
+      publishedPaths,
+    )).toBe('/fragrance-beauty');
+
+    const seasonalParams = mobileCatalogProductSearchParams('/women?season=Summer');
+    expect(seasonalParams.get('catalogPath')).toBe('/women');
+    expect(seasonalParams.get('season')).toBe('Summer');
+    expect(seasonalParams.get('limit')).toBe('12');
+    expect(seasonalParams.get('sort')).toBe('trending');
+  });
   test('keeps separate admin uploads and renders the homepage on desktop', () => {
     const adminSource = readFileSync(
       'app/admin/(dashboard)/mobile-homepage/page.tsx',

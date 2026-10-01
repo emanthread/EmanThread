@@ -189,6 +189,24 @@ export function resolveMobileHomepageHref(destinationId: string) {
   return getMobileHomepageDestinations().find(({ id }) => id === destinationId)?.href ?? '/';
 }
 
+export function resolvePublishedMobileCatalogPath(
+  requestedPath: string,
+  departmentPath: string,
+  publishedPaths: readonly string[],
+): string {
+  const [pathname] = requestedPath.split('?', 1);
+  return publishedPaths.includes(pathname) ? requestedPath : departmentPath;
+}
+
+export function mobileCatalogProductSearchParams(path: string): URLSearchParams {
+  const [catalogPath, query = ''] = path.split('?', 2);
+  const params = new URLSearchParams(query);
+  params.set('catalogPath', catalogPath);
+  params.set('limit', '12');
+  params.set('sort', 'trending');
+  return params;
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
