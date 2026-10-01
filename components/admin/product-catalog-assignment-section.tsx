@@ -6,6 +6,8 @@ import {
   Check,
   ChevronsUpDown,
   Loader2,
+  Plus,
+  X,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -259,14 +261,13 @@ function readApiError(payload: unknown, fallback: string): string {
 export function serializeCatalogAssignments(
   assignments: CatalogAssignmentDraft[]
 ): CatalogAssignmentPayload[] {
-  const assignment = assignments[0];
-  if (!assignment?.catalogNodeId) return [];
-
-  return [{
-    catalogNodeId: assignment.catalogNodeId,
-    isFeatured: false,
-    displayOrder: null,
-  }];
+  return assignments
+    .filter((a) => a.catalogNodeId)
+    .map((a) => ({
+      catalogNodeId: a.catalogNodeId,
+      isFeatured: false,
+      displayOrder: null,
+    }));
 }
 
 export function ProductCatalogAssignmentSection({
@@ -299,6 +300,9 @@ export function ProductCatalogAssignmentSection({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [departmentPath, setDepartmentPath] = useState("");
   const [primaryNodeId, setPrimaryNodeId] = useState("");
+  const [showSecondaryPicker, setShowSecondaryPicker] = useState(false);
+  const [secondaryDepartmentPath, setSecondaryDepartmentPath] = useState("");
+  const [secondaryNodeId, setSecondaryNodeId] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -428,6 +432,19 @@ export function ProductCatalogAssignmentSection({
         .sort((left, right) => left.path.localeCompare(right.path, "en"))
     : [];
 
+  const nodesForSecondaryDept = secondaryDepartmentPath
+    ? nodes
+        .filter(
+          (node) =>
+            node.path !== secondaryDepartmentPath &&
+            catalogPathMatchesDepartment(node.path, secondaryDepartmentPath) &&
+            (node._count?.children ?? 0) === 0 &&
+            classifyCatalogNode(node) &&
+            !assignments.some((a) => a.catalogNodeId === node.id)
+        )
+        .sort((left, right) => left.path.localeCompare(right.path, "en"))
+    : [];
+
   const selectPrimaryNode = (catalogNodeId: string) => {
     setPrimaryNodeId(catalogNodeId);
     const node = nodesById.get(catalogNodeId);
@@ -448,10 +465,39 @@ export function ProductCatalogAssignmentSection({
         isVisible: node.isVisible,
       },
     };
-    // The simplified editor has one natural category per product.
-    onChange([primaryAssignment]);
+    // Keep any existing secondary assignments; only swap the primary slot.
+    const secondaries = assignments.filter(
+      (a) => a.catalogNodeId !== primaryAssignment.catalogNodeId
+    );
+    onChange([primaryAssignment, ...secondaries]);
 
     onPrimaryPathChange?.(node.path, "selection", node.productKind);
+  };
+
+  const addSecondaryAssignment = () => {
+    const node = nodesById.get(secondaryNodeId);
+    if (!node) return;
+    if (assignments.some((a) => a.catalogNodeId === secondaryNodeId)) return;
+    const newAssignment: CatalogAssignmentDraft = {
+      catalogNodeId: node.id,
+      isFeatured: false,
+      displayOrder: "",
+      catalogNode: {
+        label: node.label,
+        path: node.path,
+        productKind: node.productKind,
+        isActive: node.isActive,
+        isVisible: node.isVisible,
+      },
+    };
+    onChange([...assignments, newAssignment]);
+    setSecondaryDepartmentPath("");
+    setSecondaryNodeId("");
+    setShowSecondaryPicker(false);
+  };
+
+  const removeSecondaryAssignment = (catalogNodeId: string) => {
+    onChange(assignments.filter((a) => a.catalogNodeId !== catalogNodeId));
   };
 
   const primaryAssignment = assignments.find(
@@ -551,6 +597,128 @@ export function ProductCatalogAssignmentSection({
           Choose a department and category to continue.
         </p>
       ) : null}
+
+      {/* Secondary category assignments list */}
+      {assignments.length > 1 && (
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-muted-foreground">Also appears in:</p>
+          {assignments.slice(1).map((assignment) => {
+            const node =
+              nodesById.get(assignment.catalogNodeId) || assignment.catalogNode;
+            return (
+              <div
+                key={assignment.catalogNodeId}
+                className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2 text-sm"
+              >
+                <span className="truncate">
+                  {node
+                    ? catalogNodeBreadcrumb(node.path, nodes)
+                    : assignment.catalogNodeId}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Remove category"
+                  className="ml-2 shrink-0 rounded p-0.5 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2"
+                  onClick={() => removeSecondaryAssignment(assignment.catalogNodeId)}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Add to another category */}
+      {primaryNode && !primaryNeedsSpecificCategory && (
+        showSecondaryPicker ? (
+          <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+            <p className="text-sm font-medium">Add to another category</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="secondary-catalog-department">Department</Label>
+                <Select
+                  value={secondaryDepartmentPath}
+                  onValueChange={(path) => {
+                    setSecondaryDepartmentPath(path);
+                    setSecondaryNodeId("");
+                  }}
+                  disabled={loading || !departments.length}
+                >
+                  <SelectTrigger id="secondary-catalog-department">
+                    <SelectValue placeholder="Choose department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept.id} value={dept.path}>
+                        {dept.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="secondary-catalog-node">Category</Label>
+                <CatalogNodeCombobox
+                  id="secondary-catalog-node"
+                  value={secondaryNodeId}
+                  nodes={nodesForSecondaryDept}
+                  allNodes={nodes}
+                  onChange={setSecondaryNodeId}
+                  disabled={
+                    loading ||
+                    !secondaryDepartmentPath ||
+                    !nodesForSecondaryDept.length
+                  }
+                  placeholder={
+                    secondaryDepartmentPath
+                      ? nodesForSecondaryDept.length === 0
+                        ? "No categories available"
+                        : "Choose category"
+                      : "Choose department first"
+                  }
+                  searchPlaceholder="Search categories..."
+                  ariaLabel="Secondary product category"
+                  stripPrefixPath={secondaryDepartmentPath || undefined}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={addSecondaryAssignment}
+                disabled={!secondaryNodeId}
+              >
+                Add category
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowSecondaryPicker(false);
+                  setSecondaryDepartmentPath("");
+                  setSecondaryNodeId("");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-fit"
+            onClick={() => setShowSecondaryPicker(true)}
+          >
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Add to another category
+          </Button>
+        )
+      )}
 
       {primaryNeedsSpecificCategory && (
         <Alert>
