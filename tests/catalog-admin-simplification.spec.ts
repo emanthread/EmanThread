@@ -22,12 +22,10 @@ test("catalog admin exposes category management instead of assignment tools", ()
     .toBeLessThan(catalog.indexOf('<TabsTrigger value="assign">'));
 });
 
-test("product editor stores one category with natural placement settings", () => {
+test("product editor exposes secondary categories without placement controls", () => {
   const assignment = source("components/admin/product-catalog-assignment-section.tsx");
-  expect(assignment).toContain("The simplified editor has one natural category per product");
-  expect(assignment).toContain("onChange([primaryAssignment])");
-  expect(assignment).toContain("isFeatured: false");
-  expect(assignment).toContain("displayOrder: null");
+  expect(assignment).toContain("Add to another category");
+  expect(assignment).toContain("Also appears in:");
   expect(assignment).not.toContain("Add placement");
   expect(assignment).not.toContain("Catalog display order");
 });

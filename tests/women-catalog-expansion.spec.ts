@@ -83,14 +83,14 @@ test.describe("Women Partywear, Bridal, and Saari catalog expansion", () => {
     );
   });
 
-  test("uses one natural product category and retains catalog filtering", () => {
+  test("uses precise product categories and retains catalog filtering", () => {
     const assignmentEditor = source(
       "components/admin/product-catalog-assignment-section.tsx"
     );
     const productList = source("components/admin/product-list-page.tsx");
 
     expect(assignmentEditor).toContain("Choose a product category");
-    expect(assignmentEditor).toContain("onChange([primaryAssignment])");
+    expect(assignmentEditor).toContain("Add to another category");
     expect(assignmentEditor).not.toContain("Add placement");
     expect(productList).toContain(
       '"/api/admin/catalog/nodes?active=true&visible=all&limit=1000"'

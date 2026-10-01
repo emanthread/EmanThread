@@ -242,11 +242,38 @@ function CatalogNodeCombobox({
   );
 }
 
-type AssignmentApiRow = Omit<CatalogAssignmentDraft, "displayOrder"> & {
+export type AssignmentApiRow = Omit<CatalogAssignmentDraft, "displayOrder"> & {
   displayOrder: number | null;
   isPrimary: boolean;
   catalogNode: NonNullable<CatalogAssignmentDraft["catalogNode"]>;
 };
+
+export function hydrateCatalogAssignmentDrafts(
+  draftAssignments: CatalogAssignmentDraft[],
+  savedAssignments: AssignmentApiRow[]
+): CatalogAssignmentDraft[] {
+  if (draftAssignments.length) return draftAssignments;
+
+  return [...savedAssignments]
+    .sort((left, right) => Number(right.isPrimary) - Number(left.isPrimary))
+    .map((assignment) => ({
+      catalogNodeId: assignment.catalogNodeId,
+      isFeatured: assignment.isFeatured,
+      displayOrder:
+        assignment.displayOrder === null ? "" : String(assignment.displayOrder),
+      catalogNode: assignment.catalogNode,
+    }));
+}
+
+export function isSecondaryCatalogDestination(node: CatalogNode): boolean {
+  if (!node.isActive || (node._count?.children ?? 0) > 0) return false;
+  if (classifyCatalogNode(node)) return true;
+
+  return new RegExp(
+    "^/(women|men|teens|fragrance-beauty)/sale$",
+    "i"
+  ).test(node.path.trim());
+}
 
 function readApiError(payload: unknown, fallback: string): string {
   return payload && typeof payload === "object" && "error" in payload
@@ -265,8 +292,9 @@ export function serializeCatalogAssignments(
     .filter((a) => a.catalogNodeId)
     .map((a) => ({
       catalogNodeId: a.catalogNodeId,
-      isFeatured: false,
-      displayOrder: null,
+      isFeatured: a.isFeatured,
+      displayOrder:
+        a.displayOrder.trim() === "" ? null : Number(a.displayOrder),
     }));
 }
 
@@ -348,19 +376,10 @@ export function ProductCatalogAssignmentSection({
 
         // A newly-created Product may be switched into edit mode solely to
         // retry a failed assignment save. Keep that unsaved draft intact.
-        const savedPrimary =
-          currentAssignments.find((assignment) => assignment.isPrimary) ||
-          currentAssignments[0];
-        const nextAssignments = assignments.length
-          ? assignments.slice(0, 1)
-          : savedPrimary
-            ? [{
-                catalogNodeId: savedPrimary.catalogNodeId,
-                isFeatured: false,
-                displayOrder: "",
-                catalogNode: savedPrimary.catalogNode,
-              }]
-            : [];
+        const nextAssignments = hydrateCatalogAssignmentDrafts(
+          assignments,
+          currentAssignments
+        );
         onChange(nextAssignments);
 
         const firstAssignment = nextAssignments[0];
@@ -438,8 +457,7 @@ export function ProductCatalogAssignmentSection({
           (node) =>
             node.path !== secondaryDepartmentPath &&
             catalogPathMatchesDepartment(node.path, secondaryDepartmentPath) &&
-            (node._count?.children ?? 0) === 0 &&
-            classifyCatalogNode(node) &&
+            isSecondaryCatalogDestination(node) &&
             !assignments.some((a) => a.catalogNodeId === node.id)
         )
         .sort((left, right) => left.path.localeCompare(right.path, "en"))

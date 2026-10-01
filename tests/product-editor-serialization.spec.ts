@@ -3,6 +3,8 @@ import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 import {
   catalogNodePickerResults,
+  hydrateCatalogAssignmentDrafts,
+  isSecondaryCatalogDestination,
   serializeCatalogAssignments,
   type CatalogNode,
 } from "../components/admin/product-catalog-assignment-section";
@@ -10,6 +12,7 @@ import {
   emptyCommerceProfileDraft,
   serializeCommerceProfile,
 } from "../components/admin/product-commerce-profile-section";
+import { classifyCatalogNode } from "../lib/catalog-product-classification";
 import {
   colorPickerValue,
   isValidHexColor,
@@ -48,11 +51,108 @@ test.describe("product editor draft validation", () => {
     expect(emptyCommerceProfileDraft().optionLabel).toBe("Option");
   });
 
-  test("keeps one natural category and removes placement flags", () => {
+  test("serializes every selected category without discarding placement settings", () => {
     expect(serializeCatalogAssignments([
       { catalogNodeId: "node-1", isFeatured: true, displayOrder: "12" },
-      { catalogNodeId: "node-2", isFeatured: true, displayOrder: "2" },
-    ])).toEqual([{ catalogNodeId: "node-1", isFeatured: false, displayOrder: null }]);
+      { catalogNodeId: "node-2", isFeatured: false, displayOrder: "" },
+    ])).toEqual([
+      { catalogNodeId: "node-1", isFeatured: true, displayOrder: 12 },
+      { catalogNodeId: "node-2", isFeatured: false, displayOrder: null },
+    ]);
+  });
+
+  test("restores every saved category with the primary assignment first", () => {
+    const primaryNode = {
+      label: "Kurtas",
+      path: "/women/ready-to-wear/kurtas",
+      productKind: "READY_TO_WEAR" as const,
+      isActive: true,
+      isVisible: true,
+    };
+    const saleNode = {
+      label: "SALE",
+      path: "/women/sale",
+      productKind: null,
+      isActive: true,
+      isVisible: true,
+    };
+
+    expect(hydrateCatalogAssignmentDrafts([], [
+      {
+        catalogNodeId: "sale",
+        isPrimary: false,
+        isFeatured: true,
+        displayOrder: 7,
+        catalogNode: saleNode,
+      },
+      {
+        catalogNodeId: "kurtas",
+        isPrimary: true,
+        isFeatured: true,
+        displayOrder: 3,
+        catalogNode: primaryNode,
+      },
+    ])).toEqual([
+      {
+        catalogNodeId: "kurtas",
+        isFeatured: true,
+        displayOrder: "3",
+        catalogNode: primaryNode,
+      },
+      {
+        catalogNodeId: "sale",
+        isFeatured: true,
+        displayOrder: "7",
+        catalogNode: saleNode,
+      },
+    ]);
+  });
+
+  test("keeps every unsaved category draft during a retry", () => {
+    const drafts = [
+      { catalogNodeId: "primary", isFeatured: false, displayOrder: "" },
+      { catalogNodeId: "secondary", isFeatured: false, displayOrder: "" },
+    ];
+
+    expect(hydrateCatalogAssignmentDrafts(drafts, [])).toEqual(drafts);
+  });
+
+  test("allows Sale as a secondary destination but not a primary classification", () => {
+    const saleNode: CatalogNode = {
+      id: "sale",
+      label: "SALE",
+      path: "/women/sale",
+      productKind: null,
+      isActive: true,
+      isVisible: true,
+      _count: { children: 0 },
+    };
+    const departmentNode: CatalogNode = {
+      id: "women",
+      label: "WOMEN",
+      path: "/women",
+      productKind: null,
+      isActive: true,
+      isVisible: true,
+      _count: { children: 5 },
+    };
+    const unrelatedLandingNode: CatalogNode = {
+      ...saleNode,
+      id: "editorial",
+      label: "Editorial",
+      path: "/women/editorial",
+    };
+    const inactiveSaleNode: CatalogNode = {
+      ...saleNode,
+      id: "inactive-sale",
+      isActive: false,
+    };
+
+    expect(classifyCatalogNode(saleNode)).toBeNull();
+    expect(isSecondaryCatalogDestination(saleNode)).toBe(true);
+    expect(isSecondaryCatalogDestination(departmentNode)).toBe(false);
+    expect(isSecondaryCatalogDestination(unrelatedLandingNode)).toBe(false);
+    expect(isSecondaryCatalogDestination(inactiveSaleNode)).toBe(false);
   });
 
   test("requires an option name when options exist", () => {
