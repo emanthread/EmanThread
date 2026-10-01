@@ -37,18 +37,10 @@ test("measurement save waits for refresh and reports failures instead of closing
   expect(page).toContain('title: "Could not load measurements"');
 });
 
-test("measurement APIs bypass HTTP and service-worker caches", () => {
+test("measurement APIs send private no-store responses", () => {
   const listRoute = source("app/api/admin/customer-measurements/route.ts");
   const detailRoute = source("app/api/admin/customer-measurements/[id]/route.ts");
-  const worker = source("app/sw.ts");
 
   expect(listRoute).toContain("private, no-store, max-age=0");
   expect(detailRoute).toContain("private, no-store, max-age=0");
-  expect(worker).toContain('pathname === "/api/admin/customer-measurements"');
-  expect(worker).toContain(
-    'pathname.startsWith("/api/admin/customer-measurements/")',
-  );
-  expect(worker.indexOf("sameOrigin && isNeverCachedApi(pathname)")).toBeLessThan(
-    worker.indexOf("...defaultCache"),
-  );
 });

@@ -6,16 +6,6 @@ function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
 }
 
-test("review APIs are never served from the service-worker API cache", () => {
-  const worker = source("app/sw.ts");
-  const reviewRule = worker.indexOf("sameOrigin && isNeverCachedApi(pathname)");
-  const defaultRules = worker.indexOf("...defaultCache");
-
-  expect(worker).toContain("new NetworkOnly()");
-  expect(reviewRule).toBeGreaterThan(-1);
-  expect(defaultRules).toBeGreaterThan(reviewRule);
-});
-
 test("admin review loading always bypasses stale browser caches", () => {
   const page = source("app/admin/(dashboard)/reviews/page.tsx");
 

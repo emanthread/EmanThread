@@ -85,6 +85,15 @@ let nextConfig = {
     ];
 
     return [
+      {
+        source: '/sw.js',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, no-cache, max-age=0, must-revalidate',
+          },
+        ],
+      },
       ...reusablePublicAssets.map((source) => ({
         source,
         headers: reusablePublicAssetHeaders,
@@ -127,20 +136,7 @@ let nextConfig = {
   // the parent directory when the project path contains spaces.
 }
 
-// ── PWA (Serwist) ──────────────────────────────────────────────────
-// @serwist/next is optional — the config falls through gracefully when not installed.
-let serwistWrapped = nextConfig;
-try {
-  const { withSerwist } = await import("@serwist/next");
-  serwistWrapped = withSerwist({
-    ...serwistWrapped,
-    swSrc: "app/sw.ts",
-  });
-} catch {
-  // @serwist/next not installed — skip PWA config
-}
-
-export default withSentryConfig(serwistWrapped, {
+export default withSentryConfig(nextConfig, {
   // Suppress Sentry CLI warnings (auth token, source maps) when not configured
   silent: !process.env.SENTRY_AUTH_TOKEN,
   telemetry: false,

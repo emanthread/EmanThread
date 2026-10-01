@@ -16,18 +16,6 @@ test("production builds do not depend on remote Google Font downloads", () => {
   expect(globals).toContain('Georgia, "Times New Roman", serif');
 });
 
-test("PWA build tooling uses the stable source-map release", () => {
-  const packageJson = JSON.parse(source("package.json")) as {
-    dependencies: Record<string, string>;
-  };
-  const lockfile = source("package-lock.json");
-
-  expect(packageJson.dependencies["@serwist/next"]).toBe("9.5.12");
-  expect(packageJson.dependencies.serwist).toBe("9.5.12");
-  expect(lockfile).toContain('"source-map": "0.8.0"');
-  expect(lockfile).not.toContain('"source-map": "0.8.0-beta.0"');
-});
-
 test("Prisma tooling uses the cycle-safe deepmerge release", () => {
   const packageJson = JSON.parse(source("package.json")) as {
     overrides: Record<string, string>;
