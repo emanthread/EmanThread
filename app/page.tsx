@@ -21,7 +21,10 @@ const CartDrawer = dynamic(
   { loading: () => null }
 );
 
-export const revalidate = 300; // Cache the home page for 5 minutes
+// The homepage shell changes with every deployment and must never be served
+// from an expired full-route cache. Data helpers keep their existing cache
+// and invalidation policies.
+export const revalidate = 0;
 
 export default async function HomePage() {
   // Homepage content queries are cached for fast repeat visits.

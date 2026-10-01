@@ -40,11 +40,11 @@ test("Prisma tooling uses the cycle-safe deepmerge release", () => {
   expect(lockfile.packages["node_modules/deepmerge-ts"]?.version).toBe("8.0.0");
 });
 
-test("homepage prerender degrades per section when the database is unavailable", () => {
+test("homepage request degrades per section when the database is unavailable", () => {
   const homepage = source("app/page.tsx");
 
   expect(homepage).toContain("Promise.allSettled");
   expect(homepage).toContain('status === "fulfilled"');
   expect(homepage).toContain("DEFAULT_HERO_SLIDES");
-  expect(homepage).toContain(": { categories: [] }");
+  expect(homepage).toContain("createDefaultMobileHomepageConfig()");
 });
