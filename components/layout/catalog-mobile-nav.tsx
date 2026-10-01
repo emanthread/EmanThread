@@ -31,6 +31,7 @@ import {
   type MenuSection,
 } from "@/lib/navigation/catalog-menu";
 import {
+  departmentCardContextId,
   EMPTY_CATALOG_HEADER_CARD_CONFIG,
   getResolvedCatalogHeaderCards,
   parseCatalogHeaderCardConfig,
@@ -138,8 +139,29 @@ export function CatalogMobileNav({
   }, [activeDept, publishedPaths]);
 
   // Department-level visual cards (posters for Screen 1)
+  // Uses admin-managed cardConfig (same API as Screen 2) so images are
+  // changeable from Admin → Header Menu Cards → "<Dept> — default cards".
   const deptCards = useMemo(() => {
     if (!activeDept) return [];
+    const contextId = departmentCardContextId(activeDept.id);
+    const adminCards = cardConfig.contexts[contextId];
+    if (adminCards) {
+      // Admin has customised this department's cards — use them
+      return adminCards
+        .filter((card) => {
+          const href = resolveCatalogHeaderCardHref(card.destinationId);
+          return card.visible && href && isPublishedCatalogHref(href, publishedPaths);
+        })
+        .sort((a, b) => a.order - b.order)
+        .slice(0, 4)
+        .map((card) => ({
+          id: card.id,
+          href: resolveCatalogHeaderCardHref(card.destinationId)!,
+          image: card.image || null,
+          label: card.title,
+        }));
+    }
+    // Fallback: hardcoded visualCards (used until admin saves a config)
     return activeDept.visualCards
       .filter(
         (c) =>
@@ -149,8 +171,14 @@ export function CatalogMobileNav({
           isPublishedCatalogHref(c.href, publishedPaths)
       )
       .sort((a, b) => a.order - b.order)
-      .slice(0, 4);
-  }, [activeDept, publishedPaths]);
+      .slice(0, 4)
+      .map((c) => ({
+        id: c.id,
+        href: c.href!,
+        image: c.image,
+        label: c.label,
+      }));
+  }, [activeDept, cardConfig, publishedPaths]);
 
   // Section-level visual cards (posters for Screen 2 bottom)
   const sectionCards = useMemo(() => {
