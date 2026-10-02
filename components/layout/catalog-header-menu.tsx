@@ -101,6 +101,7 @@ export function CatalogHeaderMenu({
     pathname === '/' && homepageDepartment
       ? homepageDepartment
       : routeDepartmentId;
+  const restingDepartmentId = selectedDepartmentId ?? departments[0]?.id ?? "women";
 
   const [activeDepartmentId, setActiveDepartmentId] = useState(() => {
     return (
@@ -166,9 +167,10 @@ export function CatalogHeaderMenu({
         rootRef.current?.matches(":focus-within");
       if (!hasKeyboardFocus) {
         closeMegaPanel(false);
+        setActiveDepartmentId(restingDepartmentId);
       }
     }, 140);
-  }, [cancelScheduledClose, closeMegaPanel]);
+  }, [cancelScheduledClose, closeMegaPanel, restingDepartmentId]);
 
   useEffect(
     () => () => {
@@ -196,11 +198,13 @@ export function CatalogHeaderMenu({
   }, []);
 
   useEffect(() => {
-    closeMegaPanel(false);
-    // Keep menu content aligned with a department route. The underline itself
-    // is derived from routeDepartmentId, so the homepage starts neutral.
-    if (routeDepartmentId) setActiveDepartmentId(routeDepartmentId);
-  }, [pathname, showNavigation, closeMegaPanel, routeDepartmentId]);
+    cancelScheduledClose();
+    setIsMegaPanelOpen(false);
+    setActiveSectionId(null);
+    // Keep menu content aligned with the route or selected homepage department.
+    // Hover previews may change activeDepartmentId without rerunning this effect.
+    setActiveDepartmentId(restingDepartmentId);
+  }, [cancelScheduledClose, pathname, showNavigation, restingDepartmentId]);
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -287,6 +291,12 @@ export function CatalogHeaderMenu({
       className={styles.desktopShell}
       onPointerEnter={cancelScheduledClose}
       onPointerLeave={schedulePointerClose}
+      onBlurCapture={(event) => {
+        if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+        cancelScheduledClose();
+        closeMegaPanel(false);
+        setActiveDepartmentId(restingDepartmentId);
+      }}
     >
       <div className={styles.primaryRow}>
         {showNavigation ? (

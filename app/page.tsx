@@ -1,4 +1,5 @@
 import dynamic from "next/dynamic";
+import { Suspense } from "react";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { FlashSaleBanner } from "@/app/components/flash-sale-banner";
@@ -12,6 +13,7 @@ import {
   createDefaultMobileHomepageConfig,
   getVisibleMobileHomepageItems,
   resolveMobileHomepageHref,
+  type MobileHomepageConfig,
 } from '@/lib/mobile-homepage';
 
 // ── Lazy-load below-the-fold and overlay components ───────────────────────────
@@ -26,21 +28,70 @@ const CartDrawer = dynamic(
 // and invalidation policies.
 export const revalidate = 0;
 
+function HomepageCollectionsFallback() {
+  return (
+    <div role="status" aria-label="Loading homepage collections" className="min-h-[520px] bg-white px-6 py-10 text-black lg:px-12">
+      <div className="h-9 w-64 animate-pulse rounded bg-neutral-200" />
+      <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => (
+          <div key={index} className="aspect-[4/3] animate-pulse bg-neutral-100" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+async function HomepageCollections({
+  config,
+  initialPrimaryPath,
+  initialSecondaryPath,
+}: {
+  config: MobileHomepageConfig;
+  initialPrimaryPath: string;
+  initialSecondaryPath: string;
+}) {
+  const [mobilePrimaryResult, mobileSecondaryResult] = await Promise.allSettled([
+    getCatalogPageData(initialPrimaryPath, { pageSize: 12, sort: 'trending' }),
+    getCatalogPageData(initialSecondaryPath, { pageSize: 12, sort: 'trending' }),
+  ]);
+  for (const result of [mobilePrimaryResult, mobileSecondaryResult]) {
+    if (result.status === 'rejected') {
+      console.error('[homepage] Cached data source unavailable; using fallback', result.reason);
+    }
+  }
+
+  return (
+    <MobileDepartmentHome
+      config={config}
+      initialPrimaryPath={initialPrimaryPath}
+      initialPrimaryProducts={mobilePrimaryResult.status === 'fulfilled'
+        ? mobilePrimaryResult.value?.products ?? []
+        : []}
+      initialSecondaryPath={initialSecondaryPath}
+      initialSecondaryProducts={mobileSecondaryResult.status === 'fulfilled'
+        ? mobileSecondaryResult.value?.products ?? []
+        : []}
+    />
+  );
+}
+
 export default async function HomePage() {
-  // Homepage content queries are cached for fast repeat visits.
-  const [heroSlidesResult, mobileConfigResult] =
-    await Promise.allSettled([
-      getHeroSlides(),
-      getMobileHomepageConfig(),
-    ]);
-  const heroSlides =
-    heroSlidesResult.status === "fulfilled"
-      ? heroSlidesResult.value
-      : [...DEFAULT_HERO_SLIDES];
-  const mobileConfig =
-    mobileConfigResult.status === 'fulfilled'
-      ? mobileConfigResult.value
-      : createDefaultMobileHomepageConfig();
+  const [heroSlidesResult, mobileConfigResult] = await Promise.allSettled([
+    getHeroSlides(),
+    getMobileHomepageConfig(),
+  ]);
+  const heroSlides = heroSlidesResult.status === 'fulfilled'
+    ? heroSlidesResult.value
+    : [...DEFAULT_HERO_SLIDES];
+  const mobileConfig = mobileConfigResult.status === 'fulfilled'
+    ? mobileConfigResult.value
+    : createDefaultMobileHomepageConfig();
+  for (const result of [heroSlidesResult, mobileConfigResult]) {
+    if (result.status === 'rejected') {
+      console.error('[homepage] Cached data source unavailable; using fallback', result.reason);
+    }
+  }
+
   const firstWomenCategory = getVisibleMobileHomepageItems(
     mobileConfig.departments.women.categoryCards,
   )[0];
@@ -48,51 +99,21 @@ export default async function HomePage() {
     ? resolveMobileHomepageHref(firstWomenCategory.destinationId)
     : '/women';
   const initialSecondaryPath = '/women';
-  const [mobilePrimaryResult, mobileSecondaryResult] = await Promise.allSettled([
-    getCatalogPageData(initialPrimaryPath, { pageSize: 12, sort: 'trending' }),
-    getCatalogPageData(initialSecondaryPath, { pageSize: 12, sort: 'trending' }),
-  ]);
-  const mobilePrimaryProducts = mobilePrimaryResult.status === 'fulfilled'
-    ? mobilePrimaryResult.value?.products ?? []
-    : [];
-  const mobileSecondaryProducts = mobileSecondaryResult.status === 'fulfilled'
-    ? mobileSecondaryResult.value?.products ?? []
-    : [];
-
-  // One unavailable cached section must not turn the entire storefront into a
-  // build-time or runtime 500 during a temporary database interruption.
-  for (const result of [
-    heroSlidesResult,
-    mobileConfigResult,
-    mobilePrimaryResult,
-    mobileSecondaryResult,
-  ]) {
-    if (result.status === "rejected") {
-      console.error(
-        "[homepage] Cached data source unavailable; using fallback",
-        result.reason
-      );
-    }
-  }
 
   return (
     <>
       <Header />
-      {/* CartDrawer lazy-loaded: off-screen overlay, not needed at first paint */}
       <CartDrawer />
       <FlashSaleBanner />
       <main>
-        {/* HeroSection receives pre-fetched slides — no client waterfall fetch */}
         <HeroSection initialSlides={heroSlides} initialDepartment='women' />
-
-        <MobileDepartmentHome
-          config={mobileConfig}
-          initialPrimaryPath={initialPrimaryPath}
-          initialPrimaryProducts={mobilePrimaryProducts}
-          initialSecondaryPath={initialSecondaryPath}
-          initialSecondaryProducts={mobileSecondaryProducts}
-        />
-
+        <Suspense fallback={<HomepageCollectionsFallback />}>
+          <HomepageCollections
+            config={mobileConfig}
+            initialPrimaryPath={initialPrimaryPath}
+            initialSecondaryPath={initialSecondaryPath}
+          />
+        </Suspense>
       </main>
       <Footer />
     </>

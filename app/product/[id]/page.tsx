@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import { getProductById, getProductBySlug, getProductRecommendations, getProductVariations } from "@/lib/db-queries";
 import { prisma } from "@/lib/db";
@@ -31,12 +32,16 @@ interface Props {
   params: Promise<{ id: string }>;
 }
 
-// Try slug first, fall back to DB id — chatbot sends slug-based URLs
-async function getProductByIdOrSlug(idOrSlug: string) {
+// Storefront cards use Prisma CUIDs, while shared chatbot links may use slugs.
+// React.cache shares this read between metadata and the page in one request.
+const getProductByIdOrSlug = cache(async (idOrSlug: string) => {
+  if (/^c[a-z0-9]{24}$/.test(idOrSlug)) {
+    const byId = await getProductById(idOrSlug);
+    return byId ?? getProductBySlug(idOrSlug);
+  }
   const bySlug = await getProductBySlug(idOrSlug);
-  if (bySlug) return bySlug;
-  return getProductById(idOrSlug);
-}
+  return bySlug ?? getProductById(idOrSlug);
+});
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
@@ -124,10 +129,22 @@ export default async function ProductPage({ params }: Props) {
     notFound();
   }
 
-  const [recommendations, variations] = await Promise.all([
-    getProductRecommendations(id, 4),
+  const [recommendationsResult, variationsResult] = await Promise.allSettled([
+    getProductRecommendations(product.id, 4),
     getProductVariations(product.name),
   ]);
+  if (recommendationsResult.status === "rejected") {
+    console.error("[product] Recommendations unavailable", recommendationsResult.reason);
+  }
+  if (variationsResult.status === "rejected") {
+    console.error("[product] Variations unavailable", variationsResult.reason);
+  }
+  const recommendations = recommendationsResult.status === "fulfilled"
+    ? recommendationsResult.value
+    : { frequentlyBought: [], youMayAlsoLike: [] };
+  const variations = variationsResult.status === "fulfilled"
+    ? variationsResult.value
+    : [];
 
   const productJsonLd = {
     "@context": "https://schema.org",

@@ -113,14 +113,20 @@ export function HeroSection({
 
   const selectDepartment = useCallback(
     (department: HeroDepartment) => {
-      if (department === activeDepartment) return;
+      if (department === activeDepartment) {
+        // The logo and active department tab should return to the first slide.
+        clearTransition();
+        setIsTransitioning(false);
+        setCurrentSlide(0);
+        return;
+      }
       transitionTo(() => {
         setMediaPreloadReady(false);
         setActiveDepartment(department);
         setCurrentSlide(0);
       }, 250);
     },
-    [activeDepartment, transitionTo]
+    [activeDepartment, clearTransition, transitionTo]
   );
 
   useEffect(() => clearTransition, [clearTransition]);

@@ -667,6 +667,8 @@ function CatalogHeaderV1() {
   const isMobileHome = pathname === '/';
 
   const announceHomeDepartment = (department: MobileHomepageDepartment) => {
+    // Collections can mount after this event while their data streams in.
+    headerRef.current?.setAttribute("data-home-department", department);
     setActiveHomeDepartment(department);
     window.dispatchEvent(new CustomEvent(MOBILE_HOMEPAGE_EVENT, { detail: { department } }));
     window.dispatchEvent(new CustomEvent('eman-thread:hero-department', { detail: { department } }));
@@ -676,7 +678,7 @@ function CatalogHeaderV1() {
     if (pathname !== '/') return;
     event.preventDefault();
     announceHomeDepartment('women');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'auto' });
   };
 
   useEffect(() => {
@@ -870,7 +872,7 @@ function CatalogHeaderV1() {
 
   return (
     <>
-      <header ref={headerRef} className={cn(
+      <header ref={headerRef} data-home-department={isMobileHome ? activeHomeDepartment : undefined} className={cn(
         catalogStyles.catalogHeader,
         isHeroMode && catalogStyles.heroMode,
         isMobileHome && catalogStyles.mobileHome,

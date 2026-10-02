@@ -36,12 +36,13 @@ test("shared dialogs either provide a description or explicitly opt out", () => 
   expect(dialog).toContain("'aria-describedby': undefined");
 });
 
-test("high-volume storefront links do not preload unused route styles", () => {
+test("product links may preload their loading shell while bulk navigation remains lean", () => {
   const productCard = source("components/product/product-card.tsx");
   const mobileHome = source("components/home/mobile-department-home.tsx");
   const headerMenu = source("components/layout/catalog-header-menu.tsx");
 
-  expect(productCard.match(/prefetch=\{false\}/g)).toHaveLength(2);
+  expect(productCard).not.toContain("prefetch={false}");
+  expect(source("app/product/[id]/loading.tsx")).toContain("ProductPageLoading");
   expect(mobileHome.match(/prefetch=\{false\}/g)?.length).toBeGreaterThanOrEqual(4);
   expect(headerMenu.match(/prefetch=\{false\}/g)?.length).toBeGreaterThanOrEqual(4);
 });

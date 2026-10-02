@@ -602,7 +602,8 @@ export const getDistinctColors = unstable_cache(
 
 export async function getFrequentlyBoughtTogether(
   productId: string,
-  limit: number = 4
+  limit: number = 4,
+  relatedFallback?: Promise<Product[]>
 ): Promise<Product[]> {
   const orderItems = await prisma.orderItem.findMany({
     where: { productId },
@@ -611,7 +612,7 @@ export async function getFrequentlyBoughtTogether(
 
   const orderIds = orderItems.map((oi) => oi.orderId);
   if (orderIds.length === 0) {
-    return getRelatedProducts(productId, limit);
+    return relatedFallback ?? getRelatedProducts(productId, limit);
   }
 
   const cooccurrences = await prisma.orderItem.groupBy({
@@ -626,7 +627,7 @@ export async function getFrequentlyBoughtTogether(
   });
 
   if (cooccurrences.length === 0) {
-    return getRelatedProducts(productId, limit);
+    return relatedFallback ?? getRelatedProducts(productId, limit);
   }
 
   const relatedIds = cooccurrences.map((c) => c.productId);
@@ -654,9 +655,12 @@ export const getProductRecommendations = unstable_cache(
     productId: string,
     limit: number = 4
   ): Promise<RecommendationResult> => {
+    // When there are no co-purchases, both sections use related products.
+    // Share that read instead of running the same database query twice.
+    const relatedPromise = getRelatedProducts(productId, limit);
     const [frequentlyBought, youMayAlsoLike] = await Promise.all([
-      getFrequentlyBoughtTogether(productId, limit),
-      getRelatedProducts(productId, limit),
+      getFrequentlyBoughtTogether(productId, limit, relatedPromise),
+      relatedPromise,
     ]);
 
     const frequentlyBoughtIds = new Set(frequentlyBought.map((p) => p.id));

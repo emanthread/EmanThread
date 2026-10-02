@@ -217,6 +217,12 @@ export function MobileDepartmentHome({
       setActiveCategoryId(first?.id ?? '');
     };
     window.addEventListener(MOBILE_HOMEPAGE_EVENT, changeDepartment);
+    // An earlier header click can precede this streamed section mounting.
+    const selected = document.querySelector('header[data-home-department]')
+      ?.getAttribute('data-home-department');
+    if (isMobileHomepageDepartment(selected)) {
+      changeDepartment(new CustomEvent(MOBILE_HOMEPAGE_EVENT, { detail: { department: selected } }));
+    }
     return () => window.removeEventListener(MOBILE_HOMEPAGE_EVENT, changeDepartment);
   }, [config]);
 
