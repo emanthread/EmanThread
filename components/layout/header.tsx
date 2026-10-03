@@ -981,11 +981,12 @@ function CatalogHeaderV1() {
             {mobileDepartments.map((dept) => {
               const isActive = isMobileHome
                 ? dept.href === `/${activeHomeDepartment}`
-                : pathname === dept.href || pathname.startsWith(`${dept.href}/`);
+                : (dept.href === "/women" && pathname === "/shop") ||
+                  pathname === dept.href || pathname.startsWith(`${dept.href}/`);
               return (
                 <Link
                   key={dept.href}
-                  href={dept.href}
+                  href={dept.href === "/women" ? "/" : dept.href}
                   onClick={(event) => {
                     if (!isMobileHome) return;
                     event.preventDefault();

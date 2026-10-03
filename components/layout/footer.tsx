@@ -17,7 +17,7 @@ interface SocialLinks {
 
 const footerLinks = {
   shop: [
-    { label: "Women", href: "/women" },
+    { label: "Women", href: "/shop" },
     { label: "Men", href: "/men" },
     { label: "Fragrance & Beauty", href: "/fragrance-beauty" },
     { label: "Teens", href: "/teens" },

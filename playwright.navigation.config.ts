@@ -9,6 +9,7 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests",
   testMatch: [
+    "women-route-retirement.spec.ts",
     "homepage-cache-policy.spec.ts",
     'mobile-homepage.spec.ts',
     "navigation.spec.ts",

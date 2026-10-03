@@ -62,6 +62,7 @@ function departmentFromPathname(
   pathname: string,
   departments: readonly { id: string }[]
 ): string | null {
+  if (pathname === "/shop") return "women";
   // Sort longest id first so "fragrance-beauty" is checked before any shorter id
   const sorted = [...departments].sort((a, b) => b.id.length - a.id.length);
   for (const dept of sorted) {
@@ -312,7 +313,7 @@ export function CatalogHeaderMenu({
                   if (node) departmentRefs.current.set(department.id, node);
                   else departmentRefs.current.delete(department.id);
                 }}
-                href={`/${department.id}`}
+                href={department.id === "women" ? "/" : `/${department.id}`}
                 className={styles.departmentButton}
                 data-active={selectedDepartmentId === department.id}
                 aria-current={

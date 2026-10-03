@@ -43,7 +43,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   const catalogRoutes: MetadataRoute.Sitemap = catalogPaths.map((path) => ({
-    url: `${siteUrl}${path}`,
+    url: `${siteUrl}${path === "/women" ? "/shop" : path}`,
     lastModified: new Date(),
     priority: 0.7,
   }));

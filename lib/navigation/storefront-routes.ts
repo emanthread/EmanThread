@@ -1,4 +1,4 @@
-export const DEFAULT_CATALOG_PATH = "/women";
+export const DEFAULT_CATALOG_PATH = "/shop";
 
 export const CATALOG_ROOT_PATHS = [
   "/women",
@@ -57,14 +57,44 @@ export function shouldShowCatalogNavigation(pathname: string): boolean {
 }
 
 export function catalogSearchPath(pathname: string): string {
-  return (
-    CATALOG_ROOT_PATHS.find((root) => isPathOrDescendant(pathname, root)) ||
-    DEFAULT_CATALOG_PATH
+  const root = CATALOG_ROOT_PATHS.find((candidate) =>
+    isPathOrDescendant(pathname, candidate)
   );
+  return root === "/women" ? DEFAULT_CATALOG_PATH : root || DEFAULT_CATALOG_PATH;
 }
 
 export function catalogSearchHref(pathname: string, query: string): string {
   const search = query.trim();
   const path = catalogSearchPath(pathname);
   return search ? `${path}?q=${encodeURIComponent(search)}` : path;
+}
+
+const CATALOG_QUERY_KEYS = new Set([
+  "q", "fabric", "category", "color", "season", "kind", "option",
+  "minPrice", "maxPrice", "inStock", "sort", "page",
+]);
+
+/** Keep old catalog URLs useful while sending the plain Women URL home. */
+export function retiredWomenRootDestination(
+  searchParams: Record<string, string | string[] | undefined>
+): string {
+  const query = new URLSearchParams();
+  let hasCatalogQuery = false;
+  for (const [key, rawValue] of Object.entries(searchParams)) {
+    if (rawValue === undefined) continue;
+    if (CATALOG_QUERY_KEYS.has(key)) hasCatalogQuery = true;
+    for (const value of Array.isArray(rawValue) ? rawValue : [rawValue]) {
+      query.append(key, value);
+    }
+  }
+  const destination = hasCatalogQuery ? DEFAULT_CATALOG_PATH : "/";
+  const queryString = query.toString();
+  return queryString ? `${destination}?${queryString}` : destination;
+}
+
+/** Public listing URL for a catalog data path used by homepage product rails. */
+export function publicCatalogHref(path: string): string {
+  return path === "/women" || path.startsWith("/women?")
+    ? `${DEFAULT_CATALOG_PATH}${path.slice("/women".length)}`
+    : path;
 }

@@ -102,7 +102,7 @@ export function CatalogProductResults({
           </div>
 
           {/* Slide-out Filter & Sort Trigger Drawer */}
-          <CatalogFilters data={data} />
+          <CatalogFilters data={data} path={path} />
         </div>
       </div>
 

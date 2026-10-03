@@ -153,12 +153,12 @@ test.describe("storefront catalog UX", () => {
     expect(shouldShowCatalogNavigation("/accounting")).toBe(true);
   });
 
-  test("keeps global searches inside canonical department routes", () => {
+  test("keeps global searches in the all-Women listing or selected department", () => {
     expect(catalogSearchHref("/men/ready-to-wear", " black kurta ")).toBe(
       "/men?q=black%20kurta"
     );
     expect(catalogSearchHref("/checkout", "perfume")).toBe(
-      "/women?q=perfume"
+      "/shop?q=perfume"
     );
   });
 
@@ -172,18 +172,18 @@ test.describe("storefront catalog UX", () => {
     expect(filters).toContain("Filter and Sort");
   });
 
-  test("routes header departments to catalog pages without changing hero tabs", () => {
+  test("opens the homepage from Women navigation while keeping category tabs", () => {
     const desktopMenu = source("components/layout/catalog-header-menu.tsx");
     const mobileMenu = source(
       "components/layout/catalog-mobile-department-menu.tsx"
     );
     const hero = source("components/home/hero-section.tsx");
 
-    expect(desktopMenu).toContain('href={`/${department.id}`}');
+    expect(desktopMenu).toContain('department.id === "women" ? "/"');
     expect(desktopMenu).toContain("onPointerEnter");
     expect(desktopMenu).not.toContain("eman-thread:hero-department");
     expect(mobileMenu).toContain("{department.label}");
-    expect(mobileMenu).toContain('href={`/${openDepartment.id}`}');
+    expect(mobileMenu).toContain('openDepartment.id === "women" ? "/shop"');
     expect(mobileMenu).not.toContain("eman-thread:hero-department");
     expect(hero).toContain("window.addEventListener(\"eman-thread:hero-department\"");
     expect(hero).toContain("const selectDepartment = useCallback(");
@@ -222,7 +222,7 @@ test.describe("storefront catalog UX", () => {
     const filters = source("components/catalog/catalog-filters.tsx");
 
     expect(results).toContain('aria-label="Product grid view size"');
-    expect(results).toContain("<CatalogFilters data={data} />");
+    expect(results).toContain("<CatalogFilters data={data} path={path} />");
     expect(filters).toContain('<option value="featured">Featured</option>');
     expect(filters).toContain('<option value="trending">Trending</option>');
   });
@@ -254,12 +254,13 @@ test.describe("storefront catalog UX", () => {
     expect(checkout).not.toContain("Auto-select default profile for all stitching items");
   });
 
-  test("retires the generic shop page without breaking old bookmarks", () => {
-    const retiredShop = source("app/shop/page.tsx");
+  test("keeps the all-Women listing at /shop with catalog data and filters", () => {
+    const shop = source("app/shop/page.tsx");
     const sitemap = source("app/sitemap.ts");
 
-    expect(retiredShop).toContain("permanentRedirect(DEFAULT_CATALOG_PATH)");
-    expect(sitemap).not.toContain("`${siteUrl}/shop");
+    expect(shop).toContain('canonicalPath="/women"');
+    expect(shop).toContain('routePath="/shop"');
+    expect(sitemap).toContain('path === "/women" ? "/shop" : path');
   });
 
   test("defaults the approved catalog on while preserving explicit rollback switches", () => {

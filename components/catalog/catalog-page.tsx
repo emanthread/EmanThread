@@ -88,7 +88,8 @@ function noIndexMetadata(title = "Collection unavailable"): Metadata {
  */
 export async function getCatalogPageMetadata(
   canonicalPath: string | null,
-  searchParams: CatalogSearchParams
+  searchParams: CatalogSearchParams,
+  publicPath?: string
 ): Promise<Metadata> {
   if (!FEATURE_FLAGS.CATALOG_PAGES_V1 || !canonicalPath) {
     return noIndexMetadata();
@@ -108,7 +109,10 @@ export async function getCatalogPageMetadata(
     node.seoDescription ||
     node.description ||
     `Explore the ${node.label} collection from Eman Thread.`;
-  const canonical = canonicalUrl(node.path, node.canonicalOverride);
+  const canonical = canonicalUrl(
+    publicPath || node.path,
+    publicPath ? null : node.canonicalOverride
+  );
   const hasQueryVariant = hasCatalogQueryParams(searchParams);
   const mayIndex = node.indexable && !hasQueryVariant;
   const socialImage = supportedImageSource(node.bannerImage)
@@ -179,7 +183,7 @@ function catalogHref(
   return queryString ? `${path}?${queryString}` : path;
 }
 
-function breadcrumbJsonLd(data: CatalogPageData) {
+function breadcrumbJsonLd(data: CatalogPageData, publicPath: string) {
   const baseUrl = siteUrl();
   return {
     "@context": "https://schema.org",
@@ -195,7 +199,10 @@ function breadcrumbJsonLd(data: CatalogPageData) {
         "@type": "ListItem",
         position: index + 2,
         name: breadcrumb.label,
-        item: new URL(breadcrumb.path, baseUrl).toString(),
+        item: new URL(
+          breadcrumb.path === data.node.path ? publicPath : breadcrumb.path,
+          baseUrl
+        ).toString(),
       })),
     ],
   };
@@ -266,7 +273,7 @@ function FeaturedContent({ data }: { data: CatalogPageData }) {
   );
 }
 
-function Pagination({ data }: { data: CatalogPageData }) {
+function Pagination({ data, path }: { data: CatalogPageData; path: string }) {
   if (data.totalPages <= 1 && !data.hasPreviousPage) return null;
 
   return (
@@ -277,7 +284,7 @@ function Pagination({ data }: { data: CatalogPageData }) {
       {data.hasPreviousPage ? (
         <Button variant="outline" aria-label="Previous page" asChild>
           <Link
-            href={catalogHref(data.node.path, data.query, {
+            href={catalogHref(path, data.query, {
               page: data.query.page - 1,
             })}
             rel="prev"
@@ -300,7 +307,7 @@ function Pagination({ data }: { data: CatalogPageData }) {
       {data.hasNextPage ? (
         <Button variant="outline" aria-label="Next page" asChild>
           <Link
-            href={catalogHref(data.node.path, data.query, {
+            href={catalogHref(path, data.query, {
               page: data.query.page + 1,
             })}
             rel="next"
@@ -351,6 +358,8 @@ export function CatalogPageSkeleton({ isDepartmentRoot }: { isDepartmentRoot?: b
 export interface CatalogPageProps {
   canonicalPath: string | null;
   searchParams: CatalogSearchParams;
+  routePath?: string;
+  showDepartmentHero?: boolean;
 }
 
 function getSubcategoryChips(currentPath: string): { label: string; href: string }[] {
@@ -388,6 +397,8 @@ function getSubcategoryChips(currentPath: string): { label: string; href: string
 export async function CatalogPage({
   canonicalPath,
   searchParams,
+  routePath,
+  showDepartmentHero = true,
 }: CatalogPageProps) {
   if (!FEATURE_FLAGS.CATALOG_PAGES_V1 || !canonicalPath) {
     notFound();
@@ -400,7 +411,8 @@ export async function CatalogPage({
 
   if (!data) notFound();
 
-  const breadcrumbData = breadcrumbJsonLd(data);
+  const publicPath = routePath || data.node.path;
+  const breadcrumbData = breadcrumbJsonLd(data, publicPath);
   const bannerImage = supportedImageSource(data.node.bannerImage)
     ? data.node.bannerImage
     : null;
@@ -419,9 +431,10 @@ export async function CatalogPage({
 
   const heroDepartment = catalogDepartmentFromRootPath(data.node.path);
   const isDepartmentRoot = heroDepartment !== null;
-  const heroSlides = heroDepartment
+  const heroSlides = heroDepartment && showDepartmentHero
     ? selectHeroSlidesForDepartment(await getHeroSlides(), heroDepartment)
     : [];
+  const hasDepartmentHero = isDepartmentRoot && heroSlides.length > 0;
 
   const subcategoryChips = getSubcategoryChips(data.node.path);
 
@@ -429,7 +442,7 @@ export async function CatalogPage({
     <>
       <Header />
       <CartDrawer />
-      <main className={cn("min-h-screen bg-background pb-16", !isDepartmentRoot && "pt-28")}>
+      <main className={cn("min-h-screen bg-background pb-16", !hasDepartmentHero && "pt-28")}>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -437,7 +450,7 @@ export async function CatalogPage({
           }}
         />
 
-        {isDepartmentRoot && heroSlides.length > 0 && (
+        {hasDepartmentHero && (
           <HeroSection
             initialSlides={heroSlides}
             initialDepartment={heroDepartment}
@@ -445,7 +458,7 @@ export async function CatalogPage({
           />
         )}
 
-        <div className={cn("mx-auto max-w-7xl px-4 sm:px-6 lg:px-8", isDepartmentRoot && "pt-8")}>
+        <div className={cn("mx-auto max-w-7xl px-4 sm:px-6 lg:px-8", hasDepartmentHero && "pt-8")}>
           <nav
             aria-label="Breadcrumb"
             className="mb-4 overflow-x-auto py-1 text-xs uppercase tracking-[0.14em] text-muted-foreground"
@@ -550,7 +563,7 @@ export async function CatalogPage({
 
           <section aria-labelledby="catalog-products-heading" className="pt-2">
             <CatalogProductResults
-              path={data.node.path}
+              path={publicPath}
               products={data.products}
               query={data.query}
               total={data.total}
@@ -558,7 +571,7 @@ export async function CatalogPage({
               indexable={data.node.indexable}
               data={data}
             />
-            <Pagination data={data} />
+            <Pagination data={data} path={publicPath} />
           </section>
         </div>
       </main>

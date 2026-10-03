@@ -1,10 +1,32 @@
-import { permanentRedirect } from "next/navigation";
-import { DEFAULT_CATALOG_PATH } from "@/lib/navigation/storefront-routes";
+import { Suspense } from "react";
+import type { Metadata } from "next";
+import {
+  CatalogPage,
+  CatalogPageSkeleton,
+  getCatalogPageMetadata,
+} from "@/components/catalog/catalog-page";
+import type { CatalogSearchParams } from "@/lib/db/catalog";
 
-/**
- * The generic listing was replaced by schema-driven department catalogs.
- * Keep this compatibility redirect for old bookmarks and saved campaign URLs.
- */
-export default function RetiredShopPage() {
-  permanentRedirect(DEFAULT_CATALOG_PATH);
+type ShopPageProps = { searchParams: Promise<CatalogSearchParams> };
+
+export const revalidate = 300;
+
+export async function generateMetadata({
+  searchParams,
+}: ShopPageProps): Promise<Metadata> {
+  return getCatalogPageMetadata("/women", await searchParams, "/shop");
+}
+
+export default async function ShopPage({ searchParams }: ShopPageProps) {
+  const resolvedSearchParams = await searchParams;
+  return (
+    <Suspense fallback={<CatalogPageSkeleton />}>
+      <CatalogPage
+        canonicalPath="/women"
+        routePath="/shop"
+        showDepartmentHero={false}
+        searchParams={resolvedSearchParams}
+      />
+    </Suspense>
+  );
 }

@@ -35,6 +35,7 @@ function toTitleCase(str: string): string {
 
 type CatalogFiltersProps = {
   data: CatalogPageData;
+  path?: string;
 };
 
 type CatalogDataProps = Pick<CatalogFiltersProps, "data">;
@@ -342,11 +343,12 @@ function CatalogFilterFields({
 function CatalogFilterForm({
   data,
   idPrefix,
+  path,
   compact = false,
-}: CatalogDataProps & { idPrefix: string; compact?: boolean }) {
+}: CatalogDataProps & { idPrefix: string; path: string; compact?: boolean }) {
   return (
     <form
-      action={data.node.path}
+      action={path}
       method="get"
       className={compact ? "space-y-6" : "space-y-7"}
       aria-label="Filter catalog products"
@@ -357,7 +359,7 @@ function CatalogFilterForm({
           Apply filters
         </Button>
         <Button variant="outline" asChild>
-          <Link href={data.node.path}>Clear</Link>
+          <Link href={path}>Clear</Link>
         </Button>
       </div>
     </form>
@@ -365,7 +367,10 @@ function CatalogFilterForm({
 }
 
 /** Slide-out Filter & Sort drawer for all screen sizes. */
-export function CatalogFilters({ data }: CatalogFiltersProps) {
+export function CatalogFilters({
+  data,
+  path = data.node.path,
+}: CatalogFiltersProps) {
   const count = activeFilterCount(data.query);
 
   return (
@@ -394,7 +399,12 @@ export function CatalogFilters({ data }: CatalogFiltersProps) {
           </SheetDescription>
         </SheetHeader>
         <div className="flex-1 p-5">
-          <CatalogFilterForm data={data} idPrefix="catalog-drawer" compact />
+          <CatalogFilterForm
+            data={data}
+            idPrefix="catalog-drawer"
+            path={path}
+            compact
+          />
         </div>
       </SheetContent>
     </Sheet>

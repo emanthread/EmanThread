@@ -26,6 +26,7 @@ const byOrder = <T extends { order: number }>(items: readonly T[]) =>
   [...items].sort((left, right) => left.order - right.order);
 
 function routeDepartment(pathname: string): MenuDepartment["id"] | null {
+  if (pathname === "/shop") return "women";
   const segment = pathname.split("/").filter(Boolean)[0];
   return catalogMenu.some((department) => department.id === segment)
     ? (segment as MenuDepartment["id"])
@@ -203,7 +204,7 @@ export function CatalogMobileDepartmentMenu({
             <span className={styles.panelTitle}>{openDepartment.label}</span>
             {linksEnabled ? (
               <Link
-                href={`/${openDepartment.id}`}
+                href={openDepartment.id === "women" ? "/shop" : `/${openDepartment.id}`}
                 className={styles.shopAllLink}
                 onClick={() => setOpenDepartmentId(null)}
               >

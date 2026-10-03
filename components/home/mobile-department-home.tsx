@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useInitialPublishedCatalogPaths } from '@/components/layout/published-catalog-provider';
 import { ProductCard } from '@/components/product/product-card';
 import type { Product } from '@/lib/data';
+import { publicCatalogHref } from '@/lib/navigation/storefront-routes';
 import {
   MOBILE_HOMEPAGE_EVENT,
   getVisibleMobileHomepageItems,
@@ -110,7 +111,7 @@ function EditorialBanner({ banner, eager = false }: {
   return (
     <Link
       prefetch={false}
-      href={resolveMobileHomepageHref(banner.destinationId)}
+      href={publicCatalogHref(resolveMobileHomepageHref(banner.destinationId))}
       className='group relative block aspect-[4/5] overflow-hidden bg-neutral-200 lg:aspect-[16/6]'
       aria-label={`${banner.cta}: ${banner.title}`}
     >
@@ -267,7 +268,7 @@ export function MobileDepartmentHome({
             <Link
               prefetch={false}
               key={card.id}
-              href={resolveMobileHomepageHref(card.destinationId)}
+              href={publicCatalogHref(resolveMobileHomepageHref(card.destinationId))}
               className='w-[44vw] max-w-[210px] shrink-0 snap-start lg:w-[23vw] lg:max-w-[360px]'
             >
               <span className='relative block aspect-[4/5] overflow-hidden bg-neutral-100 lg:aspect-[4/3]'>
@@ -311,7 +312,7 @@ export function MobileDepartmentHome({
           label={`${activeDepartment} trending products`}
         />
         <div className='pt-1 text-center'>
-          <Link prefetch={false} href={primaryPath} className='inline-block border-b-2 border-black pb-1 text-sm font-medium'>
+          <Link prefetch={false} href={publicCatalogHref(primaryPath)} className='inline-block border-b-2 border-black pb-1 text-sm font-medium'>
             SEE ALL
           </Link>
         </div>
@@ -333,7 +334,7 @@ export function MobileDepartmentHome({
           label={`${activeDepartment} trending fits`}
         />
         <div className='pt-1 text-center'>
-          <Link prefetch={false} href={secondaryPath} className='inline-block border-b-2 border-black pb-1 text-sm font-medium'>
+          <Link prefetch={false} href={publicCatalogHref(secondaryPath)} className='inline-block border-b-2 border-black pb-1 text-sm font-medium'>
             SEE ALL
           </Link>
         </div>
