@@ -78,7 +78,7 @@ test('tracking parameters retain the current department layout', async ({ page }
 
 // Run with a database-backed fixture or against the read-only live storefront.
 test('full Women inventory keeps the current cards, filter and pagination controls', async ({ page }) => {
-  await page.goto('/shop?view=all', { waitUntil: 'domcontentloaded' });
+  await page.goto('/shop?view=all', { waitUntil: 'load' });
   await expect(page.locator('section[aria-labelledby="catalog-products-heading"]')).toBeVisible();
   await expect(page.locator('main')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   const firstProduct = page.locator('main a[href^="/product/"]').first();
