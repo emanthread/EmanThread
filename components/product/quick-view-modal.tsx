@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ProductOptionPicker } from "@/components/product/product-option-picker";
 import { SizeGuideModal } from "@/components/product/size-guide-modal";
-import { useCartStore } from "@/lib/cart-store";
+import { getCartItemStockQuantity, useCartStore } from "@/lib/cart-store";
 import { formatPrice, type Product, type ProductVariant } from "@/lib/data";
 import {
   getActiveVariants,
@@ -74,6 +74,8 @@ export function QuickViewModal({
   const requiredSelectionUnavailable = hasUnavailableRequiredSelection(product);
   const productAvailable = isProductAvailableForPurchase(product);
   const displayedPrice = getVariantUnitPrice(product, selectedVariant);
+  const quantityLimit = Math.max(1, getCartItemStockQuantity({ product, variant: selectedVariant }));
+  useEffect(() => { setQuantity((previous) => Math.min(previous, quantityLimit)); }, [quantityLimit]);
   const displayedOriginalPrice = product.originalPrice
     ? product.originalPrice + (selectedVariant?.priceAdjustment ?? 0)
     : undefined;
@@ -87,7 +89,7 @@ export function QuickViewModal({
   }, [isOpen, product.id, defaultColorVariantId]);
 
   const handleAddToCart = () => {
-    if (!productAvailable) return;
+    if (!productAvailable || (selectedVariant && !isVariantAvailable(selectedVariant))) return;
 
     if (selectionRequired && (!selectedVariant || !isVariantAvailable(selectedVariant))) {
       setOptionError(true);
@@ -255,7 +257,8 @@ export function QuickViewModal({
                 </button>
                 <span className="px-6 text-base font-medium">{quantity}</span>
                 <button
-                  onClick={() => setQuantity(prev => prev + 1)}
+                  onClick={() => setQuantity(prev => Math.min(quantityLimit, prev + 1))}
+                  disabled={quantity >= quantityLimit}
                   className="p-3 hover:bg-secondary transition-colors"
                 >
                   <Plus className="h-4 w-4" />

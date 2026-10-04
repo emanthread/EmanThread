@@ -295,6 +295,19 @@ export const getAllProducts = unstable_cache(
   { revalidate: 120, tags: ["products"] }
 );
 
+/** Uncached, bounded read for cart validation; never modifies catalog records. */
+export async function getProductsByIdsFresh(ids: string[]): Promise<Product[]> {
+  const products = await prisma.product.findMany({
+    where: { id: { in: ids }, NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } } },
+    include: {
+      ...(FEATURE_FLAGS.CATALOG_ADMIN_ASSIGNMENTS_V1 ? {
+        catalogAssignments: { select: { catalogNode: { select: { path: true } } } },
+      } : {}),
+    },
+  });
+  return transformProductList(products);
+}
+
 async function _getProductById(id: string): Promise<Product | null> {
   const product = await prisma.product.findFirst({
     where: { id, NOT: { tags: { contains: ARCHIVED_PRODUCT_TAG } } },

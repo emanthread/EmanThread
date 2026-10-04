@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/sheet";
 import { ProductReviews } from "@/components/product/product-reviews";
 import { getProductImage } from "@/lib/utils";
-import { useCartStore, type StitchingUpdate } from "@/lib/cart-store";
+import { getCartItemStockQuantity, useCartStore, type StitchingUpdate } from "@/lib/cart-store";
 import { useWishlistStore } from "@/lib/wishlist-store";
 import { formatPrice, type Product, type ProductVariant } from "@/lib/data";
 import {
@@ -222,6 +222,8 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
   const requiredSelectionUnavailable = hasUnavailableRequiredSelection(product);
   const productAvailable = isProductAvailableForPurchase(product);
   const displayedPrice = getVariantUnitPrice(product, selectedVariant);
+  const quantityLimit = Math.max(1, getCartItemStockQuantity({ product, variant: selectedVariant }));
+  useEffect(() => { setQuantity((previous) => Math.min(previous, quantityLimit)); }, [quantityLimit]);
   const displayedOriginalPrice = product.originalPrice
     ? product.originalPrice + (selectedVariant?.priceAdjustment ?? 0)
     : undefined;
@@ -268,7 +270,9 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
           setSelectedVariantId(parsed.variantId);
         }
         if (Number.isInteger(parsed.quantity) && (parsed.quantity ?? 0) > 0) {
-          setQuantity(parsed.quantity!);
+          const restoredVariant = activeVariants.find((variant) => variant.id === parsed.variantId);
+          const restoredLimit = Math.max(1, getCartItemStockQuantity({ product, variant: restoredVariant }));
+          setQuantity(Math.min(restoredLimit, parsed.quantity!));
         }
         window.sessionStorage.removeItem(`stitching-product-draft:${product.id}`);
       }
@@ -314,7 +318,7 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
     return () => { cancelled = true; };
   }, []);
   const addConfiguredItem = () => {
-    if (!productAvailable) return false;
+    if (!productAvailable || (selectedVariant && !isVariantAvailable(selectedVariant))) return false;
 
     if (selectionRequired && (!selectedVariant || !isVariantAvailable(selectedVariant))) {
       setOptionError(true);
@@ -772,7 +776,8 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
               </span>
               <button
                 type="button"
-                onClick={() => setQuantity(quantity + 1)}
+                onClick={() => setQuantity(Math.min(quantityLimit, quantity + 1))}
+                disabled={quantity >= quantityLimit}
                 className="p-3 hover:bg-secondary transition-colors text-foreground"
                 aria-label="Increase quantity"
               >

@@ -15,7 +15,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 
 import { getProductImage } from "@/lib/utils";
-import { getCartItemImages, getCartItemUnitPrice, isCartItemAvailable, type CartItem, useCartStore } from "@/lib/cart-store";
+import { buildCartCouponItems, getCartInventoryKey, getCartPurchaseKey, getCartItemImages, getCartItemUnitPrice, isCartItemAvailable, type CartItem, useCartStore } from "@/lib/cart-store";
+import { useCartInventory } from "@/lib/use-cart-inventory";
 import { formatPrice } from "@/lib/data";
 import { isProductStitchingEligible } from "@/lib/commerce";
 import { cn } from "@/lib/utils";
@@ -182,14 +183,15 @@ function isStitchingEligible(item: CartItem): boolean {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, getTotalPrice, clearCart, updateStitching } = useCartStore();
+  const { items, getTotalPrice, removePurchasedItems, refreshInventory, updateStitching } = useCartStore();
   const { user, isAuthenticated } = useAuthStore();
   const totalPrice = getTotalPrice();
 
   // Item-level selection — all items selected by default
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(items.map((i) => i.lineId)));
+  // Null means every current cart line is selected, including restored lines.
+  const [selectedIds, setSelectedIds] = useState<Set<string> | null>(null);
   const previousItemIdsRef = useRef(new Set(items.map((i) => i.lineId)));
-  const selectedItems = items.filter((i) => selectedIds.has(i.lineId));
+  const selectedItems = items.filter((i) => (selectedIds === null || selectedIds.has(i.lineId)));
   const selectedTotal = selectedItems.reduce((sum, i) => sum + getCartItemUnitPrice(i) * i.quantity, 0);
   const stitchingTotal = selectedItems.reduce(
     (sum, item) => sum + (isStitchingEligible(item) && item.stitchingProfileId && item.stitchingProfileId !== "none" ? (item.stitchingPrice ?? DEFAULT_STITCHING_FEE) * item.quantity : 0),
@@ -198,8 +200,9 @@ export default function CheckoutPage() {
   const hasStitchingSelected = selectedItems.some(
     (item) => isStitchingEligible(item) && item.stitchingProfileId != null && item.stitchingProfileId !== "none"
   );
-  const outOfStockItems = items.filter((item) => !isCartItemAvailable(item));
+  const outOfStockItems = selectedItems.filter((item) => !isCartItemAvailable(item));
   const hasOutOfStock = outOfStockItems.length > 0;
+  const inventory = useCartInventory();
 
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -209,6 +212,10 @@ export default function CheckoutPage() {
   const [submitError, setSubmitError] = useState("");
   const [couponCode, setCouponCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState<number | null>(null);
+  const [appliedCouponKey, setAppliedCouponKey] = useState<string | null>(null);
+  const [appliedCouponCode, setAppliedCouponCode] = useState<string | null>(null);
+  const couponMatchesCart = appliedCouponKey === getCartPurchaseKey(selectedItems) && appliedCouponCode === couponCode.trim().toUpperCase();
+  const effectiveDiscount = couponMatchesCart ? (appliedDiscount ?? 0) : 0;
   const [couponError, setCouponError] = useState<string | null>(null);
   const [stitchingDeliveryEstimate, setStitchingDeliveryEstimate] = useState<string | null>(null);
   const [estimateLoading, setEstimateLoading] = useState(false);
@@ -299,12 +306,12 @@ export default function CheckoutPage() {
     "idle" | "loading" | "ready" | "error"
   >("idle");
   const [shippingQuoteRetry, setShippingQuoteRetry] = useState(0);
-  const grandTotal = selectedTotal + shippingCost + stitchingTotal - (appliedDiscount || 0);
+  const grandTotal = selectedTotal + shippingCost + stitchingTotal - effectiveDiscount;
   // When stitching is selected:
   //   Pay now (bank transfer): selectedTotal - discount (fabric only)
   //   Pay on delivery (COD cash): shippingCost + stitchingTotal
   const upfrontAmount = hasStitchingSelected
-    ? selectedTotal - (appliedDiscount || 0)  // fabric - discount paid now
+    ? selectedTotal - effectiveDiscount  // fabric - discount paid now
     : grandTotal;                               // everything paid now (no stitching)
   const dueOnDelivery = hasStitchingSelected
     ? shippingCost + stitchingTotal             // shipping + stitching on delivery
@@ -314,12 +321,14 @@ export default function CheckoutPage() {
   // Newly added cart lines are selected automatically.
   useEffect(() => {
     const currentItemIds = new Set(items.map((item) => item.lineId));
+    const previousItemIds = previousItemIdsRef.current;
     setSelectedIds((previousSelectedIds) => {
+      if (previousSelectedIds === null) return null;
       const nextSelectedIds = new Set(
         [...previousSelectedIds].filter((id) => currentItemIds.has(id)),
       );
       for (const id of currentItemIds) {
-        if (!previousItemIdsRef.current.has(id)) nextSelectedIds.add(id);
+        if (!previousItemIds.has(id)) nextSelectedIds.add(id);
       }
       return nextSelectedIds;
     });
@@ -539,7 +548,7 @@ export default function CheckoutPage() {
 
   const toggleItem = (id: string) => {
     setSelectedIds((prev) => {
-      const next = new Set(prev);
+      const next = new Set(prev ?? items.map((item) => item.lineId));
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
@@ -551,6 +560,7 @@ export default function CheckoutPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     if (selectedItems.length === 0) {
       setSubmitError("Please select at least one item to checkout");
       return;
@@ -577,6 +587,24 @@ export default function CheckoutPage() {
     }
 
     try {
+      const currentItems = await refreshInventory();
+      const checkedItems = currentItems.filter((item) => (selectedIds === null || selectedIds.has(item.lineId)));
+      const currentCart = useCartStore.getState();
+      if (currentCart.inventoryValidatedKey !== getCartInventoryKey(currentCart.items)) {
+        setSubmitError("Your cart changed while stock was checked. Please review it and try again.");
+        setIsSubmitting(false);
+        return;
+      }
+      if (checkedItems.some((item) => !isCartItemAvailable(item))) {
+        setSubmitError("A selected product or option is out of stock. Remove it from this checkout to continue.");
+        setIsSubmitting(false);
+        return;
+      }
+      if (getCartPurchaseKey(checkedItems) !== getCartPurchaseKey(selectedItems)) {
+        setSubmitError("Prices or available quantities changed. Please review your updated order before placing it.");
+        setIsSubmitting(false);
+        return;
+      }
       const payload: Record<string, unknown> = {
         items: selectedItems.map((item) => ({
           productId: item.product.id,
@@ -595,7 +623,7 @@ export default function CheckoutPage() {
         },
         paymentMethod: paymentMethod.toUpperCase(),
         notes: formData.notes,
-        couponCode: appliedDiscount && appliedDiscount > 0 ? couponCode : undefined,
+        couponCode: effectiveDiscount > 0 ? appliedCouponCode : undefined,
       };
 
       // Include stitching data if any item has stitching selected
@@ -665,7 +693,7 @@ export default function CheckoutPage() {
       }
 
       if (FEATURE_FLAGS.MANUAL_PAYMENT_MODE && (paymentMethod === "nayapay" || paymentMethod === "meezan_bank")) {
-        clearCart();
+        removePurchasedItems(checkedItems);
         setIsSubmitting(false);
         router.push(`/payment-confirmation?orderId=${orderData.id}&email=${encodeURIComponent(formData.email)}`);
         return;
@@ -704,7 +732,7 @@ export default function CheckoutPage() {
       }
 
       if (paymentMethod === "cod") {
-        clearCart();
+        removePurchasedItems(checkedItems);
         setIsSubmitting(false);
         router.push(`/confirm-order?orderId=${orderData.id}&email=${encodeURIComponent(formData.email)}`);
         return;
@@ -791,6 +819,7 @@ export default function CheckoutPage() {
           </Link>
 
           <form onSubmit={handleSubmit}>
+            <fieldset disabled={isSubmitting} className="min-w-0 border-0 p-0">
             <div className="grid gap-6 lg:grid-cols-5 lg:gap-8">
               <div className="space-y-6 lg:col-span-3 lg:space-y-8">
                 {/* Contact Info */}
@@ -896,11 +925,12 @@ export default function CheckoutPage() {
 
                   <div className="space-y-3 lg:max-h-[300px] lg:overflow-y-auto">
                     {items.map((item) => {
-                      const isSelected = selectedIds.has(item.lineId);
+                      const isSelected = (selectedIds === null || selectedIds.has(item.lineId));
                       return (
                         <div key={item.lineId} className={cn("grid grid-cols-[auto_3.5rem_minmax(0,1fr)] items-start gap-3 border-b border-border pb-3 transition-opacity last:border-0 sm:grid-cols-[auto_3.5rem_minmax(0,1fr)_auto]", !isSelected && "opacity-50")}>
                           <Checkbox
                             checked={isSelected}
+                            disabled={isSubmitting}
                             onCheckedChange={() => toggleItem(item.lineId)}
                             aria-label={`${isSelected ? "Remove" : "Add"} ${item.product.name} ${isSelected ? "from" : "to"} this checkout`}
                             className="mt-4"
@@ -1075,18 +1105,21 @@ export default function CheckoutPage() {
                     <div className="space-y-2">
                       <div className="flex gap-2">
                         <Input placeholder="Coupon code" value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())} disabled={couponLoading} className="flex-1" />
-                        <Button type="button" variant="outline" disabled={!couponCode.trim() || couponLoading} onClick={async () => {
+                        <Button type="button" variant="outline" disabled={!couponCode.trim() || couponLoading || !inventory.isReady || hasOutOfStock} onClick={async () => {
                           setCouponLoading(true); setCouponError(null);
+                          const requestedKey = getCartPurchaseKey(selectedItems);
+                          const requestedCode = couponCode.trim().toUpperCase();
                           try {
-                            const res = await fetch("/api/cart/apply-discount", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ couponCode, cartItems: selectedItems.map((i) => ({ productId: i.product.id, quantity: i.quantity, price: getCartItemUnitPrice(i) })) }) });
-                            if (res.ok) { const d = await res.json(); setAppliedDiscount(d.discountAmount); } else { const e = await res.json(); setCouponError(e.error || "Invalid code"); setAppliedDiscount(null); }
+                            const res = await fetch("/api/cart/apply-discount", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ couponCode: requestedCode, cartItems: buildCartCouponItems(selectedItems) }) });
+                            if (res.ok) { const d = await res.json(); setAppliedDiscount(d.discountAmount); setAppliedCouponKey(requestedKey); setAppliedCouponCode(requestedCode); } else { const e = await res.json(); setCouponError(e.error || "Invalid code"); setAppliedDiscount(null); }
                           } catch { setCouponError("Failed to apply coupon"); setAppliedDiscount(null); } finally { setCouponLoading(false); }
                         }}>{couponLoading ? "..." : "Apply"}</Button>
                       </div>
                       {couponError && <p className="text-xs text-red-500">{couponError}</p>}
-                      {appliedDiscount !== null && appliedDiscount > 0 && <p className="text-xs text-emerald-600">Coupon applied!</p>}
+                      {couponMatchesCart && appliedDiscount !== null && appliedDiscount > 0 && <p className="text-xs text-emerald-600">Coupon applied!</p>}
                     </div>
 
+                    {appliedDiscount !== null && !couponMatchesCart && <p className="text-xs text-amber-700">Cart or coupon changed. Apply the coupon again.</p>}
                     <div className="flex justify-between gap-3 text-sm">
                       <span className="text-muted-foreground">Shipping</span>
                       <span className="text-right" aria-live="polite">
@@ -1116,7 +1149,7 @@ export default function CheckoutPage() {
                         <span>{formatPrice(stitchingTotal)}</span>
                       </div>
                     )}
-                    {appliedDiscount !== null && appliedDiscount > 0 && <div className="flex justify-between text-sm text-emerald-600"><span>Discount</span><span>-{formatPrice(appliedDiscount)}</span></div>}
+                    {effectiveDiscount > 0 && <div className="flex justify-between text-sm text-emerald-600"><span>Discount</span><span>-{formatPrice(effectiveDiscount)}</span></div>}
                     {zoneName && <div className="flex justify-between text-xs text-muted-foreground"><span>Delivery to {zoneName}</span><span>{estimatedDays}</span></div>}
 
                     {/* Stitching delivery estimate — shown BEFORE order is placed */}
@@ -1281,6 +1314,8 @@ export default function CheckoutPage() {
 
                   {submitError && <p role="alert" aria-live="assertive" className="text-sm text-red-500 mt-2">{submitError}</p>}
 
+                  {inventory.isChecking && <p role="status" className="text-sm text-muted-foreground">Checking current stock and prices...</p>}
+                  {inventory.error && <p role="alert" className="text-sm text-red-600">{inventory.error} <button type="button" className="underline" onClick={inventory.retry}>Retry stock check</button></p>}
                   {hasOutOfStock && (
                     <div className="bg-red-50 border border-red-300 rounded-lg p-4">
                       <p className="text-sm font-semibold text-red-700 mb-1">⚠ Cannot place order — out-of-stock items in cart:</p>
@@ -1289,7 +1324,7 @@ export default function CheckoutPage() {
                           <li key={item.lineId} className="text-xs text-red-600">{item.product.name}</li>
                         ))}
                       </ul>
-                      <p className="text-xs text-red-500 mt-2">Please go back to your cart and remove these items.</p>
+                      <p className="text-xs text-red-500 mt-2">Unselect these items or remove them from your cart to continue.</p>
                     </div>
                   )}
 
@@ -1301,6 +1336,7 @@ export default function CheckoutPage() {
                       isSubmitting ||
                       selectedItems.length === 0 ||
                       hasOutOfStock ||
+                      !inventory.isReady ||
                       shippingQuoteStatus === "loading"
                     }
                   >
@@ -1316,6 +1352,7 @@ export default function CheckoutPage() {
                 </div>
               </div>
             </div>
+            </fieldset>
           </form>
         </div>
       </main>

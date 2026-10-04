@@ -226,7 +226,8 @@ export function requiresProductSelection(product: Product): boolean {
  * without an additive profile intentionally keep their legacy `inStock` rule.
  */
 export function isProductAvailableForPurchase(product: Product): boolean {
-  if (!product.commerce) return product.inStock;
+  if (!product.commerce) return product.inStock &&
+    (product.stockQuantity === undefined || product.stockQuantity > 0);
 
   const activeVariants = getActiveVariants(product);
   const hasAvailableVariant = activeVariants.some(isVariantAvailable);

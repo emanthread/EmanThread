@@ -6,7 +6,8 @@ import Image from "next/image";
 import Link from "@/components/navigation/no-prefetch-link";
 import { X, Plus, Minus, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getCartItemImages, getCartItemUnitPrice, isCartItemAvailable, useCartStore } from "@/lib/cart-store";
+import { getCartItemImages, getCartItemStockQuantity, getCartItemUnitPrice, isCartItemAvailable, useCartStore } from "@/lib/cart-store";
+import { useCartInventory } from "@/lib/use-cart-inventory";
 import { formatPrice } from "@/lib/data";
 import { getProductImage } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,8 @@ export function CartDrawer() {
   const stitchingTotal = getStitchingTotal();
   const outOfStockItems = items.filter((item) => !isCartItemAvailable(item));
   const hasOutOfStock = outOfStockItems.length > 0;
+  const inventory = useCartInventory(isOpen);
+  const checkoutBlocked = hasOutOfStock || !inventory.isReady;
 
   useEffect(() => {
     setMounted(true);
@@ -130,7 +133,9 @@ export function CartDrawer() {
                           onClick={() =>
                             updateQuantity(item.lineId, item.quantity + 1)
                           }
-                          className="p-2 hover:bg-secondary transition-colors"
+                          className="p-2 hover:bg-secondary transition-colors disabled:opacity-50"
+                          disabled={item.quantity >= getCartItemStockQuantity(item)}
+                          aria-label={`Increase quantity of ${item.product.name}`}
                         >
                           <Plus className="h-3 w-3" />
                         </button>
@@ -171,10 +176,11 @@ export function CartDrawer() {
                   ⚠️ {outOfStockItems.length === 1 ? '1 item is' : `${outOfStockItems.length} items are`} out of stock. Remove {outOfStockItems.length === 1 ? 'it' : 'them'} to proceed.
                 </p>
               )}
+              {inventory.error && <p role="alert" className="text-xs text-red-600">{inventory.error} <button type="button" className="underline" onClick={inventory.retry}>Retry stock check</button></p>}
               <div className="space-y-3">
-                <Button className="w-full" size="lg" disabled={hasOutOfStock} asChild={!hasOutOfStock}>
-                  {hasOutOfStock ? (
-                    <span>Proceed to Checkout</span>
+                <Button className="w-full" size="lg" disabled={checkoutBlocked} asChild={!checkoutBlocked}>
+                  {checkoutBlocked ? (
+                    <span>{inventory.isChecking ? "Checking stock..." : "Proceed to Checkout"}</span>
                   ) : (
                     <Link href="/checkout" onClick={closeCart}>
                       Proceed to Checkout
