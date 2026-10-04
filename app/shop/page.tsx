@@ -1,4 +1,6 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
+import { isDepartmentListingRequest, retiredWomenRootDestination } from "@/lib/navigation/storefront-routes";
 import type { Metadata } from "next";
 import {
   CatalogPage,
@@ -9,7 +11,7 @@ import type { CatalogSearchParams } from "@/lib/db/catalog";
 
 type ShopPageProps = { searchParams: Promise<CatalogSearchParams> };
 
-export const revalidate = 300;
+export const revalidate = 0;
 
 export async function generateMetadata({
   searchParams,
@@ -19,12 +21,14 @@ export async function generateMetadata({
 
 export default async function ShopPage({ searchParams }: ShopPageProps) {
   const resolvedSearchParams = await searchParams;
+  if (!isDepartmentListingRequest(resolvedSearchParams)) {
+    redirect(retiredWomenRootDestination(resolvedSearchParams));
+  }
   return (
     <Suspense fallback={<CatalogPageSkeleton />}>
       <CatalogPage
         canonicalPath="/women"
         routePath="/shop"
-        showDepartmentHero={false}
         searchParams={resolvedSearchParams}
       />
     </Suspense>

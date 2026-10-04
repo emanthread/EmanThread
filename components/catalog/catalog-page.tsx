@@ -9,10 +9,7 @@ import { CatalogProductResults } from "@/components/catalog/catalog-product-resu
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
-import { HeroSection } from "@/components/home/hero-section";
-import { getHeroSlides } from "@/lib/db/store-config";
-import { selectHeroSlidesForDepartment } from "@/lib/hero-slide-targeting";
-import { catalogDepartmentFromRootPath } from "@/lib/navigation/storefront-routes";
+import { catalogDepartmentFromRootPath, publicCatalogHref } from "@/lib/navigation/storefront-routes";
 import { cn } from "@/lib/utils";
 import {
   getCatalogPageData,
@@ -180,7 +177,7 @@ function catalogHref(
   if (nextQuery.page > 1) params.set("page", String(nextQuery.page));
 
   const queryString = params.toString();
-  return queryString ? `${path}?${queryString}` : path;
+  return publicCatalogHref(queryString ? `${path}?${queryString}` : path);
 }
 
 function breadcrumbJsonLd(data: CatalogPageData, publicPath: string) {
@@ -332,19 +329,19 @@ export function CatalogPageSkeleton({ isDepartmentRoot }: { isDepartmentRoot?: b
       <Header />
       <CartDrawer />
       <main
-        className={cn("min-h-screen bg-background pb-16", !isDepartmentRoot && "pt-28")}
+        className="min-h-screen bg-white pb-16 pt-[calc(var(--catalog-header-height,132px)+24px)] text-black"
         aria-busy="true"
         aria-label="Loading collection"
       >
         <div className="mx-auto max-w-7xl animate-pulse px-4 sm:px-6 lg:px-8">
           <div className="mb-5 h-4 w-56 rounded bg-muted" />
-          <div className="h-56 rounded-xl bg-muted sm:h-72" />
-          <div className="my-8 h-28 rounded-xl bg-muted" />
+          <div className="h-56 bg-neutral-100 sm:h-72" />
+          <div className="my-8 h-28 bg-neutral-100" />
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             {Array.from({ length: 8 }).map((_, index) => (
               <div
                 key={index}
-                className="aspect-[2/3] rounded-xl bg-muted"
+                className="aspect-[2/3] bg-neutral-100"
               />
             ))}
           </div>
@@ -359,7 +356,6 @@ export interface CatalogPageProps {
   canonicalPath: string | null;
   searchParams: CatalogSearchParams;
   routePath?: string;
-  showDepartmentHero?: boolean;
 }
 
 function getSubcategoryChips(currentPath: string): { label: string; href: string }[] {
@@ -398,7 +394,6 @@ export async function CatalogPage({
   canonicalPath,
   searchParams,
   routePath,
-  showDepartmentHero = true,
 }: CatalogPageProps) {
   if (!FEATURE_FLAGS.CATALOG_PAGES_V1 || !canonicalPath) {
     notFound();
@@ -431,18 +426,13 @@ export async function CatalogPage({
 
   const heroDepartment = catalogDepartmentFromRootPath(data.node.path);
   const isDepartmentRoot = heroDepartment !== null;
-  const heroSlides = heroDepartment && showDepartmentHero
-    ? selectHeroSlidesForDepartment(await getHeroSlides(), heroDepartment)
-    : [];
-  const hasDepartmentHero = isDepartmentRoot && heroSlides.length > 0;
-
   const subcategoryChips = getSubcategoryChips(data.node.path);
 
   return (
     <>
       <Header />
       <CartDrawer />
-      <main className={cn("min-h-screen bg-background pb-16", !hasDepartmentHero && "pt-28")}>
+      <main className="min-h-screen bg-white pb-16 pt-[calc(var(--catalog-header-height,132px)+24px)] text-black">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -450,15 +440,7 @@ export async function CatalogPage({
           }}
         />
 
-        {hasDepartmentHero && (
-          <HeroSection
-            initialSlides={heroSlides}
-            initialDepartment={heroDepartment}
-            locked
-          />
-        )}
-
-        <div className={cn("mx-auto max-w-7xl px-4 sm:px-6 lg:px-8", hasDepartmentHero && "pt-8")}>
+        <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-12">
           <nav
             aria-label="Breadcrumb"
             className="mb-4 overflow-x-auto py-1 text-xs uppercase tracking-[0.14em] text-muted-foreground"
@@ -502,7 +484,7 @@ export async function CatalogPage({
           {!isDepartmentRoot && bannerImage ? (
             <section
               data-testid="catalog-node-banner"
-              className="relative isolate mb-8 flex min-h-56 items-end overflow-hidden rounded-xl bg-muted sm:min-h-80"
+              className="relative isolate mb-8 flex min-h-56 items-end overflow-hidden bg-neutral-100 sm:min-h-80"
             >
               <Image
                 src={bannerImage}
@@ -517,7 +499,7 @@ export async function CatalogPage({
                 className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"
               />
               <div className="relative z-10 max-w-3xl p-6 text-white sm:p-10">
-                <h1 className="font-serif text-3xl font-semibold sm:text-5xl lg:text-6xl">
+                <h1 className="text-3xl font-semibold sm:text-5xl lg:text-6xl">
                   {data.node.label}
                 </h1>
                 {data.node.description && (
@@ -530,14 +512,14 @@ export async function CatalogPage({
           ) : (
             <div className="mb-6 border-b border-border/50 pb-5">
               <div className="flex flex-wrap items-baseline gap-3">
-                <h1 className="font-serif text-3xl font-bold uppercase tracking-wider text-foreground sm:text-4xl">
+                <h1 className="text-3xl font-semibold uppercase tracking-tight text-black sm:text-4xl">
                   {data.node.label}
                 </h1>
                 <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   / {data.total} {data.total === 1 ? "Product" : "Products"}
                 </span>
               </div>
-              {data.node.description && (
+              {!isDepartmentRoot && data.node.description && (
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
                   {data.node.description}
                 </p>
@@ -549,7 +531,7 @@ export async function CatalogPage({
                     <Link
                       key={chip.href}
                       href={chip.href}
-                      className="inline-flex items-center rounded-full border border-border/80 bg-background px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-foreground transition-all hover:border-primary hover:bg-primary hover:text-primary-foreground"
+                      className="inline-flex items-center border border-neutral-200 bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-foreground transition-all hover:border-primary hover:bg-primary hover:text-primary-foreground"
                     >
                       {chip.label}
                     </Link>

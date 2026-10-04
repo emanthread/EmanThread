@@ -179,18 +179,18 @@ test.describe("storefront catalog UX", () => {
     );
     const hero = source("components/home/hero-section.tsx");
 
-    expect(desktopMenu).toContain('department.id === "women" ? "/"');
+    expect(desktopMenu).toContain("departmentHomepageHref(department.id)");
     expect(desktopMenu).toContain("onPointerEnter");
     expect(desktopMenu).not.toContain("eman-thread:hero-department");
     expect(mobileMenu).toContain("{department.label}");
-    expect(mobileMenu).toContain('openDepartment.id === "women" ? "/shop"');
+    expect(mobileMenu).toContain("publicCatalogHref(`/${openDepartment.id}`)");
     expect(mobileMenu).not.toContain("eman-thread:hero-department");
     expect(hero).toContain("window.addEventListener(\"eman-thread:hero-department\"");
     expect(hero).toContain("const selectDepartment = useCallback(");
     expect(hero).toContain("setActiveDepartment(department);");
   });
 
-  test("keeps catalog department heroes configurable and above product controls", () => {
+  test("keeps department homepage heroes configurable and category banners above results", () => {
     const catalogPage = source("components/catalog/catalog-page.tsx");
     const catalogAdminSchema = source("app/api/admin/catalog/_shared.ts");
     const catalogAdmin = source(
@@ -205,7 +205,8 @@ test.describe("storefront catalog UX", () => {
     expect(catalogPage).toContain(
       "const heroDepartment = catalogDepartmentFromRootPath(data.node.path)"
     );
-    expect(catalogPage).toContain("initialDepartment={heroDepartment}");
+    expect(source("components/home/department-home.tsx")).toContain("initialDepartment={department}");
+    expect(source("components/catalog/catalog-route.tsx")).toContain("<DepartmentHome department={department}");
     expect(catalogPage).toContain("!isDepartmentRoot && bannerImage");
     expect(catalogPage).toContain("{!isDepartmentRoot && bannerImage ? (");
     expect(catalogPage.indexOf("{!isDepartmentRoot && bannerImage ? (")).toBeLessThan(
@@ -260,7 +261,7 @@ test.describe("storefront catalog UX", () => {
 
     expect(shop).toContain('canonicalPath="/women"');
     expect(shop).toContain('routePath="/shop"');
-    expect(sitemap).toContain('path === "/women" ? "/shop" : path');
+    expect(sitemap).toContain('path === "/women" ? "/" : path');
   });
 
   test("defaults the approved catalog on while preserving explicit rollback switches", () => {

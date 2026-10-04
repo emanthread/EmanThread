@@ -10,6 +10,8 @@ import {
   buildCatalogPath,
   type CatalogSearchParams,
 } from "@/lib/db/catalog";
+import { DepartmentHome } from "@/components/home/department-home";
+import { isDepartmentListingRequest } from "@/lib/navigation/storefront-routes";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
 
 export type CatalogDepartment =
@@ -53,6 +55,9 @@ export async function renderDepartmentCatalogPage(
   if (!canonicalPath) notFound();
 
   const isDepartmentRoot = !catalogPath || catalogPath.length === 0;
+  if (isDepartmentRoot && !isDepartmentListingRequest(resolvedSearchParams)) {
+    return <DepartmentHome department={department} />;
+  }
 
   return (
     <Suspense fallback={<CatalogPageSkeleton isDepartmentRoot={isDepartmentRoot} />}>

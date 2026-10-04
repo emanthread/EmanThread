@@ -9,8 +9,8 @@ test("homepage opts out of the stale full-route cache", () => {
 });
 
 test("homepage streams catalog products after the hero shell", () => {
-  const homepage = readFileSync(resolve(process.cwd(), "app/page.tsx"), "utf8");
-  const page = homepage.slice(homepage.indexOf("export default async function HomePage"));
+  const homepage = readFileSync(resolve(process.cwd(), "components/home/department-home.tsx"), "utf8");
+  const page = homepage.slice(homepage.indexOf("export async function DepartmentHome"));
 
   expect(homepage).toContain("async function HomepageCollections");
   expect(page).toContain("<HeroSection");

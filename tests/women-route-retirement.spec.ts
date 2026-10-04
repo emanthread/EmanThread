@@ -26,8 +26,8 @@ test.describe("retired Women catalog root", () => {
     expect(catalogSearchHref("/women/ready-to-wear", "blue suit")).toBe(
       "/shop?q=blue%20suit"
     );
-    expect(publicCatalogHref("/women")).toBe("/shop");
-    expect(publicCatalogHref("/women?season=Summer")).toBe("/shop?season=Summer");
+    expect(publicCatalogHref("/women")).toBe("/shop?view=all");
+    expect(publicCatalogHref("/women?season=Summer")).toBe("/shop?season=Summer&view=all");
     expect(publicCatalogHref("/women/ready-to-wear")).toBe("/women/ready-to-wear");
   });
 });

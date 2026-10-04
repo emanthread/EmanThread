@@ -29,10 +29,10 @@ test("Prisma tooling uses the cycle-safe deepmerge release", () => {
 });
 
 test("homepage request degrades per section when the database is unavailable", () => {
-  const homepage = source("app/page.tsx");
+  const homepage = source("components/home/department-home.tsx");
 
   expect(homepage).toContain("Promise.allSettled");
-  expect(homepage).toContain('status === "fulfilled"');
+  expect(homepage).toMatch(/status === ["']fulfilled["']/);
   expect(homepage).toContain("DEFAULT_HERO_SLIDES");
   expect(homepage).toContain("createDefaultMobileHomepageConfig()");
 });

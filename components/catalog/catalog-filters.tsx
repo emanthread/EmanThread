@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { publicCatalogHref } from "@/lib/navigation/storefront-routes";
 import { useRef, useState, type ChangeEvent } from "react";
 import { ChevronDown, ChevronUp, SlidersHorizontal } from "lucide-react";
 import {
@@ -353,13 +354,16 @@ function CatalogFilterForm({
       className={compact ? "space-y-6" : "space-y-7"}
       aria-label="Filter catalog products"
     >
+      {publicCatalogHref(path).includes("view=all") ? (
+        <input type="hidden" name="view" value="all" />
+      ) : null}
       <CatalogFilterFields data={data} idPrefix={idPrefix} />
       <div className="flex gap-2 border-t border-border pt-5">
         <Button type="submit" className="flex-1">
           Apply filters
         </Button>
         <Button variant="outline" asChild>
-          <Link href={path}>Clear</Link>
+          <Link href={publicCatalogHref(path)}>Clear</Link>
         </Button>
       </div>
     </form>

@@ -2,6 +2,7 @@
 
 import Link from "@/components/navigation/no-prefetch-link";
 import { usePathname } from "next/navigation";
+import { publicCatalogHref } from "@/lib/navigation/storefront-routes";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -204,7 +205,7 @@ export function CatalogMobileDepartmentMenu({
             <span className={styles.panelTitle}>{openDepartment.label}</span>
             {linksEnabled ? (
               <Link
-                href={openDepartment.id === "women" ? "/shop" : `/${openDepartment.id}`}
+                href={publicCatalogHref(`/${openDepartment.id}`)}
                 className={styles.shopAllLink}
                 onClick={() => setOpenDepartmentId(null)}
               >

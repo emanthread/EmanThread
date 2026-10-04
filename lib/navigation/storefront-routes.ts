@@ -66,7 +66,7 @@ export function catalogSearchPath(pathname: string): string {
 export function catalogSearchHref(pathname: string, query: string): string {
   const search = query.trim();
   const path = catalogSearchPath(pathname);
-  return search ? `${path}?q=${encodeURIComponent(search)}` : path;
+  return search ? `${path}?q=${encodeURIComponent(search)}` : publicCatalogHref(path);
 }
 
 const CATALOG_QUERY_KEYS = new Set([
@@ -79,10 +79,9 @@ export function retiredWomenRootDestination(
   searchParams: Record<string, string | string[] | undefined>
 ): string {
   const query = new URLSearchParams();
-  let hasCatalogQuery = false;
+  const hasCatalogQuery = isDepartmentListingRequest(searchParams);
   for (const [key, rawValue] of Object.entries(searchParams)) {
     if (rawValue === undefined) continue;
-    if (CATALOG_QUERY_KEYS.has(key)) hasCatalogQuery = true;
     for (const value of Array.isArray(rawValue) ? rawValue : [rawValue]) {
       query.append(key, value);
     }
@@ -92,9 +91,29 @@ export function retiredWomenRootDestination(
   return queryString ? `${destination}?${queryString}` : destination;
 }
 
-/** Public listing URL for a catalog data path used by homepage product rails. */
+/** A department entry opens its current editorial homepage. */
+export function departmentHomepageHref(department: CatalogDepartment): string {
+  return department === "women" ? "/" : `/${department}`;
+}
+
+/** Only explicit browsing controls select the full inventory view. */
+export function isDepartmentListingRequest(
+  params: Record<string, string | string[] | undefined>
+): boolean {
+  return Object.entries(params).some(([key, value]) => {
+    const values = Array.isArray(value) ? value : [value];
+    return key === "view"
+      ? values.includes("all")
+      : CATALOG_QUERY_KEYS.has(key) && values.some((item) => item?.trim());
+  });
+}
+
+/** Full-inventory links stay distinct from department homepage links. */
 export function publicCatalogHref(path: string): string {
-  return path === "/women" || path.startsWith("/women?")
-    ? `${DEFAULT_CATALOG_PATH}${path.slice("/women".length)}`
-    : path;
+  const [pathname, queryString = ""] = path.split("?", 2);
+  if (pathname !== "/shop" && !catalogDepartmentFromRootPath(pathname)) return path;
+  const publicPath = pathname === "/women" ? DEFAULT_CATALOG_PATH : pathname;
+  const params = new URLSearchParams(queryString);
+  params.set("view", "all");
+  return `${publicPath}?${params}`;
 }

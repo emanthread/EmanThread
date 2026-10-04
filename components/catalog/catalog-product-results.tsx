@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { publicCatalogHref } from "@/lib/navigation/storefront-routes";
 import {
   Columns,
   Grid3X3,
@@ -120,6 +121,7 @@ export function CatalogProductResults({
             <ProductCard
               key={product.id}
               product={product}
+              variant="mobileEditorial"
               priority={index < 2}
             />
           ))}
@@ -142,7 +144,7 @@ export function CatalogProductResults({
           </p>
           {hasFilters ? (
             <Button variant="outline" asChild className="mt-5">
-              <Link href={path}>Clear filters</Link>
+              <Link href={publicCatalogHref(path)}>Clear filters</Link>
             </Button>
           ) : null}
         </div>

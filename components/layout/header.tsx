@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Link from "@/components/navigation/no-prefetch-link";
 import { usePathname, useRouter } from "next/navigation";
@@ -42,6 +42,7 @@ import {
 import { catalogUtilityLinks } from "@/lib/navigation/catalog-menu";
 import {
   catalogDepartmentFromRootPath,
+  departmentHomepageHref,
   shouldShowCatalogNavigation,
 } from "@/lib/navigation/storefront-routes";
 import { CatalogHeaderMenu } from "./catalog-header-menu";
@@ -574,14 +575,16 @@ function LegacyHeader() {
   );
 }
 
-function CatalogHeaderV1() {
+type HeaderProps = { initialHomeDepartment?: MobileHomepageDepartment };
+
+function CatalogHeaderV1({ initialHomeDepartment }: HeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const initialPublishedCatalogPaths = useInitialPublishedCatalogPaths();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [activeHomeDepartment, setActiveHomeDepartment] =
-    useState<MobileHomepageDepartment>('women');
+    useState<MobileHomepageDepartment>(initialHomeDepartment ?? 'women');
   const [mounted, setMounted] = useState(false);
   const [publishedCatalogPaths, setPublishedCatalogPaths] = useState<string[]>(
     () => [...initialPublishedCatalogPaths]
@@ -662,20 +665,28 @@ function CatalogHeaderV1() {
   }, []);
 
   // Hero mode: homepage + not scrolled → transparent navbar overlapping hero
-  const isDepartmentRoot = catalogDepartmentFromRootPath(pathname) !== null;
-  const isHeroMode = (pathname === "/" || isDepartmentRoot) && !isScrolled;
-  const isMobileHome = pathname === '/';
+  const isMobileHome = initialHomeDepartment !== undefined;
+  const isHeroMode = isMobileHome && !isScrolled;
 
-  const announceHomeDepartment = (department: MobileHomepageDepartment) => {
+  const announceHomeDepartment = useCallback((department: MobileHomepageDepartment, updateHistory = true) => {
+    const href = departmentHomepageHref(department);
+    if (updateHistory && window.location.pathname !== href) {
+      window.history.pushState(null, '', href);
+    }
     // Collections can mount after this event while their data streams in.
     headerRef.current?.setAttribute("data-home-department", department);
     setActiveHomeDepartment(department);
     window.dispatchEvent(new CustomEvent(MOBILE_HOMEPAGE_EVENT, { detail: { department } }));
     window.dispatchEvent(new CustomEvent('eman-thread:hero-department', { detail: { department } }));
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileHome) return;
+    announceHomeDepartment(catalogDepartmentFromRootPath(pathname) ?? 'women', false);
+  }, [announceHomeDepartment, isMobileHome, pathname, initialHomeDepartment]);
 
   const handleHomeLogoClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
-    if (pathname !== '/') return;
+    if (!isMobileHome || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
     announceHomeDepartment('women');
     window.scrollTo({ top: 0, behavior: 'auto' });
@@ -986,9 +997,9 @@ function CatalogHeaderV1() {
               return (
                 <Link
                   key={dept.href}
-                  href={dept.href === "/women" ? "/" : dept.href}
+                  href={departmentHomepageHref(dept.href.slice(1) as MobileHomepageDepartment)}
                   onClick={(event) => {
-                    if (!isMobileHome) return;
+                    if (!isMobileHome || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
                     event.preventDefault();
                     const department = dept.href.slice(1);
                     if (isMobileHomepageDepartment(department)) {
@@ -1024,7 +1035,7 @@ function CatalogHeaderV1() {
             : "Cart is empty"}
         </span>
       </header>
-      {pathname === "/" ? (
+      {isMobileHome ? (
         <div
           className={cn(catalogStyles.homeHeaderSpacer, catalogStyles.mobileHomeSpacer)}
           aria-hidden="true"
@@ -1039,9 +1050,9 @@ function CatalogHeaderV1() {
   );
 }
 
-export function Header() {
+export function Header(props: HeaderProps = {}) {
   return FEATURE_FLAGS.CATALOG_HEADER_V1 ? (
-    <CatalogHeaderV1 />
+    <CatalogHeaderV1 {...props} />
   ) : (
     <LegacyHeader />
   );

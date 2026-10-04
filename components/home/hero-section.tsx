@@ -155,9 +155,19 @@ export function HeroSection({
     };
 
     window.addEventListener("eman-thread:hero-department", handleDepartmentChange);
+    // Back navigation can restore an older RSC tree after a local department
+    // switch. Replay the header selection if its event preceded this mount.
+    const selected = document.querySelector('header[data-home-department]')
+      ?.getAttribute('data-home-department');
+    if (HERO_DEPARTMENTS.some((item) => item.id === selected) && selected !== activeDepartment) {
+      clearTransition();
+      setIsTransitioning(false);
+      setActiveDepartment(selected as HeroDepartment);
+      setCurrentSlide(0);
+    }
     return () =>
       window.removeEventListener("eman-thread:hero-department", handleDepartmentChange);
-  }, [selectDepartment, locked]);
+  }, [activeDepartment, clearTransition, selectDepartment, locked]);
 
   // Auto-advance within the selected department only.
   useEffect(() => {
@@ -194,6 +204,7 @@ export function HeroSection({
   return (
     <section
       data-testid="hero-section"
+      data-department={activeDepartment}
       className="relative h-[60vh] min-h-[450px] md:h-screen md:min-h-[700px] max-h-[900px] overflow-hidden"
     >
       {/* Background image or video */}

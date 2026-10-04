@@ -74,7 +74,8 @@ test.describe("catalog subcategory banner admin", () => {
     expect(admin).toContain("Department roots use Hero Sections");
     expect(admin).toContain("navigation cards and");
     expect(admin).toContain("product cards are not changed");
-    expect(catalogPage).toContain("isDepartmentRoot && heroSlides.length > 0");
+    expect(source("components/home/department-home.tsx")).toContain("<HeroSection");
+    expect(catalogPage).not.toContain("<HeroSection");
     expect(catalogPage).toContain("!isDepartmentRoot && bannerImage");
     expect(catalogPage.indexOf("data-testid=\"catalog-node-banner\"")).toBeLessThan(
       catalogPage.indexOf("<CatalogProductResults")

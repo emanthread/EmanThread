@@ -13,6 +13,7 @@ import {
   useState,
 } from "react";
 import { X } from "lucide-react";
+import { departmentHomepageHref } from "@/lib/navigation/storefront-routes";
 
 import {
   catalogMenu,
@@ -99,9 +100,7 @@ export function CatalogHeaderMenu({
   );
   const routeDepartmentId = departmentFromPathname(pathname, departments);
   const selectedDepartmentId =
-    pathname === '/' && homepageDepartment
-      ? homepageDepartment
-      : routeDepartmentId;
+    homepageDepartment ?? routeDepartmentId;
   const restingDepartmentId = selectedDepartmentId ?? departments[0]?.id ?? "women";
 
   const [activeDepartmentId, setActiveDepartmentId] = useState(() => {
@@ -313,7 +312,7 @@ export function CatalogHeaderMenu({
                   if (node) departmentRefs.current.set(department.id, node);
                   else departmentRefs.current.delete(department.id);
                 }}
-                href={department.id === "women" ? "/" : `/${department.id}`}
+                href={departmentHomepageHref(department.id)}
                 className={styles.departmentButton}
                 data-active={selectedDepartmentId === department.id}
                 aria-current={
@@ -326,7 +325,7 @@ export function CatalogHeaderMenu({
                 onFocus={() => selectDepartment(department)}
                 onKeyDown={(event) => handleDepartmentKeyDown(event, index)}
                 onClick={(event) => {
-                  if (pathname === '/' && onHomepageDepartmentChange) {
+                  if (onHomepageDepartmentChange && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
                     event.preventDefault();
                     onHomepageDepartmentChange(department.id);
                   }

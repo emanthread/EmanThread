@@ -23,6 +23,7 @@ import {
 
 type MobileDepartmentHomeProps = {
   config: MobileHomepageConfig;
+  initialDepartment: MobileHomepageDepartment;
   initialPrimaryPath: string;
   initialPrimaryProducts: Product[];
   initialSecondaryPath: string;
@@ -177,6 +178,7 @@ async function fetchProducts(path: string): Promise<Product[]> {
 
 export function MobileDepartmentHome({
   config,
+  initialDepartment,
   initialPrimaryPath,
   initialPrimaryProducts,
   initialSecondaryPath,
@@ -184,7 +186,7 @@ export function MobileDepartmentHome({
 }: MobileDepartmentHomeProps) {
   const publishedCatalogPaths = useInitialPublishedCatalogPaths();
   const [activeDepartment, setActiveDepartment] =
-    useState<MobileHomepageDepartment>('women');
+    useState<MobileHomepageDepartment>(initialDepartment);
   const [activeCategoryId, setActiveCategoryId] = useState('');
   const [productsByPath, setProductsByPath] = useState<Record<string, Product[]>>({
     [initialPrimaryPath]: initialPrimaryProducts,
@@ -221,11 +223,11 @@ export function MobileDepartmentHome({
     // An earlier header click can precede this streamed section mounting.
     const selected = document.querySelector('header[data-home-department]')
       ?.getAttribute('data-home-department');
-    if (isMobileHomepageDepartment(selected)) {
-      changeDepartment(new CustomEvent(MOBILE_HOMEPAGE_EVENT, { detail: { department: selected } }));
-    }
+    changeDepartment(new CustomEvent(MOBILE_HOMEPAGE_EVENT, {
+      detail: { department: isMobileHomepageDepartment(selected) ? selected : initialDepartment },
+    }));
     return () => window.removeEventListener(MOBILE_HOMEPAGE_EVENT, changeDepartment);
-  }, [config]);
+  }, [config, initialDepartment]);
 
   useEffect(() => {
     const missingPaths = [...new Set([primaryPath, secondaryPath])].filter(
