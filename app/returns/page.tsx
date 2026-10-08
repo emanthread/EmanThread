@@ -1,6 +1,7 @@
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { CartDrawer } from "@/components/cart/lazy-cart-drawer";
+import { STORE_POLICIES, refreshPolicyContent } from "@/lib/store-policies";
 import { getContentPage } from "@/lib/content-pages";
 
 export const revalidate = 3600;
@@ -16,10 +17,25 @@ export default async function ReturnsPage() {
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <h1 className="text-4xl font-serif font-bold mb-8">Returns & Exchanges</h1>
           
+          <div className="mb-6 space-y-4 rounded-xl border border-border bg-background p-6">
+            <section>
+              <h2 className="text-xl font-semibold">Exchanges and size changes</h2>
+              <p className="mt-2 text-muted-foreground">{STORE_POLICIES.exchange}</p>
+              <p className="mt-2 text-muted-foreground">{STORE_POLICIES.sizeChange}</p>
+            </section>
+            <section>
+              <h2 className="text-xl font-semibold">Return, refund or exchange?</h2>
+              <p className="mt-2 text-muted-foreground">A return means sending an item back. A refund means receiving your money back after approval. An exchange means replacing the item or its size.</p>
+            </section>
+            <section>
+              <h2 className="text-xl font-semibold">Refunds: {STORE_POLICIES.refund}</h2>
+              <p className="mt-2 text-muted-foreground">Approved refunds take {STORE_POLICIES.refund} after the returned item passes inspection.</p>
+            </section>
+          </div>
           {content ? (
             <div
               className="bg-background rounded-xl p-8 shadow-sm border border-border prose prose-muted max-w-none"
-              dangerouslySetInnerHTML={{ __html: content }}
+              dangerouslySetInnerHTML={{ __html: refreshPolicyContent(content, "returns") }}
             />
           ) : (
             <div className="bg-background rounded-xl p-8 shadow-sm border border-border space-y-8">
@@ -27,7 +43,7 @@ export default async function ReturnsPage() {
                 <h2 className="text-2xl font-semibold mb-4">Our Return Policy</h2>
                 <p className="text-muted-foreground leading-relaxed mb-4">
                   We want you to be completely satisfied with your purchase from Emaan Thread. 
-                  If you are not entirely happy with your fabric, we offer a straightforward 7-day return and exchange policy.
+                  Returns can be requested within 7 days of delivery. {STORE_POLICIES.exchange}
                 </p>
               </section>
 
@@ -54,7 +70,7 @@ export default async function ReturnsPage() {
               <section>
                 <h2 className="text-2xl font-semibold mb-4">Refunds</h2>
                 <p className="text-muted-foreground leading-relaxed">
-                  Refunds are processed within 3-5 business days after the returned item passes our quality inspection. 
+                  Approved refunds are processed within {STORE_POLICIES.refund} after the returned item passes our quality inspection.
                   The refunded amount will be transferred to your original method of payment or provided as store credit, 
                   as per your preference. Please note that shipping charges are non-refundable.
                 </p>

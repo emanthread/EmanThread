@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { MessageCircle, X, Send, Phone, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { buildWhatsAppUrl, fetchWhatsAppNumber } from "@/lib/whatsapp-utils";
+import { STORE_POLICIES } from "@/lib/store-policies";
 
 interface OrderShareData {
   orderNumber: string;
@@ -20,19 +22,6 @@ interface WhatsAppButtonProps {
   orderShare?: OrderShareData;
 }
 
-function normalizeWhatsAppNumber(raw: string): string {
-  // Remove everything except digits
-  let digits = raw.replace(/\D/g, "");
-  // Ensure Pakistan numbers start with 92, not 0
-  if (digits.startsWith("0")) {
-    digits = "92" + digits.slice(1);
-  }
-  if (!digits.startsWith("92")) {
-    digits = "92" + digits;
-  }
-  return digits;
-}
-
 export function WhatsAppButton({ productName, productPrice, productUrl, orderShare }: WhatsAppButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState<string>("");
@@ -42,15 +31,9 @@ export function WhatsAppButton({ productName, productPrice, productUrl, orderSha
   useEffect(() => {
     let cancelled = false;
 
-    fetch("/api/store/public", { cache: "no-store" })
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled && data.whatsappNumber) {
-          setPhoneNumber(normalizeWhatsAppNumber(data.whatsappNumber));
-        }
-      })
-      .catch(() => {
-        // The widget is optional. Navigation can abort this request safely.
+    fetchWhatsAppNumber()
+      .then((number) => {
+        if (!cancelled) setPhoneNumber(number);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -83,13 +66,14 @@ export function WhatsAppButton({ productName, productPrice, productUrl, orderSha
   ];
 
   const handleSendMessage = (message: string) => {
+    if (loading || !phoneNumber) return;
     let fullMessage = message;
 
     if (orderShare) {
       const items = orderShare.items
         .map((i) => `• ${i.name} x${i.quantity}`)
         .join("\n");
-      fullMessage = `🧵 *Eman Thread Order*\n\nOrder #: ${orderShare.orderNumber}\nStatus: ${orderShare.status}\nTotal: PKR ${orderShare.total.toLocaleString()}\n\n*Items:*\n${items}\n\nTrack your order at: https://emaanthreads.com/order-status/${orderShare.orderNumber}`;
+      fullMessage = `🧵 *Eman Thread Order*\n\nOrder #: ${orderShare.orderNumber}\nStatus: ${orderShare.status}\nTotal: PKR ${orderShare.total.toLocaleString()}\n\n*Items:*\n${items}\n\nTrack your order at: https://www.emanthread.com/order-status/${orderShare.orderNumber}`;
     } else if (productName) {
       fullMessage = `Hi! I'm interested in: ${productName}`;
       if (productPrice) {
@@ -100,9 +84,7 @@ export function WhatsAppButton({ productName, productPrice, productUrl, orderSha
       }
     }
 
-    const encodedMessage = encodeURIComponent(fullMessage);
-    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
-    window.open(whatsappUrl, "_blank");
+    window.open(buildWhatsAppUrl(phoneNumber, fullMessage), "_blank", "noopener,noreferrer");
     setIsOpen(false);
   };
 
@@ -139,7 +121,7 @@ export function WhatsAppButton({ productName, productPrice, productUrl, orderSha
             </div>
             <div className="flex items-center gap-2 text-sm text-white/90">
               <Clock className="h-4 w-4" />
-              <span>Typically replies within minutes</span>
+              <span>{STORE_POLICIES.operatingHours} (PKT)</span>
             </div>
           </div>
 
@@ -172,6 +154,7 @@ export function WhatsAppButton({ productName, productPrice, productUrl, orderSha
                 <Button
                   variant="outline"
                   className="w-full justify-start h-auto py-2 px-3 text-left"
+                  disabled={loading || !phoneNumber}
                   onClick={() => handleSendMessage("")}
                 >
                   <Send className="h-4 w-4 mr-2 shrink-0 text-emerald-600" />
@@ -181,6 +164,7 @@ export function WhatsAppButton({ productName, productPrice, productUrl, orderSha
                 <Button
                   variant="outline"
                   className="w-full justify-start h-auto py-2 px-3 text-left"
+                  disabled={loading || !phoneNumber}
                   onClick={() => handleSendMessage("")}
                 >
                   <Send className="h-4 w-4 mr-2 shrink-0 text-emerald-600" />
@@ -192,6 +176,7 @@ export function WhatsAppButton({ productName, productPrice, productUrl, orderSha
                     key={item.label}
                     variant="outline"
                     className="w-full justify-start h-auto py-2 px-3 text-left"
+                    disabled={loading || !phoneNumber}
                     onClick={() => handleSendMessage(item.message)}
                   >
                     <Send className="h-4 w-4 mr-2 shrink-0 text-emerald-600" />
@@ -212,6 +197,9 @@ export function WhatsAppButton({ productName, productPrice, productUrl, orderSha
               <Phone className="h-4 w-4 mr-2" />
               Start Chat on WhatsApp
             </Button>
+            {!loading && !phoneNumber && (
+              <a href="/contact" className="mt-3 block text-center text-sm underline">Contact Us for assistance</a>
+            )}
           </div>
         </div>
       </div>

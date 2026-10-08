@@ -6,6 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
+import { STORE_POLICIES } from "@/lib/store-policies";
+import { buildWhatsAppUrl, normalizeWhatsAppNumber } from "@/lib/whatsapp-utils";
+
 import { getStoreConfig } from "@/lib/db-queries";
 
 export const dynamic = "force-static";
@@ -13,6 +16,7 @@ export const revalidate = 86400; // Will be revalidated via revalidateTag("store
 
 export default async function ContactPage() {
   const config = await getStoreConfig();
+  const whatsappNumber = normalizeWhatsAppNumber(config.whatsappNumber || "");
   return (
     <>
       <Header />
@@ -59,8 +63,13 @@ export default async function ContactPage() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-lg">Operating Hours</h3>
-                    <p className="text-muted-foreground mt-1">Monday - Saturday: 9:00 AM - 6:00 PM (PKT)</p>
+                    <p className="text-muted-foreground mt-1">Monday - Saturday: {STORE_POLICIES.operatingHours} (PKT)</p>
                   </div>
+                  {whatsappNumber && (
+                    <a href={buildWhatsAppUrl(whatsappNumber, "Hi! I need assistance from Eman Thread.")} target="_blank" rel="noopener noreferrer" className="inline-flex rounded-md bg-emerald-600 px-4 py-2 font-medium text-white hover:bg-emerald-700">
+                      Start Chat on WhatsApp
+                    </a>
+                  )}
                 </div>
               </div>
             </div>

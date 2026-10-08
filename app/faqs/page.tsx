@@ -1,3 +1,4 @@
+import { STORE_POLICIES } from "@/lib/store-policies";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { CartDrawer } from "@/components/cart/lazy-cart-drawer";
@@ -23,7 +24,7 @@ export default function FAQsPage() {
                 <AccordionTrigger className="text-left font-medium">What is your shipping policy?</AccordionTrigger>
                 <AccordionContent className="text-muted-foreground leading-relaxed">
                   Delivery charges are calculated at checkout from your location and the latest store settings.
-                  Standard shipping takes 3-5 business days. Express shipping options are available at checkout.
+                  Shipping takes {STORE_POLICIES.delivery}.
                 </AccordionContent>
               </AccordionItem>
               
@@ -40,9 +41,30 @@ export default function FAQsPage() {
                 <AccordionContent className="text-muted-foreground leading-relaxed">
                   We accept returns within 7 days of delivery, provided the fabric is unwashed, uncut, 
                   and in its original packaging. Please contact our support team to initiate a return.
+                  {" "}{STORE_POLICIES.exchange}
                 </AccordionContent>
               </AccordionItem>
 
+              <AccordionItem value="size-exchange">
+                <AccordionTrigger className="text-left font-medium">Who pays the charges if I change my size?</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground leading-relaxed">{STORE_POLICIES.sizeChange} {STORE_POLICIES.exchange}</AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="return-refund">
+                <AccordionTrigger className="text-left font-medium">What is the difference between a return, refund and exchange?</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground leading-relaxed">A return means sending an item back. A refund means receiving your money back after approval. An exchange means replacing the item or its size.</AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="refund-time">
+                <AccordionTrigger className="text-left font-medium">How long does a refund take?</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground leading-relaxed">Approved refunds take {STORE_POLICIES.refund} after the returned item passes inspection.</AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="stitching">
+                <AccordionTrigger className="text-left font-medium">Is stitching available for unstitched fabrics?</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground leading-relaxed">{STORE_POLICIES.stitching}</AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="care">
+                <AccordionTrigger className="text-left font-medium">How should I care for ready-to-wear garments?</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground leading-relaxed">{STORE_POLICIES.garmentCare}</AccordionContent>
+              </AccordionItem>
               <AccordionItem value="item-4">
                 <AccordionTrigger className="text-left font-medium">How much fabric do I need for a standard men's suit?</AccordionTrigger>
                 <AccordionContent className="text-muted-foreground leading-relaxed">

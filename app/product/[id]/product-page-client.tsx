@@ -38,6 +38,7 @@ import {
   getVariantUnitPrice,
   hasUnavailableRequiredSelection,
   isProductAvailableForPurchase,
+  isEffectivelyUnstitchedProduct,
   isProductStitchingEligible,
   isUnstitchedColorVariantProduct,
   isVariantAvailable,
@@ -46,6 +47,7 @@ import {
 } from "@/lib/commerce";
 import { cn } from "@/lib/utils";
 import { buildWhatsAppUrl, fetchWhatsAppNumber } from "@/lib/whatsapp-utils";
+import { STORE_POLICIES, requiresDryCleaning } from "@/lib/store-policies";
 import { trackMetaEvent } from "@/lib/meta-browser";
 import { ProductFlashSaleBadge } from "@/app/components/flash-sale-banner";
 import {
@@ -857,6 +859,7 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
               </AccordionTrigger>
               <AccordionContent className="text-muted-foreground leading-relaxed">
                 {product.longDescription}
+                {isEffectivelyUnstitchedProduct(product) && <p className="mt-3">{STORE_POLICIES.stitching}</p>}
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="care">
@@ -864,13 +867,17 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
                 Care Instructions
               </AccordionTrigger>
               <AccordionContent className="text-muted-foreground leading-relaxed">
-                <ul className="list-disc list-inside space-y-1">
-                  <li>Machine wash cold with like colors</li>
-                  <li>Do not bleach</li>
-                  <li>Tumble dry low</li>
-                  <li>Iron on medium heat if needed</li>
-                  <li>Do not dry clean</li>
-                </ul>
+                {requiresDryCleaning(product) ? (
+                  <p>{STORE_POLICIES.garmentCare}</p>
+                ) : (
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Machine wash cold with like colors</li>
+                    <li>Do not bleach</li>
+                    <li>Tumble dry low</li>
+                    <li>Iron on medium heat if needed</li>
+                    <li>Do not dry clean</li>
+                  </ul>
+                )}
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="shipping">
@@ -879,11 +886,13 @@ function ProductDetails({ product, variations = [] }: { product: Product, variat
               </AccordionTrigger>
               <AccordionContent className="text-muted-foreground leading-relaxed">
                 <p className="mb-2">
-                  <strong>Shipping:</strong> Delivery charges and the estimated delivery time are calculated at checkout from your location.
+                  <strong>Shipping:</strong> {STORE_POLICIES.delivery}. Delivery charges are calculated at checkout.
                 </p>
                 <p>
                   <strong>Returns:</strong> We accept returns within 7 days of delivery. Items must be unwashed and in original packaging.
                 </p>
+                <p className="mt-2"><strong>Exchanges:</strong> {STORE_POLICIES.exchange} {STORE_POLICIES.sizeChange}</p>
+                <p className="mt-2"><strong>Refunds:</strong> Approved refunds take {STORE_POLICIES.refund} after inspection.</p>
               </AccordionContent>
             </AccordionItem>
           </Accordion>
