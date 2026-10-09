@@ -8,14 +8,26 @@ export const STORE_POLICIES = {
   exchange: "Request an exchange within 48 hours of delivery and provide an unboxing video.",
   sizeChange: "If you change the size, you are responsible for the exchange and delivery charges.",
   stitching: "Stitching is available for all unstitched fabrics on customer request.",
-  garmentCare: "Dry clean only. This applies to all women's and men's ready-to-wear garments, including coats, 1-piece, 2-piece and 3-piece outfits, pent coats, waistcoats, sherwanis, safari suits, heavy partywear and bridal wear.",
+  garmentCare: "Dry clean only for these ready-to-wear items: coats, 1-piece, 2-piece and 3-piece outfits, pent coats, waistcoats, sherwanis, shafari (safari) suits, heavy partywear and bridal wear. This instruction does not apply to other product types.",
 } as const;
 
-export function requiresDryCleaning(product: Pick<Product, "commerce" | "catalogPaths">): boolean {
-  if (product.commerce?.productKind === "UNSTITCHED_FABRIC") return false;
-  const kinds = product.catalogPaths?.map(path => classifyCatalogPath(path)?.productKind) ?? [];
+// Match the owner's garment list; READY_TO_WEAR by itself is not a care rule.
+const DRY_CLEAN_GARMENT = /\b(?:coats?|[123]\s*(?:p|pieces?)|(?:one|two|three)\s*pieces?|(?:pent|pant)\s*coats?|waistcoats?|sherwanis?|sh?afari(?:\s*suits?)?|heavy\s*party\s*wear|bridal(?:\s*wear)?)\b/i;
+
+type CareProduct = Pick<Product, "commerce" | "catalogPaths"> & Partial<Pick<Product, "name" | "categoryName">>;
+
+export function requiresDryCleaning(product: CareProduct): boolean {
+  if (product.commerce && product.commerce.productKind !== "READY_TO_WEAR") return false;
+  const paths = product.catalogPaths ?? [];
+  const kinds = paths.map(path => classifyCatalogPath(path)?.productKind);
   if (kinds.length && kinds.every(kind => kind === "UNSTITCHED_FABRIC")) return false;
-  return product.commerce?.productKind === "READY_TO_WEAR" || kinds.includes("READY_TO_WEAR");
+  if (product.commerce?.productKind !== "READY_TO_WEAR" && !kinds.includes("READY_TO_WEAR")) return false;
+
+  const garmentTypes = paths
+    .filter((_, index) => kinds[index] === "READY_TO_WEAR")
+    .map(path => path.split("/").slice(2).join(" "));
+  garmentTypes.push(product.categoryName ?? "", product.name ?? "");
+  return garmentTypes.some(type => DRY_CLEAN_GARMENT.test(type.replace(/[-_]/g, " ")));
 }
 
 /** Update old published wording at render time; keep Admin content and records intact. */

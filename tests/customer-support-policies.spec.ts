@@ -35,12 +35,31 @@ test('updates old admin policy timelines while preserving other published conten
   expect(refreshPolicyContent(updatedReturns, 'returns')).toBe(updatedReturns);
 });
 
-test('dry-clean policy covers ready-to-wear garments without classifying fabric or fragrance as garments', () => {
+test('dry-clean policy is limited to the explicitly listed garment types', () => {
+  for (const type of ['coat', '1-piece', '2-piece', '3-piece', '1p', '2p', '3p', 'pent-coat', 'waistcoat', 'sherwani', 'shafari', 'safari', 'heavy-partywear', 'bridal-wear']) {
+    expect(requiresDryCleaning({catalogPaths: ['/women/ready-to-wear/' + type]}), type).toBe(true);
+    expect(requiresDryCleaning({catalogPaths: ['/men/ready-to-wear/' + type]}), type).toBe(true);
+  }
+  expect(requiresDryCleaning({catalogPaths: ['/women/formals/rtw-2-piece']})).toBe(true);
+  expect(requiresDryCleaning({catalogPaths: ['/men/ready-to-wear/kameez-shalwar-waistcoat']})).toBe(true);
+});
+
+test('ready-to-wear alone and unlisted categories do not trigger dry-clean-only care', () => {
   const garment = { commerce: { productKind: 'READY_TO_WEAR' } } as Pick<Product, 'commerce' | 'catalogPaths'>;
-  expect(requiresDryCleaning(garment)).toBe(true);
-  expect(requiresDryCleaning({catalogPaths: ['/women/ready-to-wear/pent-coat']})).toBe(true);
-  expect(requiresDryCleaning({catalogPaths: ['/men/ready-to-wear/coat']})).toBe(true);
+  expect(requiresDryCleaning(garment)).toBe(false);
+  for (const type of ['kurta', 'dress-shirt', 'shirt-dupatta', 'bottomwear', 'trousers', 'modest-wear', 'casual', 'partywear']) {
+    expect(requiresDryCleaning({...garment, catalogPaths: ['/women/ready-to-wear/' + type]}), type).toBe(false);
+  }
+});
+
+test('listed names support older garments without applying the policy to fabric or other merchandise', () => {
+  const garment = { commerce: { productKind: 'READY_TO_WEAR' } } as Pick<Product, 'commerce' | 'catalogPaths'>;
+  for (const name of ['Embroidery COAT', '1P outfit', '2Piece suit', '3 PIECE outfit', 'Pent coat', 'Waistcoat', 'Sherwani', 'Shafari suit', 'Heavy partywear', 'Bridal']) {
+    expect(requiresDryCleaning({...garment, name}), name).toBe(true);
+  }
+  expect(requiresDryCleaning({...garment, name: 'Light partywear'})).toBe(false);
+  expect(requiresDryCleaning({...garment, name: 'Coated cotton shirt'})).toBe(false);
   expect(requiresDryCleaning({catalogPaths: ['/women/unstitched/3-piece'], ...garment})).toBe(false);
-  expect(requiresDryCleaning({ commerce: {productKind:'UNSTITCHED_FABRIC'}, catalogPaths: ['/women/ready-to-wear/pent-coat']} as Pick<Product, 'commerce' | 'catalogPaths'>)).toBe(false);
-  expect(requiresDryCleaning({catalogPaths: ['/fragrance-beauty/fragrances/men/perfume']})).toBe(false);
+  expect(requiresDryCleaning({ commerce: {productKind:'UNSTITCHED_FABRIC'}, name: '3 PIECE fabric', catalogPaths: ['/women/ready-to-wear/pent-coat']} as Pick<Product, 'commerce' | 'catalogPaths'> & Pick<Product, 'name'>)).toBe(false);
+  expect(requiresDryCleaning({catalogPaths: ['/fragrance-beauty/fragrances/men/perfume'], name: 'Bridal perfume'})).toBe(false);
 });

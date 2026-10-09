@@ -62,7 +62,7 @@ export default function FAQsPage() {
                 <AccordionContent className="text-muted-foreground leading-relaxed">{STORE_POLICIES.stitching}</AccordionContent>
               </AccordionItem>
               <AccordionItem value="care">
-                <AccordionTrigger className="text-left font-medium">How should I care for ready-to-wear garments?</AccordionTrigger>
+                <AccordionTrigger className="text-left font-medium">Which products are dry clean only?</AccordionTrigger>
                 <AccordionContent className="text-muted-foreground leading-relaxed">{STORE_POLICIES.garmentCare}</AccordionContent>
               </AccordionItem>
               <AccordionItem value="item-4">
